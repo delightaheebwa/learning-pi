@@ -1,0 +1,7 @@
+{
+  "name": "math-mode",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Inject the correct math authoring mode for the active terminal (LaTeX when pi-math can render images, plain Unicode otherwise)."
+}

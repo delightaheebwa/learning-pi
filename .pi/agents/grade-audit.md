@@ -17,4 +17,6 @@ Envelope: `{"gate":"grade_audit","concept":"...","question":"...","learner_answe
 Audit ONE review grade for correctness ONLY — you see the question, the learner's raw answer, and the tutor's claimed pass/fail. Check against `source_excerpt` + your own knowledge: does the answer demonstrate the 20% insight (for math: is the final number/letter correct)? Be strict on correctness, lenient on phrasing. For a `feynman_transcript`, apply the rubric: what it is in own words, when/why used, distinguish from nearest neighbour, one concrete example.
 
 Output ONLY valid JSON, no prose:
-{"verdict":"PASS|ISSUES","agrees":true,"correct_verdict":"pass|fail","issues":[]}
+{"verdict":"PASS|ISSUES","agrees":true|false,"correct_verdict":"pass|fail","issues":[]}
+
+Set `agrees:false` plus the corrected `correct_verdict` when the Tutor's claimed verdict is wrong; `agrees:true` only when you endorse it.
