@@ -29,7 +29,8 @@ cd ~/learning-system && pi        # approve/trust the project once
 
 ## Usage
 
-Slash commands: `/review`, `/ingest <content>`, `/teach <topic>`, `/lesson`, `/continue`, `/pause`.
+Slash commands: `/review`, `/ingest <content>`, `/teach <topic>`, `/lesson`, `/continue`, `/pause`,
+`/audit`.
 The main pi session acts as the **Tutor**; `scout`, `clerk`, and the verifier subagents run as
 children.
 
@@ -41,8 +42,11 @@ Configured in `.pi/settings.json` (project scope only):
 | --- | --- |
 | Tutor (main session) | `glm-5.3-flash` |
 | Scout / Clerk / verifiers | `deepseek-v4.1-flash` |
+| Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` (independent of the deepseek Clerk) |
+| Tutor-write verifier (`tutor-audit`) | `deepseek-v4.1-flash` |
 
-Verifiers deliberately differ from the Tutor so verification is independent. Adjust in
+Verifiers deliberately differ from the Tutor so verification is independent, and the ingest reviewer
+deliberately differs from the Clerk so it never reviews its own model. Adjust in
 `.pi/settings.json`; no other file needs to change.
 
 ## Verification gate
@@ -53,10 +57,15 @@ assistant turn unless the matching, **passing** receipt is present:
 | Turn contains | Required receipt |
 | --- | --- |
 | Teaching claims (Tutor) | `fact-check` whose `rendered_content` matches the emitted text (≥85% token coverage) and has no `ISSUES` |
-| A question batch | `quiz-audit` returning `PASS` |
-| A grade | `grade-audit` with `agrees != false`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced |
-| An ingest | Clerk's result must carry a `REVIEW_GATE_VERDICT: {"verdict":"PASS",...}` marker |
+| A question batch | `quiz-audit` returning `PASS` (or `PASS_WITH_FLAGS` for lows-only, rendered with a `⚠️ QUIZ FLAGS` banner, max 2 cycles) |
+| A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced |
+| A `Learning System/` write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` |
+| An ingest | Clerk's result must carry a `REVIEW_GATE_VERDICT` marker; `PASS` renders clean, `ISSUES`/`PASS_WITH_FLAGS` render with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run) |
 | A new lesson | a `scout` run before teaching |
+
+The reviewer's scope is the ingest's own output only (its wiki page(s) + Active Concepts row(s)).
+State drift is reported separately by `audit_state.py`, which runs automatically at ingest and
+review close (and on demand via `/audit`).
 
 Receipts are **consumed per emitted message**, so every teaching step needs its own fresh,
 content-matched verification (generation-to-emission — "verify A, emit B" is blocked).
@@ -67,13 +76,13 @@ content-matched verification (generation-to-emission — "verify A, emit B" is b
   directly; the string heuristics are only a fallback for untemplated triggers.
 - Every assistant message must begin with a turn tag the gate strips before the learner sees it:
   - `[[TURN:claims]]` → requires a content-matched, passing `fact-check`
-  - `[[TURN:quiz]]` → requires a PASS `quiz-audit`
+  - `[[TURN:quiz]]` → requires a PASS (or flagged PASS_WITH_FLAGS) `quiz-audit`
   - `[[TURN:grade]]` → requires an agreeing `grade-audit`
   - `[[TURN:none]]` → no verifier required
 - A missing tag is withheld (`NO_TURN_TAG`); a `none` tag over text that matches an unused
   verification draft is withheld too (`TURN_TAG_MISMATCH`).
 
-Behavior: up to 2 withheld retries per run, then the turn is surfaced with an `⛔ UNVERIFIED`
+Behavior: up to 2 withheld retries per turn (counter resets on each clean pass), then the turn is surfaced with an `⛔ UNVERIFIED`
 banner; internal errors fail open. Non-learning sessions are never gated.
 
 ## Skills

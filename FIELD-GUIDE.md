@@ -34,6 +34,7 @@ A practical guide to running your spaced-repetition learning system from the pi 
 | `/pause` | Stop cleanly: exit ticket, partial lesson file, bank progress via Clerk |
 | `/review` | Spaced-repetition review session (up to 5 concepts) |
 | `/ingest <content or URL>` | Standalone ingest via Clerk (also used after a lesson handoff: `/ingest` with no args) |
+| `/audit` | Read-only state consistency audit (MISSION/CURRICULUM/Profile/Active Concepts/index); reports loudly, never writes |
 
 Skills are loaded automatically; you rarely call them by hand. If you want to force one:
 `/skill:learning-system`, `/skill:learning-teach`.
@@ -49,14 +50,18 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
 3. **Probe** — a small batch of questions, always with an "I don't know". Answer with a confidence
    tag (`sure` / `hunch` / `no idea`). Feedback is withheld until the batch ends.
 4. **Plan** — a Mermaid dependency graph + what to skip/expand/reframe. You can push back.
-5. **Teach** — checkpoints, one idea + one practice each, always stoppable.
+5. **Teach** — checkpoints, one idea + one practice each, always stoppable. The Tutor **pauses
+   twice per checkpoint**: after the idea (invites questions before the practice) and after the
+   practice grade (invites questions before the next checkpoint). It won't chain ahead of you.
 6. **Pause anytime** with `/pause` (student-paced). It banks today's progress and keeps the lesson
    in-progress; `/continue` resumes at the next checkpoint.
 7. **Lesson end** — cumulative quiz + Feynman explain-back. Then run `/ingest` to finalize (Clerk
    writes the wiki + Active Concepts and commits state).
 
 **Math:** work on paper. Reply with just the final number or the letter (A–D). The Tutor won't ask
-you to type LaTeX.
+you to type LaTeX. It *will* now write its own math as LaTeX when your terminal can render it —
+run learning sessions in **Ghostty** (or Kitty) and `pi-math` draws real formula images. In foot
+or tmux, where pi-math can't draw, the Tutor falls back to plain Unicode.
 
 ---
 
@@ -81,6 +86,9 @@ reaches you:
 | `[[TURN:grade]]` | grading your answer | an agreeing `grade-audit` |
 | `[[TURN:none]]` | transitions, summaries | nothing |
 
+Every Tutor write to `Learning System/` (lesson file, session note, learning record,
+`Pending Ingest.json`) is checked by an independent `tutor-audit` before the summary renders.
+
 Prompt templates also carry `[[FLOW:teach|resume|review|ingest]]` so the gate knows the mode
 deterministically. You never type these.
 
@@ -98,7 +106,10 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `FACT_CHECK_ISSUES` | verifier flagged a claim | apply the correction, re-verify |
 | `NO_QUIZ_AUDIT_PASS` / `QUIZ_AUDIT_ISSUES` | questions not audited / leaked | fix and re-audit |
 | `NO_GRADE_AUDIT_PASS` / `GRADE_MISMATCH` | grade unverified / conflicts with verifier | use the verifier's `correct_verdict` |
-| `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged | Clerk must return a PASS marker |
+| `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged | Clerk must return a `REVIEW_GATE_VERDICT` marker |
+| `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | a state write wasn't checked / the verifier flagged it | dispatch `tutor-audit`; fix and re-audit |
+| `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output | shown with a banner, **not** withheld or re-run |
+| `⚠️ STATE AUDIT` | `audit_state.py` found errors in the state files | run `/audit` for details |
 | `⛔ UNVERIFIED` | retries exhausted (2); content shown unverified | review it manually |
 
 The gate **fails open** on internal errors and **only acts in learning flows** — normal coding work
@@ -114,9 +125,11 @@ Set in `~/learning-pi/.pi/settings.json` (project scope only):
 | --- | --- |
 | Tutor (your session) | `glm-5.3-flash` |
 | Scout / Clerk / verifiers | `deepseek-v4.1-flash` |
+| Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` |
 
-Verifiers deliberately differ from the Tutor so verification is independent. To change one, edit
-that file and restart pi — nothing else needs to change.
+Verifiers deliberately differ from the Tutor so verification is independent, and the ingest reviewer
+runs on a different model from the deepseek Clerk. To change one, edit that file and restart pi —
+nothing else needs to change.
 
 ---
 
@@ -140,8 +153,9 @@ python3 ~/learning-pi/pi/audit_state.py --root ~/learning-system
 ```
 
 Checks: MISSION vs CURRICULUM positions, lesson files vs curriculum rows, Active Concepts dates,
-wiki index vs wiki/source files, stale host paths. It reports; it never writes. Run it if something
-feels off.
+wiki index vs wiki/source files, stale host paths. It reports; it never writes. It now runs
+**automatically at ingest close (Clerk) and review close (Tutor)**, and on demand via `/audit`. A
+`⚠️ STATE AUDIT` banner means it found errors.
 
 ---
 
