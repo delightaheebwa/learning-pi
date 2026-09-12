@@ -79,6 +79,50 @@ def check_position_drift(root: Path) -> None:
         add("ok", "MISSION/CURRICULUM lesson statuses agree")
 
 
+def check_lessons_vs_curriculum(root: Path) -> None:
+    """A lesson file that is active/done must not sit on a plain `not-started` row."""
+    curriculum = read(root / "Learning System/CURRICULUM.md")
+    lessons_dir = root / "Learning System/Lessons"
+    if not curriculum or not lessons_dir.is_dir():
+        add("warn", "could not read CURRICULUM.md or Lessons/")
+        return
+    missions: list[dict] = []
+    cur: dict | None = None
+    for line in curriculum.splitlines():
+        m = re.match(r"## Mission \d+ — Phase (\d+)", line)
+        if m:
+            cur = {"phase": int(m.group(1)), "rows": {}}
+            missions.append(cur)
+            continue
+        if cur is not None and re.match(r"\|\s*\d+\s*\|", line.strip()):
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) >= 6 and cells[5] in ("not-started", "not-started*", "in-progress", "done"):
+                cur["rows"][int(cells[0])] = cells[5]
+
+    def row_status(phase: int, lesson: int) -> str | None:
+        for m in missions:
+            if m["phase"] == phase:
+                return m["rows"].get(lesson)
+        return None
+
+    flagged = 0
+    for p in sorted(lessons_dir.glob("Lesson — *.md")):
+        content = read(p)
+        pm = re.search(r"Phase\s+(\d+)\s*[,\s]+\s*(?:Lesson\s+)?L?(\d{1,2})", content, re.I)
+        if not pm:
+            continue
+        phase, lesson = int(pm.group(1)), int(pm.group(2))
+        status = row_status(phase, lesson)
+        if status != "not-started":
+            continue  # only flag the plain, unambiguous stale case
+        active = "DONE" in content or bool(re.search(r"Status:\s*\*\*[^*]*(paused|in-progress|done)", content, re.I))
+        if active:
+            flagged += 1
+            add("error", f"Lessons/{p.name} is active/done but CURRICULUM Phase {phase} L{lesson} row says 'not-started'")
+    if flagged == 0:
+        add("ok", "lesson files and CURRICULUM rows agree")
+
+
 def check_profile_focus(root: Path) -> None:
     profile = read(root / "Learning System/Core/💡 Learning Profile.md")
     curriculum = read(root / "Learning System/CURRICULUM.md")
@@ -135,26 +179,58 @@ def check_active_concept_dates(root: Path) -> None:
         add("ok", f"Active Concepts dates look sane ({rows} rows)")
 
 
+def _index_links(text: str) -> set[str]:
+    out: set[str] = set()
+    for m in re.finditer(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", text):
+        out.add(m.group(1).strip())
+    for _, target in re.findall(r"\[([^\]]+)\]\(([^)]+)\)", text):
+        out.add(Path(target).stem.strip())
+    return out
+
+
+def _index_section(index: str, heading: str) -> str:
+    lines = index.splitlines()
+    start = None
+    for i, line in enumerate(lines):
+        if line.strip() == heading:
+            start = i + 1
+            break
+    if start is None:
+        return ""
+    body = []
+    for line in lines[start:]:
+        if line.strip().startswith("## "):
+            break
+        body.append(line)
+    return "\n".join(body)
+
+
 def check_wiki_index(root: Path) -> None:
-    wiki_dir = root / "Knowledge Wiki/wiki"
     index = read(root / "Knowledge Wiki/index.md")
+    wiki_dir = root / "Knowledge Wiki/wiki"
+    src_dir = root / "Knowledge Wiki/raw/sources"
     if not wiki_dir.is_dir() or not index:
         add("warn", "could not read Knowledge Wiki/wiki or index.md")
         return
-    files = {p.stem for p in wiki_dir.glob("*.md")}
-    linked = set()
-    for _, target in re.findall(r"\[([^\]]+)\]\(([^)]+)\)", index):
-        linked.add(Path(target).stem)
-    for target in re.findall(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", index):
-        linked.add(Path(target).stem)
-    missing_in_index = sorted(files - linked)
-    missing_files = sorted(t for t in (linked - files) if not t.lower().startswith("wiki concept link"))
+    wiki_files = {p.stem for p in wiki_dir.glob("*.md")} - {"README"}
+    concept_links = _index_links(_index_section(index, "## Concepts"))
+    missing_in_index = sorted(wiki_files - concept_links)
+    missing_wiki = sorted(concept_links - wiki_files)
     if missing_in_index:
-        add("warn", f"{len(missing_in_index)} wiki page(s) not listed in index.md (e.g. {', '.join(missing_in_index[:5])})")
-    if missing_files:
-        add("warn", f"{len(missing_files)} index.md entr(ies) have no wiki file (e.g. {', '.join(missing_files[:5])})")
-    if not missing_in_index and not missing_files:
-        add("ok", f"wiki/index.md consistent ({len(files)} pages)")
+        add("warn", f"{len(missing_in_index)} wiki page(s) not listed in index.md Concepts (e.g. {', '.join(missing_in_index[:5])})")
+    if missing_wiki:
+        add("warn", f"{len(missing_wiki)} index.md Concept link(s) have no wiki file (e.g. {', '.join(missing_wiki[:5])})")
+    if not missing_in_index and not missing_wiki:
+        add("ok", f"wiki/index.md Concepts consistent ({len(wiki_files)} pages)")
+
+    if src_dir.is_dir():
+        source_files = {p.stem for p in src_dir.glob("*.md")}
+        source_links = _index_links(_index_section(index, "## Sources"))
+        missing_sources = sorted(source_links - source_files)
+        if missing_sources:
+            add("warn", f"{len(missing_sources)} index.md Source link(s) have no file in raw/sources (e.g. {', '.join(missing_sources[:5])})")
+        else:
+            add("ok", f"wiki/index.md Sources consistent ({len(source_links)} links)")
 
 
 def check_pending_ingest(root: Path) -> None:
@@ -191,6 +267,7 @@ def main() -> int:
 
     print(f"audit_state — root: {root}\n")
     check_position_drift(root)
+    check_lessons_vs_curriculum(root)
     check_profile_focus(root)
     check_active_concept_dates(root)
     check_wiki_index(root)
