@@ -1,0 +1,14 @@
+{
+  "defaultModel": "glm-5.3-flash",
+  "subagents": {
+    "defaultModel": "deepseek-v4.1-flash",
+    "agentOverrides": {
+      "scout": { "model": "deepseek-v4.1-flash", "thinking": "high" },
+      "clerk": { "model": "deepseek-v4.1-flash" },
+      "fact-check": { "model": "deepseek-v4.1-flash" },
+      "quiz-audit": { "model": "deepseek-v4.1-flash" },
+      "grade-audit": { "model": "deepseek-v4.1-flash" },
+      "review-gate": { "model": "deepseek-v4.1-flash" }
+    }
+  }
+}
