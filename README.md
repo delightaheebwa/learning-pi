@@ -48,21 +48,22 @@ Verifiers deliberately differ from the Tutor so verification is independent. Adj
 ## Verification gate
 
 `.pi/extensions/learning-gate` tracks verification subagent calls per agent run and withholds an
-assistant turn when the matching receipt is missing:
+assistant turn unless the matching, **passing** receipt is present:
 
 | Turn contains | Required receipt |
 | --- | --- |
-| Teaching claims (Tutor) | `fact-check` |
-| A question batch | `quiz-audit` |
-| A grade | `grade-audit` |
-| A new lesson | `scout` digest (before teaching) |
+| Teaching claims (Tutor) | `fact-check` whose `rendered_content` matches the emitted text (≥85% token coverage) and has no `ISSUES` |
+| A question batch | `quiz-audit` returning `PASS` |
+| A grade | `grade-audit` with `agrees != false`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced |
+| An ingest | Clerk's result must carry a `REVIEW_GATE_VERDICT: {"verdict":"PASS",...}` marker |
+| A new lesson | a `scout` run before teaching |
+
+Receipts are **consumed per emitted message**, so every teaching step needs its own fresh,
+content-matched verification (generation-to-emission — "verify A, emit B" is blocked).
 
 Behavior: up to 2 withheld retries per run, then the turn is surfaced with an `⛔ UNVERIFIED`
-banner; internal errors fail open. Classification is heuristic — it only acts in learning flows
-(`/review`, `/teach`, `/lesson`, `/continue`, `/pause`, `/ingest`).
-
-**Known limitation:** the gate observes the main session. Clerk's nested `review-gate` call for
-ingests is enforced by Clerk's own instructions, not by the extension.
+banner; internal errors fail open. The flow is detected from the trigger (`/review`, `/teach`,
+`/lesson`, `/continue`, `/pause`, `/ingest`); non-learning sessions are never gated.
 
 ## Skills
 

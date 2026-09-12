@@ -17,4 +17,7 @@ The learning-system repository is the current working directory. Paths below are
 - Write Active Concepts rows and wiki pages, then dispatch a **foreground** `review-gate` subagent on the exact content you wrote (generation-to-emission, never a summary):
   `subagent({ agent: "review-gate", task: {"gate":"review","concepts":[...],"wiki_content":"<exact written text>","source_url"|"source_file"|"lesson_ref":...,"pass_number":1} })`.
 - Apply reviewer fixes (max 2 cycles). On success: for a final ingest, delete the consumed `.tmp/context-*.json` digest and clear `Pending Ingest.json`; for a partial (`partial:true` / `/pause`) ingest, ingest today's concepts and KEEP the digest and lesson `in-progress` (clear only the marker). Then commit and push **state only** (`Learning System/`, `Knowledge Wiki/`) per `Learning System/AGENTS.md`.
+- End your final output with the review verdict on its own line, copying the exact JSON returned by the `review-gate`:
+  `REVIEW_GATE_VERDICT: {"verdict":"PASS","issues":[]}`
+  The pi gate requires a PASS marker here before the ingest message may render. Never write a PASS marker unless the review-gate actually returned PASS.
 - Do not teach, quiz, or run the review flow. Return a concise summary: concepts touched, files written, review-gate verdict, and whether the digest/marker were cleared.
