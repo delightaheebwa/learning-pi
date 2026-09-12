@@ -24,15 +24,29 @@ contradiction to the user** — do not guess, merge, or trust any status written
 - `clerk` ingests lesson output into the wiki and Active Concepts.
 - Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `review-gate` (read-only, independent model).
 
+## Turn tags (required)
+
+Begin **every** assistant message in a learning session with exactly one tag on its first line:
+
+- `[[TURN:claims]]` — teaching content, plans, or any message with load-bearing claims. Requires a
+  `fact-check` whose `rendered_content` is this message's text.
+- `[[TURN:quiz]]` — a question batch. Requires a `quiz-audit` returning PASS.
+- `[[TURN:grade]]` — grading a learner's answer. Requires a `grade-audit` that agrees.
+- `[[TURN:none]]` — anything else (transitions, summaries, clarifying questions).
+
+The gate strips the tag before the learner sees it, and withholds a message whose tag is missing,
+misplaced, or unsupported by a matching verified receipt. Never rely on it to guess — tag explicitly.
+
 ## Verification (enforced by the learning-gate extension)
 
-- Before emitting teaching claims, send a **foreground** `fact-check` subagent the draft as
-  `rendered_content` plus every load-bearing claim.
+- Draft first, then send a **foreground** `fact-check` subagent the draft as `rendered_content` plus
+  every load-bearing claim, and emit the verified text unchanged (content-bound).
 - Before showing any question batch, send a **foreground** `quiz-audit` subagent the exact batch.
 - Before presenting any grade, send a **foreground** `grade-audit` subagent the question, the raw
-  learner answer, and the claimed verdict. Grade turns use `grade-audit` only.
-- For a new lesson, run the `scout` subagent first. The gate withholds unverified turns.
-- Send **data only** (the JSON envelope); the verifier's wording is fixed in its agent file.
+  learner answer, and the claimed verdict. Grade turns use `grade-audit` only; a disagreement is
+  withheld and the verifier's `correct_verdict` must be used.
+- The plan message is a `claims` turn: send the plan text itself as `rendered_content`.
+- For a new lesson, run the `scout` subagent first. Send **data only** (the JSON envelope).
 
 ## Environment
 

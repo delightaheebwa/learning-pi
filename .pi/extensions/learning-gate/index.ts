@@ -3,17 +3,20 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 /**
  * learning-gate — verification gate for the pi learning system.
  *
- * Enforcement (v2), beyond "a verifier ran":
- *   - fact-check: the emitted teaching text must match the draft that was actually
- *     verified (`rendered_content` containment), and the verdict must not contain ISSUES.
- *   - quiz-audit: must return PASS (no high/medium issues).
- *   - grade-audit: must not disagree (`agrees`) and must return PASS; the tutor's
- *     claimed verdict is rejected when it conflicts with `correct_verdict`.
- *   - ingest: the clerk result must carry a PASS `REVIEW_GATE_VERDICT` marker.
+ * Turn type is explicit, not guessed:
+ *   - Prompt templates carry a flow marker (`[[FLOW:teach|resume|review|ingest]]`).
+ *   - Every assistant message in a learning flow must start with a turn tag
+ *     `[[TURN:claims|quiz|grade|none]]`. The gate strips the tag before the learner sees it.
+ *   - claims -> a fact-check receipt whose `rendered_content` matches the emitted text
+ *     (>=85% token coverage) with no ISSUES.
+ *   - quiz  -> a quiz-audit receipt returning PASS.
+ *   - grade -> a grade-audit receipt that agrees (a conflicting correct_verdict is surfaced).
+ *   - none  -> allowed, unless an unused verification receipt matches the text
+ *     (tag mismatch / would-be evasion).
+ *   - ingest -> Clerk's result must carry a PASS `REVIEW_GATE_VERDICT` marker.
  *   - new lessons require a scout run.
  *
- * Receipts are consumed per emitted message (per-generation binding). Fails open only
- * on internal error, so a bug never bricks a learning session.
+ * Receipts are consumed per emitted message. Fails open only on internal error.
  */
 
 const VERIFIER_AGENTS: Record<string, string> = {
@@ -25,6 +28,8 @@ const VERIFIER_AGENTS: Record<string, string> = {
 
 const MAX_RETRIES = 2;
 const MATCH_THRESHOLD = 0.85;
+const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|none)\]\]\s*/i;
+const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest)\]\]/i;
 
 type Flow = "teach" | "resume" | "review" | "ingest" | "other";
 
@@ -69,7 +74,27 @@ function replaceText(message: any, text: string): any {
   return { ...message, content: [{ type: "text", text }] };
 }
 
+/** Remove the leading turn tag from a message, preserving other content parts. */
+function stripTag(message: any): any {
+  const c = message?.content;
+  if (typeof c === "string") return { ...message, content: c.replace(TURN_TAG_RE, "") };
+  if (Array.isArray(c)) {
+    let done = false;
+    const nc = c.map((p: any) => {
+      if (!done && p && p.type === "text" && typeof p.text === "string") {
+        done = true;
+        return { ...p, text: p.text.replace(TURN_TAG_RE, "") };
+      }
+      return p;
+    });
+    return { ...message, content: nc };
+  }
+  return message;
+}
+
 function detectFlow(prompt: string): Flow {
+  const tag = (prompt || "").match(FLOW_TAG_RE);
+  if (tag) return tag[1].toLowerCase() as Flow;
   const p = (prompt || "").toLowerCase();
   if (p.includes("learning-teach") || p.includes("probe -> plan -> teach") || p.includes("teach me about") || /^\/teach\b/.test(p)) {
     return "teach";
@@ -139,21 +164,6 @@ function resultText(ev: any): string {
   return "";
 }
 
-function classify(text: string): { quiz: boolean; grade: boolean; teach: boolean } {
-  const quiz =
-    /(^|\n)\s*[A-Da-d][).:]\s/.test(text) ||
-    ((text.match(/\?/g) || []).length >= 2 && /(choose|option|answer|A[–-]D|select)/i.test(text));
-  const verdictWord = /\b(correct|incorrect|right|wrong|pass|fail|✓|✗|✅|❌)\b/i.test(text);
-  const grade =
-    verdictWord &&
-    (/(you said|you wrote|you answered|your answer|your response|learner answer|the learner)/i.test(text) ||
-      (text.length < 120 && /^\s*(✅|❌|✓|✗|correct|incorrect|right|wrong|pass|fail)\b/i.test(text)));
-  const teach =
-    text.length > 180 &&
-    (/(^|\n)#{1,4}\s/.test(text) || /```/.test(text) || /\b(because|therefore|means|defined as|in other words)\b/i.test(text));
-  return { quiz, grade, teach };
-}
-
 function tokens(s: string): string[] {
   return s
     .toLowerCase()
@@ -218,9 +228,7 @@ export default function (pi: ExtensionAPI) {
     pendingCalls.clear();
   };
 
-  const addReceipt = (r: Receipt) => {
-    run.receipts.push(r);
-  };
+  const addReceipt = (r: Receipt) => run.receipts.push(r);
   const findValid = (gate: string) => run.receipts.find((r) => r.gate === gate && r.valid);
   const findAny = (gate: string) => run.receipts.find((r) => r.gate === gate);
   const consume = (r: Receipt) => {
@@ -275,58 +283,30 @@ export default function (pi: ExtensionAPI) {
       if (hasToolCall(message)) return;
       if (run.flow === "other") return;
 
-      const text = textOf(message);
-      if (!text || text.trim().length === 0) return;
-      const { quiz, grade, teach } = classify(text);
+      const rawText = textOf(message);
+      if (!rawText || rawText.trim().length === 0) return;
 
+      const tagMatch = rawText.match(TURN_TAG_RE);
+      const text = (tagMatch ? rawText.replace(TURN_TAG_RE, "") : rawText).trim();
       const blockers: string[] = [];
       let verdictNote = "";
       let scoutNeeded = false;
       const toConsume: Receipt[] = [];
 
-      if (run.flow === "ingest") {
-        if (run.clerkCalled) {
-          const r = findValid("review");
-          if (r) toConsume.push(r);
-          else {
-            const any = findAny("review");
-            blockers.push(any ? "REVIEW_GATE_ISSUES" : "NO_REVIEW_GATE_PASS");
-          }
-        }
-      } else if (run.flow === "review") {
-        if (grade) {
-          const g = findValid("grade_audit");
-          if (g) toConsume.push(g);
-          else {
-            const bad = findAny("grade_audit");
-            if (bad && bad.agrees === false) {
-              blockers.push("GRADE_MISMATCH");
-              verdictNote = bad.correctVerdict ? `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.` : "";
-            } else blockers.push("NO_GRADE_AUDIT_PASS");
-          }
-        }
+      if (!tagMatch) {
+        blockers.push("NO_TURN_TAG");
       } else {
-        // teach | resume
-        if (quiz) {
-          const q = findValid("quiz_audit");
-          if (q) toConsume.push(q);
-          else blockers.push(findAny("quiz_audit") ? "QUIZ_AUDIT_ISSUES" : "NO_QUIZ_AUDIT_PASS");
-        }
-        if (grade) {
-          const g = findValid("grade_audit");
-          if (g) toConsume.push(g);
-          else {
-            const bad = findAny("grade_audit");
-            if (bad && bad.agrees === false) {
-              blockers.push("GRADE_MISMATCH");
-              verdictNote = bad.correctVerdict ? `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.` : "";
-            } else blockers.push("NO_GRADE_AUDIT_PASS");
+        const tag = tagMatch[1].toLowerCase();
+        if (run.flow === "ingest") {
+          if (run.clerkCalled) {
+            const r = findValid("review");
+            if (r) toConsume.push(r);
+            else blockers.push(findAny("review") ? "REVIEW_GATE_ISSUES" : "NO_REVIEW_GATE_PASS");
           }
-        }
-        if (teach) {
+        } else if (tag === "claims") {
+          if (run.flow === "teach" && !run.scoutCalled) scoutNeeded = true;
           let best: Receipt | undefined;
           let bestScore = 0;
-          let failingMatch = false;
           for (const r of run.receipts) {
             if (r.gate !== "fact_check") continue;
             const score = r.renderedContent ? coverage(r.renderedContent, text) : 0;
@@ -336,21 +316,40 @@ export default function (pi: ExtensionAPI) {
             }
           }
           if (!best) {
-            const failed = run.receipts.find((r) => r.gate === "fact_check" && r.issues);
-            blockers.push(failed ? "FACT_CHECK_ISSUES" : "NO_FACT_CHECK_MATCH");
+            blockers.push(run.receipts.some((r) => r.gate === "fact_check" && r.issues) ? "FACT_CHECK_ISSUES" : "NO_FACT_CHECK_MATCH");
           } else if (!best.valid) {
-            failingMatch = true;
             blockers.push(best.issues ? "FACT_CHECK_ISSUES" : "FACT_CHECK_UNVERIFIED");
           } else {
             toConsume.push(best);
           }
-          if (run.flow === "teach" && !run.scoutCalled) scoutNeeded = true;
+        } else if (tag === "quiz") {
+          const q = findValid("quiz_audit");
+          if (q) toConsume.push(q);
+          else blockers.push(findAny("quiz_audit") ? "QUIZ_AUDIT_ISSUES" : "NO_QUIZ_AUDIT_PASS");
+        } else if (tag === "grade") {
+          const g = findValid("grade_audit");
+          if (g) toConsume.push(g);
+          else {
+            const bad = findAny("grade_audit");
+            if (bad && bad.agrees === false) {
+              blockers.push("GRADE_MISMATCH");
+              verdictNote = bad.correctVerdict
+                ? `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.`
+                : "";
+            } else blockers.push("NO_GRADE_AUDIT_PASS");
+          }
+        } else {
+          // none: allowed unless an unused verification draft matches this text
+          const match = run.receipts.find(
+            (r) => r.gate === "fact_check" && r.renderedContent && coverage(r.renderedContent, text) >= MATCH_THRESHOLD
+          );
+          if (match) blockers.push("TURN_TAG_MISMATCH");
         }
       }
 
       if (blockers.length === 0 && !scoutNeeded) {
         for (const r of toConsume) consume(r);
-        return;
+        return { message: stripTag(message) };
       }
 
       run.retries += 1;
@@ -363,9 +362,10 @@ export default function (pi: ExtensionAPI) {
       }
 
       const fix = [
-        "fact-check: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged.",
-        "quiz-audit: send the exact batch and resolve high/medium issues before showing it.",
-        "grade-audit: send question + raw learner answer + claimed verdict; use the verifier's `correct_verdict`.",
+        "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, or `[[TURN:none]]`.",
+        "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged.",
+        "quiz: send the exact batch and resolve high/medium issues before showing it.",
+        "grade: send question + raw learner answer + claimed verdict; use the verifier's `correct_verdict`.",
         "ingest: the clerk result must include a PASS `REVIEW_GATE_VERDICT` marker.",
       ].join("\n");
       const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";

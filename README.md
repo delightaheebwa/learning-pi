@@ -61,9 +61,20 @@ assistant turn unless the matching, **passing** receipt is present:
 Receipts are **consumed per emitted message**, so every teaching step needs its own fresh,
 content-matched verification (generation-to-emission — "verify A, emit B" is blocked).
 
+### Turn type is explicit (not guessed)
+
+- Prompt templates carry a flow marker (`[[FLOW:teach|resume|review|ingest]]`) that the gate reads
+  directly; the string heuristics are only a fallback for untemplated triggers.
+- Every assistant message must begin with a turn tag the gate strips before the learner sees it:
+  - `[[TURN:claims]]` → requires a content-matched, passing `fact-check`
+  - `[[TURN:quiz]]` → requires a PASS `quiz-audit`
+  - `[[TURN:grade]]` → requires an agreeing `grade-audit`
+  - `[[TURN:none]]` → no verifier required
+- A missing tag is withheld (`NO_TURN_TAG`); a `none` tag over text that matches an unused
+  verification draft is withheld too (`TURN_TAG_MISMATCH`).
+
 Behavior: up to 2 withheld retries per run, then the turn is surfaced with an `⛔ UNVERIFIED`
-banner; internal errors fail open. The flow is detected from the trigger (`/review`, `/teach`,
-`/lesson`, `/continue`, `/pause`, `/ingest`); non-learning sessions are never gated.
+banner; internal errors fail open. Non-learning sessions are never gated.
 
 ## Skills
 

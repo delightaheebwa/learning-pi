@@ -12,6 +12,8 @@ The pipeline is **scout → Tutor (main session) → clerk** in the same pi sess
 - Tutor teaches from the session + digest (or the existing lesson file on resume), does **not** gather context itself, and does **not** write wiki pages/Active Concepts rows.
 - Clerk ingests the lesson output (`Pending Ingest.json`) and runs the `review-gate`.
 
+**Turn tags (required — enforced by the gate):** begin every assistant message with `[[TURN:claims]]` (teaching or plan), `[[TURN:quiz]]` (question batch), `[[TURN:grade]]` (grading a learner answer), or `[[TURN:none]]` (transitions/summaries). The gate strips the tag before the learner sees it. A `claims` tag requires a `fact-check` receipt whose `rendered_content` matches the emitted text; `quiz` requires a PASS `quiz-audit`; `grade` requires an agreeing `grade-audit`. A missing tag is withheld (`NO_TURN_TAG`). The plan message is a `claims` turn — send the plan text as `rendered_content`.
+
 Teaching verification runs as **foreground** subagent tasks with **envelope schemas**: `fact-check` and `quiz-audit`. Fixed verifier prompts live in the verifier agent files — you send **data only**. The `learning-gate` extension blocks any non-trivial Tutor output without a matching receipt before it renders.
 
 **Position discipline:** the current lesson/phase is derived at runtime from `CURRICULUM.md`, `MISSION.md`, and `Lessons/`. Do not assume a position from this skill. If those disagree, STOP and report.

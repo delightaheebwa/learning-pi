@@ -14,6 +14,8 @@ The active learning system, running in pi against the learning-system repository
 
 **Position discipline (read first):** the current lesson/phase is **not** recorded in this skill. Derive it at runtime from `Learning System/CURRICULUM.md`, `Learning System/MISSION.md`, and the newest files in `Learning System/Lessons/` + `Learning System/Sessions/`. If those disagree, **STOP and report the contradiction to the user** before doing any work; do not guess or merge. (This repo has known stale statuses; treat the state files as the only source of position.)
 
+**Turn tags (required — enforced by the gate):** begin every assistant message with `[[TURN:claims]]` (teaching/claims/plan), `[[TURN:quiz]]` (question batch), `[[TURN:grade]]` (grading a learner answer), or `[[TURN:none]]` (transitions/summaries). The gate strips the tag before the learner sees it and withholds a message whose tag is missing or unsupported by a matching, passing verification receipt.
+
 ## Context discipline (hard rules — read first)
 
 Sessions die when the running conversation outgrows the model's context window: every tool output stays in the transcript forever. The fix is fewer, denser tool calls — not smaller messages.
