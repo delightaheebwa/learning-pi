@@ -70,7 +70,29 @@ Generation-to-emission (not plan-to-generation): draft the step internally first
 }
 ```
 
-The subagent returns `{"issues":[{"id":"q1","severity":"high|medium|low","problem":"...","suggested_fix":"..."}],"verdict":"PASS|ISSUES"}`. Mechanical pre-checks (done BEFORE dispatch): each MCQ has 4 options; `correct_index` in range; correct positions not all in one slot.
+The subagent returns `{"issues":[...],"verdict":"PASS|PASS_WITH_FLAGS|ISSUES"}`. Mechanical pre-checks (done BEFORE dispatch): each MCQ has 4 options; `correct_index` in range; correct positions not all in one slot.
+
+### Tutor-write audit envelope (after every state write)
+
+The `learning-gate` extension **withholds** a teach/resume summary that follows a write to `Learning System/` unless a passing `tutor-audit` receipt is present. After writing the lesson file, session note, learning record, and/or `Pending Ingest.json`, dispatch ONE **foreground** `tutor-audit` subagent:
+
+```json
+{
+  "gate": "tutor_audit",
+  "flow": "teach | resume | pause | lesson-end",
+  "files": ["Learning System/Lessons/...md", "Learning System/Sessions/...md", "Learning System/Learning Records/...md", "Learning System/Core/Pending Ingest.json"],
+  "expected": {
+    "lesson_status": "paused at Checkpoint N/M | done",
+    "resume_from": "CPx ...",
+    "concepts": ["..."],
+    "curriculum_row": "Lxx ...",
+    "learning_record_n": 12,
+    "pending_ingest": { "partial": true }
+  }
+}
+```
+
+It reads the ACTUAL files and returns `{"verdict":"PASS|ISSUES","issues":[...]}`. Fix any high/medium issue, re-dispatch (max 2 cycles), then emit the summary. Keep `bash` out of this check — it verifies content, not history.
 
 ## Scope & state
 
@@ -103,8 +125,8 @@ These rules stop the correct answer from being guessable by presentation or dist
 1. Write the full batch first: all MCQs plus one free-recall item per strand.
 2. Run the mechanical pre-checks yourself — fix before dispatch.
 3. Dispatch ONE quiz-audit subagent with the envelope above.
-4. On `ISSUES`: fix every high/medium item per `suggested_fix`, then re-run. Max 2 cycles; if it still fails, show remaining flags to the user.
-5. Never present a batch that has not passed the audit. The auditor never sees learner answers.
+4. On `ISSUES`: fix every high/medium item per `suggested_fix`, then re-run. Max 2 cycles; on the second cycle a `PASS_WITH_FLAGS` (lows only) is sufficient — present it with the flags noted, never run a third cycle.
+5. Never present a batch without a PASS/PASS_WITH_FLAGS receipt. The auditor never sees learner answers.
 
 ## The loop (prior → probe → plan → teach)
 
@@ -131,8 +153,19 @@ These rules stop the correct answer from being guessable by presentation or dist
 
 ### 3. Teach (checkpoints — one reasoning step at a time, always stoppable)
 - Teach as a sequence of **checkpoints**: each = one idea + one short practice, ending in a clean stoppable state. Never stream a whole lesson in one block. A learner interrupt (`/pause`, "let's stop here") always wins over finishing the source outline.
-- **Synthesis shape (every checkpoint):** (a) **source framing** (what the curriculum says, 1–2 lines), (b) **external angle** (what at least one Further Reading ref adds; cite the ref + its `adds_vs_rohit`), (c) **synthesis** (how they combine, including any disagreement). A checkpoint that only restates the source is incomplete.
-- **Math formatting (terminal):** pi renders markdown, not KaTeX. Do not rely on LaTeX rendering. Prefer plain text/Unicode and fenced code blocks for equations; keep formulas readable as plain text. GATE envelopes stay raw JSON.
+- **Checkpoint pause protocol (mandatory — the learner is never rushed):** within a checkpoint, never chain idea → practice → next checkpoint. Run this exact loop:
+  1. **Idea** (`[[TURN:claims]]`, fact-checked) — teach ONE reasoning step.
+  2. **Pause #1** (`[[TURN:none]]`) — say the idea is done, then explicitly invite questions/clarifications ("Anything unclear before practice? Any question?"). STOP and wait. Do **not** present the practice question yet.
+  3. If the learner asks anything, answer it (`[[TURN:claims]]` + fact-check when it carries claims), then re-offer the pause. Only when the learner says they have none do you continue.
+  4. **Practice** (`[[TURN:quiz]]`, quiz-audited) — the checkpoint's practice question.
+  5. **Grade** (`[[TURN:grade]]`, grade-audited) — verdict + one-line why.
+  6. **Pause #2** (`[[TURN:none]]`) — after grading, explicitly invite further questions before moving on. Wait again.
+  7. Only after a "no questions" at Pause #2 do you proceed to the next checkpoint (its Idea). Never fold two checkpoints into one message.
+- **Contradiction protocol (loud):** if the Scout digest's `contradictions[]` (or your own reading of the sources) flags a disagreement on the point being taught, the checkpoint must open with a visible callout before the explanation:
+  `> ⚠️ **Sources disagree on <topic>** — <source A> says …; <source B> says …. My resolution: … / This stays open.`
+  Name the sources, state both positions, and either resolve it (say which and why) or explicitly leave it open. Never smooth it into one voice. A contradiction you silently pick a side on is a gate defect.
+- **Synthesis shape (every checkpoint):** (a) **source framing** (what the curriculum says, 1–2 lines), (b) **external angle** (what at least one Further Reading ref adds; cite the ref + its `adds_vs_rohit`), (c) **synthesis** (how they combine, including any disagreement, using the Contradiction protocol above). A checkpoint that only restates the source is incomplete.
+- **Math formatting:** follow the runtime `## Math authoring` directive injected by the `math-mode` extension. On an image-capable terminal (Ghostty/Kitty/WezTerm/iTerm2) write LaTeX (`$...$`, `\[...\]`) so `pi-math` renders it; when no image protocol is available (foot/tmux) write plain Unicode/fenced code. Never force ASCII rendering when LaTeX images are available. GATE envelopes stay raw.
 - **Tangent triage (hybrid):** every off-path question gets a 10-second ruling. QUICK (answer inline ≤2 min, log to Open Questions, return to checkpoint) vs DIVE (pause the checkpoint, chase it, record the branch in the session note, then offer "back to Checkpoint N?"). When in doubt, ask.
 - Each step: (a) unconditional truth/definition if it has one, (b) motivated discovery — "why would anyone try this?", (c) **guided Socratic** question wherever the user has prior knowledge to connect to; give the minimum hint/accurate analogy the moment they stall (never pure Socratic). **Analogies:** flexible and accuracy-first; do not use soccer analogies. Prefer a direct explanation over a forced analogy.
 - **Hook-in:** open with the mission-grounded "why this matters" hook. **Wonder-out:** close with open "what if…?" questions feeding the Open Questions principle.
@@ -140,7 +173,7 @@ These rules stop the correct answer from being guessable by presentation or dist
 - **Per-generation fact-check (Tutor ONLY — enforced by the gate, not optional):** draft each step's teaching content internally first, then dispatch a foreground `fact-check` envelope carrying the draft as `rendered_content` plus **every load-bearing claim in that draft**, with `source_urls` listing the combined live sources and `reference_excerpt` quoting the digest excerpts; fold in verdicts before emitting the step. **Do NOT verify a plan and then generate different text.** Routine consistency (prerequisites, self-contradiction, coverage) is your own responsibility. **Language:** code blocks use the lesson's `lang_recommendation`.
 
 ### 4. Pause (student-paced breakpoint — `/pause` or "let's stop here")
-- On pause: (a) run a small **exit ticket** for TODAY's checkpoints only (2–3 retrieval items, quiz-audit gated) — never cumulative over un-revisited days; (b) write/extend the partial lesson file `Lessons/Lesson — … — date.md` with `Status: paused at Checkpoint N/M` + a `Resume from:` pointer; (c) write partial `Learning System/Core/Pending Ingest.json` with `{partial:true, lesson_file, session_file, checkpoints_done:[...], concepts:[...], source_url|source_file, created_at}` and tell the learner to run `/ingest` to bank today's progress. Clerk ingests today's concepts and KEEPS the Scout digest + lesson `in-progress` (see learning-system skill). The curriculum row becomes `in-progress (paused N/M)`.
+- On pause: (a) run a small **exit ticket** for TODAY's checkpoints only (2–3 retrieval items, quiz-audit gated) — never cumulative over un-revisited days; (b) write/extend the partial lesson file `Lessons/Lesson — … — date.md` with `Status: paused at Checkpoint N/M` + a `Resume from:` pointer; (c) write partial `Learning System/Core/Pending Ingest.json` with `{partial:true, lesson_file, session_file, checkpoints_done:[...], concepts:[...], source_url|source_file, created_at}`; (d) dispatch a **foreground** `tutor-audit` subagent on the exact files just written (envelope below), fold its verdict, and tell the learner to run `/ingest` to bank today's progress. Clerk ingests today's concepts and KEEPS the Scout digest + lesson `in-progress` (see learning-system skill). The curriculum row becomes `in-progress (paused N/M)`.
 - **Resume (`/continue`):** the lesson file + last session note are the source of truth (Scout digest optional). Open with a 2-minute recall warm-up on the last completed checkpoint (retrieval, not re-teach), then continue at N+1. Never re-quiz Day-1 material cold.
 
 ### 5. Lesson end (final checkpoint only: cumulative + Feynman → handoff to Clerk)
@@ -165,10 +198,11 @@ Interleaving lives in the **review flow only** (SRS shuffle + adjacency constrai
 
 After a teaching session (lesson file + session note + learning record + Pending Ingest.json):
 
-1. Re-read all touched files and verify:
+1. Dispatch ONE **foreground** `tutor-audit` on the written files (envelope above) and fold its verdict before the summary. The `learning-gate` extension withholds a teach/resume summary that follows a `Learning System/` write until this receipt is present (`NO_TUTOR_AUDIT`) — do not skip it.
+2. Re-read all touched files and verify:
    - Lesson file exists in `Lessons/` with today's date · session note exists in `Sessions/`
    - Learning record numbered correctly (highest + 1) · glossary terms promoted only with user approval
    - `Pending Ingest.json` written with lesson_file, concepts, and source ref
    - `CURRICULUM.md` statuses match reality
-2. Fix any discrepancy immediately.
-3. Commit and push **state only** (`Learning System/`, `Knowledge Wiki/`) per `Learning System/AGENTS.md`. For a partial (`/pause`) handoff, only `/ingest` advances the curriculum row and clears the marker.
+3. Fix any discrepancy immediately.
+4. Commit and push **state only** (`Learning System/`, `Knowledge Wiki/`) per `Learning System/AGENTS.md`. For a partial (`/pause`) handoff, only `/ingest` advances the curriculum row and clears the marker.
