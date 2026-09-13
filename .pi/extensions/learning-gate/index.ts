@@ -31,6 +31,13 @@ const VERIFIER_AGENTS: Record<string, string> = {
 };
 
 const MAX_RETRIES = 2;
+// A review-gate pass may legitimately run twice (fix cycle). A third pass is
+// the runaway loop we observed: repeated re-reviews of out-of-scope state
+// bookkeeping. Cap dispatches per flow so it cannot spiral.
+const MAX_REVIEW_GATES = 2;
+// The ingest is delegated to clerk once per flow. Re-dispatching it re-ingests
+// the same handoff and re-runs the whole review-gate chain.
+const MAX_CLERK_DISPATCHES = 2;
 const MATCH_THRESHOLD = 0.85;
 // Emitted text may be slightly longer than the verified draft (tag strip,
 // minor edits) but must not carry a large unverified tail.
@@ -69,6 +76,8 @@ interface RunState {
   receipts: Receipt[];
   scoutCalled: boolean;
   clerkCalled: boolean;
+  clerkDispatches: number;
+  reviewGates: number;
   retries: number;
   tutorWrote: boolean;
   writtenPaths: string[];
@@ -360,14 +369,66 @@ function envelopeText(value: any): string {
   return "";
 }
 
+/**
+ * Out-of-scope for a review-gate pass: state bookkeeping / provenance that
+ * review-gate.md explicitly excludes (state files, lesson/session/review files,
+ * log/index bookkeeping, git/commit metadata). A review that reports only these
+ * must not read as blocking issues on the target content — otherwise the tutor
+ * re-reviews the same clean page forever.
+ */
+const REVIEW_OUT_OF_SCOPE_RE =
+  /(mission\.md|curriculum\.md|learning profile|learner history|mistakes\.md|attempts\.json|pending ingest\.json|\bsessions\/|\breviews\/|\blessons\/|log\.md|index\.md|git history|commit message|provenance|staged files|worktree)/i;
+
+function reviewIssuesAllOutOfScope(text: string): boolean {
+  const v = text.search(/"verdict"\s*:/i);
+  if (v < 0) return false;
+  // Walk back through `{` candidates until one parses as the verdict object.
+  let idx = v;
+  for (let guard = 0; guard < 20; guard++) {
+    const start = text.lastIndexOf("{", idx - 1);
+    if (start < 0) return false;
+    const blob = extractBalancedJson(text, start);
+    if (blob) {
+      let parsed: any;
+      try {
+        parsed = JSON.parse(blob);
+      } catch {
+        parsed = undefined;
+      }
+      if (parsed && typeof parsed === "object" && (parsed.verdict || Array.isArray(parsed.issues))) {
+        const issues = Array.isArray(parsed.issues) ? parsed.issues : [];
+        if (issues.length === 0) return false;
+        return issues.every((it: any) => {
+          const sev = typeof it?.severity === "string" ? it.severity.toLowerCase() : "";
+          if (sev === "low") return true;
+          const loc = typeof it?.location === "string" ? it.location.trim() : "";
+          const iss = typeof it?.issue === "string" ? it.issue : "";
+          // Prefer the cited location; only fall back to the issue text when no
+          // location was given (avoids demoting content findings that merely
+          // mention a word like "total" in prose).
+          return REVIEW_OUT_OF_SCOPE_RE.test(loc.length > 0 ? loc : iss);
+        });
+      }
+    }
+    idx = start;
+  }
+  return false;
+}
+
 function parseResult(text: string, gate: string, envelope: any): Receipt {
-  const issues =
+  let issues =
     /"verdict"\s*:\s*"ISSUES"/i.test(text) ||
     (gate === "fact_check" && /"verdicts"\s*:\s*\[[\s\S]*?"ISSUES"/i.test(text));
-  const pass =
+  let pass =
     /"verdict"\s*:\s*"PASS"/i.test(text) ||
     (gate === "fact_check" && /"verdicts"\s*:\s*\[[\s\S]*?"PASS"/i.test(text));
-  const passWithFlags = /"verdict"\s*:\s*"PASS_WITH_FLAGS"/i.test(text);
+  let passWithFlags = /"verdict"\s*:\s*"PASS_WITH_FLAGS"/i.test(text);
+  // Review-gate: if every high/medium finding is out-of-scope bookkeeping, the
+  // target content is clean. Surface them as flags, never as blocking issues.
+  if (gate === "review" && issues && reviewIssuesAllOutOfScope(text)) {
+    issues = false;
+    passWithFlags = true;
+  }
   const unverified =
     /"verdict"\s*:\s*"UNVERIFIED"/i.test(text) ||
     (gate === "fact_check" && /"verdicts"\s*:\s*\[[\s\S]*?"UNVERIFIED"/i.test(text));
@@ -450,6 +511,8 @@ export default function (pi: ExtensionAPI) {
     receipts: [],
     scoutCalled: false,
     clerkCalled: false,
+    clerkDispatches: 0,
+    reviewGates: 0,
     retries: 0,
     tutorWrote: false,
     writtenPaths: [],
@@ -458,7 +521,7 @@ export default function (pi: ExtensionAPI) {
   const pendingCalls = new Map<string, CallRef[]>();
 
   const reset = (flow: Flow) => {
-    run = { flow, receipts: [], scoutCalled: false, clerkCalled: false, retries: 0, tutorWrote: false, writtenPaths: [] };
+    run = { flow, receipts: [], scoutCalled: false, clerkCalled: false, clerkDispatches: 0, reviewGates: 0, retries: 0, tutorWrote: false, writtenPaths: [] };
     pendingCalls.clear();
   };
 
@@ -503,6 +566,22 @@ export default function (pi: ExtensionAPI) {
       }
       if (tool !== "subagent") return;
       const calls = subagentCalls(event.input);
+      const reviewGateCalls = calls.filter((c) => c.agent === "review-gate").length;
+      const clerkCalls = calls.filter((c) => c.agent === "clerk").length;
+      if (reviewGateCalls > 0) run.reviewGates += reviewGateCalls;
+      if (clerkCalls > 0) run.clerkDispatches += clerkCalls;
+      if (reviewGateCalls > 0 && run.reviewGates > MAX_REVIEW_GATES) {
+        return {
+          block: true,
+          reason: `review-gate cap reached (${MAX_REVIEW_GATES} passes per flow). Report the existing verdict — do not re-run. State/bookkeeping drift is audit_state.py's job, not another review pass.`,
+        };
+      }
+      if (clerkCalls > 0 && run.clerkDispatches > MAX_CLERK_DISPATCHES) {
+        return {
+          block: true,
+          reason: `clerk ingest cap reached (${MAX_CLERK_DISPATCHES} per flow). The ingest is already running or done — report its result instead of re-dispatching.`,
+        };
+      }
       if (event?.toolCallId) pendingCalls.set(event.toolCallId, calls);
       if (calls.some((c) => c.agent === "scout")) run.scoutCalled = true;
       if (calls.some((c) => c.agent === "clerk")) run.clerkCalled = true;
