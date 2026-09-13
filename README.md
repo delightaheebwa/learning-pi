@@ -57,7 +57,7 @@ assistant turn unless the matching, **passing** receipt is present:
 | Turn contains | Required receipt |
 | --- | --- |
 | Teaching claims (Tutor) | `fact-check` whose `rendered_content` matches the emitted text (≥85% token coverage) and has no `ISSUES` |
-| A question batch | `quiz-audit` returning `PASS` (or `PASS_WITH_FLAGS` for lows-only, rendered with a `⚠️ QUIZ FLAGS` banner, max 2 cycles) |
+| A question batch | `quiz-audit` returning `PASS` (or `PASS_WITH_FLAGS` for lows-only, accepted silently with no banner to the learner, max 2 cycles) |
 | A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced |
 | A `Learning System/` write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` |
 | An ingest | Clerk's result must carry a `REVIEW_GATE_VERDICT` marker; `PASS` renders clean, `ISSUES`/`PASS_WITH_FLAGS` render with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run) |

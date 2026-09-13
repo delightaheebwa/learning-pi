@@ -44,7 +44,7 @@ Begin **every** assistant message in a learning session with exactly one tag on 
 
 - `[[TURN:claims]]` — teaching content, plans, or any message with load-bearing claims. Requires a
   `fact-check` whose `rendered_content` is this message's text.
-- `[[TURN:quiz]]` — a question batch. Requires a `quiz-audit` returning PASS (or PASS_WITH_FLAGS, surfaced with a `⚠️ QUIZ FLAGS` banner, max 2 audit cycles).
+- `[[TURN:quiz]]` — a question batch. Requires a `quiz-audit` returning PASS (or PASS_WITH_FLAGS, accepted silently with no banner to the learner, max 2 audit cycles).
 - `[[TURN:grade]]` — grading a learner's answer. Requires a `grade-audit` that agrees.
 - `[[TURN:none]]` — anything else (transitions, summaries, clarifying questions).
 
@@ -55,7 +55,7 @@ misplaced, or unsupported by a matching verified receipt. Never rely on it to gu
 
 - Draft first, then send a `fact-check` subagent the draft as `rendered_content` plus
   every load-bearing claim, and emit the verified text unchanged (content-bound). Async launches are fine — wait for the result before emitting.
-- Before showing any question batch, send a `quiz-audit` subagent the exact batch. Fix high/medium issues (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) renders with the flags banner instead of looping.
+- Before showing any question batch, send a `quiz-audit` subagent the exact batch. Fix high/medium issues (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is accepted silently — do not loop or add any flags banner.
 - Before presenting any grade, send a `grade-audit` subagent the question, the raw
   learner answer, and the claimed verdict. Grade turns use `grade-audit` only; a disagreement is
   withheld and the verifier's `correct_verdict` must be used.

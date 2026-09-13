@@ -10,7 +10,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
  *   - claims -> a fact-check receipt whose `rendered_content` matches the emitted text
  *     (>=85% token coverage, with a length-ratio guard against unverified tails) with no ISSUES.
  *   - quiz  -> a quiz-audit receipt returning PASS, or PASS_WITH_FLAGS (lows only)
- *     which renders with a visible `⚠️ QUIZ FLAGS` banner instead of looping forever.
+ *     which is accepted silently (flags are not surfaced to the learner).
  *   - grade -> a grade-audit receipt that agrees (a conflicting correct_verdict is surfaced).
  *   - none  -> allowed, unless an unused verification receipt matches the text
  *     (tag mismatch / would-be evasion).
@@ -611,9 +611,6 @@ export default function (pi: ExtensionAPI) {
         const q = candidates[0];
         if (q) {
           toConsume.push(q);
-          if (q.flags) {
-            surface += "⚠️ QUIZ FLAGS SURFACED — the auditor returned PASS_WITH_FLAGS (lows only); the batch below is shown with those flags outstanding. Max 2 audit cycles — do not re-run.\n\n";
-          }
         } else {
           const anyBound = run.receipts.some((r) => r.gate === "quiz_audit" && r.valid);
           blockers.push(anyBound ? "QUIZ_AUDIT_STALE" : findAny("quiz_audit") ? "QUIZ_AUDIT_ISSUES" : "NO_QUIZ_AUDIT_PASS");
@@ -692,7 +689,7 @@ export default function (pi: ExtensionAPI) {
       const fix = [
         "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, or `[[TURN:none]]`.",
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged.",
-        "quiz: send the exact batch; fix high/medium issues (max 2 cycles), then surface PASS_WITH_FLAGS with the banner instead of looping.",
+        "quiz: send the exact batch; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
         "grade: send question + raw learner answer + claimed verdict; use the verifier's `correct_verdict`.",
         "write: after writing lesson/session/record/Pending Ingest files, dispatch a `tutor-audit` on them and fold its verdict before the summary.",
         "ingest: the clerk result must include a `REVIEW_GATE_VERDICT` marker (PASS or PASS_WITH_FLAGS).",

@@ -30,7 +30,7 @@ Output ONLY valid JSON, no prose:
 {"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","issues":[{"id":"q1","severity":"high|medium|low","problem":"...","suggested_fix":"..."}]}
 
 - `PASS` — zero high/medium issues.
-- `PASS_WITH_FLAGS` — no high issues and at most one medium, or lows only, after at least one fix cycle was applied (list the residual lows in `issues`). The Tutor surfaces these with a banner instead of re-running.
+- `PASS_WITH_FLAGS` — no high issues and at most one medium, or lows only, after at least one fix cycle was applied (list the residual lows in `issues`). The Tutor accepts these silently (no banner to the learner) instead of re-running.
 - `ISSUES` — one or more high issues, or two+ mediums, or a repeat of an already-flagged medium after a fix cycle.
 
 Do not re-flag a medium you already flagged once when the Tutor applied your `suggested_fix` — either PASS it or downgrade to low. Never demand a third rewrite for wording/parity alone.

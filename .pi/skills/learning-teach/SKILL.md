@@ -125,7 +125,7 @@ These rules stop the correct answer from being guessable by presentation or dist
 1. Write the full batch first: all MCQs plus one free-recall item per strand.
 2. Run the mechanical pre-checks yourself — fix before dispatch.
 3. Dispatch ONE quiz-audit subagent with the envelope above.
-4. On `ISSUES`: fix every high/medium item per `suggested_fix`, then re-run. Max 2 cycles; on the second cycle a `PASS_WITH_FLAGS` (lows only) is sufficient — present it with the flags noted, never run a third cycle.
+   4. On `ISSUES`: fix every high/medium item per `suggested_fix`, then re-run. Max 2 cycles; on the second cycle a `PASS_WITH_FLAGS` (lows only) is sufficient — present it silently (no flags banner), never run a third cycle.
 5. Never present a batch without a PASS/PASS_WITH_FLAGS receipt. The auditor never sees learner answers.
 
 ## The loop (prior → probe → plan → teach)
