@@ -27,7 +27,7 @@ Sessions die when the running conversation outgrows the model's context window: 
 - **Batch all writes.** Persistence at session end = ONE apply call, not N writes:
   `python3 scripts/ops.py apply <<'SPEC'` then a JSON spec, then `SPEC`.
   Spec: `{"writes":[{"path","content"}],"appends":[{"path","content"}],"replaces":[{"path","find","replace_with"}]}`.
-- Target **≤12 tool calls per flow**. Never re-read a file already in context. Never dump whole files you only need one row of.
+- Target **≤12 tool calls per flow**. Never re-read a file already in context. Never dump whole files you only need one row of. For git, use `git diff --stat` (not a full diff) and `git diff -- <path>` only for a file you need; do not switch models mid-flow (it invalidates the prompt cache and re-bills the whole context).
 
 ## State files (relative to the working repository root)
 
@@ -62,7 +62,7 @@ Trigger: "review". **Run this review in the main session** (it is interactive). 
 4. Per concept: one question, one answer (≤1 line), targeting the 20% insight worth 80%. Math (paper accommodation): ask for the final result computed on paper — "Work on paper, reply with just the final number / chosen letter (A–D)." Never require typing full LaTeX/formulas verbatim. Correct final answer validates formula recall — do not skip math concepts.
 5. Question type alternation by Last Q Type: blank/definitional → discriminative; discriminative → definitional.
 6. After each answer: grade pass/fail, then verify the grade with ONE **foreground** `grade-audit` subagent call before presenting it:
-   `subagent({ agent: "grade-audit", task: {"gate":"grade_audit","concept":..,"question":..,"learner_answer":..,"claimed_verdict":"pass|fail","source_excerpt":..,"feynman_transcript":..} })`.
+   `subagent({ agent: "grade-audit", task: {"gate":"grade_audit","concept":..,"question":..,"learner_answer":..,"claimed_verdict":"pass|fail","source_excerpt":..,"feynman_transcript":..}, toolBudget: {soft:20,hard:35}, usageBudget: {tokens:{soft:150000,hard:300000}} })`.
    **Grade turns take `grade_audit` ONLY — never `fact-check` for a grade.** If the verifier disagrees (`correct_verdict` differs), use its verdict. Then record via `python3 scripts/ops.py attempt "Concept" pass|fail [feynman_pass|feynman_fail]` — this updates Attempts.json (recency-weighted mastery 0–1, confidence cap {1:0.5, 2:0.8}, interval_index +1 on pass / +2 on 2 consecutive passes / −1 on fail, next_review). On fail also append a row to `🧯 Mistakes.md` with error_type (`structural|deviation|application|metacognitive`) and self-attribution; on next correct recall bump Retries, after 2 consecutive correct mark `graduated`. For `concept`/`design` types, elicit a Feynman explain-back (own words, when/why, nearest-neighbour distinction, one example) and pass `feynman_pass`/`feynman_fail` — score shown but **not blocking**. Then write `Reviews/Review — [Concept] — [Date].md` and update Active Concepts `last_reviewed`/`next_review` (from Attempts.json) / `Last Q Type`.
 7. Cap 5. Then ask "Any you want to dig deeper on?" — if yes, deep-dive one concept.
 8. Surface open questions from Active Concepts. Also surface the advisory mastery line for each concept (e.g. `mastery 0.50 — Feynman: —`) alongside Held/Advanced for calibration.
