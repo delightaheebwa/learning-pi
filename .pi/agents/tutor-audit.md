@@ -3,6 +3,7 @@ name: tutor-audit
 description: Independent verifier for the Tutor's state writes — lesson file, session note, learning record, and Pending Ingest marker. Receives a GATE:tutor_audit JSON envelope and outputs only verdict JSON. Read-only.
 model: deepseek-v4.1-flash
 tools: read, grep, find, ls
+extensions:
 completionGuard: false
 acceptanceRole: read-only
 ---
@@ -24,7 +25,7 @@ Read the ACTUAL files on disk (do not trust the envelope's description of them) 
 
 Scope is the Tutor's writes only. Do NOT audit wiki page content (that is the `review-gate`) or whole-repo cross-file drift (that is `audit_state.py`); mention such things in your explanation only if they block correctness.
 
-Output ONLY valid JSON, no prose:
+Begin your final message with `[[TURN:none]]` as its first line (the learning gate strips this tag when it is active), then output ONLY valid JSON, no prose:
 {"verdict":"PASS|ISSUES","issues":[{"severity":"high|medium|low","location":"...","issue":"..."}]}
 
 PASS only when there are zero high/medium issues. Cite exact locations and quote the text you are judging.

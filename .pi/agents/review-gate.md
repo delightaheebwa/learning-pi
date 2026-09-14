@@ -39,7 +39,7 @@ Severity:
 
 Your job is to catch problems, not to rewrite. Cite locations (file:line or an exact quote) in each issue. Do not invent sources. Flag only high/medium as `issues`; put everything else in `context_notes`.
 
-Output ONLY valid JSON, no prose:
+Begin your final message with `[[TURN:none]]` as its first line (the learning gate strips this tag when it is active), then output ONLY valid JSON, no prose:
 {"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","issues":[{"severity":"high|medium|low","location":"...","issue":"..."}],"context_notes":[{"location":"...","note":"..."}]}
 
 - `PASS` — zero high/medium issues in `target_files`.

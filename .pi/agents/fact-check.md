@@ -18,7 +18,7 @@ Verify each numbered claim AS STATED in `rendered_content` against ALL listed so
 
 Fetch the sources yourself (use `fetch_content`/web tools or `curl`); do not verify from memory alone. Do not invent sources. Do not rewrite content.
 
-Output ONLY valid JSON, no prose:
+Begin your final message with `[[TURN:none]]` as its first line (the learning gate strips this tag when it is active), then output ONLY valid JSON, no prose:
 {"verdicts":[{"id":1,"verdict":"PASS|ISSUES|UNVERIFIED","explanation":"...","corrected_claim":"only when ISSUES else null"}, ...],"contradictions":[{"topic":"...","positions":[{"source":"...","position":"..."}]}]}
 
 `contradictions` lists every source disagreement you found (`[]` when none).

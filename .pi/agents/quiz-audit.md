@@ -26,7 +26,7 @@ Audit the ACTUAL batch that will be rendered for quality ONLY. Fail any batch wi
 - Bloom level realistic;
 - mechanical: 4 options, `correct_index` in range.
 
-Output ONLY valid JSON, no prose:
+Begin your final message with `[[TURN:none]]` as its first line (the learning gate strips this tag when it is active), then output ONLY valid JSON, no prose:
 {"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","issues":[{"id":"q1","severity":"high|medium|low","problem":"...","suggested_fix":"..."}]}
 
 - `PASS` — zero high/medium issues.

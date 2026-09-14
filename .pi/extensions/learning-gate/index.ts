@@ -174,44 +174,27 @@ function promptText(prompt: any): string {
   return "";
 }
 
+/**
+ * Flow detection is EXPLICIT-ONLY: a learning flow starts iff the prompt
+ * carries a `[[FLOW:teach|resume|review|ingest]]` marker. Every prompt
+ * template in `.pi/prompts/` emits one.
+ *
+ * Do NOT reintroduce keyword matching here. The old fallback ("learn",
+ * "ingest ", "continue the current lesson", ...) was the root cause of an
+ * hour-long gate deadlock: verifier subagents run as background sessions
+ * that load this extension, and their GATE envelopes contain phrases like
+ * `"flow":"teach"`, "Information Theory Ingest", and "Pending Ingest.json".
+ * The fallback classified those verifier sessions as learning flows, so the
+ * gate withheld the verifier's own untagged verdict JSON with NO_TURN_TAG,
+ * the parent never received a receipt, and every tutor-audit round collapsed
+ * into a resume loop. Subagent tasks never carry a FLOW marker, so
+ * explicit-only detection keeps the gate off verifier sessions; a bare user
+ * message without a marker simply fails open (no gating).
+ */
 function detectFlow(prompt: any): Flow {
   const raw = promptText(prompt);
   const tag = raw.match(FLOW_TAG_RE);
   if (tag) return tag[1].toLowerCase() as Flow;
-  const p = raw.toLowerCase();
-  if (
-    p.includes("learning-teach") ||
-    p.includes("probe -> plan -> teach") ||
-    p.includes("teach me") ||
-    p.includes("learn") ||
-    p.includes("study") ||
-    p.includes("/lesson") ||
-    p.includes("next curriculum lesson") ||
-    /^\/teach\b/.test(p)
-  ) {
-    // "learn"/"study" are broad — require a teaching signal to avoid hijacking.
-    if (
-      p.includes("learning-teach") ||
-      p.includes("probe -> plan -> teach") ||
-      p.includes("teach me") ||
-      p.includes("next curriculum lesson") ||
-      /^\/teach\b/.test(p) ||
-      p.includes("/lesson")
-    )
-      return "teach";
-  }
-  if (p.includes("learning-system") && p.includes("review flow")) return "review";
-  if (p.includes("run a review session") || p.includes("review the active track") || /\/review\b/.test(p)) return "review";
-  if (
-    p.includes("ingest the following") ||
-    (p.includes("learning-system") && p.includes("ingest flow")) ||
-    /\/ingest\b/.test(p) ||
-    p.includes("ingest ")
-  )
-    return "ingest";
-  if (p.includes("next curriculum lesson")) return "teach";
-  if (p.includes("continue the current lesson") || /\/continue\b/.test(p)) return "resume";
-  if (p.includes("pause the current lesson") || /\/pause\b/.test(p)) return "resume";
   return "other";
 }
 
@@ -677,9 +660,24 @@ export default function (pi: ExtensionAPI) {
           const anyUnverified = run.receipts.some(
             (r) => r.gate === "fact_check" && !r.valid && !r.issues && /UNVERIFIED/i.test(r.raw)
           );
+          // A passing receipt that carries no rendered_content can never bind
+          // to an emission — say exactly that instead of a generic "no match"
+          // so the model fixes the envelope in one cycle.
+          const validNoDraft = run.receipts.find((r) => r.gate === "fact_check" && r.valid && !r.renderedContent);
+          const validDraft = run.receipts.find((r) => r.gate === "fact_check" && r.valid && r.renderedContent);
           if (anyIssues) blockers.push("FACT_CHECK_ISSUES");
           else if (anyUnverified) blockers.push("FACT_CHECK_UNVERIFIED");
-          else blockers.push("NO_FACT_CHECK_MATCH");
+          else if (validNoDraft) {
+            blockers.push("FACT_CHECK_MISSING_DRAFT");
+            verdictNote =
+              "The fact-check passed but its envelope had no `rendered_content`, so it cannot bind to this message. Re-send the same claims WITH the exact draft text in `rendered_content`, then emit that text unchanged.";
+          } else if (validDraft) {
+            const score = coverage(validDraft.renderedContent as string, text);
+            blockers.push("FACT_CHECK_MISMATCH");
+            verdictNote = `The fact-check receipt covers only ${Math.round(score * 100)}% of this message (needs ≥${Math.round(
+              MATCH_THRESHOLD * 100
+            )}%, no unverified tail). Emit the verified draft unchanged, or fact-check this new text.`;
+          } else blockers.push("NO_FACT_CHECK_MATCH");
         } else {
           toConsume.push(best);
         }
