@@ -642,6 +642,36 @@ export default function (pi: ExtensionAPI) {
     addReceipt(parseResult(text, gate, undefined));
   };
 
+  /**
+   * Infer a review turn from a bound verifier receipt when the Tutor forgot
+   * its `[[TURN:...]]` tag.
+   *
+   * Only `grade` and `quiz` are eligible: the grade receipt carries the exact
+   * question + learner answer and the quiz receipt carries the exact question
+   * batch, so `bindingMatches` is a real signal. `claims` is excluded (it needs
+   * a `rendered_content` draft binding that only a fresh fact-check carries) and
+   * `none` is excluded (a transition is not verifiable content — an unbound
+   * message must still withhold). A receipt whose bound text is empty (e.g.
+   * minted from an async notification with no envelope) can never bind, so it
+   * is ignored — otherwise any untagged text would pass on a stale receipt.
+   * Picks the best-covering receipt; ties go to `grade`.
+   */
+  const inferReviewTurn = (text: string): "grade" | "quiz" | undefined => {
+    if (run.flow !== "review") return undefined;
+    let best: { tag: "grade" | "quiz"; score: number } | undefined;
+    const consider = (tag: "grade" | "quiz", bound: string | undefined) => {
+      if (!bound || bound.trim().length === 0) return;
+      if (!bindingMatches(bound, text)) return;
+      const score = coverage(bound, text);
+      if (!best || score > best.score || (score === best.score && tag === "grade")) best = { tag, score };
+    };
+    for (const r of run.receipts) {
+      if (r.gate === "grade_audit") consider("grade", r.gradeText);
+      else if (r.gate === "quiz_audit") consider("quiz", r.questionsText);
+    }
+    return best?.tag;
+  };
+
   pi.on("message_end", async (event: any, ctx) => {
     try {
       const message = event?.message;
@@ -664,7 +694,7 @@ export default function (pi: ExtensionAPI) {
 
       const tagMatch = rawText.match(TURN_TAG_RE);
       const text = (tagMatch ? rawText.replace(TURN_TAG_RE, "") : rawText).trim();
-      const tag = tagMatch ? tagMatch[1].toLowerCase() : undefined;
+      const explicitTag = tagMatch ? tagMatch[1].toLowerCase() : undefined;
       const blockers: string[] = [];
       let verdictNote = "";
       let scoutNeeded = false;
@@ -678,9 +708,18 @@ export default function (pi: ExtensionAPI) {
       // poke) — the dead-end this guard removes. Scoped to ingest-after-clerk;
       // teach/resume turns keep the strict tag contract.
       const inferredNone = !tagMatch && run.flow === "ingest" && run.clerkCalled;
+      // Review turns are dominated by grade/quiz and each is tightly bound to a
+      // verifier receipt, so a forgotten tag can be inferred from the receipt.
+      // The same dead-end guard as the ingest `inferredNone` path: a weak Tutor
+      // that drops `[[TURN:...]]` after a long foreground verification would
+      // otherwise withhold the message, end the turn, and need a manual poke.
+      let inferredTag: "grade" | "quiz" | undefined;
       if (!tagMatch && !inferredNone) {
-        blockers.push("NO_TURN_TAG");
-      } else if (run.flow === "ingest") {
+        inferredTag = inferReviewTurn(text);
+        if (!inferredTag) blockers.push("NO_TURN_TAG");
+      }
+      const tag = explicitTag || inferredTag || (inferredNone ? "none" : undefined);
+      if (run.flow === "ingest") {
         if (run.clerkCalled) {
           const any = findAny("review");
           if (any && any.valid) {
@@ -829,6 +868,7 @@ export default function (pi: ExtensionAPI) {
         "grade: send question + raw learner answer + claimed verdict; use the verifier's `correct_verdict`.",
         "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch and fold its verdict before the summary.",
         "ingest: the clerk result must include a `REVIEW_GATE_VERDICT` marker (PASS or PASS_WITH_FLAGS).",
+        "review: grade/quiz turns are accepted from a bound verifier receipt even if the tag is dropped; if you see NO_TURN_TAG here, no receipt bound this exact text — dispatch the verifier for the content you are emitting.",
       ].join("\n");
       const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";
       const agentNote = run.agentlessDispatch

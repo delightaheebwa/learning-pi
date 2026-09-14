@@ -87,6 +87,11 @@ reaches you:
 | `[[TURN:grade]]` | grading your answer | an agreeing `grade-audit` |
 | `[[TURN:none]]` | transitions, summaries | nothing |
 
+If the Tutor forgets the tag in a **review**, the gate won't dead-end the session: an untagged
+grade or quiz message is accepted when a bound `grade-audit` / `quiz-audit` receipt matches that
+exact text (the receipt carries the question, answer, or batch, so it is real evidence). Ambiguous
+or unbound messages are still withheld.
+
 The Tutor writes its four handoff artifacts (lesson file, session note, learning record,
 `Pending Ingest.json`) in **one batch at a pause or lesson end**, and an independent `tutor-audit`
 checks that batch **once** before the summary renders. Mid-lesson it writes nothing to state.
@@ -104,7 +109,7 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 
 | Banner code | Meaning | Fix |
 | --- | --- | --- |
-| `NO_TURN_TAG` | message wasn't tagged | model self-corrects; if persistent, restart pi. **Not raised for an ingest summary after a clerk dispatch** — that is treated as an implicit `[[TURN:none]]` and verified by the clerk's `REVIEW_GATE_VERDICT` receipt |
+| `NO_TURN_TAG` | message wasn't tagged | model self-corrects; if persistent, restart pi. **Not raised for an ingest summary after a clerk dispatch** (implicit `[[TURN:none]]`, verified by the clerk's `REVIEW_GATE_VERDICT` receipt) **or for a review grade/quiz that a matching `grade-audit`/`quiz-audit` receipt binds** |
 | `NO_SCOUT_CONTEXT` | new lesson without a Scout run | let it run `scout`, or resume instead |
 | `NO_FACT_CHECK_MATCH` | draft wasn't verified / changed after verifying | re-draft and re-verify |
 | `FACT_CHECK_MISSING_DRAFT` | fact-check passed but its envelope had no `rendered_content` | re-send the claims WITH the exact draft in `rendered_content` |
