@@ -68,7 +68,8 @@ assistant turn unless the matching, **passing** receipt is present:
 
 The reviewer's scope is the ingest's own output only (its wiki page(s) + Active Concepts row(s)).
 State drift is reported separately by `audit_state.py`, which runs automatically at ingest and
-review close (and on demand via `/audit`).
+review close (and on demand via `/audit`). The automatic runs fix the error **or warning** findings
+they touched (using the script's `STATE_AUDIT_FIXES` hints), then surface whatever remains.
 
 Receipts are **consumed per emitted message**, so every teaching step needs its own fresh,
 content-matched verification (generation-to-emission — "verify A, emit B" is blocked).
@@ -109,7 +110,10 @@ python3 ~/learning-pi/pi/audit_state.py --root ~/learning-system
 
 Reports contradiction classes (MISSION vs CURRICULUM vs Profile vs Active Concepts vs wiki index),
 position-pointer drift (the position files vs the active lesson's `Checkpoint N/M`), Active Concepts
-`Next Review` vs `Attempts.json`, and stale host paths. It never writes. Known findings in the
+`Next Review` vs `Attempts.json`, and stale host paths. It never writes, but it prints a
+`STATE_AUDIT_FIXES:` JSON array of remediation hints for mechanically-fixable findings. The
+automatic ingest/review runs apply the hints for errors **and warnings** they touched, re-run once,
+and surface anything ambiguous or unrelated; `/audit` stays report-only. Known findings in the
 current state include outstanding Active Concepts/Attempts.json schedule drift.
 
 ## Sync discipline

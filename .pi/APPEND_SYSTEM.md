@@ -79,7 +79,7 @@ misplaced, or unsupported by a matching verified receipt. Never rely on it to gu
   summary starting with `[[TURN:none]]` and fold in the clerk's `REVIEW_GATE_VERDICT` and
   `STATE_AUDIT_VERDICT` markers. The gate treats an untagged summary after a clerk dispatch as an
   implicit `[[TURN:none]]` turn (the clerk receipt is the verification), so always tag it anyway.
-- A `⚠️ STATE AUDIT` banner means `audit_state.py` found errors; run `/audit` for details.
+- A `⚠️ STATE AUDIT` banner means `audit_state.py` found errors or warnings still outstanding. The automatic ingest/review audit fixes the error **or warning** findings it touched (using the `STATE_AUDIT_FIXES` hints), re-runs once, and surfaces the rest; run `/audit` (report-only) for details.
 
 ## Environment
 

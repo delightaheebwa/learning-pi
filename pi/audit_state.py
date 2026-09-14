@@ -3,6 +3,8 @@
 audit_state.py — read-only consistency audit for the learning-system repository.
 
 Reports known classes of drift/inconsistency. It never writes or fixes anything.
+For mechanically-fixable findings it also prints a machine-readable `STATE_AUDIT_FIXES:`
+JSON array of remediation hints; a learning flow may apply the hints it touched.
 
 Usage:
     python3 audit_state.py [--root /path/to/learning-system]
@@ -13,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import os
 import re
 import sys
@@ -25,11 +28,14 @@ INPROG_RE = re.compile(r"\b(in-?progress|paused|resume|not-started|not started)\
 STALE_PATH_RE = re.compile(r"/home/(user|delinux)/learning-system")
 
 findings: list[str] = []
+fixes: list[dict] = []
 
 
-def add(kind: str, msg: str) -> None:
+def add(kind: str, msg: str, fix: dict | None = None) -> None:
     icon = {"error": "❌", "warn": "⚠️ ", "ok": "✅"}.get(kind, "•")
     findings.append(f"{icon} {msg}")
+    if fix is not None:
+        fixes.append(fix)
 
 
 def read(path: Path) -> str:
@@ -171,7 +177,19 @@ def check_active_concept_dates(root: Path) -> None:
                     continue
                 if day > today:
                     bad += 1
-                    add("warn", f"Active Concepts row '{cells[0]}' has a future Last Reviewed date {d}")
+                    add(
+                        "warn",
+                        f"Active Concepts row '{cells[0]}' has a future Last Reviewed date {d}",
+                        fix={
+                            "check": "active_concept_dates",
+                            "file": "Learning System/Core/📚 Active Concepts.md",
+                            "concept": cells[0],
+                            "find_text": line,
+                            "find": d,
+                            "replace_with": today.isoformat(),
+                            "action": "clamp_future_date",
+                        },
+                    )
                     break
     if rows == 0:
         add("warn", "Active Concepts.md has no parseable rows")
@@ -229,6 +247,15 @@ def check_position_pointers(root: Path) -> None:
             fm = CP_FRACTION_RE.search(line)
             if fm and (int(fm.group(1)), int(fm.group(2))) != frac:
                 stale.append(f"{label} says Checkpoint {fm.group(1)}/{fm.group(2)}")
+                fixes.append(
+                    {
+                        "check": "position_pointers",
+                        "file": rel,
+                        "find_text": line,
+                        "replace_with": f"Checkpoint {frac[0]}/{frac[1]}",
+                        "action": "align_position_pointer",
+                    }
+                )
                 break
     if stale:
         add(
@@ -242,8 +269,6 @@ def check_position_pointers(root: Path) -> None:
 
 def check_attempts_sync(root: Path) -> None:
     """Active Concepts Next Review must match Attempts.json next_review for the same concept."""
-    import json
-
     text = read(root / "Learning System/Core/📚 Active Concepts.md")
     attempts_path = root / "Learning System/Core/Attempts.json"
     if not text or not attempts_path.exists():
@@ -255,7 +280,7 @@ def check_attempts_sync(root: Path) -> None:
         add("warn", "could not parse Attempts.json")
         return
     header: list[str] = []
-    missing_key = 0
+    missing_names: list[str] = []
     mismatched = 0
     checked = 0
     for line in text.splitlines():
@@ -280,18 +305,40 @@ def check_attempts_sync(root: Path) -> None:
         checked += 1
         entry = concepts.get(name)
         if not entry:
-            missing_key += 1
+            missing_names.append(name)
             continue
         ac_next = DATE_RE.search(cells[next_i])
         db_next = entry.get("next_review")
         if ac_next and db_next and ac_next.group(1) != db_next:
             mismatched += 1
-            add("warn", f"Active Concepts '{name}' Next Review {ac_next.group(1)} != Attempts.json {db_next}")
+            add(
+                "warn",
+                f"Active Concepts '{name}' Next Review {ac_next.group(1)} != Attempts.json {db_next}",
+                fix={
+                    "check": "attempts_sync",
+                    "file": "Learning System/Core/📚 Active Concepts.md",
+                    "concept": name,
+                    "find_text": line,
+                    "find": ac_next.group(1),
+                    "replace_with": db_next,
+                    "action": "sync_next_review",
+                },
+            )
     if checked == 0:
         return
-    if missing_key:
-        add("warn", f"{missing_key} Active Concepts row(s) have no Attempts.json entry (alias or missing — Clerk should canonicalize)")
-    if mismatched == 0 and missing_key == 0:
+    if missing_names:
+        add(
+            "warn",
+            f"{len(missing_names)} Active Concepts row(s) have no Attempts.json entry (alias or missing — Clerk should canonicalize): "
+            + ", ".join(missing_names[:5]),
+            fix={
+                "check": "attempts_sync",
+                "file": "Learning System/Core/Attempts.json",
+                "concepts": missing_names,
+                "action": "canonicalize_alias",
+            },
+        )
+    if mismatched == 0 and not missing_names:
         add("ok", f"Active Concepts Next Review matches Attempts.json ({checked} rows)")
 
 
@@ -333,7 +380,17 @@ def check_wiki_index(root: Path) -> None:
     missing_in_index = sorted(wiki_files - concept_links)
     missing_wiki = sorted(concept_links - wiki_files)
     if missing_in_index:
-        add("warn", f"{len(missing_in_index)} wiki page(s) not listed in index.md Concepts (e.g. {', '.join(missing_in_index[:5])})")
+        add(
+            "warn",
+            f"{len(missing_in_index)} wiki page(s) not listed in index.md Concepts (e.g. {', '.join(missing_in_index[:5])})",
+            fix={
+                "check": "wiki_index",
+                "file": "Knowledge Wiki/index.md",
+                "section": "## Concepts",
+                "pages": missing_in_index,
+                "action": "add_index_links",
+            },
+        )
     if missing_wiki:
         add("warn", f"{len(missing_wiki)} index.md Concept link(s) have no wiki file (e.g. {', '.join(missing_wiki[:5])})")
     if not missing_in_index and not missing_wiki:
@@ -351,23 +408,61 @@ def check_wiki_index(root: Path) -> None:
 
 def check_pending_ingest(root: Path) -> None:
     if (root / "Learning System/Core/Pending Ingest.json").exists():
-        add("warn", "stale Pending Ingest.json present (unfinished lesson handoff)")
-    if list((root / "Learning System/.tmp").glob("context-*.json")):
-        add("warn", "Scout digest(s) present in Learning System/.tmp/ (verify TTL / consumed)")
+        add(
+            "warn",
+            "stale Pending Ingest.json present (unfinished lesson handoff)",
+            fix={
+                "check": "pending_ingest",
+                "file": "Learning System/Core/Pending Ingest.json",
+                "action": "clear_if_final_ingest",
+            },
+        )
+    digests = list((root / "Learning System/.tmp").glob("context-*.json"))
+    if digests:
+        add(
+            "warn",
+            "Scout digest(s) present in Learning System/.tmp/ (verify TTL / consumed)",
+            fix={
+                "check": "pending_ingest",
+                "files": [str(p.relative_to(root)) for p in digests],
+                "action": "clear_if_final_ingest",
+            },
+        )
 
 
 def check_stale_paths(root: Path) -> None:
     hits = 0
     for sub in ("Skills",):
         for p in (root / sub).rglob("*.md"):
-            if STALE_PATH_RE.search(read(p)):
+            matches = [m.group(0) for m in STALE_PATH_RE.finditer(read(p))]
+            if matches:
                 hits += 1
-                add("warn", f"stale host path in {p.relative_to(root)}")
+                add(
+                    "warn",
+                    f"stale host path in {p.relative_to(root)}",
+                    fix={
+                        "check": "stale_paths",
+                        "file": str(p.relative_to(root)),
+                        "find": sorted(set(matches)),
+                        "action": "rewrite_stale_path",
+                    },
+                )
     for name in ("OPENWEBUI.md", "README.md", "AGENTS.md"):
         p = root / name
-        if p.exists() and STALE_PATH_RE.search(read(p)):
-            hits += 1
-            add("warn", f"stale host path in {name}")
+        if p.exists():
+            matches = [m.group(0) for m in STALE_PATH_RE.finditer(read(p))]
+            if matches:
+                hits += 1
+                add(
+                    "warn",
+                    f"stale host path in {name}",
+                    fix={
+                        "check": "stale_paths",
+                        "file": name,
+                        "find": sorted(set(matches)),
+                        "action": "rewrite_stale_path",
+                    },
+                )
     if hits == 0:
         add("ok", "no stale /home/user or /home/delinux paths in skills/docs")
 
@@ -395,6 +490,8 @@ def main() -> int:
     errors = sum(1 for f in findings if f.startswith("❌"))
     warns = sum(1 for f in findings if f.startswith("⚠"))
     print("\n".join(findings))
+    if fixes:
+        print("STATE_AUDIT_FIXES: " + json.dumps(fixes, ensure_ascii=False))
     print(f"\n{errors} error(s), {warns} warning(s). Read-only: nothing was modified.")
     return 1 if errors else 0
 

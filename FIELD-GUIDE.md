@@ -115,7 +115,7 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged | Clerk must return a `REVIEW_GATE_VERDICT` marker |
 | `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked / verifier flagged high-or-medium issues | dispatch `tutor-audit` on the handoff batch; fix and re-audit (lows pass as `PASS_WITH_FLAGS`) |
 | `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output | shown with a banner, **not** withheld or re-run |
-| `⚠️ STATE AUDIT` | `audit_state.py` found errors in the state files | run `/audit` for details |
+| `⚠️ STATE AUDIT` | `audit_state.py` found errors or warnings still outstanding (touched ones are fixed in-flow) | run `/audit` for details |
 | `⛔ UNVERIFIED` | retries exhausted (2); content shown unverified | review it manually |
 
 The gate **fails open** on internal errors and **only acts in learning flows** — normal coding work
@@ -167,8 +167,10 @@ Checks: MISSION vs CURRICULUM positions, lesson files vs curriculum rows, Active
 position pointers (MISSION / Learning Profile / Active Concepts track header vs the active lesson's
 `Checkpoint N/M`), Active Concepts `Next Review` vs `Attempts.json`, wiki index vs wiki/source files,
 stale host paths. It reports; it never writes. It now runs **automatically at ingest close (Clerk)
-and review close (Tutor)**, and on demand via `/audit`. A `⚠️ STATE AUDIT` banner means it found
-errors.
+and review close (Tutor)**, and on demand via `/audit`. For mechanically-fixable findings it also
+prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flow fixes the error
+**or warning** findings it touched using those hints, re-runs once, and surfaces the rest. A
+`⚠️ STATE AUDIT` banner means errors or warnings remain outstanding.
 
 ---
 

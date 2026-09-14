@@ -1,6 +1,6 @@
 ---
 name: clerk
-description: Ingest learning-system content — read Pending Ingest.json, write wiki pages and Active Concepts rows, reconcile position/state pointers, run the review gate, run the state audit, apply fixes, clean up the digest/marker, and commit. Use for lesson handoffs and standalone ingests.
+description: Ingest learning-system content — read Pending Ingest.json, write wiki pages and Active Concepts rows, reconcile position/state pointers, run the review gate, run the state audit, apply touched error/warning fixes, clean up the digest/marker, and commit. Use for lesson handoffs and standalone ingests.
 model: deepseek-v4.1-flash
 tools: read, grep, find, ls, bash, write, edit, subagent
 extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
@@ -26,6 +26,6 @@ The learning-system repository is the current working directory. Paths below are
   `python3 "$HOME/learning-pi/pi/audit_state.py" --root .`
   It is read-only. Include its findings and end with its summary on its own line:
   `STATE_AUDIT_VERDICT: {"errors":N,"warnings":M}`
-  If it reports errors, fix any that this ingest touched, then re-run once. Do not fix unrelated drift inside the ingest — surface it.
+  If it reports errors or warnings, fix any that this ingest touched using the `STATE_AUDIT_FIXES` hints it prints, then re-run once. Do not fix unrelated drift inside the ingest — surface it. Warnings with no hint (ambiguous/judgment: Profile Mission 0 focus, index link with no file, "could not read/parse") are surfaced, never force-fixed.
 - Cleanup: for a final ingest, delete the consumed `.tmp/context-*.json` digest and clear `Pending Ingest.json`; for a partial (`partial:true` / `/pause`) ingest, ingest today's concepts and KEEP the digest and lesson `in-progress` (clear only the marker). Then commit and push **state only** (`Learning System/`, `Knowledge Wiki/`) per `Learning System/AGENTS.md`.
 - Do not teach, quiz, or run the review flow. Return a concise summary: concepts touched, files written, review-gate verdict, state-audit result, and whether the digest/marker were cleared.

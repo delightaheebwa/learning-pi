@@ -795,8 +795,10 @@ export default function (pi: ExtensionAPI) {
         }
       }
 
-      // State audit: surface (never block) when the deterministic audit found errors.
-      if (run.stateAudit && run.stateAudit.errors > 0 && (run.flow === "ingest" || run.flow === "review")) {
+      // State audit: surface (never block) when the deterministic audit found
+      // errors or warnings still outstanding. Touched ones are fixed in-flow
+      // via the script's STATE_AUDIT_FIXES hints before this verdict is emitted.
+      if (run.stateAudit && (run.stateAudit.errors > 0 || run.stateAudit.warnings > 0) && (run.flow === "ingest" || run.flow === "review")) {
         surface += `⚠️ STATE AUDIT — ${run.stateAudit.errors} error(s), ${run.stateAudit.warnings} warning(s). Run /audit for details.\n\n`;
         run.stateAudit = undefined;
       }
