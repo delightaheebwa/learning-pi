@@ -75,6 +75,10 @@ misplaced, or unsupported by a matching verified receipt. Never rely on it to gu
 - Ingest turns are never hard-blocked by review flags: a `PASS` renders clean; `ISSUES` /
   `PASS_WITH_FLAGS` render with a visible `⚠️ REVIEW FLAGS SURFACED` banner. Reviewer flags are
   surfaced, not re-run in a loop (hard cap 2 cycles).
+- The ingest summary is the clerk's verification surface: after the clerk completes, emit ONE
+  summary starting with `[[TURN:none]]` and fold in the clerk's `REVIEW_GATE_VERDICT` and
+  `STATE_AUDIT_VERDICT` markers. The gate treats an untagged summary after a clerk dispatch as an
+  implicit `[[TURN:none]]` turn (the clerk receipt is the verification), so always tag it anyway.
 - A `⚠️ STATE AUDIT` banner means `audit_state.py` found errors; run `/audit` for details.
 
 ## Environment

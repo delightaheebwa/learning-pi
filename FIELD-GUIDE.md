@@ -104,7 +104,7 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 
 | Banner code | Meaning | Fix |
 | --- | --- | --- |
-| `NO_TURN_TAG` | message wasn't tagged | model self-corrects; if persistent, restart pi |
+| `NO_TURN_TAG` | message wasn't tagged | model self-corrects; if persistent, restart pi. **Not raised for an ingest summary after a clerk dispatch** — that is treated as an implicit `[[TURN:none]]` and verified by the clerk's `REVIEW_GATE_VERDICT` receipt |
 | `NO_SCOUT_CONTEXT` | new lesson without a Scout run | let it run `scout`, or resume instead |
 | `NO_FACT_CHECK_MATCH` | draft wasn't verified / changed after verifying | re-draft and re-verify |
 | `FACT_CHECK_MISSING_DRAFT` | fact-check passed but its envelope had no `rendered_content` | re-send the claims WITH the exact draft in `rendered_content` |
@@ -120,6 +120,11 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 
 The gate **fails open** on internal errors and **only acts in learning flows** — normal coding work
 in the repo is never gated.
+
+Subagent runs are async: the dispatch's tool result is only a fan-out notice, and the verdict
+arrives later as a `subagent-notify` custom message. The gate mints verifier/clerk receipts from
+that completion (from the dispatch result and from the custom notification), so a completed
+`tutor-audit`/`review-gate`/`clerk` run is never lost — wait for it before emitting the summary.
 
 ---
 

@@ -610,9 +610,51 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
+  // Gates eligible for the async-completion fallback below. `fact_check` is
+  // excluded on purpose: its receipt binds a claims turn through
+  // `rendered_content`, which a completion notification does not carry, so a
+  // notify-minted fact-check receipt could never bind (it would only swap
+  // NO_FACT_CHECK_MATCH for FACT_CHECK_MISSING_DRAFT).
+  const NOTIFY_FALLBACK_SKIP = new Set(["fact_check"]);
+
+  /**
+   * Mint a receipt from an async subagent completion notification.
+   *
+   * Async subagent results reach the parent as `subagent-notify` custom
+   * messages (the dispatch's tool result is only the fan-out notice), so a
+   * completed verifier/clerk run can otherwise be invisible to the gate.
+   * Idempotent (skip a gate that already has a valid receipt) and fail-open;
+   * non-notification text is a no-op.
+   */
+  const mintFromNotification = (text: string): void => {
+    if (!text || !text.includes("Background task completed:")) return;
+    const agent = text.match(/Background task completed:\s*\*\*([\w-]+)\*\*/i)?.[1]?.toLowerCase();
+    if (!agent) return;
+    if (agent === "clerk") {
+      if (run.receipts.some((r) => r.gate === "review" && r.valid)) return;
+      const r = parseClerkReview(text);
+      if (r) addReceipt(r);
+      return;
+    }
+    const gate = VERIFIER_AGENTS[agent];
+    if (!gate || NOTIFY_FALLBACK_SKIP.has(gate)) return;
+    if (run.receipts.some((r) => r.gate === gate && r.valid)) return;
+    addReceipt(parseResult(text, gate, undefined));
+  };
+
   pi.on("message_end", async (event: any, ctx) => {
     try {
       const message = event?.message;
+      // Custom messages are async-subagent completion notifications — mint a
+      // receipt from them, then leave the message untouched (never gated).
+      if (message?.role === "custom") {
+        try {
+          mintFromNotification(resultText(message));
+        } catch {
+          /* fail open */
+        }
+        return;
+      }
       if (!message || message.role !== "assistant") return;
       if (hasToolCall(message)) return;
       if (run.flow === "other") return;
@@ -629,7 +671,14 @@ export default function (pi: ExtensionAPI) {
       let surface = "";
       const toConsume: Receipt[] = [];
 
-      if (!tagMatch) {
+      // Ingest terminal summary: the clerk's REVIEW_GATE_VERDICT receipt is the
+      // verification for this turn, so an untagged summary after a clerk
+      // dispatch is treated as an implicit none-turn. Withholding it on
+      // NO_TURN_TAG ends the turn (a withheld final message needs a manual user
+      // poke) — the dead-end this guard removes. Scoped to ingest-after-clerk;
+      // teach/resume turns keep the strict tag contract.
+      const inferredNone = !tagMatch && run.flow === "ingest" && run.clerkCalled;
+      if (!tagMatch && !inferredNone) {
         blockers.push("NO_TURN_TAG");
       } else if (run.flow === "ingest") {
         if (run.clerkCalled) {
