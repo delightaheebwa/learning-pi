@@ -32,7 +32,10 @@ cd ~/learning-system && pi        # approve/trust the project once
 Slash commands: `/review`, `/ingest <content>`, `/teach <topic>`, `/lesson`, `/continue`, `/pause`,
 `/audit`.
 The main pi session acts as the **Tutor**; `scout`, `clerk`, and the verifier subagents run as
-children.
+children. The Tutor writes only its four handoff artifacts (lesson file, session note, learning
+record, `Pending Ingest.json`) at a pause or lesson end; the **Clerk** reconciles position/state
+files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at
+`/ingest`.
 
 ## Models
 
@@ -59,7 +62,7 @@ assistant turn unless the matching, **passing** receipt is present:
 | Teaching claims (Tutor) | `fact-check` whose `rendered_content` matches the emitted text (≥85% token coverage) and has no `ISSUES` |
 | A question batch | `quiz-audit` returning `PASS` (or `PASS_WITH_FLAGS` for lows-only, accepted silently with no banner to the learner, max 2 cycles) |
 | A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced |
-| A `Learning System/` write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` |
+| A `Learning System/` handoff write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` (once per handoff batch; high/medium block, lows pass as `PASS_WITH_FLAGS`) |
 | An ingest | Clerk's result must carry a `REVIEW_GATE_VERDICT` marker; `PASS` renders clean, `ISSUES`/`PASS_WITH_FLAGS` render with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run) |
 | A new lesson | a `scout` run before teaching |
 
@@ -73,7 +76,8 @@ content-matched verification (generation-to-emission — "verify A, emit B" is b
 ### Turn type is explicit (not guessed)
 
 - Prompt templates carry a flow marker (`[[FLOW:teach|resume|review|ingest]]`) that the gate reads
-  directly; the string heuristics are only a fallback for untemplated triggers.
+  directly. Flow detection is **explicit-only** — keyword heuristics were removed because verifier
+  subagent envelopes (`"flow":"teach"`, "Pending Ingest.json") were being misread as learning flows.
 - Every assistant message must begin with a turn tag the gate strips before the learner sees it:
   - `[[TURN:claims]]` → requires a content-matched, passing `fact-check`
   - `[[TURN:quiz]]` → requires a PASS (or flagged PASS_WITH_FLAGS) `quiz-audit`
@@ -103,9 +107,10 @@ diff -u ~/learning-system/Skills/learning-system/SKILL.md ~/learning-pi/.pi/skil
 python3 ~/learning-pi/pi/audit_state.py --root ~/learning-system
 ```
 
-Reports contradiction classes (MISSION vs CURRICULUM vs Profile vs Active Concepts vs wiki index)
-and stale host paths. It never writes. Known findings in the current state include a real
-`L08` status contradiction and a stale Learning Profile focus.
+Reports contradiction classes (MISSION vs CURRICULUM vs Profile vs Active Concepts vs wiki index),
+position-pointer drift (the position files vs the active lesson's `Checkpoint N/M`), Active Concepts
+`Next Review` vs `Attempts.json`, and stale host paths. It never writes. Known findings in the
+current state include outstanding Active Concepts/Attempts.json schedule drift.
 
 ## Sync discipline
 

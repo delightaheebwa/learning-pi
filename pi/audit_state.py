@@ -179,6 +179,122 @@ def check_active_concept_dates(root: Path) -> None:
         add("ok", f"Active Concepts dates look sane ({rows} rows)")
 
 
+CP_FRACTION_RE = re.compile(r"checkpoint\s*(\d{1,2})\s*/\s*(\d{1,2})", re.I)
+POSITION_LINE_RE = re.compile(r"(position|focus|resume|paused|in-?progress|next:?\s*CP|at CP)", re.I)
+
+
+def _newest_active_lesson(root: Path) -> tuple[Path, str] | None:
+    lessons_dir = root / "Learning System/Lessons"
+    if not lessons_dir.is_dir():
+        return None
+    active: list[tuple[float, Path, str]] = []
+    for p in lessons_dir.glob("Lesson — *.md"):
+        content = read(p)
+        if re.search(r"Status:\s*\*\*[^*]*(paused|in-?progress)", content, re.I):
+            active.append((p.stat().st_mtime, p, content))
+    if not active:
+        return None
+    _, path, content = max(active, key=lambda t: t[0])
+    return path, content
+
+
+def check_position_pointers(root: Path) -> None:
+    """
+    The active lesson file is the position-of-record. MISSION / Learning Profile
+    and the Active Concepts track header must name the same Checkpoint N/M. They
+    are the files that drove the Tutor<->audit loop; this catches the drift
+    deterministically without an LLM.
+    """
+    found = _newest_active_lesson(root)
+    if found is None:
+        add("ok", "no active lesson file for position-pointer check")
+        return
+    path, lesson_text = found
+    m = CP_FRACTION_RE.search(lesson_text)
+    if not m:
+        return
+    frac = (int(m.group(1)), int(m.group(2)))
+    stale: list[str] = []
+    for label, rel in (
+        ("MISSION.md", "Learning System/MISSION.md"),
+        ("Learning Profile.md", "Learning System/Core/💡 Learning Profile.md"),
+        ("Active Concepts.md", "Learning System/Core/📚 Active Concepts.md"),
+    ):
+        text = read(root / rel)
+        if not text:
+            continue
+        for line in text.splitlines():
+            if not POSITION_LINE_RE.search(line):
+                continue
+            fm = CP_FRACTION_RE.search(line)
+            if fm and (int(fm.group(1)), int(fm.group(2))) != frac:
+                stale.append(f"{label} says Checkpoint {fm.group(1)}/{fm.group(2)}")
+                break
+    if stale:
+        add(
+            "warn",
+            f"position pointers disagree with {path.name} (Checkpoint {frac[0]}/{frac[1]}): "
+            + "; ".join(stale),
+        )
+    else:
+        add("ok", f"position pointers agree with {path.name} (Checkpoint {frac[0]}/{frac[1]})")
+
+
+def check_attempts_sync(root: Path) -> None:
+    """Active Concepts Next Review must match Attempts.json next_review for the same concept."""
+    import json
+
+    text = read(root / "Learning System/Core/📚 Active Concepts.md")
+    attempts_path = root / "Learning System/Core/Attempts.json"
+    if not text or not attempts_path.exists():
+        add("warn", "could not read Active Concepts.md and/or Attempts.json")
+        return
+    try:
+        concepts = json.loads(read(attempts_path)).get("concepts", {})
+    except Exception:
+        add("warn", "could not parse Attempts.json")
+        return
+    header: list[str] = []
+    missing_key = 0
+    mismatched = 0
+    checked = 0
+    for line in text.splitlines():
+        if not line.strip().startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if set("".join(cells)) <= set("-: "):
+            continue
+        if cells[0].lower() == "concept":
+            header = [c.lower() for c in cells]
+            continue
+        if not header or len(cells) != len(header):
+            continue
+        try:
+            name_i = next(i for i, h in enumerate(header) if h == "concept")
+            next_i = next(i for i, h in enumerate(header) if "next" in h and "review" in h)
+        except StopIteration:
+            return
+        name = cells[name_i]
+        if not name or name.lower() in ("concept", "—", "-"):
+            continue
+        checked += 1
+        entry = concepts.get(name)
+        if not entry:
+            missing_key += 1
+            continue
+        ac_next = DATE_RE.search(cells[next_i])
+        db_next = entry.get("next_review")
+        if ac_next and db_next and ac_next.group(1) != db_next:
+            mismatched += 1
+            add("warn", f"Active Concepts '{name}' Next Review {ac_next.group(1)} != Attempts.json {db_next}")
+    if checked == 0:
+        return
+    if missing_key:
+        add("warn", f"{missing_key} Active Concepts row(s) have no Attempts.json entry (alias or missing — Clerk should canonicalize)")
+    if mismatched == 0 and missing_key == 0:
+        add("ok", f"Active Concepts Next Review matches Attempts.json ({checked} rows)")
+
+
 def _index_links(text: str) -> set[str]:
     out: set[str] = set()
     for m in re.finditer(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", text):
@@ -270,6 +386,8 @@ def main() -> int:
     check_lessons_vs_curriculum(root)
     check_profile_focus(root)
     check_active_concept_dates(root)
+    check_attempts_sync(root)
+    check_position_pointers(root)
     check_wiki_index(root)
     check_pending_ingest(root)
     check_stale_paths(root)

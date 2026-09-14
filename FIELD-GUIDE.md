@@ -56,7 +56,8 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
 6. **Pause anytime** with `/pause` (student-paced). It banks today's progress and keeps the lesson
    in-progress; `/continue` resumes at the next checkpoint.
 7. **Lesson end** — cumulative quiz + Feynman explain-back. Then run `/ingest` to finalize (Clerk
-   writes the wiki + Active Concepts and commits state).
+   writes the wiki + Active Concepts, reconciles the position pointers, regenerates Learner History,
+   and commits state).
 
 **Math:** work on paper. Reply with just the final number or the letter (A–D). The Tutor won't ask
 you to type LaTeX. It *will* now write its own math as LaTeX when your terminal can render it —
@@ -86,8 +87,11 @@ reaches you:
 | `[[TURN:grade]]` | grading your answer | an agreeing `grade-audit` |
 | `[[TURN:none]]` | transitions, summaries | nothing |
 
-Every Tutor write to `Learning System/` (lesson file, session note, learning record,
-`Pending Ingest.json`) is checked by an independent `tutor-audit` before the summary renders.
+The Tutor writes its four handoff artifacts (lesson file, session note, learning record,
+`Pending Ingest.json`) in **one batch at a pause or lesson end**, and an independent `tutor-audit`
+checks that batch **once** before the summary renders. Mid-lesson it writes nothing to state.
+Position/state files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner
+History) are reconciled by the **Clerk** at `/ingest`, not the Tutor.
 
 Prompt templates also carry `[[FLOW:teach|resume|review|ingest]]` so the gate knows the mode
 deterministically. You never type these.
@@ -102,12 +106,14 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | --- | --- | --- |
 | `NO_TURN_TAG` | message wasn't tagged | model self-corrects; if persistent, restart pi |
 | `NO_SCOUT_CONTEXT` | new lesson without a Scout run | let it run `scout`, or resume instead |
-| `NO_FACT_CHECK_MATCH` | draft wasn't verified / text changed after verifying | re-draft and re-verify |
+| `NO_FACT_CHECK_MATCH` | draft wasn't verified / changed after verifying | re-draft and re-verify |
+| `FACT_CHECK_MISSING_DRAFT` | fact-check passed but its envelope had no `rendered_content` | re-send the claims WITH the exact draft in `rendered_content` |
+| `FACT_CHECK_MISMATCH` | verified draft covers too little of the emitted text | emit the verified draft unchanged, or re-verify the new text |
 | `FACT_CHECK_ISSUES` | verifier flagged a claim | apply the correction, re-verify |
 | `NO_QUIZ_AUDIT_PASS` / `QUIZ_AUDIT_ISSUES` | questions not audited / leaked | fix and re-audit |
 | `NO_GRADE_AUDIT_PASS` / `GRADE_MISMATCH` | grade unverified / conflicts with verifier | use the verifier's `correct_verdict` |
 | `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged | Clerk must return a `REVIEW_GATE_VERDICT` marker |
-| `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | a state write wasn't checked / the verifier flagged it | dispatch `tutor-audit`; fix and re-audit |
+| `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked / verifier flagged high-or-medium issues | dispatch `tutor-audit` on the handoff batch; fix and re-audit (lows pass as `PASS_WITH_FLAGS`) |
 | `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output | shown with a banner, **not** withheld or re-run |
 | `⚠️ STATE AUDIT` | `audit_state.py` found errors in the state files | run `/audit` for details |
 | `⛔ UNVERIFIED` | retries exhausted (2); content shown unverified | review it manually |
@@ -135,7 +141,7 @@ nothing else needs to change.
 
 ## 8. State, git, and sync
 
-- The Tutor/Clerk commit and push **state only** (`Learning System/`, `Knowledge Wiki/`) to the
+- The Clerk commits and pushes **state only** (`Learning System/`, `Knowledge Wiki/`) to the
   original repo, per `Learning System/AGENTS.md`.
 - The pi layer is its own repo; update it with `cd ~/learning-pi && git pull`.
 - **Open WebUI also writes this state.** Pull before a session and don't run both writers at once:
@@ -153,9 +159,11 @@ python3 ~/learning-pi/pi/audit_state.py --root ~/learning-system
 ```
 
 Checks: MISSION vs CURRICULUM positions, lesson files vs curriculum rows, Active Concepts dates,
-wiki index vs wiki/source files, stale host paths. It reports; it never writes. It now runs
-**automatically at ingest close (Clerk) and review close (Tutor)**, and on demand via `/audit`. A
-`⚠️ STATE AUDIT` banner means it found errors.
+position pointers (MISSION / Learning Profile / Active Concepts track header vs the active lesson's
+`Checkpoint N/M`), Active Concepts `Next Review` vs `Attempts.json`, wiki index vs wiki/source files,
+stale host paths. It reports; it never writes. It now runs **automatically at ingest close (Clerk)
+and review close (Tutor)**, and on demand via `/audit`. A `⚠️ STATE AUDIT` banner means it found
+errors.
 
 ---
 
@@ -169,6 +177,8 @@ wiki index vs wiki/source files, stale host paths. It reports; it never writes. 
   frontmatter; verify `~/.pi/agent/npm/node_modules/pi-web-access/index.ts` exists.
 - **Verifier can't read the repo** → the Tutor's cwd must be `~/learning-system`.
 - **Model keeps forgetting turn tags** → consider a stronger Tutor model in `.pi/settings.json`.
+- **Withheld banner says a `subagent` call omitted the `agent` field** → that dispatch minted no
+  receipt; the model must pass `agent: "<name>"` (e.g. `tutor-audit`) in the subagent call.
 - **State looks stale after Open WebUI use** → `git pull` in `~/learning-system`.
 
 ---

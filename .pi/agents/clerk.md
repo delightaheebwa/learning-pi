@@ -1,6 +1,6 @@
 ---
 name: clerk
-description: Ingest learning-system content — read Pending Ingest.json, write wiki pages and Active Concepts rows, run the review gate, run the state audit, apply fixes, clean up the digest/marker, and commit. Use for lesson handoffs and standalone ingests.
+description: Ingest learning-system content — read Pending Ingest.json, write wiki pages and Active Concepts rows, reconcile position/state pointers, run the review gate, run the state audit, apply fixes, clean up the digest/marker, and commit. Use for lesson handoffs and standalone ingests.
 model: deepseek-v4.1-flash
 tools: read, grep, find, ls, bash, write, edit, subagent
 extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
@@ -21,6 +21,7 @@ The learning-system repository is the current working directory. Paths below are
 - Apply reviewer fixes (max 2 cycles). **Hard cap: 2 review cycles. Never run a third, and never re-dispatch review-gate for state/bookkeeping drift** (the gate demotes out-of-scope findings to `context_notes`). After the cap: if the target is clean, use `PASS`; if only low/out-of-scope items remain, use `PASS_WITH_FLAGS`. End your final output with the last verdict JSON on its own line:
   `REVIEW_GATE_VERDICT: {"verdict":"PASS|PASS_WITH_FLAGS","issues":[]}`
   Never write `PASS`/`PASS_WITH_FLAGS` unless the review-gate actually returned it. If genuine high/medium issues remain in the target after cycle 2, report `REVIEW_GATE_VERDICT: {"verdict":"ISSUES","issues":[...]}` — the parent surfaces it; do not re-run.
+- **Reconcile the Tutor handoff (lesson flows only):** the handoff's `status` / `resume_from` / `concepts` / `mistakes` are the single source of truth for position state. Update the position pointers in `Learning System/MISSION.md`, the `Learning System/CURRICULUM.md` row, `Core/💡 Learning Profile.md` (Current Focus / Current Position), and the `📚 Active Concepts.md` track header so they all name the same checkpoint/lesson state. Add any handoff `concepts` missing from Active Concepts as new rows (status `developing`, `last_reviewed` today, `next_review` +3d, `Last Q Type` `definitional`). Append the handoff `mistakes[]` rows to `Core/🧯 Mistakes.md`, canonicalizing each `concept` against the Active Concepts row names. Sync the `next_review` / `last_reviewed` of every touched Active Concepts row from `Core/Attempts.json`, then run `python3 scripts/learner_history.py`. These are state writes — keep them OUT of the review-gate `target_files`; the state audit below checks them. If the lesson file's own `Status:`/`Resume from:` disagrees with the handoff, surface it, do not merge.
 - **State audit (automatic, before commit):** run
   `python3 "$HOME/learning-pi/pi/audit_state.py" --root .`
   It is read-only. Include its findings and end with its summary on its own line:

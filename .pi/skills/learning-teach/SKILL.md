@@ -72,27 +72,25 @@ Generation-to-emission (not plan-to-generation): draft the step internally first
 
 The subagent returns `{"issues":[...],"verdict":"PASS|PASS_WITH_FLAGS|ISSUES"}`. Mechanical pre-checks (done BEFORE dispatch): each MCQ has 4 options; `correct_index` in range; correct positions not all in one slot.
 
-### Tutor-write audit envelope (after every state write)
+### Write discipline (handoff-only writes)
 
-The `learning-gate` extension **withholds** a teach/resume summary that follows a write to `Learning System/` unless a passing `tutor-audit` receipt is present. After writing the lesson file, session note, learning record, and/or `Pending Ingest.json`, dispatch ONE **foreground** `tutor-audit` subagent:
+**During teach/resume, write NOTHING to `Learning System/` except the attempts sidecar via `ops.py attempt`.** Mid-lesson position state (warm-up results, checkpoint notes, per-answer mistakes) lives in the working session note draft, not on disk. All durable writes are batched at exactly two points — a `/pause` handoff and a lesson-end handoff — so the Tutor's four artifacts are written once, together, and audited once. This is what keeps the audit from chasing a moving target mid-lesson.
+
+The Tutor never edits MISSION.md, CURRICULUM.md, 💡 Learning Profile.md, 📚 Active Concepts.md, Learner History.md, or 🧯 Mistakes.md. Position/status reconciliation and Mistakes rows are the Clerk's job at `/ingest`, driven by the handoff below.
+
+### Tutor-write audit envelope (once per handoff)
+
+The `learning-gate` extension **withholds** a teach/resume summary that follows a write to `Learning System/` unless a passing `tutor-audit` receipt is present. After writing the handoff batch (lesson file, session note, learning record, and/or `Pending Ingest.json`), dispatch ONE **foreground** `tutor-audit` subagent:
 
 ```json
 {
   "gate": "tutor_audit",
-  "flow": "teach | resume | pause | lesson-end",
-  "files": ["Learning System/Lessons/...md", "Learning System/Sessions/...md", "Learning System/Learning Records/...md", "Learning System/Core/Pending Ingest.json"],
-  "expected": {
-    "lesson_status": "paused at Checkpoint N/M | done",
-    "resume_from": "CPx ...",
-    "concepts": ["..."],
-    "curriculum_row": "Lxx ...",
-    "learning_record_n": 12,
-    "pending_ingest": { "partial": true }
-  }
+  "flow": "pause | lesson-end",
+  "files": ["Learning System/Lessons/...md", "Learning System/Sessions/...md", "Learning System/Learning Records/...md", "Learning System/Core/Pending Ingest.json"]
 }
 ```
 
-It reads the ACTUAL files and returns `{"verdict":"PASS|ISSUES","issues":[...]}`. Fix any high/medium issue, re-dispatch (max 2 cycles), then emit the summary. Keep `bash` out of this check — it verifies content, not history.
+There is no `expected` block — the auditor derives the truth from the files and checks them against each other. It returns `{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","issues":[...],"context_notes":[...]}`. Fix any high/medium issue, re-dispatch (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is sufficient to proceed. Keep `bash` out of this check — it verifies content, not history.
 
 ## Scope & state
 
@@ -102,10 +100,10 @@ It reads the ACTUAL files and returns `{"verdict":"PASS|ISSUES","issues":[...]}`
 - Glossary: `Learning System/GLOSSARY.md`. Learning records: `Learning System/Learning Records/`. Lessons: `Learning System/Lessons/`.
 - Learner state: `Learning System/Core/📚 Active Concepts.md` → grep/range only the relevant track and concepts. Never read the whole file during probing.
 - Attempts sidecar: `Learning System/Core/Attempts.json` — record every probe/quiz/review answer via `python3 scripts/ops.py attempt "Concept" pass|fail [feynman_pass|feynman_fail]` (updates recency-weighted mastery, interval_index, next_review). **Advisory only** — show mastery 0.00–0.80 + Feynman rubric status alongside prose Held/Advanced for one cycle.
-- Mistakes ledger: `Learning System/Core/🧯 Mistakes.md` — on fail, append a row with error_type (`structural|deviation|application|metacognitive`) and self-attribution; due mistakes are asked first in reviews.
+- Mistakes ledger: `Learning System/Core/🧯 Mistakes.md` — the Tutor does NOT write it. On fail, record the row in the handoff `mistakes[]` (`{concept, error_type, self_attribution, evidence}`; error_type is `structural|deviation|application|metacognitive`); the Clerk appends and canonicalizes it at `/ingest`. Due mistakes are asked first in reviews.
 - Feynman rubric for `concept`/`design` types (explain-back must hit 4 checks: what it is in own words, when/why used, distinguish from nearest neighbour, one concrete example). Grade pass/fail and pass to the attempt call.
 - You teach **from** the combined sources (derive fresh markdown lessons from `docs/en.md` + external refs synthesis), not by reformatting a single HTML. The curriculum sets the agenda; the external refs enrich every checkpoint with a new angle, counterexample, or depth. Cite both the Rohit source and relevant external refs in `fact-check` `source_urls` (with `reference_excerpt` quoting the digest excerpts).
-- When creating new Active Concepts rows, set the `Type` column (`memory|concept|procedure|design` — ambiguous defaults to `concept`). New concepts get an `Attempts.json` entry with interval_index 0. **Language** follows the lesson `Languages:` header (captured as `lang_recommendation`); record it in Notes when non-default.
+- Active Concepts rows are created and maintained by the **Clerk**, not the Tutor (Type column `memory|concept|procedure|design` — ambiguous defaults to `concept`; new concepts get an `Attempts.json` entry with interval_index 0). **Language** follows the lesson `Languages:` header (captured as `lang_recommendation`); record it in the handoff so Clerk can put it in Notes when non-default.
 
 ## Multiple-choice integrity (probe AND end-of-lesson quiz)
 
@@ -173,7 +171,7 @@ These rules stop the correct answer from being guessable by presentation or dist
 - **Per-generation fact-check (Tutor ONLY — enforced by the gate, not optional):** draft each step's teaching content internally first, then dispatch a foreground `fact-check` envelope carrying the draft as `rendered_content` plus **every load-bearing claim in that draft**, with `source_urls` listing the combined live sources and `reference_excerpt` quoting the digest excerpts; fold in verdicts before emitting the step. **Do NOT verify a plan and then generate different text.** Routine consistency (prerequisites, self-contradiction, coverage) is your own responsibility. **Language:** code blocks use the lesson's `lang_recommendation`.
 
 ### 4. Pause (student-paced breakpoint — `/pause` or "let's stop here")
-- On pause: (a) run a small **exit ticket** for TODAY's checkpoints only (2–3 retrieval items, quiz-audit gated) — never cumulative over un-revisited days; (b) write/extend the partial lesson file `Lessons/Lesson — … — date.md` with `Status: paused at Checkpoint N/M` + a `Resume from:` pointer; (c) write partial `Learning System/Core/Pending Ingest.json` with `{partial:true, lesson_file, session_file, checkpoints_done:[...], concepts:[...], source_url|source_file, created_at}`; (d) dispatch a **foreground** `tutor-audit` subagent on the exact files just written (envelope below), fold its verdict, and tell the learner to run `/ingest` to bank today's progress. Clerk ingests today's concepts and KEEPS the Scout digest + lesson `in-progress` (see learning-system skill). The curriculum row becomes `in-progress (paused N/M)`.
+- On pause: (a) run a small **exit ticket** for TODAY's checkpoints only (2–3 retrieval items, quiz-audit gated) — never cumulative over un-revisited days; (b) write/extend the partial lesson file `Lessons/Lesson — … — date.md` with `Status: paused at Checkpoint N/M` + a `Resume from:` pointer; (c) write partial `Learning System/Core/Pending Ingest.json` with `{partial:true, status:"paused at Checkpoint N/M", resume_from:"CPx ...", lesson_file, session_file, checkpoints_done:[...], concepts:[...], mistakes:[{concept, error_type, self_attribution, evidence}], source_url|source_file, created_at}`; (d) dispatch a **foreground** `tutor-audit` subagent on the exact files just written (envelope above), fold its verdict, and tell the learner to run `/ingest` to bank today's progress. Clerk ingests today's concepts, reconciles the position pointers (curriculum row → `in-progress (paused N/M)`), writes any Mistakes rows, and KEEPS the Scout digest + lesson `in-progress` (see learning-system skill).
 - **Resume (`/continue`):** the lesson file + last session note are the source of truth (Scout digest optional). Open with a 2-minute recall warm-up on the last completed checkpoint (retrieval, not re-teach), then continue at N+1. Never re-quiz Day-1 material cold.
 
 ### 5. Lesson end (final checkpoint only: cumulative + Feynman → handoff to Clerk)
@@ -181,8 +179,8 @@ These rules stop the correct answer from being guessable by presentation or dist
 - **Feynman explain-back:** the user explains the idea back in plain terms (one short paragraph). The lesson is not `done` until this passes.
 - **Fuzziness inference (no self-rating):** deduce from answers — "I don't know", hedging, self-corrections, wrong answers on already-reviewed concepts, fluent explain-back but failed retrieval. High fuzziness → drop a rung; low → climb.
 - Write a **Learning Record** with the highest Bloom level demonstrated in **Evidence**; note a corrected misconception when it happens.
-- If the lesson corresponds to an existing curriculum row: advance it only when practice complete + retrieval pass + Feynman pass; write the session note and lesson file.
-- **Do not write wiki pages or Active Concepts rows.** Instead, write `Learning System/Core/Pending Ingest.json` with `{lesson_file, session_file, concepts:[...], source_url|source_file, created_at}` for Clerk, then tell the learner to run `/ingest` to finalize. Lesson files, learning records, and glossary promotions are gated live by `fact-check` during teach, not by the review gate.
+- If the lesson corresponds to an existing curriculum row: mark it complete in the handoff (`status:"done"`) only when practice complete + retrieval pass + Feynman pass; write the session note and lesson file. Clerk advances the curriculum row and the position pointers at `/ingest`.
+- **Do not write wiki pages, Active Concepts rows, or position/state files.** Instead, write `Learning System/Core/Pending Ingest.json` with `{partial:false, status:"done", resume_from:"...", lesson_file, session_file, concepts:[...], mistakes:[{concept, error_type, self_attribution, evidence}], source_url|source_file, created_at}` for Clerk, then tell the learner to run `/ingest` to finalize. Lesson files, learning records, and glossary promotions are gated live by `fact-check` during teach, not by the review gate.
 
 ## Interleaving
 
@@ -196,13 +194,12 @@ Interleaving lives in the **review flow only** (SRS shuffle + adjacency constrai
 
 ## Writes & consistency
 
-After a teaching session (lesson file + session note + learning record + Pending Ingest.json):
+After a teaching session, the Tutor writes its four handoff artifacts (lesson file + session note + learning record + Pending Ingest.json) in one batch at the pause/lesson-end handoff, then:
 
 1. Dispatch ONE **foreground** `tutor-audit` on the written files (envelope above) and fold its verdict before the summary. The `learning-gate` extension withholds a teach/resume summary that follows a `Learning System/` write until this receipt is present (`NO_TUTOR_AUDIT`) — do not skip it.
-2. Re-read all touched files and verify:
+2. Re-read the four touched files and verify only their own consistency:
    - Lesson file exists in `Lessons/` with today's date · session note exists in `Sessions/`
    - Learning record numbered correctly (highest + 1) · glossary terms promoted only with user approval
-   - `Pending Ingest.json` written with lesson_file, concepts, and source ref
-   - `CURRICULUM.md` statuses match reality
-3. Fix any discrepancy immediately.
-4. Commit and push **state only** (`Learning System/`, `Knowledge Wiki/`) per `Learning System/AGENTS.md`. For a partial (`/pause`) handoff, only `/ingest` advances the curriculum row and clears the marker.
+   - `Pending Ingest.json` written with `status`, `resume_from`, `lesson_file`, `session_file`, `concepts`, and a source ref
+3. Fix any discrepancy immediately, then re-audit once (max 2 cycles).
+4. Do **not** commit and do **not** touch position/state files. Hand off to the Clerk (`/ingest`), which reconciles MISSION/CURRICULUM/Profile/Active Concepts/Mistakes, regenerates Learner History, and commits and pushes state (`Learning System/`, `Knowledge Wiki/`) per `Learning System/AGENTS.md`. For a partial (`/pause`) handoff, Clerk keeps the lesson `in-progress`; only a final handoff lets the curriculum row go `done`.

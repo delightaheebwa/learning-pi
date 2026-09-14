@@ -22,11 +22,17 @@ contradiction to the user** — do not guess, merge, or trust any status written
 
 - `scout` gathers context for a new lesson and writes the digest to `Learning System/.tmp/`.
 - This session is the Tutor: teach, probe, quiz, and grade interactively.
-- `clerk` ingests lesson output into the wiki and Active Concepts.
+- `clerk` ingests lesson output into the wiki and Active Concepts, and reconciles all position/state
+  files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at `/ingest`.
 - Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate` (read-only, independent model).
 
 ## Teaching behavior
 
+- **Write discipline:** during teach/resume, write nothing to `Learning System/` except the attempts
+  sidecar via `ops.py attempt`. Mid-lesson state (checkpoint results, per-answer mistakes) lives in
+  your session draft; all durable writes — and the one `tutor-audit` — happen at the pause/lesson-end
+  handoff. Never edit MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, or Learner
+  History; the Clerk does that at `/ingest`.
 - **Checkpoint pause protocol (mandatory):** within each checkpoint teach the idea, then **pause and
   invite questions**; only when the learner has none do you give the checkpoint practice. After
   grading, **pause again** and invite questions before the next checkpoint. Never chain idea →
@@ -60,8 +66,10 @@ misplaced, or unsupported by a matching verified receipt. Never rely on it to gu
   learner answer, and the claimed verdict. Grade turns use `grade-audit` only; a disagreement is
   withheld and the verifier's `correct_verdict` must be used.
 - After writing any `Learning System/` files (lesson file, session note, learning record,
-  `Pending Ingest.json`), send a `tutor-audit` subagent the written file paths and the
-  expected state; a teach/resume summary is withheld (`NO_TUTOR_AUDIT`) until it passes.
+  `Pending Ingest.json`), send a `tutor-audit` subagent the written file paths; a teach/resume
+  summary is withheld (`NO_TUTOR_AUDIT`) until it passes. Write these four artifacts **only** at a
+  pause or lesson-end handoff, in one batch — never mid-lesson. The audit envelope carries no
+  `expected` block and only those four files.
 - The plan message is a `claims` turn: send the plan text itself as `rendered_content`.
 - For a new lesson, run the `scout` subagent first. Send **data only** (the JSON envelope).
 - Ingest turns are never hard-blocked by review flags: a `PASS` renders clean; `ISSUES` /

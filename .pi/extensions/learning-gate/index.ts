@@ -82,6 +82,7 @@ interface RunState {
   tutorWrote: boolean;
   writtenPaths: string[];
   stateAudit?: StateAudit;
+  agentlessDispatch: boolean;
 }
 
 function textOf(message: any): string {
@@ -499,12 +500,13 @@ export default function (pi: ExtensionAPI) {
     retries: 0,
     tutorWrote: false,
     writtenPaths: [],
+    agentlessDispatch: false,
   };
 
   const pendingCalls = new Map<string, CallRef[]>();
 
   const reset = (flow: Flow) => {
-    run = { flow, receipts: [], scoutCalled: false, clerkCalled: false, clerkDispatches: 0, reviewGates: 0, retries: 0, tutorWrote: false, writtenPaths: [] };
+    run = { flow, receipts: [], scoutCalled: false, clerkCalled: false, clerkDispatches: 0, reviewGates: 0, retries: 0, tutorWrote: false, writtenPaths: [], agentlessDispatch: false };
     pendingCalls.clear();
   };
 
@@ -549,6 +551,11 @@ export default function (pi: ExtensionAPI) {
       }
       if (tool !== "subagent") return;
       const calls = subagentCalls(event.input);
+      // A subagent dispatch with no (string) `agent` mints no receipt and fails
+      // opaquely. Remember it so the next withheld message can say why.
+      if (calls.length === 0 && event.input && typeof event.input === "object" && ("task" in event.input || "prompt" in event.input)) {
+        run.agentlessDispatch = true;
+      }
       const reviewGateCalls = calls.filter((c) => c.agent === "review-gate").length;
       const clerkCalls = calls.filter((c) => c.agent === "clerk").length;
       if (reviewGateCalls > 0) run.reviewGates += reviewGateCalls;
@@ -748,6 +755,7 @@ export default function (pi: ExtensionAPI) {
       if (blockers.length === 0 && !scoutNeeded) {
         for (const r of toConsume) consume(r);
         run.retries = 0;
+        run.agentlessDispatch = false;
         let out = stripTag(message);
         if (surface) out = prependBanner(out, surface);
         return { message: out };
@@ -768,12 +776,16 @@ export default function (pi: ExtensionAPI) {
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged.",
         "quiz: send the exact batch; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
         "grade: send question + raw learner answer + claimed verdict; use the verifier's `correct_verdict`.",
-        "write: after writing lesson/session/record/Pending Ingest files, dispatch a `tutor-audit` on them and fold its verdict before the summary.",
+        "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch and fold its verdict before the summary.",
         "ingest: the clerk result must include a `REVIEW_GATE_VERDICT` marker (PASS or PASS_WITH_FLAGS).",
       ].join("\n");
       const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";
+      const agentNote = run.agentlessDispatch
+        ? "A `subagent` call omitted the `agent` field, so it minted no receipt. Always pass `agent: \"<name>\"` (e.g. `tutor-audit`).\n"
+        : "";
+      run.agentlessDispatch = false;
       const note = verdictNote ? verdictNote + "\n" : "";
-      const banner = `⛔ WITHHELD (${codes.join(", ")})\n${scoutNote}${note}${fix}\n`;
+      const banner = `⛔ WITHHELD (${codes.join(", ")})\n${scoutNote}${agentNote}${note}${fix}\n`;
       try {
         ctx?.ui?.notify?.(`learning-gate blocked: ${codes.join(", ")}`, "warning");
       } catch {
