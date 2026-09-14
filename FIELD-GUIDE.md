@@ -109,7 +109,7 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 
 | Banner code | Meaning | Fix |
 | --- | --- | --- |
-| `NO_TURN_TAG` | message wasn't tagged | model self-corrects; if persistent, restart pi. **Not raised for an ingest summary after a clerk dispatch** (implicit `[[TURN:none]]`, verified by the clerk's `REVIEW_GATE_VERDICT` receipt) **or for a review grade/quiz that a matching `grade-audit`/`quiz-audit` receipt binds** |
+| `NO_TURN_TAG` | message wasn't tagged | model self-corrects; if persistent, restart pi. **Not raised for an ingest summary after a clerk dispatch** (implicit `[[TURN:none]]`, verified by the clerk's `REVIEW_GATE_VERDICT` receipt), **for a review grade/quiz that a matching `grade-audit`/`quiz-audit` receipt binds**, **or for an untagged review close once the session note is written** (implicit `[[TURN:none]]`, verified by the `review-session-audit` receipt) |
 | `NO_SCOUT_CONTEXT` | new lesson without a Scout run | let it run `scout`, or resume instead |
 | `NO_FACT_CHECK_MATCH` | draft wasn't verified / changed after verifying | re-draft and re-verify |
 | `FACT_CHECK_MISSING_DRAFT` | fact-check passed but its envelope had no `rendered_content` | re-send the claims WITH the exact draft in `rendered_content` |
@@ -119,7 +119,8 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `NO_GRADE_AUDIT_PASS` / `GRADE_MISMATCH` | grade unverified / conflicts with verifier | use the verifier's `correct_verdict` |
 | `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged | Clerk must return a `REVIEW_GATE_VERDICT` marker |
 | `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked / verifier flagged high-or-medium issues | dispatch `tutor-audit` on the handoff batch; fix and re-audit (lows pass as `PASS_WITH_FLAGS`) |
-| `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output | shown with a banner, **not** withheld or re-run |
+| `NO_REVIEW_SESSION_AUDIT` | review close wrote notes/rows but wasn't audited | dispatch `review-session-audit` on the exact writes, then summarize |
+| `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output **or** the review-session audit returned `ISSUES` | shown with a banner, **not** withheld or re-run (review close caps at 2 passes) |
 | `⚠️ STATE AUDIT` | `audit_state.py` found errors or warnings still outstanding (touched ones are fixed in-flow) | run `/audit` for details |
 | `⛔ UNVERIFIED` | retries exhausted (2); content shown unverified | review it manually |
 

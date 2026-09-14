@@ -9,6 +9,7 @@
       "quiz-audit": { "model": "deepseek-v4.1-flash" },
       "grade-audit": { "model": "deepseek-v4.1-flash" },
       "tutor-audit": { "model": "deepseek-v4.1-flash" },
+      "review-session-audit": { "model": "deepseek-v4.1-flash" },
       "review-gate": { "model": "muse-spark-1.3-contributor" }
     }
   }

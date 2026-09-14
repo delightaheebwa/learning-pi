@@ -28,6 +28,7 @@ const VERIFIER_AGENTS: Record<string, string> = {
   "grade-audit": "grade_audit",
   "review-gate": "review",
   "tutor-audit": "tutor_audit",
+  "review-session-audit": "review_session",
 };
 
 const MAX_RETRIES = 2;
@@ -35,6 +36,9 @@ const MAX_RETRIES = 2;
 // the runaway loop we observed: repeated re-reviews of out-of-scope state
 // bookkeeping. Cap dispatches per flow so it cannot spiral.
 const MAX_REVIEW_GATES = 2;
+// Review-session close audit: at most 2 passes per flow (initial + one fix
+// cycle). A third is the runaway loop we must avoid.
+const MAX_REVIEW_SESSION_AUDITS = 2;
 // The ingest is delegated to clerk once per flow. Re-dispatching it re-ingests
 // the same handoff and re-runs the whole review-gate chain.
 const MAX_CLERK_DISPATCHES = 2;
@@ -81,6 +85,11 @@ interface RunState {
   retries: number;
   tutorWrote: boolean;
   writtenPaths: string[];
+  // Review-close: set when the review flow writes Review notes / session note /
+  // touched state rows; a summary-like turn then needs a review_session audit.
+  reviewSessionWrote: boolean;
+  reviewSessionPaths: string[];
+  reviewSessionAudits: number;
   stateAudit?: StateAudit;
   agentlessDispatch: boolean;
 }
@@ -339,6 +348,23 @@ function isLearningStatePath(path: string): boolean {
   return /(^|\/)learning system\//.test(p);
 }
 
+/** Review-close artifacts whose write arms the review-session audit gate. */
+function isReviewSessionPath(path: string): boolean {
+  const p = normPath(path);
+  if (!isLearningStatePath(p)) return false;
+  if (/(^|\/)learning system\/(reviews|sessions)\//.test(p)) return true;
+  return /(active concepts|mistakes)\.md$/.test(p) || /attempts\.json$/.test(p);
+}
+
+// A review-close summary lists per-concept results (mastery + next review),
+// unlike a mid-session transition. Used so the review-session gate never holds
+// a transition hostage after the session note is written.
+const REVIEW_SUMMARY_RE = /(mastery\s+\d|next review|last q type|review\s+[—-]|reviews\/|session\s+[—-]|graduated|feynman:)/i;
+
+function looksLikeReviewSummary(text: string): boolean {
+  return REVIEW_SUMMARY_RE.test(text || "");
+}
+
 function envelopeText(value: any): string {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) {
@@ -487,6 +513,7 @@ const EXPECTED_ENVELOPE_GATE: Record<string, string> = {
   "grade-audit": "grade_audit",
   "review-gate": "review",
   "tutor-audit": "tutor_audit",
+  "review-session-audit": "review_session",
 };
 
 export default function (pi: ExtensionAPI) {
@@ -500,13 +527,16 @@ export default function (pi: ExtensionAPI) {
     retries: 0,
     tutorWrote: false,
     writtenPaths: [],
+    reviewSessionWrote: false,
+    reviewSessionPaths: [],
+    reviewSessionAudits: 0,
     agentlessDispatch: false,
   };
 
   const pendingCalls = new Map<string, CallRef[]>();
 
   const reset = (flow: Flow) => {
-    run = { flow, receipts: [], scoutCalled: false, clerkCalled: false, clerkDispatches: 0, reviewGates: 0, retries: 0, tutorWrote: false, writtenPaths: [], agentlessDispatch: false };
+    run = { flow, receipts: [], scoutCalled: false, clerkCalled: false, clerkDispatches: 0, reviewGates: 0, retries: 0, tutorWrote: false, writtenPaths: [], reviewSessionWrote: false, reviewSessionPaths: [], reviewSessionAudits: 0, agentlessDispatch: false };
     pendingCalls.clear();
   };
 
@@ -534,18 +564,31 @@ export default function (pi: ExtensionAPI) {
       const tool = typeof event?.toolName === "string" ? event.toolName.toLowerCase() : "";
       if (WRITE_TOOLS.has(tool)) {
         const p = writePath(event.input);
-        if (p && isLearningStatePath(p) && (run.flow === "teach" || run.flow === "resume")) {
-          run.tutorWrote = true;
-          run.writtenPaths.push(normPath(p));
+        if (p && isLearningStatePath(p)) {
+          if (run.flow === "teach" || run.flow === "resume") {
+            run.tutorWrote = true;
+            run.writtenPaths.push(normPath(p));
+          } else if (run.flow === "review" && isReviewSessionPath(p)) {
+            run.reviewSessionWrote = true;
+            run.reviewSessionPaths.push(normPath(p));
+          }
         }
         return;
       }
       if (tool === "bash") {
         const cmd = typeof event.input?.command === "string" ? event.input.command : "";
-        // ops.py apply carries file paths in the heredoc/spec (stdin), not in
-        // the command line — any apply during teach/resume marks a write.
-        if (/ops\.py\s+apply/.test(cmd) && (run.flow === "teach" || run.flow === "resume")) {
-          run.tutorWrote = true;
+        if (run.flow === "teach" || run.flow === "resume") {
+          // ops.py apply during teach/resume marks a Tutor write.
+          if (/ops\.py\s+apply/.test(cmd)) run.tutorWrote = true;
+        } else if (run.flow === "review") {
+          // The review close writes its Review notes + session note via
+          // `ops.py apply <<'SPEC'`; the spec (paths included) is in the command
+          // string. Arm the review-session audit only when the session note is
+          // in the spec — the once-per-session closing artifact — so per-concept
+          // Review-note writes do not gate intermediate transitions.
+          if (/ops\.py\s+apply/.test(cmd) && /learning system\/sessions\//i.test(cmd)) {
+            run.reviewSessionWrote = true;
+          }
         }
         return;
       }
@@ -557,9 +600,17 @@ export default function (pi: ExtensionAPI) {
         run.agentlessDispatch = true;
       }
       const reviewGateCalls = calls.filter((c) => c.agent === "review-gate").length;
+      const reviewSessionCalls = calls.filter((c) => c.agent === "review-session-audit").length;
       const clerkCalls = calls.filter((c) => c.agent === "clerk").length;
       if (reviewGateCalls > 0) run.reviewGates += reviewGateCalls;
+      if (reviewSessionCalls > 0) run.reviewSessionAudits += reviewSessionCalls;
       if (clerkCalls > 0) run.clerkDispatches += clerkCalls;
+      if (reviewSessionCalls > 0 && run.reviewSessionAudits > MAX_REVIEW_SESSION_AUDITS) {
+        return {
+          block: true,
+          reason: `review-session audit cap reached (${MAX_REVIEW_SESSION_AUDITS} passes per flow). Report the existing verdict — fix any high/medium flags next session instead of re-running.`,
+        };
+      }
       if (reviewGateCalls > 0 && run.reviewGates > MAX_REVIEW_GATES) {
         return {
           block: true,
@@ -707,7 +758,14 @@ export default function (pi: ExtensionAPI) {
       // NO_TURN_TAG ends the turn (a withheld final message needs a manual user
       // poke) — the dead-end this guard removes. Scoped to ingest-after-clerk;
       // teach/resume turns keep the strict tag contract.
-      const inferredNone = !tagMatch && run.flow === "ingest" && run.clerkCalled;
+      const inferredNone =
+        !tagMatch &&
+        ((run.flow === "ingest" && run.clerkCalled) ||
+          // Review close: after the session note is written, a summary-like
+          // untagged message is an implicit none-turn (its verification is the
+          // review_session receipt below); a transition without summary markers
+          // is not, so it cannot be held hostage by arming the gate.
+          (run.flow === "review" && run.reviewSessionWrote && looksLikeReviewSummary(text)));
       // Review turns are dominated by grade/quiz and each is tightly bound to a
       // verifier receipt, so a forgotten tag can be inferred from the receipt.
       // The same dead-end guard as the ingest `inferredNone` path: a weak Tutor
@@ -812,6 +870,33 @@ export default function (pi: ExtensionAPI) {
         if (match) blockers.push("TURN_TAG_MISMATCH");
       }
 
+      // Review-session gate: after the review flow writes its notes/rows, a
+      // summary-like turn needs a review_session audit. A PASS/PASS_WITH_FLAGS
+      // renders clean; ISSUES renders with a flags banner (never a withhold —
+      // a withheld final message dead-ends the session). Quiz/grade turns are
+      // never held hostage by it.
+      const reviewSessionGateApplies =
+        run.reviewSessionWrote &&
+        run.flow === "review" &&
+        (!tag || tag === "claims" || tag === "none") &&
+        looksLikeReviewSummary(text);
+      if (reviewSessionGateApplies) {
+        const audit = findAny("review_session");
+        if (audit) {
+          toConsume.push(audit);
+          run.reviewSessionWrote = false;
+          run.reviewSessionPaths = [];
+          if (audit.issues) {
+            surface +=
+              "⚠️ REVIEW FLAGS SURFACED — the end-of-review audit returned flags on the session writes " +
+              "(Review notes / session note / touched state rows). The summary below is shown with those flags " +
+              "outstanding; fix them next session — do not re-run the audit (hard cap 2 cycles).\n\n";
+          }
+        } else {
+          blockers.push("NO_REVIEW_SESSION_AUDIT");
+        }
+      }
+
       // Tutor-write gate: only summary-like turns (claims/none) after a
       // Learning System/ write need a passing tutor-audit receipt. Quiz/grade
       // turns after a write must not be held hostage by it.
@@ -869,6 +954,7 @@ export default function (pi: ExtensionAPI) {
         "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch and fold its verdict before the summary.",
         "ingest: the clerk result must include a `REVIEW_GATE_VERDICT` marker (PASS or PASS_WITH_FLAGS).",
         "review: grade/quiz turns are accepted from a bound verifier receipt even if the tag is dropped; if you see NO_TURN_TAG here, no receipt bound this exact text — dispatch the verifier for the content you are emitting.",
+        "review close: after writing the Review notes / session note / touched rows, dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files/state_rows), then summarize; a PASS/PASS_WITH_FLAGS renders clean and an ISSUES verdict renders with a flags banner (no re-run, cap 2 passes).",
       ].join("\n");
       const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";
       const agentNote = run.agentlessDispatch

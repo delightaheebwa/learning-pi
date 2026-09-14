@@ -1,6 +1,6 @@
 ---
 name: learning-review
-description: Quality-gate learning-system ingest output before it is finalized — wherever it originates. Use after every standalone ingest AND at the end of any teaching lesson that produced wiki pages or Active Concepts rows. The review-gate subagent flags accuracy, correctness, clarity, and completeness issues in the ingest's own output with severity; the implementer fixes them; max 2 cycles, then remaining flags are surfaced (never re-run).
+description: Quality-gate learning-system output before it is finalized — wherever it originates. Use after every standalone ingest, at the end of any teaching lesson that produced wiki pages or Active Concepts rows (review-gate), AND at the close of a standalone /review session (review-session gate on the Review notes / session note / touched state rows). The review-gate subagent flags accuracy, correctness, clarity, and completeness issues with severity; the implementer fixes them; max 2 cycles, then remaining flags are surfaced (never re-run).
 ---
 
 # Learning System Review Gate
@@ -10,6 +10,15 @@ Verification gate for the learning system's **ingest output** (the wiki page(s) 
 Scope is strictly the ingest's own output. **State drift** (MISSION / CURRICULUM / Learning Profile / Learner History / Mistakes / Attempts / lesson files / index bookkeeping) is **out of scope** here — it is checked by `audit_state.py`, which runs automatically at ingest close and review close. The Tutor's writes are checked by `tutor-audit`. Keeping these separate is what stops the review loop.
 
 Lesson files, learning records, and glossary entries promoted by lessons are verified live during teaching via `fact-check` and `quiz-audit`/`tutor-audit`, not by this gate.
+
+## Review-session gate (standalone `/review` close)
+
+A second gate covers the writes a standalone review persists: the `Reviews/Review — [Concept] — [Date].md` note(s), the `Sessions/Session — …md` note, and the touched `📚 Active Concepts.md` / `🧯 Mistakes.md` rows. Per-grade `grade-audit` validates each verdict as it is presented; this gate validates the **persisted writes** against the transcript and those verdicts.
+
+- Verifier: the `review-session-audit` subagent (`deepseek-v4.1-flash`, read-only), envelope `{"gate":"review_session","concepts":[...],"transcript":"exact Q/A + learner answers + claimed verdicts","grade_verdicts":[{"concept","correct_verdict"}],"written_files":[{"path","content"}],"state_rows":"...","pass_number":N}`.
+- The `learning-gate` arms the gate when the review writes its session note and withholds the closing summary until a receipt exists (`NO_REVIEW_SESSION_AUDIT`). An untagged closing summary is treated as implicit `[[TURN:none]]` once the receipt is present — a dropped tag never dead-ends the session.
+- Verdict: `PASS|PASS_WITH_FLAGS|ISSUES` + `issues` + `context_notes`. `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner, **never** withheld or re-run; hard cap **2 passes per flow**.
+- Scope is fenced: MISSION/CURRICULUM/Learning Profile/Learner History/`Knowledge Wiki/`/git drift → `context_notes`, never `issues` (state drift is `audit_state.py`'s job; the wiki is `review-gate`'s job).
 
 ## Config
 

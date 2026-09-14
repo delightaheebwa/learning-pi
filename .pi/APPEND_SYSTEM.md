@@ -73,6 +73,12 @@ bound `grade-audit` / `quiz-audit` receipt matches that exact text. There is no 
   summary is withheld (`NO_TUTOR_AUDIT`) until it passes. Write these four artifacts **only** at a
   pause or lesson-end handoff, in one batch — never mid-lesson. The audit envelope carries no
   `expected` block and only those four files.
+- In a **review**, after writing the Review note(s), session note, and touched Active Concepts /
+  Mistakes rows, send ONE foreground `review-session-audit` the exact writes
+  (`concepts/transcript/grade_verdicts/written_files/state_rows`); the closing summary is withheld
+  (`NO_REVIEW_SESSION_AUDIT`) until a receipt exists. `ISSUES` renders with a `⚠️ REVIEW FLAGS
+  SURFACED` banner — never a withhold, never a re-run (cap 2 passes). Scope is fenced: state drift
+  the review did not write is `context_notes`, never a blocking issue.
 - The plan message is a `claims` turn: send the plan text itself as `rendered_content`.
 - For a new lesson, run the `scout` subagent first. Send **data only** (the JSON envelope).
 - Ingest turns are never hard-blocked by review flags: a `PASS` renders clean; `ISSUES` /

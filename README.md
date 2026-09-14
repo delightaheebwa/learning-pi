@@ -47,6 +47,7 @@ Configured in `.pi/settings.json` (project scope only):
 | Scout / Clerk / verifiers | `deepseek-v4.1-flash` |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` (independent of the deepseek Clerk) |
 | Tutor-write verifier (`tutor-audit`) | `deepseek-v4.1-flash` |
+| Review-close verifier (`review-session-audit`) | `deepseek-v4.1-flash` |
 
 Verifiers deliberately differ from the Tutor so verification is independent, and the ingest reviewer
 deliberately differs from the Clerk so it never reviews its own model. Adjust in
@@ -64,6 +65,7 @@ assistant turn unless the matching, **passing** receipt is present:
 | A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced |
 | A `Learning System/` handoff write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` (once per handoff batch; high/medium block, lows pass as `PASS_WITH_FLAGS`) |
 | An ingest | Clerk's result must carry a `REVIEW_GATE_VERDICT` marker; `PASS` renders clean, `ISSUES`/`PASS_WITH_FLAGS` render with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run) |
+| The **close** of a standalone `/review` (Review notes, session note, touched Active Concepts / Mistakes rows written) | `review-session-audit` reading the exact writes back against the transcript + per-concept grade verdicts; `PASS`/`PASS_WITH_FLAGS` render clean, `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner — never withheld, never a re-run (cap 2 passes per flow) |
 | A new lesson | a `scout` run before teaching |
 
 The reviewer's scope is the ingest's own output only (its wiki page(s) + Active Concepts row(s)).
