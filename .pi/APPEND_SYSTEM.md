@@ -56,9 +56,10 @@ Begin **every** assistant message in a learning session with exactly one tag on 
 
 The gate strips the tag before the learner sees it, and withholds a message whose tag is missing,
 misplaced, or unsupported by a matching verified receipt. Never rely on it to guess — tag explicitly.
-In a **review**, a forgotten tag is not fatal for grade/quiz turns: the gate infers the turn when a
-bound `grade-audit` / `quiz-audit` receipt matches that exact text. There is no such fallback for
-`claims`/`none`, and an unbound message is still withheld.
+A forgotten tag on a grade/quiz turn is not fatal: the gate infers the turn when a `grade-audit` /
+`quiz-audit` receipt matches the text, or when exactly one gate type has a valid pending receipt
+(async verifiers report via a completion notification with no draft). `claims`/`none` are never
+inferred, and an unverified or ambiguous message is still withheld.
 
 ## Verification (enforced by the learning-gate extension)
 

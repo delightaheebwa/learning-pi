@@ -14,6 +14,10 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
  *   - grade -> a grade-audit receipt that agrees (a conflicting correct_verdict is surfaced).
  *   - none  -> allowed, unless an unused verification receipt matches the text
  *     (tag mismatch / would-be evasion).
+ *   - A dropped tag on a grade/quiz turn is inferred from a bound verifier
+ *     receipt, or from the single pending valid receipt when a bound draft is
+ *     unavailable (async notify mints) — in teach/resume/review alike — so a
+ *     forgotten tag never dead-ends the turn. claims/none are never inferred.
  *   - teach/resume writes -> a passing tutor-audit receipt over the files written.
  *   - ingest -> Clerk's result must carry a review verdict marker. A missing marker is
  *     retried once; a PASS renders clean; ISSUES/PASS_WITH_FLAGS render with a visible
@@ -694,7 +698,7 @@ export default function (pi: ExtensionAPI) {
   };
 
   /**
-   * Infer a review turn from a bound verifier receipt when the Tutor forgot
+   * Infer a `grade`/`quiz` turn from a verifier receipt when the Tutor forgot
    * its `[[TURN:...]]` tag.
    *
    * Only `grade` and `quiz` are eligible: the grade receipt carries the exact
@@ -702,14 +706,27 @@ export default function (pi: ExtensionAPI) {
    * batch, so `bindingMatches` is a real signal. `claims` is excluded (it needs
    * a `rendered_content` draft binding that only a fresh fact-check carries) and
    * `none` is excluded (a transition is not verifiable content — an unbound
-   * message must still withhold). A receipt whose bound text is empty (e.g.
-   * minted from an async notification with no envelope) can never bind, so it
-   * is ignored — otherwise any untagged text would pass on a stale receipt.
-   * Picks the best-covering receipt; ties go to `grade`.
+   * message must still withhold).
+   *
+   * Preference order:
+   *  1. A receipt whose bound text covers the emission (strong evidence — the
+   *     audit really was for this text). Best-covering wins; ties go to `grade`.
+   *  2. Otherwise, exactly ONE gate type (`grade` or `quiz`) has a valid, unused
+   *     receipt. Async verifiers mint a valid receipt from the completion
+   *     notification, which carries no envelope/bound text; requiring a bound
+   *     draft there would dead-end every async grade/quiz turn whose tag was
+   *     dropped (the observed resume-session NO_TURN_TAG loop). Trusting the
+   *     single pending receipt mirrors the explicit-tag path, where an unbound
+   *     valid receipt is already accepted. Two pending gate types stay
+   *     ambiguous and withhold.
+   *
+   * Applies to every interactive flow (teach/resume/review) — the dead-end is
+   * identical in all three; ingest has its own clerk-receipt inference.
    */
-  const inferReviewTurn = (text: string): "grade" | "quiz" | undefined => {
-    if (run.flow !== "review") return undefined;
+  const inferTaggedTurn = (text: string): "grade" | "quiz" | undefined => {
+    if (run.flow === "ingest" || run.flow === "other") return undefined;
     let best: { tag: "grade" | "quiz"; score: number } | undefined;
+    const validGates = new Set<"grade" | "quiz">();
     const consider = (tag: "grade" | "quiz", bound: string | undefined) => {
       if (!bound || bound.trim().length === 0) return;
       if (!bindingMatches(bound, text)) return;
@@ -717,10 +734,22 @@ export default function (pi: ExtensionAPI) {
       if (!best || score > best.score || (score === best.score && tag === "grade")) best = { tag, score };
     };
     for (const r of run.receipts) {
-      if (r.gate === "grade_audit") consider("grade", r.gradeText);
-      else if (r.gate === "quiz_audit") consider("quiz", r.questionsText);
+      if (r.gate === "grade_audit") {
+        if (r.valid) validGates.add("grade");
+        consider("grade", r.gradeText);
+      } else if (r.gate === "quiz_audit") {
+        if (r.valid) validGates.add("quiz");
+        consider("quiz", r.questionsText);
+      }
     }
-    return best?.tag;
+    if (best) return best.tag;
+    // With a handoff write pending in teach/resume, an untagged summary is far
+    // more likely the handoff summary (which the tutor-audit gate must check)
+    // than a grade/quiz turn — require the strong bound-receipt signal before
+    // inferring, so the fallback cannot wave the summary past `NO_TUTOR_AUDIT`.
+    if (run.tutorWrote && (run.flow === "teach" || run.flow === "resume")) return undefined;
+    if (validGates.size === 1) return [...validGates][0];
+    return undefined;
   };
 
   pi.on("message_end", async (event: any, ctx) => {
@@ -757,7 +786,7 @@ export default function (pi: ExtensionAPI) {
       // dispatch is treated as an implicit none-turn. Withholding it on
       // NO_TURN_TAG ends the turn (a withheld final message needs a manual user
       // poke) — the dead-end this guard removes. Scoped to ingest-after-clerk;
-      // teach/resume turns keep the strict tag contract.
+      // teach/resume summaries still need an explicit tag or a bound receipt.
       const inferredNone =
         !tagMatch &&
         ((run.flow === "ingest" && run.clerkCalled) ||
@@ -766,14 +795,14 @@ export default function (pi: ExtensionAPI) {
           // review_session receipt below); a transition without summary markers
           // is not, so it cannot be held hostage by arming the gate.
           (run.flow === "review" && run.reviewSessionWrote && looksLikeReviewSummary(text)));
-      // Review turns are dominated by grade/quiz and each is tightly bound to a
-      // verifier receipt, so a forgotten tag can be inferred from the receipt.
+      // Grade/quiz turns are tightly bound to a verifier receipt, so a
+      // forgotten tag can be inferred from it in any interactive flow.
       // The same dead-end guard as the ingest `inferredNone` path: a weak Tutor
-      // that drops `[[TURN:...]]` after a long foreground verification would
+      // that drops `[[TURN:...]]` after a (often async) verification would
       // otherwise withhold the message, end the turn, and need a manual poke.
       let inferredTag: "grade" | "quiz" | undefined;
       if (!tagMatch && !inferredNone) {
-        inferredTag = inferReviewTurn(text);
+        inferredTag = inferTaggedTurn(text);
         if (!inferredTag) blockers.push("NO_TURN_TAG");
       }
       const tag = explicitTag || inferredTag || (inferredNone ? "none" : undefined);
@@ -953,7 +982,7 @@ export default function (pi: ExtensionAPI) {
         "grade: send question + raw learner answer + claimed verdict; use the verifier's `correct_verdict`.",
         "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch and fold its verdict before the summary.",
         "ingest: the clerk result must include a `REVIEW_GATE_VERDICT` marker (PASS or PASS_WITH_FLAGS).",
-        "review: grade/quiz turns are accepted from a bound verifier receipt even if the tag is dropped; if you see NO_TURN_TAG here, no receipt bound this exact text — dispatch the verifier for the content you are emitting.",
+        "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review close: after writing the Review notes / session note / touched rows, dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files/state_rows), then summarize; a PASS/PASS_WITH_FLAGS renders clean and an ISSUES verdict renders with a flags banner (no re-run, cap 2 passes).",
       ].join("\n");
       const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";

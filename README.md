@@ -86,7 +86,10 @@ content-matched verification (generation-to-emission — "verify A, emit B" is b
   - `[[TURN:quiz]]` → requires a PASS (or flagged PASS_WITH_FLAGS) `quiz-audit`
   - `[[TURN:grade]]` → requires an agreeing `grade-audit`
   - `[[TURN:none]]` → no verifier required
-- A missing tag is withheld (`NO_TURN_TAG`); a `none` tag over text that matches an unused
+- A missing tag is withheld (`NO_TURN_TAG`) — **except** a grade/quiz turn, which the gate infers
+  from a `grade-audit`/`quiz-audit` receipt (a bound match, or the single valid pending receipt when
+  an async verifier's completion notification carries no draft) so a dropped tag cannot dead-end the
+  session. `claims`/`none` are never inferred. A `none` tag over text that matches an unused
   verification draft is withheld too (`TURN_TAG_MISMATCH`).
 
 Behavior: up to 2 withheld retries per turn (counter resets on each clean pass), then the turn is surfaced with an `⛔ UNVERIFIED`
