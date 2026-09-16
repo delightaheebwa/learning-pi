@@ -254,6 +254,59 @@ interface CallRef {
   agent: string;
   gate?: string;
   envelope?: any;
+  output?: string;
+}
+
+/** Source inside the balanced `(`…`)` pair whose opening paren sits at `openIdx`. */
+function sliceBalanced(text: string, openIdx: number): string | undefined {
+  const open = text[openIdx];
+  const close = open === "(" ? ")" : open === "[" ? "]" : open === "{" ? "}" : "";
+  if (!close) return undefined;
+  let depth = 0;
+  let quote = "";
+  let esc = false;
+  for (let i = openIdx; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === quote) quote = "";
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === open) depth++;
+    else if (ch === close) {
+      depth--;
+      if (depth === 0) return text.slice(openIdx + 1, i);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Agent names launched by a pi-subagents workflow script (`runs.run(key, …)` /
+ * `runs.all([…])`). Only these names are needed at dispatch time — the caps and
+ * the scout/clerk flags — because the tool result carries each child's envelope
+ * and output structurally in `details.results`. The scan is fenced to the
+ * `runs.run`/`runs.all` argument lists so an `agent:` word inside a task string
+ * cannot inject a phantom child.
+ */
+function workflowScriptAgents(script: string): string[] {
+  const agents: string[] = [];
+  const callRe = /\bruns\s*\.\s*(?:run|all)\s*\(/g;
+  let call: RegExpExecArray | null;
+  while ((call = callRe.exec(script))) {
+    const paren = script.indexOf("(", call.index);
+    const body = paren >= 0 ? sliceBalanced(script, paren) : undefined;
+    if (!body) continue;
+    const agentRe = /\bagent\s*:\s*(["'`])([\w.-]+)\1/g;
+    let m: RegExpExecArray | null;
+    while ((m = agentRe.exec(body))) agents.push(m[2]);
+  }
+  return agents;
 }
 
 function subagentCalls(input: any): CallRef[] {
@@ -269,7 +322,47 @@ function subagentCalls(input: any): CallRef[] {
     const arr = (input as any)[key];
     if (Array.isArray(arr)) for (const t of arr) push(t?.agent, t?.task);
   }
+  // pi-subagents >= 0.68 replaced the legacy top-level `chain`/`tasks` inputs
+  // with a workflow script (`runs.run(key, {agent, task})` / `runs.all([...])`).
+  // Without this the gate saw no child, minted no receipt, and every workflow
+  // verifier dispatch dead-ended (e.g. NO_QUIZ_AUDIT_PASS after a foreground
+  // workflow quiz-audit). Management actions (validate/status/list/…) launch
+  // nothing and are ignored.
+  if (input.action === undefined && typeof input.workflowScript === "string") {
+    for (const agent of workflowScriptAgents(input.workflowScript)) out.push({ agent });
+  }
   return out;
+}
+
+/**
+ * Resolve the child calls behind a `subagent` tool result.
+ *
+ * pi-subagents >= 0.68 reports workflow children structurally in
+ * `details.results` (`agent`, `task` JSON, `finalOutput`) — the only reliable
+ * place to recover a workflow child's envelope and output. Fall back to the
+ * calls captured from the request input for legacy single/chain shapes and
+ * async fan-out notices (which carry no immediate output; the notify fallback
+ * mints those receipts later).
+ */
+function resultCalls(event: any, text: string, pending: CallRef[]): CallRef[] {
+  const results = event?.details?.results;
+  if (Array.isArray(results) && results.length > 0) {
+    const out: CallRef[] = [];
+    for (const r of results) {
+      if (!r || typeof r.agent !== "string") continue;
+      const finalOutput = typeof r.finalOutput === "string" ? r.finalOutput : undefined;
+      if (!finalOutput) continue; // async/pending child — the notify fallback mints it
+      const env = parseTask(r.task);
+      out.push({
+        agent: r.agent,
+        envelope: env,
+        gate: env && typeof env.gate === "string" ? env.gate : undefined,
+        output: finalOutput,
+      });
+    }
+    if (out.length > 0) return out;
+  }
+  return pending.map((c) => ({ ...c, output: text }));
 }
 
 function resultText(ev: any): string {
@@ -641,19 +734,20 @@ export default function (pi: ExtensionAPI) {
       const text = resultText(event);
       const tool = typeof event?.toolName === "string" ? event.toolName.toLowerCase() : "";
       if (tool === "subagent") {
-        const calls = (event?.toolCallId && pendingCalls.get(event.toolCallId)) || [];
+        const pending = (event?.toolCallId && pendingCalls.get(event.toolCallId)) || [];
         if (event?.toolCallId) pendingCalls.delete(event.toolCallId);
-        for (const call of calls) {
+        for (const call of resultCalls(event, text, pending)) {
+          const output = call.output || text;
           const gate = VERIFIER_AGENTS[call.agent];
           if (gate) {
             // Right envelope for the right agent — a fact-check envelope on a
             // quiz-audit call (or vice versa) mints nothing.
             const expected = EXPECTED_ENVELOPE_GATE[call.agent];
             if (call.envelope && call.gate && expected && call.gate !== expected) continue;
-            addReceipt(parseResult(text, gate, call.envelope));
+            addReceipt(parseResult(output, gate, call.envelope));
           }
           if (call.agent === "clerk") {
-            const r = parseClerkReview(text);
+            const r = parseClerkReview(output);
             if (r) addReceipt(r);
           }
         }
