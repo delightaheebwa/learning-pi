@@ -31,7 +31,7 @@ Teaching verification runs as **foreground** subagent tasks with **envelope sche
 >
 > The gate checks the envelope type against the turn content. A right envelope for the wrong turn type is still a block. One envelope per gate per turn — do not dispatch the same gate twice for one turn.
 
-All gates dispatch as ONE **foreground** `subagent` call per gate with a JSON envelope. The verifier runs on its own configured model, independent of the Tutor, so treat its verdict as stronger evidence than a self-check — but the deterministic gate checks (claim ⊆ rendered ⊆ emitted, quiz option parity, file grounding) are the real enforcement.
+All gates dispatch as ONE `subagent` call per gate with a JSON envelope: `subagent({ agent: "<verifier>", task: <envelope JSON>, async: false })` (direct child), or the same child inside `subagent({ workflowScript: "runs.run('k', { agent: '<verifier>', task: ... })" })`. Use `async: false` (foreground) when you want the verdict in the tool result; an async dispatch returns a fan-out notice and the verdict arrives as a completion notification. The gate mints the receipt from either path, but wait for the verdict before emitting. `action: "validate"`/`"status"` only inspect a script or a run and do **not** launch a child — never use them to dispatch a verifier. The verifier runs on its own configured model, independent of the Tutor, so treat its verdict as stronger evidence than a self-check — but the deterministic gate checks (claim ⊆ rendered ⊆ emitted, quiz option parity, file grounding) are the real enforcement.
 
 Rules:
 

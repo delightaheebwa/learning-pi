@@ -767,17 +767,21 @@ export default function (pi: ExtensionAPI) {
   const NOTIFY_FALLBACK_SKIP = new Set(["fact_check"]);
 
   /**
-   * Mint a receipt from an async subagent completion notification.
+   * Mint a receipt from an async/detached subagent completion notification.
    *
    * Async subagent results reach the parent as `subagent-notify` custom
    * messages (the dispatch's tool result is only the fan-out notice), so a
    * completed verifier/clerk run can otherwise be invisible to the gate.
-   * Idempotent (skip a gate that already has a valid receipt) and fail-open;
-   * non-notification text is a no-op.
+   * pi-subagents emits `Background task completed: **agent**` for async runs
+   * and `Detached foreground task completed: **agent**` for a foreground run
+   * that was later detached — both carry the child's output preview, so accept
+   * either. Idempotent (skip a gate that already has a valid receipt) and
+   * fail-open; non-notification text is a no-op.
    */
+  const NOTIFY_HEADER_RE = /(?:Background task|Detached foreground task) completed:\s*\*\*([\w-]+)\*\*/i;
   const mintFromNotification = (text: string): void => {
-    if (!text || !text.includes("Background task completed:")) return;
-    const agent = text.match(/Background task completed:\s*\*\*([\w-]+)\*\*/i)?.[1]?.toLowerCase();
+    if (!text || !NOTIFY_HEADER_RE.test(text)) return;
+    const agent = text.match(NOTIFY_HEADER_RE)?.[1]?.toLowerCase();
     if (!agent) return;
     if (agent === "clerk") {
       if (run.receipts.some((r) => r.gate === "review" && r.valid)) return;

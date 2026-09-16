@@ -130,10 +130,12 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 The gate **fails open** on internal errors and **only acts in learning flows** — normal coding work
 in the repo is never gated.
 
-Subagent runs are async: the dispatch's tool result is only a fan-out notice, and the verdict
-arrives later as a `subagent-notify` custom message. The gate mints verifier/clerk receipts from
-that completion (from the dispatch result and from the custom notification), so a completed
-`tutor-audit`/`review-gate`/`clerk` run is never lost — wait for it before emitting the summary.
+A verifier/clerk dispatch runs **foreground** (`async: false`) or **async** (the default). Foreground
+returns the verdict in the tool result; async returns only a fan-out notice and the verdict arrives
+later as a `subagent-notify` custom message. The gate mints receipts from either path — the
+dispatch result (`details.results`) and the completion notification (`Background task completed:` /
+`Detached foreground task completed:`) — so a completed `tutor-audit`/`review-gate`/`clerk` run is
+never lost. Either way, wait for the verdict before emitting the summary.
 
 ---
 
@@ -194,7 +196,8 @@ prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flo
 - **Verifier can't read the repo** → the Tutor's cwd must be `~/learning-system`.
 - **Model keeps forgetting turn tags** → consider a stronger Tutor model in `.pi/settings.json`.
 - **Withheld banner says a `subagent` call omitted the `agent` field** → that dispatch minted no
-  receipt; the model must pass `agent: "<name>"` (e.g. `tutor-audit`) in the subagent call.
+  receipt; the model must name the verifier (e.g. `tutor-audit`) as the subagent's `agent` field, or
+  as the `agent` inside `runs.run(...)` when using a workflow script.
 - **State looks stale after Open WebUI use** → `git pull` in `~/learning-system`.
 
 ---
