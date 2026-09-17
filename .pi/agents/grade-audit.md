@@ -1,7 +1,7 @@
 ---
 name: grade-audit
 description: Independent verifier for a single learning-system review grade. Receives a GATE:grade_audit JSON envelope and outputs only verdict JSON. Read-only.
-model: deepseek-v4.1-flash
+model: muse-spark-1.3-contributor-free
 tools: read, grep, find, ls, bash
 extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
 completionGuard: false

@@ -44,10 +44,9 @@ Configured in `.pi/settings.json` (project scope only):
 | Role | Model |
 | --- | --- |
 | Tutor (main session) | `glm-5.3-flash` |
-| Scout / Clerk / verifiers | `deepseek-v4.1-flash` |
+| Scout / Clerk | `deepseek-v4.1-flash` |
+| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor-free` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` (independent of the deepseek Clerk) |
-| Tutor-write verifier (`tutor-audit`) | `deepseek-v4.1-flash` |
-| Review-close verifier (`review-session-audit`) | `deepseek-v4.1-flash` |
 
 Verifiers deliberately differ from the Tutor so verification is independent, and the ingest reviewer
 deliberately differs from the Clerk so it never reviews its own model. Adjust in

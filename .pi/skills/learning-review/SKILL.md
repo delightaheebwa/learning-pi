@@ -15,14 +15,14 @@ Lesson files, learning records, and glossary entries promoted by lessons are ver
 
 A second gate covers the writes a standalone review persists: the `Reviews/Review — [Concept] — [Date].md` note(s), the `Sessions/Session — …md` note, and the touched `📚 Active Concepts.md` / `🧯 Mistakes.md` rows. Per-grade `grade-audit` validates each verdict as it is presented; this gate validates the **persisted writes** against the transcript and those verdicts.
 
-- Verifier: the `review-session-audit` subagent (`deepseek-v4.1-flash`, read-only), envelope `{"gate":"review_session","concepts":[...],"transcript":"exact Q/A + learner answers + claimed verdicts","grade_verdicts":[{"concept","correct_verdict"}],"written_files":[{"path","content"}],"state_rows":"...","pass_number":N}`.
+- Verifier: the `review-session-audit` subagent (`muse-spark-1.3-contributor-free`, high, read-only), envelope `{"gate":"review_session","concepts":[...],"transcript":"exact Q/A + learner answers + claimed verdicts","grade_verdicts":[{"concept","correct_verdict"}],"written_files":[{"path","content"}],"state_rows":"...","pass_number":N}`.
 - The `learning-gate` arms the gate when the review writes its session note and withholds the closing summary until a receipt exists (`NO_REVIEW_SESSION_AUDIT`). An untagged closing summary is treated as implicit `[[TURN:none]]` once the receipt is present — a dropped tag never dead-ends the session.
 - Verdict: `PASS|PASS_WITH_FLAGS|ISSUES` + `issues` + `context_notes`. `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner, **never** withheld or re-run; hard cap **2 passes per flow**.
 - Scope is fenced: MISSION/CURRICULUM/Learning Profile/Learner History/`Knowledge Wiki/`/git drift → `context_notes`, never `issues` (state drift is `audit_state.py`'s job; the wiki is `review-gate`'s job).
 
 ## Config
 
-- Verifier: the `review-gate` subagent (`subagent({ agent: "review-gate", task: <envelope JSON> })`), running on `muse-spark-1.3-contributor` — an independent model from the Tutor (`glm`) and from the deepseek Clerk/verifiers.
+- Verifier: the `review-gate` subagent (`subagent({ agent: "review-gate", task: <envelope JSON> })`), running on `muse-spark-1.3-contributor` — an independent model from the Tutor (`glm`) and from the deepseek Clerk.
 - The gate is enforced by the `learning-gate` extension (a matching receipt must exist) plus the fixed `review-gate` agent prompt. Do not bypass either.
 - Envelope schema: `{"gate":"review","concepts":[...],"target_files":[{"path","content"}],"out_of_scope":[...],"source_url"|"source_file"|"lesson_ref","pass_number":N}`.
 - Verdict: `{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","issues":[{"severity","location","issue"}],"context_notes":[{"location","note"}]}`.

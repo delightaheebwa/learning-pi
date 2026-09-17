@@ -5,11 +5,11 @@
     "agentOverrides": {
       "scout": { "model": "deepseek-v4.1-flash", "thinking": "high" },
       "clerk": { "model": "deepseek-v4.1-flash" },
-      "fact-check": { "model": "deepseek-v4.1-flash" },
-      "quiz-audit": { "model": "deepseek-v4.1-flash" },
-      "grade-audit": { "model": "deepseek-v4.1-flash" },
-      "tutor-audit": { "model": "deepseek-v4.1-flash" },
-      "review-session-audit": { "model": "deepseek-v4.1-flash" },
+      "fact-check": { "model": "muse-spark-1.3-contributor-free", "thinking": "high" },
+      "quiz-audit": { "model": "muse-spark-1.3-contributor-free", "thinking": "high" },
+      "grade-audit": { "model": "muse-spark-1.3-contributor-free", "thinking": "high" },
+      "tutor-audit": { "model": "muse-spark-1.3-contributor-free", "thinking": "high" },
+      "review-session-audit": { "model": "muse-spark-1.3-contributor-free", "thinking": "high" },
       "review-gate": { "model": "muse-spark-1.3-contributor" }
     }
   }

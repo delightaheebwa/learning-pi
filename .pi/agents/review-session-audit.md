@@ -1,7 +1,7 @@
 ---
 name: review-session-audit
 description: Independent verifier for a standalone review session's end-of-review writes — the Review note(s), session note, and touched Active Concepts / Mistakes / Attempts rows. Receives a GATE:review_session JSON envelope and outputs only verdict JSON. Read-only.
-model: deepseek-v4.1-flash
+model: muse-spark-1.3-contributor-free
 tools: read, grep, find, ls
 completionGuard: false
 acceptanceRole: read-only
