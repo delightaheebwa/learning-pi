@@ -1,7 +1,7 @@
 ---
 name: fact-check
 description: Independent verifier for learning-system teaching claims. Receives a GATE:fact_check JSON envelope and outputs only verdict JSON. Read-only.
-model: muse-spark-1.3-contributor-free
+model: muse-spark-1.3-contributor
 tools: read, grep, find, ls, bash
 extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
 completionGuard: false

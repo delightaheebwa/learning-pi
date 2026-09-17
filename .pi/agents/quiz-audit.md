@@ -1,7 +1,7 @@
 ---
 name: quiz-audit
 description: Independent verifier for learning-system question batches. Receives a GATE:quiz_audit JSON envelope and outputs only verdict JSON. Read-only; never sees learner answers.
-model: muse-spark-1.3-contributor-free
+model: muse-spark-1.3-contributor
 tools: read, grep, find, ls, bash
 extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
 completionGuard: false

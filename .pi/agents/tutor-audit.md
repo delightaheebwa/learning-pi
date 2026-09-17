@@ -1,7 +1,7 @@
 ---
 name: tutor-audit
 description: Independent shape/consistency verifier for the Tutor's handoff writes — lesson file, session note, learning record, and Pending Ingest handoff. Receives a GATE:tutor_audit JSON envelope and outputs only verdict JSON. Read-only.
-model: muse-spark-1.3-contributor-free
+model: muse-spark-1.3-contributor
 tools: read, grep, find, ls
 extensions:
 completionGuard: false

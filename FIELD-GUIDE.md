@@ -147,7 +147,7 @@ Set in `~/learning-pi/.pi/settings.json` (project scope only):
 | --- | --- |
 | Tutor (your session) | `glm-5.3-flash` |
 | Scout / Clerk | `deepseek-v4.1-flash` |
-| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor-free` (high) |
+| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` |
 
 Verifiers deliberately differ from the Tutor so verification is independent, and the ingest reviewer
