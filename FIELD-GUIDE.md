@@ -128,7 +128,10 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `⛔ UNVERIFIED` | retries exhausted (2); content shown unverified | review it manually |
 
 The gate **fails open** on internal errors and **only acts in learning flows** — normal coding work
-in the repo is never gated.
+in the repo is never gated. A partial generation (the model errored, was aborted, or hit the token
+cap mid-message) passes through ungated and **does not consume a receipt**, so the retried message
+still binds to it — this is why an interrupted grade turn no longer dead-ends on
+`NO_GRADE_AUDIT_PASS`.
 
 A verifier/clerk dispatch runs **foreground** (`async: false`) or **async** (the default). Foreground
 returns the verdict in the tool result; async returns only a fan-out notice and the verdict arrives

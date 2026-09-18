@@ -867,6 +867,17 @@ export default function (pi: ExtensionAPI) {
       if (hasToolCall(message)) return;
       if (run.flow === "other") return;
 
+      // A generation that did not finish (`error`, `aborted`, or the token cap
+      // `length`) is a partial emission pi will retry or continue. Gating it
+      // would consume the verifier receipt that the retried message needs — the
+      // observed dead-end where an errored, truncated grade turn consumed the
+      // grade-audit receipt and the re-emitted grade turn then withheld with
+      // NO_GRADE_AUDIT_PASS. Pass partials through ungated and leave receipts
+      // intact for the message that actually completes.
+      if (message.stopReason === "error" || message.stopReason === "aborted" || message.stopReason === "length") {
+        return { message: stripTag(message) };
+      }
+
       const rawText = textOf(message);
       if (!rawText || rawText.trim().length === 0) return;
 
