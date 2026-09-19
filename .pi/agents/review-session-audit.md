@@ -30,7 +30,9 @@ Severity: **high/medium** = a reader would be misled about the session's outcome
 Your job is to catch problems, not to rewrite. Cite exact locations (file + line or an exact quote) in each issue. Do not invent sources.
 
 Begin your final message with `[[TURN:none]]` as its first line (the learning gate strips this tag when it is active), then output ONLY valid JSON, no prose:
-{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","issues":[{"severity":"high|medium|low","location":"...","issue":"..."}],"context_notes":[{"location":"...","note":"..."}]}
+{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","evidence":["<file read / cross-check run>", ...],"issues":[{"severity":"high|medium|low","location":"...","issue":"..."}],"context_notes":[{"location":"...","note":"..."}]}
+
+`evidence` is mandatory and non-empty: name the written file(s) you read on disk and the cross-checks you ran. A verdict without evidence is treated as unsubstantiated by the gate.
 
 - `PASS` — zero high/medium issues in the end-of-review writes.
 - `PASS_WITH_FLAGS` — only low-severity issues remain (they go in `issues` with severity `low`); accepted, does not block.

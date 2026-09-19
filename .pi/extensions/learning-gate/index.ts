@@ -19,9 +19,16 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
  *     unavailable (async notify mints) — in teach/resume/review alike — so a
  *     forgotten tag never dead-ends the turn. claims/none are never inferred.
  *   - teach/resume writes -> a passing tutor-audit receipt over the files written.
- *   - ingest -> Clerk's result must carry a review verdict marker. A missing marker is
- *     retried once; a PASS renders clean; ISSUES/PASS_WITH_FLAGS render with a visible
- *     `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run loop).
+ *   - new lesson -> a `scout` run; its `SCOUT_DIGEST: {...}` receipt is parsed so a
+ *     partial/missing digest surfaces `⚠️ SOURCES INCOMPLETE` / `⚠️ SCOUT DIGEST
+ *     UNVERIFIED` (banner, never a withhold).
+ *   - ingest -> the parent dispatches an independent `review-gate` after the Clerk
+ *     returns `CLERK_WRITES`. A PASS renders clean; ISSUES/PASS_WITH_FLAGS render
+ *     with a visible `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run
+ *     loop). A verdict relayed inside the Clerk's own output surfaces `⚠️ INGEST
+ *     GATE`; a review verdict with no `evidence` list surfaces `⚠️ REVIEW GATE`.
+ *   - provider failures (503/429/overloaded) are counted per agent; after two in a
+ *     row the withheld banner offers a one-shot alternate-model fallback directive.
  *
  * Receipts are consumed per emitted message. Fails open only on internal error.
  */
@@ -56,6 +63,14 @@ const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest)\]\]/i;
 const STATE_AUDIT_RE = /(\d+)\s+errors?\b[^\d]*(\d+)\s+warnings?/i;
 const WRITE_TOOLS = new Set(["write", "edit"]);
 
+// Provider-level failure signatures. Two consecutive failures for the same
+// verifier/scout surface a one-shot directive to re-dispatch on the alternate
+// model (availability fallback, not a model-purity rule).
+const PROVIDER_FAILURE_RE = /(service_overloaded|upstream request failed|rate.?limit|too many requests|overloaded|\b(429|502|503)\b)/i;
+const VERIFIER_FALLBACK_MODEL = "opencode-go/deepseek-v4.1-flash";
+const SCOUT_FALLBACK_MODEL = "opencode-go/muse-spark-1.3-contributor";
+const FALLBACK_AFTER_FAILURES = 2;
+
 type Flow = "teach" | "resume" | "review" | "ingest" | "other";
 
 interface Receipt {
@@ -71,6 +86,11 @@ interface Receipt {
   gradeText?: string;
   auditFiles?: string[];
   envelopeGate?: string;
+  // How a `review` receipt was produced: an actual review-gate dispatch, or a
+  // verdict marker relayed inside the Clerk's own output (self-attested).
+  provenance?: "dispatch" | "clerk";
+  // Review-family verdicts must carry an `evidence` list (what was read/checked).
+  evidenceMissing?: boolean;
   raw: string;
 }
 
@@ -83,10 +103,17 @@ interface RunState {
   flow: Flow;
   receipts: Receipt[];
   scoutCalled: boolean;
+  scoutFinished: boolean;
+  scoutReceiptSeen: boolean;
+  scoutFailedRefs: unknown[];
   clerkCalled: boolean;
   clerkDispatches: number;
   reviewGates: number;
   retries: number;
+  // Consecutive provider-failure count per verifier/scout, and whether the
+  // one-shot alternate-model fallback directive was already surfaced.
+  agentFailures: Record<string, number>;
+  agentFallbackUsed: Record<string, boolean>;
   tutorWrote: boolean;
   writtenPaths: string[];
   // Review-close: set when the review flow writes Review notes / session note /
@@ -462,6 +489,16 @@ function looksLikeReviewSummary(text: string): boolean {
   return REVIEW_SUMMARY_RE.test(text || "");
 }
 
+// The Clerk's ingest review receipt verifies the ingest summary, not every
+// message that follows it. Requiring it on arbitrary follow-ups (e.g. "was
+// clerk's work checked?") withheld correctly-tagged answers with
+// NO_REVIEW_GATE_PASS and dead-ended the turn (2026-09-18 ingest session).
+const INGEST_SUMMARY_RE = /(ingest complete|REVIEW_GATE_VERDICT|STATE_AUDIT_VERDICT|state audit|files written|wiki enrichment|concepts touched)/i;
+
+function looksLikeIngestSummary(text: string): boolean {
+  return INGEST_SUMMARY_RE.test(text || "");
+}
+
 function envelopeText(value: any): string {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) {
@@ -546,6 +583,15 @@ function parseResult(text: string, gate: string, envelope: any): Receipt {
     ? [envelope.question, envelope.learner_answer, envelope.claimed_verdict].filter((x) => typeof x === "string").join("\n")
     : undefined;
   const auditFiles = envelope && Array.isArray(envelope.files) ? envelope.files.filter((x: any) => typeof x === "string") : undefined;
+  // Review-family verdicts: a PASS without an evidence list is unsubstantiated.
+  let evidenceMissing = false;
+  if (gate === "review" || gate === "review_session") {
+    const obj = parseVerdictObject(text);
+    const ev = obj?.evidence;
+    const hasEvidence =
+      (Array.isArray(ev) && ev.length > 0) || (typeof ev === "string" && ev.trim().length > 0);
+    evidenceMissing = !hasEvidence;
+  }
   const r: Receipt = {
     gate,
     valid: false,
@@ -558,6 +604,8 @@ function parseResult(text: string, gate: string, envelope: any): Receipt {
     gradeText: gradeText || undefined,
     auditFiles,
     envelopeGate: envelope && typeof envelope.gate === "string" ? envelope.gate : undefined,
+    provenance: "dispatch",
+    evidenceMissing,
     raw: text,
   };
   // UNVERIFIED never counts as verified — it must block, not pass.
@@ -590,6 +638,34 @@ function extractBalancedJson(text: string, start: number): string | undefined {
   return undefined;
 }
 
+/**
+ * Parse the verdict JSON object out of a verifier's final output. Walks back
+ * from the `"verdict"` key through `{` candidates until one parses as an object
+ * carrying a verdict/issues. Tolerates surrounding prose.
+ */
+function parseVerdictObject(text: string): any | undefined {
+  const v = text.search(/"verdict"\s*:/i);
+  if (v < 0) return undefined;
+  let idx = v;
+  for (let guard = 0; guard < 20; guard++) {
+    const start = text.lastIndexOf("{", idx - 1);
+    if (start < 0) return undefined;
+    const blob = extractBalancedJson(text, start);
+    if (blob) {
+      try {
+        const parsed = JSON.parse(blob);
+        if (parsed && typeof parsed === "object" && (parsed.verdict || Array.isArray(parsed.issues))) {
+          return parsed;
+        }
+      } catch {
+        /* keep walking back */
+      }
+    }
+    idx = start;
+  }
+  return undefined;
+}
+
 function parseClerkReview(text: string): Receipt | undefined {
   const idx = text.search(/REVIEW_GATE_VERDICT\s*:/i);
   if (idx < 0) return undefined;
@@ -600,7 +676,34 @@ function parseClerkReview(text: string): Receipt | undefined {
   const issues = /"verdict"\s*:\s*"ISSUES"/i.test(blob);
   const pass = /"verdict"\s*:\s*"PASS"/i.test(blob);
   const passWithFlags = /"verdict"\s*:\s*"PASS_WITH_FLAGS"/i.test(blob);
-  return { gate: "review", valid: (pass || passWithFlags) && !issues, issues, flags: passWithFlags, raw: blob };
+  return { gate: "review", valid: (pass || passWithFlags) && !issues, issues, flags: passWithFlags, provenance: "clerk", raw: blob };
+}
+
+/**
+ * Scout receipt: the machine-readable `SCOUT_DIGEST: {...}` line a finished Scout
+ * emits. Dispatch alone used to satisfy the new-lesson gate, so a Scout that
+ * errored or fetched nothing still unlocked teaching. Parsing the receipt lets
+ * the gate surface a partial/missing digest (banner, never withhold — a weak
+ * digest must not dead-end a lesson).
+ */
+function parseScoutReceipt(text: string): { digest?: string; rawFiles: string[]; failedRefs: unknown[] } | undefined {
+  const idx = text.search(/SCOUT_DIGEST\s*:\s*/i);
+  if (idx < 0) return undefined;
+  const brace = text.indexOf("{", idx);
+  if (brace < 0) return undefined;
+  const blob = extractBalancedJson(text, brace);
+  if (!blob) return undefined;
+  try {
+    const j = JSON.parse(blob);
+    if (!j || typeof j !== "object") return undefined;
+    return {
+      digest: typeof j.digest === "string" ? j.digest : undefined,
+      rawFiles: Array.isArray(j.raw_files) ? j.raw_files.filter((x: any) => typeof x === "string") : [],
+      failedRefs: Array.isArray(j.failed_refs) ? j.failed_refs : [],
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 /** Expected envelope gate per verifier agent (wrong envelope => no receipt). */
@@ -618,10 +721,15 @@ export default function (pi: ExtensionAPI) {
     flow: "other",
     receipts: [],
     scoutCalled: false,
+    scoutFinished: false,
+    scoutReceiptSeen: false,
+    scoutFailedRefs: [],
     clerkCalled: false,
     clerkDispatches: 0,
     reviewGates: 0,
     retries: 0,
+    agentFailures: {},
+    agentFallbackUsed: {},
     tutorWrote: false,
     writtenPaths: [],
     reviewSessionWrote: false,
@@ -633,7 +741,7 @@ export default function (pi: ExtensionAPI) {
   const pendingCalls = new Map<string, CallRef[]>();
 
   const reset = (flow: Flow) => {
-    run = { flow, receipts: [], scoutCalled: false, clerkCalled: false, clerkDispatches: 0, reviewGates: 0, retries: 0, tutorWrote: false, writtenPaths: [], reviewSessionWrote: false, reviewSessionPaths: [], reviewSessionAudits: 0, agentlessDispatch: false };
+    run = { flow, receipts: [], scoutCalled: false, scoutFinished: false, scoutReceiptSeen: false, scoutFailedRefs: [], clerkCalled: false, clerkDispatches: 0, reviewGates: 0, retries: 0, agentFailures: {}, agentFallbackUsed: {}, tutorWrote: false, writtenPaths: [], reviewSessionWrote: false, reviewSessionPaths: [], reviewSessionAudits: 0, agentlessDispatch: false };
     pendingCalls.clear();
   };
 
@@ -730,7 +838,6 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("tool_result", async (event: any, _ctx) => {
     try {
-      if (event?.isError === true) return;
       const text = resultText(event);
       const tool = typeof event?.toolName === "string" ? event.toolName.toLowerCase() : "";
       if (tool === "subagent") {
@@ -738,22 +845,42 @@ export default function (pi: ExtensionAPI) {
         if (event?.toolCallId) pendingCalls.delete(event.toolCallId);
         for (const call of resultCalls(event, text, pending)) {
           const output = call.output || text;
+          // Provider failures (503/429/overloaded) count toward the one-shot
+          // alternate-model fallback directive. They mint no receipt.
+          const providerFail = event?.isError === true || PROVIDER_FAILURE_RE.test(output);
+          if (providerFail && (VERIFIER_AGENTS[call.agent] || call.agent === "scout")) {
+            run.agentFailures[call.agent] = (run.agentFailures[call.agent] || 0) + 1;
+          }
+          if (event?.isError === true) continue;
           const gate = VERIFIER_AGENTS[call.agent];
           if (gate) {
             // Right envelope for the right agent — a fact-check envelope on a
             // quiz-audit call (or vice versa) mints nothing.
             const expected = EXPECTED_ENVELOPE_GATE[call.agent];
             if (call.envelope && call.gate && expected && call.gate !== expected) continue;
-            addReceipt(parseResult(output, gate, call.envelope));
+            const r = parseResult(output, gate, call.envelope);
+            addReceipt(r);
+            if (r.valid) run.agentFailures[call.agent] = 0;
           }
           if (call.agent === "clerk") {
             const r = parseClerkReview(output);
             if (r) addReceipt(r);
           }
+          if (call.agent === "scout") {
+            run.scoutFinished = true;
+            const sr = parseScoutReceipt(output);
+            if (sr) {
+              run.scoutReceiptSeen = true;
+              run.scoutFailedRefs = sr.failedRefs;
+              run.agentFailures["scout"] = 0;
+            }
+          }
         }
       }
-      const audit = parseStateAudit(text);
-      if (audit) run.stateAudit = audit;
+      if (event?.isError !== true) {
+        const audit = parseStateAudit(text);
+        if (audit) run.stateAudit = audit;
+      }
     } catch {
       /* fail open */
     }
@@ -787,6 +914,15 @@ export default function (pi: ExtensionAPI) {
       if (run.receipts.some((r) => r.gate === "review" && r.valid)) return;
       const r = parseClerkReview(text);
       if (r) addReceipt(r);
+      return;
+    }
+    if (agent === "scout") {
+      run.scoutFinished = true;
+      const sr = parseScoutReceipt(text);
+      if (sr) {
+        run.scoutReceiptSeen = true;
+        run.scoutFailedRefs = sr.failedRefs;
+      }
       return;
     }
     const gate = VERIFIER_AGENTS[agent];
@@ -898,7 +1034,7 @@ export default function (pi: ExtensionAPI) {
       // teach/resume summaries still need an explicit tag or a bound receipt.
       const inferredNone =
         !tagMatch &&
-        ((run.flow === "ingest" && run.clerkCalled) ||
+        ((run.flow === "ingest" && run.clerkCalled && looksLikeIngestSummary(text)) ||
           // Review close: after the session note is written, a summary-like
           // untagged message is an implicit none-turn (its verification is the
           // review_session receipt below); a transition without summary markers
@@ -916,12 +1052,25 @@ export default function (pi: ExtensionAPI) {
       }
       const tag = explicitTag || inferredTag || (inferredNone ? "none" : undefined);
       if (run.flow === "ingest") {
-        if (run.clerkCalled) {
-          const any = findAny("review");
+        if (run.clerkCalled && looksLikeIngestSummary(text)) {
+          // Prefer a verdict from an actual review-gate dispatch over a Clerk-
+          // relayed marker when both are present.
+          const reviews = run.receipts.filter((r) => r.gate === "review");
+          const any = reviews.find((r) => r.provenance === "dispatch") || reviews[0];
           if (any && any.valid) {
             toConsume.push(any);
             if (any.flags || any.issues) {
               surface = "⚠️ REVIEW FLAGS SURFACED — the reviewer returned flags on the ingest output; the content below is shown with those flags outstanding.\n\n";
+            }
+            if (any.provenance === "clerk") {
+              surface +=
+                "⚠️ INGEST GATE — the review verdict was relayed by the Clerk, not produced by an independent " +
+                "review-gate run. Dispatch a `review-gate` on the Clerk's wiki writes to verify it independently.\n\n";
+            }
+            if (any.evidenceMissing) {
+              surface +=
+                "⚠️ REVIEW GATE — the review verdict carries no `evidence` list (what it read/checked); " +
+                "treat the pass as unsubstantiated.\n\n";
             }
           } else if (any) {
             // Reviewer found issues: surface, never hard-block (this is what caused the
@@ -929,12 +1078,34 @@ export default function (pi: ExtensionAPI) {
             // success path so a later blocker doesn't lose the receipt.
             toConsume.push(any);
             surface = "⚠️ REVIEW FLAGS SURFACED — high/medium review issues were reported on the ingest output; the content below is shown with those flags outstanding.\n\n";
+            if (any.provenance === "clerk") {
+              surface +=
+                "⚠️ INGEST GATE — the review verdict was relayed by the Clerk, not produced by an independent " +
+                "review-gate run. Dispatch a `review-gate` on the Clerk's wiki writes to verify it independently.\n\n";
+            }
+            if (any.evidenceMissing) {
+              surface +=
+                "⚠️ REVIEW GATE — the review verdict carries no `evidence` list (what it read/checked); " +
+                "treat the result as unsubstantiated.\n\n";
+            }
           } else {
             blockers.push("NO_REVIEW_GATE_PASS");
           }
         }
       } else if (tag === "claims") {
         if (run.flow === "teach" && !run.scoutCalled) scoutNeeded = true;
+        // Scout receipt: dispatch alone used to satisfy the new-lesson gate. A
+        // finished Scout with a partial/missing digest surfaces here as a banner
+        // (never a withhold) so the Tutor teaches around the gaps visibly.
+        if (run.flow === "teach" && run.scoutCalled) {
+          if (run.scoutReceiptSeen && run.scoutFailedRefs.length > 0) {
+            surface += `⚠️ SOURCES INCOMPLETE — Scout could not fetch ${run.scoutFailedRefs.length} source(s); teaching proceeds around the gaps.\n\n`;
+            run.scoutFailedRefs = [];
+          } else if (run.scoutFinished && !run.scoutReceiptSeen) {
+            surface += `⚠️ SCOUT DIGEST UNVERIFIED — Scout finished without a parseable \`SCOUT_DIGEST:\` receipt; teaching from whatever context it produced.\n\n`;
+            run.scoutFinished = false;
+          }
+        }
         let best: Receipt | undefined;
         let bestScore = 0;
         for (const r of run.receipts) {
@@ -1030,6 +1201,11 @@ export default function (pi: ExtensionAPI) {
               "(Review notes / session note / touched state rows). The summary below is shown with those flags " +
               "outstanding; fix them next session — do not re-run the audit (hard cap 2 cycles).\n\n";
           }
+          if (audit.evidenceMissing) {
+            surface +=
+              "⚠️ REVIEW SESSION GATE — the audit verdict carries no `evidence` list (what it read/checked); " +
+              "treat the pass as unsubstantiated.\n\n";
+          }
         } else {
           blockers.push("NO_REVIEW_SESSION_AUDIT");
         }
@@ -1078,9 +1254,24 @@ export default function (pi: ExtensionAPI) {
       const codes = [...blockers];
       if (scoutNeeded) codes.push("NO_SCOUT_CONTEXT");
 
+      // One-shot availability fallback: after repeated provider failures the
+      // alternate model is offered (never forced). Directive fires once per
+      // agent per flow.
+      const fallbackLines: string[] = [];
+      for (const [agent, count] of Object.entries(run.agentFailures)) {
+        if (count >= FALLBACK_AFTER_FAILURES && !run.agentFallbackUsed[agent]) {
+          const fb = agent === "scout" ? SCOUT_FALLBACK_MODEL : VERIFIER_AGENTS[agent] ? VERIFIER_FALLBACK_MODEL : undefined;
+          if (fb) {
+            fallbackLines.push(`\`${agent}\` failed ${count}× in a row — re-dispatch it once with \`model: "${fb}"\` before giving up.`);
+            run.agentFallbackUsed[agent] = true;
+          }
+        }
+      }
+      const fallbackNote = fallbackLines.length ? fallbackLines.join("\n") + "\n" : "";
+
       if (run.retries > MAX_RETRIES) {
         run.retries = 0;
-        const banner = `⛔ UNVERIFIED — gate retries exhausted (${codes.join(", ")}). The content below was not verified.\n\n`;
+        const banner = `⛔ UNVERIFIED — gate retries exhausted (${codes.join(", ")}). The content below was not verified.\n${fallbackNote}\n`;
         return { message: prependBanner(replaceText(message, text), banner) };
       }
 
@@ -1090,9 +1281,10 @@ export default function (pi: ExtensionAPI) {
         "quiz: send the exact batch; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
         "grade: send question + raw learner answer + claimed verdict; use the verifier's `correct_verdict`.",
         "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch and fold its verdict before the summary.",
-        "ingest: the clerk result must include a `REVIEW_GATE_VERDICT` marker (PASS or PASS_WITH_FLAGS).",
+        "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary.",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review close: after writing the Review notes / session note / touched rows, dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files/state_rows), then summarize; a PASS/PASS_WITH_FLAGS renders clean and an ISSUES verdict renders with a flags banner (no re-run, cap 2 passes).",
+        "verifier failed on provider errors (503/429/timeout): retry once, then re-dispatch the SAME verifier with an explicit `model:` from the alternate set (verifiers → deepseek-v4.1-flash, scout → muse-spark-1.3-contributor); if it still fails, proceed and surface what is unverified.",
       ].join("\n");
       const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";
       const agentNote = run.agentlessDispatch
@@ -1100,7 +1292,7 @@ export default function (pi: ExtensionAPI) {
         : "";
       run.agentlessDispatch = false;
       const note = verdictNote ? verdictNote + "\n" : "";
-      const banner = `⛔ WITHHELD (${codes.join(", ")})\n${scoutNote}${agentNote}${note}${fix}\n`;
+      const banner = `⛔ WITHHELD (${codes.join(", ")})\n${scoutNote}${agentNote}${fallbackNote}${note}${fix}\n`;
       try {
         ctx?.ui?.notify?.(`learning-gate blocked: ${codes.join(", ")}`, "warning");
       } catch {

@@ -430,6 +430,45 @@ def check_pending_ingest(root: Path) -> None:
         )
 
 
+SCOUT_TTL_DAYS = 7
+
+
+def check_scout_digest_ttl(root: Path) -> None:
+    """A Scout digest older than its TTL must be re-scouted before teaching."""
+    tmp = root / "Learning System/.tmp"
+    if not tmp.is_dir():
+        return
+    digests = list(tmp.glob("context-*.json"))
+    if not digests:
+        return
+    stale = 0
+    for p in digests:
+        fetched: dt.date | None = None
+        try:
+            data = json.loads(read(p))
+            for key in ("fetched_at", "created_at"):
+                v = data.get(key)
+                if isinstance(v, str):
+                    try:
+                        fetched = dt.date.fromisoformat(v[:10])
+                        break
+                    except ValueError:
+                        pass
+        except Exception:
+            pass
+        if fetched is None:
+            fetched = dt.date.fromtimestamp(p.stat().st_mtime)
+        age = (dt.date.today() - fetched).days
+        if age > SCOUT_TTL_DAYS:
+            stale += 1
+            add(
+                "warn",
+                f"Scout digest {p.name} is {age} days old (TTL {SCOUT_TTL_DAYS}d) — re-scout before teaching this lesson",
+            )
+    if stale == 0:
+        add("ok", f"Scout digest(s) within {SCOUT_TTL_DAYS}-day TTL ({len(digests)})")
+
+
 def check_stale_paths(root: Path) -> None:
     hits = 0
     for sub in ("Skills",):
@@ -485,6 +524,7 @@ def main() -> int:
     check_position_pointers(root)
     check_wiki_index(root)
     check_pending_ingest(root)
+    check_scout_digest_ttl(root)
     check_stale_paths(root)
 
     errors = sum(1 for f in findings if f.startswith("❌"))

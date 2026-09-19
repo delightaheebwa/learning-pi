@@ -24,7 +24,7 @@ contradiction to the user** — do not guess, merge, or trust any status written
 - This session is the Tutor: teach, probe, quiz, and grade interactively.
 - `clerk` ingests lesson output into the wiki and Active Concepts, and reconciles all position/state
   files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at `/ingest`.
-- Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate` (read-only, independent model).
+- Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate` (read-only; separate runs on preferred models — model separation is a default, not a guarantee).
 
 ## Teaching behavior
 

@@ -55,9 +55,10 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
    practice grade (invites questions before the next checkpoint). It won't chain ahead of you.
 6. **Pause anytime** with `/pause` (student-paced). It banks today's progress and keeps the lesson
    in-progress; `/continue` resumes at the next checkpoint.
-7. **Lesson end** — cumulative quiz + Feynman explain-back. Then run `/ingest` to finalize (Clerk
-   writes the wiki + Active Concepts, reconciles the position pointers, regenerates Learner History,
-   and commits state).
+7. **Lesson end** — cumulative quiz + Feynman explain-back. Then run `/ingest` to finalize: Clerk
+   writes the wiki + Active Concepts, reconciles the position pointers, runs the state audit,
+   regenerates Learner History, and commits state; then the **Tutor** dispatches an independent
+   `review-gate` on the wiki pages Clerk wrote (the Clerk does not gate itself).
 
 **Math:** work on paper. Reply with just the final number or the letter (A–D). The Tutor won't ask
 you to type LaTeX. It *will* now write its own math as LaTeX when your terminal can render it —
@@ -120,7 +121,11 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `FACT_CHECK_ISSUES` | verifier flagged a claim | apply the correction, re-verify |
 | `NO_QUIZ_AUDIT_PASS` / `QUIZ_AUDIT_ISSUES` | questions not audited / leaked | fix and re-audit |
 | `NO_GRADE_AUDIT_PASS` / `GRADE_MISMATCH` | grade unverified / conflicts with verifier | use the verifier's `correct_verdict` |
-| `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged | Clerk must return a `REVIEW_GATE_VERDICT` marker |
+| `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged | after the Clerk returns `CLERK_WRITES`, dispatch ONE independent `review-gate` on the wiki pages it wrote |
+| `⚠️ INGEST GATE` | the review verdict was relayed by the Clerk's own output, not an independent `review-gate` run | dispatch a `review-gate` on the Clerk's writes before trusting the summary |
+| `⚠️ REVIEW GATE` / `⚠️ REVIEW SESSION GATE` | a review-family verdict carried no `evidence` list (what it read/checked) | treat the pass as unsubstantiated; re-run the gate so it names its evidence |
+| `⚠️ SOURCES INCOMPLETE` | Scout could not fetch one or more sources (`failed_refs` non-empty) | teach around the gaps; consider re-scouting or adding a fallback source |
+| `⚠️ SCOUT DIGEST UNVERIFIED` | Scout finished without a parseable `SCOUT_DIGEST:` receipt | verify the digest exists on disk; re-run Scout if the lesson context looks thin |
 | `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked / verifier flagged high-or-medium issues | dispatch `tutor-audit` on the handoff batch; fix and re-audit (lows pass as `PASS_WITH_FLAGS`) |
 | `NO_REVIEW_SESSION_AUDIT` | review close wrote notes/rows but wasn't audited | dispatch `review-session-audit` on the exact writes, then summarize |
 | `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output **or** the review-session audit returned `ISSUES` | shown with a banner, **not** withheld or re-run (review close caps at 2 passes) |
@@ -153,9 +158,10 @@ Set in `~/learning-pi/.pi/settings.json` (project scope only):
 | Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` |
 
-Verifiers deliberately differ from the Tutor so verification is independent, and the ingest reviewer
-runs on a different model from the deepseek Clerk. To change one, edit that file and restart pi —
-nothing else needs to change.
+Verifiers run on preferred models for cost/availability, but this is a **default, not a guarantee** —
+when the preferred model is unavailable a verifier may run on the same model as the Tutor or Clerk,
+and that is acceptable. The gate records which model ran (see the per-run `model` in the subagent
+artifacts) but does not enforce separation. To change a default, edit that file and restart pi.
 
 ---
 
@@ -181,7 +187,8 @@ python3 ~/learning-pi/pi/audit_state.py --root ~/learning-system
 Checks: MISSION vs CURRICULUM positions, lesson files vs curriculum rows, Active Concepts dates,
 position pointers (MISSION / Learning Profile / Active Concepts track header vs the active lesson's
 `Checkpoint N/M`), Active Concepts `Next Review` vs `Attempts.json`, wiki index vs wiki/source files,
-stale host paths. It reports; it never writes. It now runs **automatically at ingest close (Clerk)
+Scout-digest TTL (warns when the active lesson's `.tmp/context-*.json` is older than 7 days), stale
+host paths. It reports; it never writes. It now runs **automatically at ingest close (Clerk)
 and review close (Tutor)**, and on demand via `/audit`. For mechanically-fixable findings it also
 prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flow fixes the error
 **or warning** findings it touched using those hints, re-runs once, and surfaces the rest. A
@@ -206,7 +213,26 @@ prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flo
 
 ---
 
-## 11. Maintenance
+## 11. Provenance audit (after the fact)
+
+`audit_gates.py` reconstructs, from a pi session transcript, which verifier runs actually backed
+each claimed verdict. It is read-only and diagnostic — the live gate does not depend on it.
+
+```bash
+python3 ~/learning-pi/pi/audit_gates.py                 # newest learning-system session
+python3 ~/learning-pi/pi/audit_gates.py --session <path.jsonl>
+python3 ~/learning-pi/pi/audit_gates.py --json          # machine-readable
+```
+
+It correlates every `subagent` dispatch with its artifact metadata and reports: dispatches with no
+artifact, runs that exited non-zero, runs the harness acceptance layer `rejected` (which the gate may
+still have consumed), review verdicts with no backing run, clerk-relayed review provenance, and
+`STATE_AUDIT_VERDICT` markers with no `audit_state.py` invocation. It also prints the model each run
+used. Exit 1 when it finds an error-level issue.
+
+---
+
+## 12. Maintenance
 
 ```bash
 # update the pi layer

@@ -57,3 +57,81 @@ assert('second grade turn blocked once receipt consumed', blocked(second, 'NO_GR
 await setPrompt('[[FLOW:resume]] continue the lesson');
 const none = await msg(FULL, 'stop');
 assert('grade turn with no receipt withheld', blocked(none, 'NO_GRADE_AUDIT_PASS'));
+
+// ============================================================================
+// New hardening tests (scout receipt, ingest scoping, evidence, fallback).
+// ============================================================================
+const fg = (id, agent, task, output) =>
+  fire('tool_result', {
+    toolName: 'subagent',
+    toolCallId: id,
+    isError: false,
+    content: [{ type: 'text', text: '' }],
+    details: { results: [{ agent, task, finalOutput: output, runId: `r-${id}` }] },
+  });
+const subFail = (id, text) =>
+  fire('tool_result', { toolName: 'subagent', toolCallId: id, isError: true, content: [{ type: 'text', text }] });
+const fcEnvelope = (draft) =>
+  JSON.stringify({ gate: 'fact_check', claims: [{ id: 1, claim: 'x' }], rendered_content: draft, source_urls: ['https://e.com'] });
+const FC_PASS = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
+const REVIEW_PASS = JSON.stringify({ verdict: 'PASS', evidence: ['read X.md'], issues: [], context_notes: [] });
+const CLERK_WRITES = '[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"commit":"abc"}';
+
+// --- P1.2: a tagged follow-up after an ingest summary must not be held hostage ---
+await setPrompt('[[FLOW:ingest]] ingest this');
+await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'ing1');
+await notify(`Background task completed: **clerk**\n\n${CLERK_WRITES}`);
+await dispatch('review-gate', JSON.stringify({ gate: 'review', concepts: ['X'], target_files: [{ path: 'Knowledge Wiki/wiki/X.md' }] }), 'rg1');
+await notify(`Background task completed: **review-gate**\n\n[[TURN:none]]\n${REVIEW_PASS}`);
+const ingestSummary = await msg(
+  '[[TURN:none]]\nIngest complete. REVIEW_GATE_VERDICT: {"verdict":"PASS"} STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}',
+  'stop'
+);
+assert('ingest summary renders', allowed(ingestSummary));
+const ingestFollowup = await msg('[[TURN:none]]\nThe Clerk was reviewed by an independent review-gate run.', 'stop');
+assert('tagged ingest follow-up not held hostage', allowed(ingestFollowup));
+
+// --- P2.1: a Clerk-relayed verdict surfaces the INGEST GATE provenance banner ---
+await setPrompt('[[FLOW:ingest]] ingest this');
+await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'ing2');
+await notify('Background task completed: **clerk**\n\n[[TURN:none]]\nREVIEW_GATE_VERDICT: {"verdict":"PASS","issues":[]}');
+const relayed = await msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}', 'stop');
+assert('clerk-relayed verdict triggers INGEST GATE banner', allowed(relayed) && outText(relayed).includes('INGEST GATE'));
+
+// --- P2.2: a review verdict with no evidence list surfaces the unsubstantiated banner ---
+await setPrompt('[[FLOW:ingest]] ingest this');
+await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'ing3');
+await notify(`Background task completed: **clerk**\n\n${CLERK_WRITES}`);
+await dispatch('review-gate', JSON.stringify({ gate: 'review', concepts: ['X'], target_files: [{ path: 'p.md' }] }), 'rg3');
+await notify('Background task completed: **review-gate**\n\n[[TURN:none]]\n{"verdict":"PASS","issues":[],"context_notes":[]}');
+const noEvidence = await msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}', 'stop');
+assert('missing-evidence banner surfaced', allowed(noEvidence) && outText(noEvidence).includes('no `evidence`'));
+
+// --- A1: a Scout with no parseable receipt surfaces the unverified banner ---
+const DRAFT = 'The definition of X is the thing.';
+await setPrompt('[[FLOW:teach]] teach me X');
+await dispatch('scout', 'topic X', 'sc1');
+await notify('Background task completed: **scout**\n\nSCOUT DIGEST: no machine line here');
+await dispatch('fact-check', fcEnvelope(DRAFT), 'fc1');
+await fg('fc1', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
+const scoutUnverified = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
+assert('scout-unverified banner surfaced', allowed(scoutUnverified) && outText(scoutUnverified).includes('SCOUT DIGEST UNVERIFIED'));
+
+// --- A1: a Scout with failed_refs surfaces the incomplete-sources banner ---
+await setPrompt('[[FLOW:teach]] teach me Y');
+await dispatch('scout', 'topic Y', 'sc2');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"y","digest":"Learning System/.tmp/context-x.json","raw_files":[],"failed_refs":[{"url":"u","reason":"404"}]}');
+await dispatch('fact-check', fcEnvelope(DRAFT), 'fc2');
+await fg('fc2', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
+const scoutIncomplete = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
+assert('sources-incomplete banner surfaced', allowed(scoutIncomplete) && outText(scoutIncomplete).includes('SOURCES INCOMPLETE'));
+
+// --- B: two provider failures surface the fallback-model directive ---
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('fact-check', fcEnvelope(DRAFT), 'ff1');
+await subFail('ff1', 'OpenAI API error (503): service_overloaded');
+await dispatch('fact-check', fcEnvelope(DRAFT), 'ff2');
+await subFail('ff2', 'OpenAI API error (503): service_overloaded');
+const fallbackMsg = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
+assert('fallback directive after two provider failures', outText(fallbackMsg).includes('failed 2') && outText(fallbackMsg).includes('deepseek-v4.1-flash'));
+
