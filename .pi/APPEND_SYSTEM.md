@@ -62,6 +62,17 @@ verifier reports with no draft), and infers `claims` from a `fact-check` whose `
 covers the emission. `none` is never inferred, and an unverified or ambiguous message is still
 withheld.
 
+**Never use `[[TURN:none]]` to slip teaching content past the gate.** `none` is for transitions and
+summaries only. If a message carries teaching claims, tag it `[[TURN:claims]]` and let its
+`fact-check` bind — the gate withholds a `none`-tagged message that matches a verified or in-flight
+`fact-check` draft (`FACT_CHECK_PENDING`). If a verifier is still running, **wait for its completion
+notification, then re-emit** — do not re-dispatch and do not downgrade the tag.
+
+**No gate/tooling commentary in learner-visible text.** The learner must never see anything about
+receipts, verifiers, dispatches, gate codes, binding, or "the gate is malfunctioning". If a message
+is withheld, fix it silently and re-emit clean content. Status about verification is never part of
+the lesson.
+
 ## Verification (enforced by the learning-gate extension)
 
 - Draft first, then send a `fact-check` subagent the draft as `rendered_content` plus

@@ -203,4 +203,26 @@ await setPrompt('[[FLOW:resume]] continue the lesson');
 const bare = await msg('Nice work — shall we continue?', 'stop');
 assert('unverified untagged message still withheld', blocked(bare, 'NO_TURN_TAG'));
 
+// --- 2026-09-21 evasion: `[[TURN:none]]` must not slip a pending fact-check draft ---
+const uuid5 = 'ef56ab78-cd90-4e12-9f34-5678901234ef';
+const uuid6 = 'fa67bc89-de01-4f23-8a45-6789012345fa';
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await asyncDispatch('n1', 'fact-check', fcEnvelope(vDraft));
+await asyncResult('n1', uuid5);
+const noneBypass = await msg(`[[TURN:none]]\n${vDraft}`, 'stop');
+assert('none-tagged teaching draft withheld while fact-check in flight', blocked(noneBypass, 'FACT_CHECK_PENDING'));
+const early = await msg(`[[TURN:claims]]\n${vDraft}`, 'stop');
+assert('claims emit before notification is withheld with a wait hint', blocked(early, 'NO_FACT_CHECK_MATCH') && outText(early).includes('still in flight'));
+fcNotify(uuid5, FC_PASS);
+const afterNotify = await msg(`[[TURN:claims]]\n${vDraft}`, 'stop');
+assert('claims emit after the completion notification renders', allowed(afterNotify));
+
+// --- a failed async verifier clears the in-flight state (no stale hint) ---
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await asyncDispatch('n2', 'fact-check', fcEnvelope(vDraft));
+await asyncResult('n2', uuid6);
+await notify(`Background task failed: **fact-check**\n\nfact-check:\nOpenAI API error (429): rate_limit_exceeded\n\nRetention-managed async directory: /tmp/x/async-subagent-runs/${uuid6}`);
+const afterFail = await msg(`[[TURN:claims]]\n${vDraft}`, 'stop');
+assert('failed verifier is not reported as in-flight', blocked(afterFail, 'NO_FACT_CHECK_MATCH') && !outText(afterFail).includes('still in flight'));
+
 

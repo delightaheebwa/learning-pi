@@ -787,7 +787,15 @@ export default function (pi: ExtensionAPI) {
   // `questions_json` / `question+answer`, which a notification alone lacks.
   // Without it an async `fact-check` can never bind (its whole purpose), which
   // was the 2026-09-21 NO_FACT_CHECK_MATCH -> re-dispatch loop.
-  const pendingAsync = new Map<string, CallRef[]>();
+  const pendingAsync = new Map<string, { calls: CallRef[]; at: number }>();
+  // A run that neither completes nor fails (aborted process, dropped notify)
+  // must not leave `pendingAsync` populated forever — that would make the
+  // "verification pending" hint lie. Prune well past the 30-min run timeout.
+  const PENDING_TTL_MS = 35 * 60 * 1000;
+  const prunePendingAsync = () => {
+    const now = Date.now();
+    for (const [id, p] of pendingAsync) if (now - p.at > PENDING_TTL_MS) pendingAsync.delete(id);
+  };
 
   const reset = (flow: Flow) => {
     run = { flow, receipts: [], scoutCalled: false, scoutFinished: false, scoutReceiptSeen: false, scoutFailedRefs: [], clerkCalled: false, clerkDispatches: 0, reviewGates: 0, retries: 0, agentFailures: {}, agentFallbackUsed: {}, tutorWrote: false, writtenPaths: [], reviewSessionWrote: false, reviewSessionPaths: [], reviewSessionAudits: 0, agentlessDispatch: false };
@@ -918,7 +926,8 @@ export default function (pi: ExtensionAPI) {
         // Async/dispatched run id: remember the captured envelope so the
         // later completion notification can mint a *bound* receipt.
         const asyncId = typeof event?.details?.asyncId === "string" ? event.details.asyncId : undefined;
-        if (asyncId && pending.length > 0) pendingAsync.set(asyncId, pending);
+        prunePendingAsync();
+        if (asyncId && pending.length > 0) pendingAsync.set(asyncId, { calls: pending, at: Date.now() });
         for (const call of resultCalls(event, text, pending)) {
           const output = call.output || text;
           // Provider failures (503/429/overloaded) count toward the one-shot
@@ -994,8 +1003,22 @@ export default function (pi: ExtensionAPI) {
    * valid receipt) and fail-open; non-notification text is a no-op.
    */
   const NOTIFY_HEADER_RE = /(?:Background task|Detached foreground task) completed:\s*\*\*([\w-]+)\*\*/i;
+  const NOTIFY_FAIL_RE = /(?:Background task|Detached foreground task) failed:\s*\*\*([\w-]+)\*\*/i;
   const mintFromNotification = (text: string): void => {
-    if (!text || !NOTIFY_HEADER_RE.test(text)) return;
+    if (!text) return;
+    // A failed async run sends "Background task failed: **agent**". Clear its
+    // pending envelope (so the "verification pending" hint does not lie) and
+    // count provider failures, without minting a receipt.
+    const failAgent = text.match(NOTIFY_FAIL_RE)?.[1]?.toLowerCase();
+    if (failAgent) {
+      const runId = extractAsyncRunId(text);
+      if (runId) pendingAsync.delete(runId);
+      if (VERIFIER_AGENTS[failAgent] || failAgent === "scout") {
+        if (PROVIDER_FAILURE_RE.test(text)) run.agentFailures[failAgent] = (run.agentFailures[failAgent] || 0) + 1;
+      }
+      return;
+    }
+    if (!NOTIFY_HEADER_RE.test(text)) return;
     const agent = text.match(NOTIFY_HEADER_RE)?.[1]?.toLowerCase();
     if (!agent) return;
     if (agent === "clerk") {
@@ -1016,7 +1039,8 @@ export default function (pi: ExtensionAPI) {
     const gate = VERIFIER_AGENTS[agent];
     if (!gate) return;
     const runId = extractAsyncRunId(text);
-    const calls = runId ? pendingAsync.get(runId) : undefined;
+    const entry = runId ? pendingAsync.get(runId) : undefined;
+    const calls = entry?.calls;
     if (runId) pendingAsync.delete(runId);
     if (gate === "fact_check") {
       // A fact-check receipt is only usable when bound to its draft
@@ -1032,6 +1056,37 @@ export default function (pi: ExtensionAPI) {
     // With the correlated envelope the receipt binds the audited question /
     // answer / files; without it (legacy notifications) mint unbound as before.
     addReceipt(parseResult(text, gate, calls && calls.length === 1 ? calls[0].envelope : undefined));
+  };
+
+  /**
+   * Names of verifier agents with an async run still in flight. Surfaced in a
+   * withheld banner so a Tutor that dispatched async does not panic and
+   * re-dispatch: it should wait for the completion notification, then re-emit.
+   */
+  const pendingVerifierNote = (): string => {
+    prunePendingAsync();
+    const agents = new Set<string>();
+    for (const { calls } of pendingAsync.values()) {
+      for (const c of calls) if (VERIFIER_AGENTS[c.agent]) agents.add(c.agent);
+    }
+    if (agents.size === 0) return "";
+    return (
+      `⏳ Verification still in flight (${[...agents].join(", ")}): wait for its completion notification, ` +
+      `then re-emit the verified text. Do NOT dispatch the verifier again.\n`
+    );
+  };
+
+  /** Does this text match a fact-check draft whose async run has not notified? */
+  const pendingAsyncDraftMatches = (text: string): boolean => {
+    prunePendingAsync();
+    for (const { calls } of pendingAsync.values()) {
+      for (const c of calls) {
+        if (c.agent !== "fact-check") continue;
+        const rc = c.envelope && typeof c.envelope.rendered_content === "string" ? c.envelope.rendered_content : undefined;
+        if (rc && contentMatches(rc, text)) return true;
+      }
+    }
+    return false;
   };
 
   /**
@@ -1303,6 +1358,12 @@ export default function (pi: ExtensionAPI) {
           (r) => r.gate === "fact_check" && r.valid && r.renderedContent && contentMatches(r.renderedContent, text)
         );
         if (match) blockers.push("TURN_TAG_MISMATCH");
+        // Evasion guard for the exact 2026-09-21 loop: teaching content tagged
+        // `[[TURN:none]]` while its fact-check is still running (no receipt
+        // yet). Without this, `none` renders freely and the claims gate is
+        // bypassed. Matching the pending draft is decisive — a genuine
+        // transition does not quote the teaching draft.
+        else if (pendingAsyncDraftMatches(text)) blockers.push("FACT_CHECK_PENDING");
       }
 
       // Review-session gate: after the review flow writes its notes/rows, a
@@ -1407,6 +1468,8 @@ export default function (pi: ExtensionAPI) {
         "quiz: send the exact batch; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
         "grade: send question + raw learner answer + claimed verdict as ONE object; use the verifier's `correct_verdict`.",
         "do not re-verify: if a fact-check receipt already covers your draft, emit that draft unchanged — re-dispatching the same claims is blocked and only for a materially corrected draft after an ISSUES verdict.",
+        "in flight: if a verifier is still running, wait for its completion notification, then re-emit — do NOT re-dispatch and do NOT downgrade the tag.",
+        "do not tag teaching content `[[TURN:none]]` to bypass the gate: a `none` message matching a verified or in-flight `fact-check` draft is withheld (TURN_TAG_MISMATCH / FACT_CHECK_PENDING).",
         "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch and fold its verdict before the summary.",
         "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary.",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
@@ -1419,7 +1482,8 @@ export default function (pi: ExtensionAPI) {
         : "";
       run.agentlessDispatch = false;
       const note = verdictNote ? verdictNote + "\n" : "";
-      const banner = `⛔ WITHHELD (${codes.join(", ")})\n${scoutNote}${agentNote}${fallbackNote}${note}${fix}\n`;
+      const pendingNote = pendingVerifierNote();
+      const banner = `⛔ WITHHELD (${codes.join(", ")})\n${scoutNote}${agentNote}${pendingNote}${fallbackNote}${note}${fix}\n`;
       try {
         ctx?.ui?.notify?.(`learning-gate blocked: ${codes.join(", ")}`, "warning");
       } catch {

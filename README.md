@@ -37,6 +37,11 @@ record, `Pending Ingest.json`) at a pause or lesson end; the **Clerk** reconcile
 files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at
 `/ingest`.
 
+> **Editing `.pi/` takes effect only after a reload.** A running pi process keeps the extension it
+> loaded at startup; changing `extensions/`, `skills/`, `agents/`, or `APPEND_SYSTEM.md` does **not**
+> touch a live session. Run `/reload` in pi (or restart pi) after pulling changes, then confirm the
+> new behavior. A long-lived process can otherwise keep enforcing stale gate logic indefinitely.
+
 ## Models
 
 Configured in `.pi/settings.json` (project scope only):
