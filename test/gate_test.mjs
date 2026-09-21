@@ -135,3 +135,72 @@ await subFail('ff2', 'OpenAI API error (503): service_overloaded');
 const fallbackMsg = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
 assert('fallback directive after two provider failures', outText(fallbackMsg).includes('failed 2') && outText(fallbackMsg).includes('deepseek-v4.1-flash'));
 
+// ============================================================================
+// 2026-09-21 resume hardening: async fact-check binding, duplicate-dispatch
+// guard, claims-tag inference, grade `items[]` tolerance, corrected re-dispatch.
+// ============================================================================
+const uuid1 = 'ab12cd34-ef56-4a78-9b90-1234567890ab';
+const uuid2 = 'bc23de45-fa67-4b89-8c01-2345678901bc';
+const uuid3 = 'cd34ef56-ab78-4c90-8d12-3456789012cd';
+const uuid4 = 'de45fa67-bc89-4d01-8e23-4567890123de';
+const vDraft = 'The variation of information is V(X,Y) = H(X,Y) minus I(X,Y), equal to H(X|Y) plus H(Y|X).';
+
+const asyncDispatch = (id, agent, task) =>
+  fire('tool_call', { toolName: 'subagent', toolCallId: id, input: { agent, task } });
+const asyncResult = (id, runId) =>
+  fire('tool_result', {
+    toolName: 'subagent',
+    toolCallId: id,
+    isError: false,
+    content: [{ type: 'text', text: `Async: ${runId}` }],
+    details: { asyncId: runId },
+  });
+const fcNotify = (runId, body) =>
+  notify(`Background task completed: **fact-check**\n\nfact-check:\n[[TURN:none]]\n${body}\n\nRetention-managed async directory: /tmp/x/async-subagent-runs/${runId}`);
+const gradeNotify = (runId, body) =>
+  notify(`Background task completed: **grade-audit**\n\ngrade-audit:\n[[TURN:none]]\n${body}\n\nRetention-managed async directory: /tmp/x/async-subagent-runs/${runId}`);
+
+// --- async fact-check mints a *bound* receipt; a duplicate re-dispatch is blocked ---
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await asyncDispatch('a1', 'fact-check', fcEnvelope(vDraft));
+await asyncResult('a1', uuid1);
+fcNotify(uuid1, FC_PASS);
+const dup = await asyncDispatch('a2', 'fact-check', fcEnvelope(vDraft));
+assert('duplicate fact-check of a verified draft is blocked', !!(dup && dup.block));
+const asyncClaims = await msg(`[[TURN:claims]]\n${vDraft}`, 'stop');
+assert('async fact-check binds its tagged claims turn', allowed(asyncClaims));
+
+// --- a dropped claims tag is recovered from the bound receipt ---
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await asyncDispatch('a3', 'fact-check', fcEnvelope(vDraft));
+await asyncResult('a3', uuid2);
+fcNotify(uuid2, FC_PASS);
+const untaggedClaims = await msg(vDraft, 'stop');
+assert('dropped claims tag recovered from bound fact-check', allowed(untaggedClaims));
+
+// --- malformed grade `items[]` envelope still binds a dropped-tag grade turn ---
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await asyncDispatch(
+  'a4',
+  'grade-audit',
+  JSON.stringify({ gate: 'grade_audit', items: [{ question: 'Compute I(X;Y).', learner_answer: '-0.119', claimed_verdict: 'fail' }] })
+);
+await asyncResult('a4', uuid3);
+gradeNotify(uuid3, JSON.stringify({ verdict: 'PASS', agrees: true, correct_verdict: 'fail', issues: [] }));
+const itemsGrade = await msg('Compute I(X;Y) for the fresh joint: FAIL — -0.119, the sign is impossible.', 'stop');
+assert('items[] grade envelope binds a dropped-tag grade turn', allowed(itemsGrade));
+
+// --- an ISSUES verdict does not block a materially corrected re-dispatch ---
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await asyncDispatch('a5', 'fact-check', fcEnvelope(vDraft));
+await asyncResult('a5', uuid4);
+fcNotify(uuid4, JSON.stringify({ verdicts: [{ id: 1, verdict: 'ISSUES', explanation: 'sign inverted', corrected_claim: 'ratio > 1 is a positive term' }], contradictions: [] }));
+const redispatch = await asyncDispatch('a6', 'fact-check', fcEnvelope(`${vDraft} Costs dominate the rebates.`));
+assert('corrected re-dispatch after ISSUES is allowed', !(redispatch && redispatch.block));
+
+// --- a genuinely unverified untagged message is still withheld ---
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const bare = await msg('Nice work — shall we continue?', 'stop');
+assert('unverified untagged message still withheld', blocked(bare, 'NO_TURN_TAG'));
+
+

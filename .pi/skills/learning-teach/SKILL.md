@@ -12,7 +12,9 @@ The pipeline is **scout → Tutor (main session) → clerk** in the same pi sess
 - Tutor teaches from the session + digest (or the existing lesson file on resume), does **not** gather context itself, and does **not** write wiki pages/Active Concepts rows.
 - Clerk ingests the lesson output (`Pending Ingest.json`) and runs the `review-gate`.
 
-**Turn tags (required — enforced by the gate):** begin every assistant message with `[[TURN:claims]]` (teaching or plan), `[[TURN:quiz]]` (question batch), `[[TURN:grade]]` (grading a learner answer), or `[[TURN:none]]` (transitions/summaries). The gate strips the tag before the learner sees it. A `claims` tag requires a `fact-check` receipt whose `rendered_content` matches the emitted text; `quiz` requires a PASS `quiz-audit`; `grade` requires an agreeing `grade-audit`. A missing tag is withheld (`NO_TURN_TAG`) — except for a `grade`/`quiz` turn, whose tag the gate infers from a `grade-audit`/`quiz-audit` receipt (a bound match, or the single valid pending receipt when an async verifier reports without a draft), so a dropped tag does not dead-end the session. `claims`/`none` are never inferred — always tag them. The plan message is a `claims` turn — send the plan text as `rendered_content`.
+**Turn tags (required — enforced by the gate):** begin every assistant message with `[[TURN:claims]]` (teaching or plan), `[[TURN:quiz]]` (question batch), `[[TURN:grade]]` (grading a learner answer), or `[[TURN:none]]` (transitions/summaries). The gate strips the tag before the learner sees it. A `claims` tag requires a `fact-check` receipt whose `rendered_content` matches the emitted text; `quiz` requires a PASS `quiz-audit`; `grade` requires an agreeing `grade-audit`. A missing tag is withheld (`NO_TURN_TAG`) — except that the gate infers it from the verifier receipt when the text binds: `grade`/`quiz` from a bound `grade-audit`/`quiz-audit` (or the single valid pending receipt when an async verifier reports without a draft), and `claims` from a `fact-check` receipt whose `rendered_content` covers the emission. `none` is never inferred — always tag transitions. The plan message is a `claims` turn — send the plan text as `rendered_content`.
+
+**One verifier dispatch per gate per turn — never re-verify the same draft.** Dispatch each gate exactly once for the turn's content (a turn that both teaches and asks sends one `fact-check` AND one `quiz-audit`, in one batch, not one at a time). If a message is withheld with `NO_FACT_CHECK_MATCH` / `FACT_CHECK_MISMATCH` / `FACT_CHECK_MISSING_DRAFT` / `QUIZ_AUDIT_STALE` / `GRADE_AUDIT_STALE`, that is a **tag or emission** problem, not a factual one: re-emit the already-verified draft (or fix the turn tag) — do **not** dispatch another verifier. The gate blocks a duplicate `fact-check` of an already-verified draft, so re-dispatching cannot rescue a withheld turn; only re-verifying a **materially corrected** draft after an `ISSUES` verdict is allowed.
 
 Teaching verification runs as **foreground** subagent tasks with **envelope schemas**: `fact-check` and `quiz-audit`. Fixed verifier prompts live in the verifier agent files — you send **data only**. The `learning-gate` extension blocks any non-trivial Tutor output without a matching receipt before it renders.
 
@@ -31,7 +33,7 @@ Teaching verification runs as **foreground** subagent tasks with **envelope sche
 >
 > The gate checks the envelope type against the turn content. A right envelope for the wrong turn type is still a block. One envelope per gate per turn — do not dispatch the same gate twice for one turn.
 
-All gates dispatch as ONE `subagent` call per gate with a JSON envelope: `subagent({ agent: "<verifier>", task: <envelope JSON>, async: false })` (direct child), or the same child inside `subagent({ workflowScript: "runs.run('k', { agent: '<verifier>', task: ... })" })`. Use `async: false` (foreground) when you want the verdict in the tool result; an async dispatch returns a fan-out notice and the verdict arrives as a completion notification. The gate mints the receipt from either path, but wait for the verdict before emitting. `action: "validate"`/`"status"` only inspect a script or a run and do **not** launch a child — never use them to dispatch a verifier. The verifier runs on its own configured model, independent of the Tutor, so treat its verdict as stronger evidence than a self-check — but the deterministic gate checks (claim ⊆ rendered ⊆ emitted, quiz option parity, file grounding) are the real enforcement.
+All gates dispatch as ONE `subagent` call per gate with a JSON envelope: `subagent({ agent: "<verifier>", task: <envelope JSON>, async: false })` (direct child), or the same child inside `subagent({ workflowScript: "runs.run('k', { agent: '<verifier>', task: ... })" })`. Use `async: false` (foreground) when you want the verdict in the tool result; an async dispatch returns a fan-out notice and the verdict arrives as a completion notification. The gate mints the receipt from either path, so either works — but in a checkpoint loop use `async: false` and wait: a foreground verdict is available in the same turn, whereas async forces you to yield and wait for the notification before you can emit. `action: "validate"`/`"status"` only inspect a script or a run and do **not** launch a child — never use them to dispatch a verifier. The verifier runs on its own configured model, independent of the Tutor, so treat its verdict as stronger evidence than a self-check — but the deterministic gate checks (claim ⊆ rendered ⊆ emitted, quiz option parity, file grounding) are the real enforcement.
 
 Rules:
 
@@ -39,7 +41,8 @@ Rules:
 - **Envelope, not freeform prompt:** send `{"gate":"fact_check","claims":[{"id":1,"claim":"..."}],"rendered_content":"...","source_urls":[...],"reference_excerpt":"...","context":"..."}` (and analogously `{"gate":"quiz_audit", ...}`). Do not add prose outside the envelope.
 - **Fold verdicts in before proceeding:** never present claims or questions to the learner while a gate task is still pending.
 - **Per-generation (Tutor only):** every Tutor generation that teaches a step must have its own fresh `fact-check` receipt **for the actual draft text, right before emission**. Draft the step internally, send `claims[] + rendered_content=draft + source_urls + reference_excerpt` in ONE foreground call, fold verdicts (apply `corrected_claim`), then emit the corrected final. Do not verify a plan and then generate different text. Each assistant message that contains teaching claims needs its own `fact-check` receipt.
-- **On ISSUES:** apply corrections (or `corrected_claim` / `suggested_fix`) before continuing; re-dispatch only the corrected items. Max 2 cycles per batch; then surface remaining flags to the user.
+- **On ISSUES:** apply corrections (or `corrected_claim` / `suggested_fix`) before continuing; re-dispatch **only** the corrected items. Max 2 cycles per batch; then surface remaining flags to the user. This is the **only** case in which a second `fact-check`/`quiz-audit` for the same turn is legitimate — a materially corrected draft. After a PASS, never re-dispatch: emit the verified text.
+- **On a match/binding withhold** (`NO_FACT_CHECK_MATCH`, `FACT_CHECK_MISMATCH`, `FACT_CHECK_MISSING_DRAFT`, `QUIZ_AUDIT_STALE`, `GRADE_AUDIT_STALE`, `NO_TURN_TAG`): do **not** re-run the verifier. The receipt already exists — re-emit the verified draft unchanged (or add the missing `[[TURN:…]]` tag). Re-dispatching the same draft is blocked by the gate and will not clear the withhold.
 - **If a subagent can't run:** say so explicitly and mark the affected claims/questions as UNVERIFIED — never silently skip verification.
 
 ### Fact-check envelope (per claim, batched)
@@ -71,6 +74,28 @@ Generation-to-emission (not plan-to-generation): draft the step internally first
 ```
 
 The subagent returns `{"issues":[...],"verdict":"PASS|PASS_WITH_FLAGS|ISSUES"}`. Mechanical pre-checks (done BEFORE dispatch): each MCQ has 4 options; `correct_index` in range; correct positions not all in one slot.
+
+### Grade-audit envelope (one graded answer)
+
+```json
+{
+  "gate": "grade_audit",
+  "concept": "Concept",
+  "question": "the exact question that was asked",
+  "learner_answer": "the learner's raw answer, verbatim",
+  "claimed_verdict": "pass | fail",
+  "source_excerpt": "the passage the answer is graded against",
+  "feynman_transcript": "optional — the explain-back, for concept/design types"
+}
+```
+
+One `grade_audit` envelope per graded item (the schema is a single object — **not** `items:[...]`; the gate tolerates that shape but `question`/`learner_answer` binding is what lets a dropped tag be inferred). Dispatch it **before** emitting the grade, then present the verifier's `correct_verdict` (not your own). The verifier returns `{"verdict":"PASS|ISSUES","agrees":true|false,"correct_verdict":"pass|fail"}`.
+
+> **Dispatch shape (all gates):** ONE `subagent({ agent: "<verifier>", task: <envelope>, async: false })` per gate, and **wait for the verdict in the tool result before emitting** (`async: false` is required — a default async dispatch returns a fan-out notice and forces a second round-trip). Do not use `action: "validate"/"status"` to dispatch. Do not launch the same gate twice.
+
+### Hint protocol (never leak the answer)
+
+When the learner asks for a hint, the hint is a `claims` turn: fact-check it like any teaching, but the draft's `rendered_content` must contain **only the method** — the setup steps, the formula in slot form, the log values needed — and must **not** contain the final numeric answer or the worked result. A hint that prints the answer destroys the practice. End the hint by handing the arithmetic back to the learner ("take it from here — finish I(X;Y) on paper and reply with the number").
 
 ### Write discipline (handoff-only writes)
 

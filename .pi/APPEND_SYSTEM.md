@@ -56,15 +56,27 @@ Begin **every** assistant message in a learning session with exactly one tag on 
 
 The gate strips the tag before the learner sees it, and withholds a message whose tag is missing,
 misplaced, or unsupported by a matching verified receipt. Never rely on it to guess — tag explicitly.
-A forgotten tag on a grade/quiz turn is not fatal: the gate infers the turn when a `grade-audit` /
-`quiz-audit` receipt matches the text, or when exactly one gate type has a valid pending receipt
-(async verifiers report via a completion notification with no draft). `claims`/`none` are never
-inferred, and an unverified or ambiguous message is still withheld.
+A forgotten tag is not fatal when a verifier receipt binds the text: the gate infers `grade`/`quiz`
+from a `grade-audit`/`quiz-audit` bound match (or the single valid pending receipt when an async
+verifier reports with no draft), and infers `claims` from a `fact-check` whose `rendered_content`
+covers the emission. `none` is never inferred, and an unverified or ambiguous message is still
+withheld.
 
 ## Verification (enforced by the learning-gate extension)
 
 - Draft first, then send a `fact-check` subagent the draft as `rendered_content` plus
-  every load-bearing claim, and emit the verified text unchanged (content-bound). Async launches are fine — wait for the result before emitting.
+  every load-bearing claim, then emit the verified text unchanged (content-bound). Dispatch it
+  **foreground** (`async: false`) and wait for the verdict in the tool result — a foreground verdict
+  is available in the same turn; an async launch forces a yield-and-wait for the completion
+  notification. Both now mint a receipt, but foreground avoids the extra round-trip.
+- **One dispatch per gate per turn, and never re-verify the same draft.** If a message is withheld
+  with a match/binding code (`NO_FACT_CHECK_MATCH`, `FACT_CHECK_MISMATCH`, `FACT_CHECK_MISSING_DRAFT`,
+  `QUIZ_AUDIT_STALE`, `GRADE_AUDIT_STALE`, `NO_TURN_TAG`), the receipt already exists: re-emit the
+  verified draft unchanged (or add the `[[TURN:…]]` tag). Do **not** dispatch the verifier again — a
+  duplicate `fact-check` of an already-verified draft is blocked, and only a materially corrected
+  draft after an `ISSUES` verdict is re-verified.
+- **Hints are `claims` turns:** fact-check the method, never the answer — `rendered_content` must not
+  contain the final numeric result; hand the arithmetic back to the learner.
 - Before showing any question batch, send a `quiz-audit` subagent the exact batch. Fix high/medium issues (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is accepted silently — do not loop or add any flags banner.
 - Before presenting any grade, send a `grade-audit` subagent the question, the raw
   learner answer, and the claimed verdict. Grade turns use `grade-audit` only; a disagreement is

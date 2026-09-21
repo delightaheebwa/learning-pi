@@ -448,6 +448,23 @@ function bindingMatches(bound: string | undefined, emittedText: string): boolean
   return coverage(bound, emittedText) >= 0.5;
 }
 
+/**
+ * Near-identical drafts: used to catch a re-dispatch of already-verified text.
+ * Deliberately stricter than `contentMatches` so a materially corrected draft
+ * (the legitimate post-ISSUES re-verification) is never treated as a duplicate.
+ */
+function nearDuplicate(a: string, b: string): boolean {
+  const at = tokens(a);
+  const bt = tokens(b);
+  if (at.length === 0 || bt.length === 0) return false;
+  const ratio = bt.length / at.length;
+  if (ratio < 0.85 || ratio > 1.15) return false;
+  const bs = new Set(bt);
+  let hit = 0;
+  for (const t of at) if (bs.has(t)) hit++;
+  return hit / at.length >= 0.95;
+}
+
 function parseStateAudit(text: string): StateAudit | undefined {
   const marker = text.match(/STATE_AUDIT_VERDICT\s*:\s*\{"errors"\s*:\s*(\d+)\s*,\s*"warnings"\s*:\s*(\d+)/i);
   if (marker) return { errors: Number(marker[1]), warnings: Number(marker[2]) };
@@ -511,6 +528,29 @@ function envelopeText(value: any): string {
       .join("\n");
   }
   return "";
+}
+
+/**
+ * Bound text for a grade-audit receipt. Primary shape is the single
+ * `{question, learner_answer, claimed_verdict}` object; the `items:[{…}]`
+ * array shape is accepted as a fallback so an off-spec envelope still binds.
+ */
+function gradeTextOf(envelope: any): string | undefined {
+  if (!envelope || typeof envelope !== "object") return undefined;
+  const one = [envelope.question, envelope.learner_answer, envelope.claimed_verdict].filter(
+    (x) => typeof x === "string"
+  );
+  if (one.length > 0) return one.join("\n");
+  if (Array.isArray(envelope.items)) {
+    const joined = envelope.items
+      .map((it: any) =>
+        [it?.question, it?.learner_answer, it?.claimed_verdict].filter((x) => typeof x === "string").join(" ")
+      )
+      .filter((s: string) => s.length > 0)
+      .join("\n");
+    if (joined.length > 0) return joined;
+  }
+  return undefined;
 }
 
 /**
@@ -579,9 +619,10 @@ function parseResult(text: string, gate: string, envelope: any): Receipt {
   const cm = text.match(/"correct_verdict"\s*:\s*"(pass|fail)"/i);
   const am = text.match(/"agrees"\s*:\s*(true|false)/i);
   const questionsText = envelope ? envelopeText(envelope.questions_json || envelope.questions) : undefined;
-  const gradeText = envelope
-    ? [envelope.question, envelope.learner_answer, envelope.claimed_verdict].filter((x) => typeof x === "string").join("\n")
-    : undefined;
+  // Grade envelope is a single object, but tolerate the `items:[{…}]` shape
+  // some generations emit so the receipt still binds (the malformed envelope
+  // otherwise left `gradeText` undefined and mis-inferred the turn as `quiz`).
+  const gradeText = gradeTextOf(envelope);
   const auditFiles = envelope && Array.isArray(envelope.files) ? envelope.files.filter((x: any) => typeof x === "string") : undefined;
   // Review-family verdicts: a PASS without an evidence list is unsubstantiated.
   let evidenceMissing = false;
@@ -739,10 +780,19 @@ export default function (pi: ExtensionAPI) {
   };
 
   const pendingCalls = new Map<string, CallRef[]>();
+  // Async subagent runs: runId -> the child calls captured at dispatch. The
+  // tool result for an async dispatch is only a fan-out notice (no verdict), so
+  // the receipt is minted later from the `subagent-notify` completion. Storing
+  // the envelope here lets that later receipt carry `rendered_content` /
+  // `questions_json` / `question+answer`, which a notification alone lacks.
+  // Without it an async `fact-check` can never bind (its whole purpose), which
+  // was the 2026-09-21 NO_FACT_CHECK_MATCH -> re-dispatch loop.
+  const pendingAsync = new Map<string, CallRef[]>();
 
   const reset = (flow: Flow) => {
     run = { flow, receipts: [], scoutCalled: false, scoutFinished: false, scoutReceiptSeen: false, scoutFailedRefs: [], clerkCalled: false, clerkDispatches: 0, reviewGates: 0, retries: 0, agentFailures: {}, agentFallbackUsed: {}, tutorWrote: false, writtenPaths: [], reviewSessionWrote: false, reviewSessionPaths: [], reviewSessionAudits: 0, agentlessDispatch: false };
     pendingCalls.clear();
+    pendingAsync.clear();
   };
 
   const addReceipt = (r: Receipt) => run.receipts.push(r);
@@ -828,6 +878,28 @@ export default function (pi: ExtensionAPI) {
           reason: `clerk ingest cap reached (${MAX_CLERK_DISPATCHES} per flow). The ingest is already running or done — report its result instead of re-dispatching.`,
         };
       }
+      // Duplicate fact-check guard: re-dispatching a draft that already has a
+      // valid (PASS) receipt is the observed "multiple fact-checks in one turn"
+      // loop — the Tutor re-verifies clean text after a tag/binding withhold
+      // instead of emitting the verified text. Block it and say what to do.
+      // A materially corrected draft (post-ISSUES) is not a near-duplicate, so
+      // the legitimate fix cycle is unaffected.
+      for (const fc of calls.filter((c) => c.agent === "fact-check")) {
+        const draft = fc.envelope && typeof fc.envelope.rendered_content === "string" ? fc.envelope.rendered_content : undefined;
+        if (!draft) continue;
+        const verified = run.receipts.find(
+          (r) => r.gate === "fact_check" && r.valid && r.renderedContent && nearDuplicate(r.renderedContent, draft)
+        );
+        if (verified) {
+          return {
+            block: true,
+            reason:
+              "This draft already has a valid fact-check receipt. Do NOT re-dispatch it. " +
+              "Emit the verified text unchanged (or, if the previous message was withheld, add the correct " +
+              "`[[TURN:claims]]` tag). Re-verification is only for a draft you materially corrected after an ISSUES verdict.",
+          };
+        }
+      }
       if (event?.toolCallId) pendingCalls.set(event.toolCallId, calls);
       if (calls.some((c) => c.agent === "scout")) run.scoutCalled = true;
       if (calls.some((c) => c.agent === "clerk")) run.clerkCalled = true;
@@ -843,6 +915,10 @@ export default function (pi: ExtensionAPI) {
       if (tool === "subagent") {
         const pending = (event?.toolCallId && pendingCalls.get(event.toolCallId)) || [];
         if (event?.toolCallId) pendingCalls.delete(event.toolCallId);
+        // Async/dispatched run id: remember the captured envelope so the
+        // later completion notification can mint a *bound* receipt.
+        const asyncId = typeof event?.details?.asyncId === "string" ? event.details.asyncId : undefined;
+        if (asyncId && pending.length > 0) pendingAsync.set(asyncId, pending);
         for (const call of resultCalls(event, text, pending)) {
           const output = call.output || text;
           // Provider failures (503/429/overloaded) count toward the one-shot
@@ -852,6 +928,12 @@ export default function (pi: ExtensionAPI) {
             run.agentFailures[call.agent] = (run.agentFailures[call.agent] || 0) + 1;
           }
           if (event?.isError === true) continue;
+          // An async dispatch's tool result is only a fan-out notice — it
+          // carries no verdict. Minting here would add an unusable stub that
+          // then mislabels later blockers (e.g. an invalid quiz stub reading as
+          // QUIZ_AUDIT_ISSUES). The completion notification mints the real one
+          // via `pendingAsync` above.
+          if (asyncId) continue;
           const gate = VERIFIER_AGENTS[call.agent];
           if (gate) {
             // Right envelope for the right agent — a fact-check envelope on a
@@ -886,12 +968,16 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  // Gates eligible for the async-completion fallback below. `fact_check` is
-  // excluded on purpose: its receipt binds a claims turn through
-  // `rendered_content`, which a completion notification does not carry, so a
-  // notify-minted fact-check receipt could never bind (it would only swap
-  // NO_FACT_CHECK_MATCH for FACT_CHECK_MISSING_DRAFT).
-  const NOTIFY_FALLBACK_SKIP = new Set(["fact_check"]);
+  // Async gates that cannot be minted from a bare completion notification
+  // (their receipt needs the dispatch envelope) are still minted — just gated
+  // on `pendingAsync` correlation succeeding. A `fact_check` with no
+  // correlated envelope yields nothing rather than an un-bindable receipt.
+
+  /** Async run id from a completion notification (`.../async-subagent-runs/<id>`). */
+  const extractAsyncRunId = (text: string): string | undefined => {
+    const m = text.match(/async-subagent-(?:runs|results)(?:\/output-archives)?\/([0-9a-fA-F-]{36})/);
+    return m ? m[1] : undefined;
+  };
 
   /**
    * Mint a receipt from an async/detached subagent completion notification.
@@ -902,8 +988,10 @@ export default function (pi: ExtensionAPI) {
    * pi-subagents emits `Background task completed: **agent**` for async runs
    * and `Detached foreground task completed: **agent**` for a foreground run
    * that was later detached — both carry the child's output preview, so accept
-   * either. Idempotent (skip a gate that already has a valid receipt) and
-   * fail-open; non-notification text is a no-op.
+   * either. The run id in the notification is correlated with the envelope
+   * captured at dispatch (`pendingAsync`) so the receipt binds the audited
+   * text, not just the verdict. Idempotent (skip a gate that already has a
+   * valid receipt) and fail-open; non-notification text is a no-op.
    */
   const NOTIFY_HEADER_RE = /(?:Background task|Detached foreground task) completed:\s*\*\*([\w-]+)\*\*/i;
   const mintFromNotification = (text: string): void => {
@@ -926,9 +1014,24 @@ export default function (pi: ExtensionAPI) {
       return;
     }
     const gate = VERIFIER_AGENTS[agent];
-    if (!gate || NOTIFY_FALLBACK_SKIP.has(gate)) return;
+    if (!gate) return;
+    const runId = extractAsyncRunId(text);
+    const calls = runId ? pendingAsync.get(runId) : undefined;
+    if (runId) pendingAsync.delete(runId);
+    if (gate === "fact_check") {
+      // A fact-check receipt is only usable when bound to its draft
+      // (`rendered_content`); the notification does not carry the envelope, so
+      // without the dispatch-correlated envelope we mint nothing rather than a
+      // receipt that could only ever produce FACT_CHECK_MISSING_DRAFT.
+      if (!calls || calls.length === 0) return;
+      if (run.receipts.some((r) => r.gate === "fact_check" && r.valid)) return;
+      for (const c of calls) addReceipt(parseResult(text, gate, c.envelope));
+      return;
+    }
     if (run.receipts.some((r) => r.gate === gate && r.valid)) return;
-    addReceipt(parseResult(text, gate, undefined));
+    // With the correlated envelope the receipt binds the audited question /
+    // answer / files; without it (legacy notifications) mint unbound as before.
+    addReceipt(parseResult(text, gate, calls && calls.length === 1 ? calls[0].envelope : undefined));
   };
 
   /**
@@ -984,6 +1087,23 @@ export default function (pi: ExtensionAPI) {
     if (run.tutorWrote && (run.flow === "teach" || run.flow === "resume")) return undefined;
     if (validGates.size === 1) return [...validGates][0];
     return undefined;
+  };
+
+  /**
+   * Infer a dropped `claims` tag from a *bound* fact-check receipt.
+   *
+   * This is not evasion: the emitted text must cover ≥85% of a draft that a
+   * fact-check already verified (the exact `rendered_content` binding the
+   * claims branch enforces). A transition/summary that doesn't match any
+   * verified draft is not inferred, so an unbound message still withholds.
+   * This removes the observed dead-end where a long tool-heavy claims turn
+   * dropped its tag and the text was withheld despite a valid receipt.
+   */
+  const inferClaimsTurn = (text: string): boolean => {
+    if (run.flow === "ingest" || run.flow === "other") return false;
+    return run.receipts.some(
+      (r) => r.gate === "fact_check" && r.valid && r.renderedContent && contentMatches(r.renderedContent, text)
+    );
   };
 
   pi.on("message_end", async (event: any, ctx) => {
@@ -1045,9 +1165,14 @@ export default function (pi: ExtensionAPI) {
       // The same dead-end guard as the ingest `inferredNone` path: a weak Tutor
       // that drops `[[TURN:...]]` after a (often async) verification would
       // otherwise withhold the message, end the turn, and need a manual poke.
-      let inferredTag: "grade" | "quiz" | undefined;
+      let inferredTag: "grade" | "quiz" | "claims" | undefined;
       if (!tagMatch && !inferredNone) {
-        inferredTag = inferTaggedTurn(text);
+        // A bound fact-check receipt is checked first: it is the strongest
+        // signal (the emitted text covers a verified draft), and it prevents a
+        // stale quiz/grade receipt from mis-inferring the turn type and
+        // yielding a misleading `QUIZ_AUDIT_STALE`/`QUIZ_AUDIT_ISSUES` block.
+        if (inferClaimsTurn(text)) inferredTag = "claims";
+        else inferredTag = inferTaggedTurn(text);
         if (!inferredTag) blockers.push("NO_TURN_TAG");
       }
       const tag = explicitTag || inferredTag || (inferredNone ? "none" : undefined);
@@ -1152,7 +1277,8 @@ export default function (pi: ExtensionAPI) {
           toConsume.push(q);
         } else {
           const anyBound = run.receipts.some((r) => r.gate === "quiz_audit" && r.valid);
-          blockers.push(anyBound ? "QUIZ_AUDIT_STALE" : findAny("quiz_audit") ? "QUIZ_AUDIT_ISSUES" : "NO_QUIZ_AUDIT_PASS");
+          const issuesReceipt = run.receipts.some((r) => r.gate === "quiz_audit" && r.issues);
+          blockers.push(anyBound ? "QUIZ_AUDIT_STALE" : issuesReceipt ? "QUIZ_AUDIT_ISSUES" : "NO_QUIZ_AUDIT_PASS");
         }
       } else if (tag === "grade") {
         const candidates = run.receipts.filter(
@@ -1161,8 +1287,8 @@ export default function (pi: ExtensionAPI) {
         const g = candidates[0];
         if (g) toConsume.push(g);
         else {
-          const bad = findAny("grade_audit");
-          if (bad && bad.agrees === false) {
+          const bad = run.receipts.find((r) => r.gate === "grade_audit" && r.agrees === false);
+          if (bad) {
             blockers.push("GRADE_MISMATCH");
             verdictNote = bad.correctVerdict
               ? `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.`
@@ -1277,9 +1403,10 @@ export default function (pi: ExtensionAPI) {
 
       const fix = [
         "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, or `[[TURN:none]]`.",
-        "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged.",
+        "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged. A `[[TURN:claims]]` tag is also inferred automatically when your text matches an already-verified `rendered_content`, so if a message is withheld here, just re-emit the verified draft with its tag.",
         "quiz: send the exact batch; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
-        "grade: send question + raw learner answer + claimed verdict; use the verifier's `correct_verdict`.",
+        "grade: send question + raw learner answer + claimed verdict as ONE object; use the verifier's `correct_verdict`.",
+        "do not re-verify: if a fact-check receipt already covers your draft, emit that draft unchanged — re-dispatching the same claims is blocked and only for a materially corrected draft after an ISSUES verdict.",
         "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch and fold its verdict before the summary.",
         "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary.",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
