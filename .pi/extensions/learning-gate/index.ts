@@ -365,21 +365,38 @@ function subagentCalls(input: any): CallRef[] {
  * Resolve the child calls behind a `subagent` tool result.
  *
  * pi-subagents >= 0.68 reports workflow children structurally in
- * `details.results` (`agent`, `task` JSON, `finalOutput`) — the only reliable
- * place to recover a workflow child's envelope and output. Fall back to the
- * calls captured from the request input for legacy single/chain shapes and
- * async fan-out notices (which carry no immediate output; the notify fallback
- * mints those receipts later).
+ * `details.results` (`agent`, `finalOutput`), but it **compacts completed
+ * foreground results before the extension sees them**: `task` is rewritten to
+ * `[prompt redacted]` and `messages` are dropped (`compactForegroundResult`).
+ * The dispatch envelope (which carries `rendered_content` / `questions_json` /
+ * grade text) therefore cannot be parsed back out of `r.task`, and a receipt
+ * minted without it can never bind — the 2026-09-22 foreground
+ * NO_TURN_TAG -> FACT_CHECK_MISSING_DRAFT -> ⛔ UNVERIFIED dead-end.
+ *
+ * Recover the envelope from the calls captured at `tool_call` time, matched per
+ * agent in dispatch order so a parallel same-agent fan-out stays aligned. Fall
+ * back to the calls captured from the request input for legacy single/chain
+ * shapes and async fan-out notices (which carry no immediate output; the notify
+ * fallback mints those receipts later).
  */
 function resultCalls(event: any, text: string, pending: CallRef[]): CallRef[] {
   const results = event?.details?.results;
   if (Array.isArray(results) && results.length > 0) {
     const out: CallRef[] = [];
+    const pendingByAgent = new Map<string, CallRef[]>();
+    for (const c of pending) {
+      const q = pendingByAgent.get(c.agent) || [];
+      q.push(c);
+      pendingByAgent.set(c.agent, q);
+    }
     for (const r of results) {
       if (!r || typeof r.agent !== "string") continue;
       const finalOutput = typeof r.finalOutput === "string" ? r.finalOutput : undefined;
       if (!finalOutput) continue; // async/pending child — the notify fallback mints it
-      const env = parseTask(r.task);
+      // Consume the queued call for this agent even when `r.task` parsed, so the
+      // per-agent queues stay aligned across a multi-result fan-out.
+      const queued = pendingByAgent.get(r.agent)?.shift();
+      const env = parseTask(r.task) ?? queued?.envelope;
       out.push({
         agent: r.agent,
         envelope: env,

@@ -69,6 +69,17 @@ const fg = (id, agent, task, output) =>
     content: [{ type: 'text', text: '' }],
     details: { results: [{ agent, task, finalOutput: output, runId: `r-${id}` }] },
   });
+// Real pi-subagents compaction: a completed foreground result reaches extensions
+// with `task` redacted and `messages` dropped. The gate must recover the dispatch
+// envelope from `tool_call`, not from the (now unusable) result task.
+const fgRedacted = (id, agent, output) =>
+  fire('tool_result', {
+    toolName: 'subagent',
+    toolCallId: id,
+    isError: false,
+    content: [{ type: 'text', text: output }],
+    details: { mode: 'single', runId: `r-${id}`, results: [{ index: 0, agent, task: '[prompt redacted]', finalOutput: output }] },
+  });
 const subFail = (id, text) =>
   fire('tool_result', { toolName: 'subagent', toolCallId: id, isError: true, content: [{ type: 'text', text }] });
 const fcEnvelope = (draft) =>
@@ -216,6 +227,18 @@ assert('claims emit before notification is withheld with a wait hint', blocked(e
 fcNotify(uuid5, FC_PASS);
 const afterNotify = await msg(`[[TURN:claims]]\n${vDraft}`, 'stop');
 assert('claims emit after the completion notification renders', allowed(afterNotify));
+
+// --- 2026-09-22: a compacted foreground task must still bind its receipt ---
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('fact-check', fcEnvelope(vDraft), 'rfc1');
+await fgRedacted('rfc1', 'fact-check', FC_PASS);
+const redactedTagged = await msg(`[[TURN:claims]]\n${vDraft}`, 'stop');
+assert('redacted foreground task binds a tagged claims turn', allowed(redactedTagged));
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('fact-check', fcEnvelope(vDraft), 'rfc2');
+await fgRedacted('rfc2', 'fact-check', FC_PASS);
+const redactedUntagged = await msg(vDraft, 'stop');
+assert('redacted foreground task binds a dropped-tag claims turn', allowed(redactedUntagged));
 
 // --- a failed async verifier clears the in-flight state (no stale hint) ---
 await setPrompt('[[FLOW:resume]] continue the lesson');
