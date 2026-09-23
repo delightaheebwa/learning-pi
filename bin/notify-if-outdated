@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Debounced (<= once per day) pi-availability check.
+#
+# This script NEVER installs or updates anything. It compares the pinned pi
+# version in versions.lock.json against the newest published release and, if a
+# newer one exists, writes a status file and (best effort) raises a desktop
+# notification pointing at `pi-safe-update`.
+#
+# Invoked in the background by bin/pi. Respects $PI_OFFLINE.
+set -uo pipefail
+
+case "${PI_OFFLINE:-}" in
+  1|true|yes|TRUE|YES) exit 0 ;;
+esac
+
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/learning-pi"
+mkdir -p "$CACHE" 2>/dev/null || exit 0
+STAMP="$CACHE/last-update-check"
+STATUS="$CACHE/update-status.json"
+
+# Debounce: at most once per 24h.
+now="$(date +%s)"
+if [ -r "$STAMP" ]; then
+  last="$(cat "$STAMP" 2>/dev/null || echo 0)"
+  case "$last" in ''|*[!0-9]*) last=0 ;; esac
+  if [ $((now - last)) -lt 86400 ]; then
+    exit 0
+  fi
+fi
+echo "$now" > "$STAMP"
+
+LEARNING_PI_ROOT="${LEARNING_PI_ROOT:-$HOME/learning-pi}"
+LOCK="$LEARNING_PI_ROOT/versions.lock.json"
+[ -r "$LOCK" ] || exit 0
+
+locked="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("pi",""))' "$LOCK" 2>/dev/null || true)"
+[ -n "$locked" ] || exit 0
+
+# Newest published release. MISE_MINIMUM_RELEASE_AGE=0 so hidden candidates show.
+newest="$(MISE_MINIMUM_RELEASE_AGE=0 mise ls-remote pi 2>/dev/null \
+  | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)"
+[ -n "$newest" ] || exit 0
+
+higher="$(printf '%s\n%s\n' "$locked" "$newest" | sort -V | tail -1)"
+if [ "$higher" = "$newest" ] && [ "$newest" != "$locked" ]; then
+  printf '{"locked":"%s","available":"%s","checkedAt":%s}\n' "$locked" "$newest" "$now" > "$STATUS"
+  msg="pi $newest is available (pinned: $locked). Run: ~/learning-pi/harness/pi-safe-update update"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send -a "learning-pi" -u low "pi update available" "$msg" 2>/dev/null || true
+  fi
+else
+  printf '{"locked":"%s","available":null,"checkedAt":%s}\n' "$locked" "$now" > "$STATUS"
+fi

@@ -143,6 +143,63 @@ review verdicts with no backing run, Clerk-relayed review provenance, and unboun
 Both the Open WebUI container and this local checkout push to the **original** repo. Pull before a
 session and avoid running both writers concurrently. This repo never touches state.
 
+## Updating safely (the update gate)
+
+pi is **hard-pinned** to the version in `versions.lock.json`. The `bin/pi` launcher runs that exact
+version and never updates anything; it only reports (at most daily) when a newer candidate exists.
+Extension packages are pinned to exact versions in `~/.pi/agent/settings.json`, so
+`pi update --extensions` skips them.
+
+The behavior the learning system requires is declared in [`CONTRACT.md`](CONTRACT.md) and
+[`contracts/learning-core.json`](contracts/learning-core.json), and enforced by `scripts/learn-check`.
+Nothing is promoted unless every invariant still passes.
+
+One-time wiring (already done on this machine):
+
+```bash
+ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
+install -m644 ~/learning-pi/harness/systemd/learning-pi-audit.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now learning-pi-audit.timer
+```
+
+Commands:
+
+```bash
+~/learning-pi/harness/pi-safe-update check       # newer pi/packages + changelog risk scan
+~/learning-pi/harness/pi-safe-update update      # stage, gate, promote (or stay pinned + diagnosis)
+~/learning-pi/harness/pi-safe-update doctor      # re-run the suite against the current pin
+~/learning-pi/harness/pi-safe-update rollback    # restore the previous promoted version
+~/learning-pi/scripts/learn-check                # the test entrypoint (offline + load probe)
+```
+
+On a failed update the conductor **does not patch code**. It stays pinned and writes a diagnosis
+report (failing invariant IDs, the relevant changelog watchlist hits) to
+`~/.cache/learning-pi/diagnosis-*.md`; bring that report to a session and fix it there. Changing
+expected behavior is the *revise door*: edit `CONTRACT.md` + the tagged test + the implementation in
+one commit (see `CONTRACT.md`).
+
+A weekly `learning-pi-audit.timer` runs `pi/audit_gates.py` over the last 7 days of real sessions
+(read-only) as a standing net for whatever tests miss.
+
+### Repo layout for the gate
+
+```
+CONTRACT.md                  declared behavior (the thing updates must not break)
+contracts/learning-core.json machine-readable invariants -> test names
+bin/pi                       pinned launcher (never updates)
+bin/notify-if-outdated       debounced availability check (never updates)
+harness/pi-safe-update       update conductor (check|update|doctor|rollback)
+harness/mk-sandbox.sh         isolated duplicate harness builder
+harness/audit-recent-sessions.sh + systemd/  weekly provenance audit
+scripts/learn-check          the single test entrypoint
+test/gate_test.mjs           core gate behavior (mocked pi)
+test/golden/golden_test.mjs  write-gate / scout / retry / demotion scenarios
+test/contract/               resource checks, load probe
+test/fixtures/               synthetic learning-system state (never real data)
+.pi/extensions/learning-gate/gate-core/   pure, pi-independent decision logic
+.pi/extensions/learning-gate/pi-adapter/  the ONLY pi-version-aware file
+```
+
 ## Uninstall
 
 ```bash

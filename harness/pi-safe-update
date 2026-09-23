@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+# pi-safe-update — gated update conductor for the pi learning layer.
+#
+# The ONLY supported way to change the pinned pi version. It stages a candidate
+# side-by-side, runs learn-check against it, and promotes only if everything
+# passes. On failure it discards the candidate, keeps the current pin, and writes
+# a diagnosis report. It never patches code (that is interactive work).
+#
+# Usage:
+#   pi-safe-update check                report newer pi/packages + changelog risk
+#   pi-safe-update update [--to VER] [--dry-run] [--packages] [--models]
+#   pi-safe-update doctor               run learn-check against the current pin
+#   pi-safe-update rollback             restore the previous pinned version
+#
+# Exit codes: 0 ok / 1 test-failed (stayed pinned) / 2 usage / 3 staging error.
+set -uo pipefail
+
+LAYER="${LEARNING_PI_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+LOCK="${SAFE_UPDATE_LOCK:-$LAYER/versions.lock.json}"
+CONFIG="${SAFE_UPDATE_CONFIG:-$HOME/.config/mise/config.toml}"
+MISE_INSTALLS="$HOME/.local/share/mise/installs/pi"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/learning-pi"
+mkdir -p "$CACHE"
+
+WATCHLIST='pi-tui|pi-coding-agent|pi-ai|ExtensionAPI|registerCommand|prompt.?template|commands/|hooks|subagent|stopReason|tool_result|tool_call|message_end|before_agent_start|session_manager|ExtensionContext'
+
+# --- helpers -------------------------------------------------------------
+die() { echo "pi-safe-update: $*" >&2; exit "${2:-1}"; }
+
+lock_get() {
+  python3 - "$LOCK" "$1" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+key = sys.argv[2]
+if key == "pi":
+    print(d.get("pi", ""))
+else:
+    print((d.get("packages") or {}).get(key, ""))
+PY
+}
+
+lock_packages() {
+  python3 - "$LOCK" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for k in (d.get("packages") or {}):
+    print(k)
+PY
+}
+
+newest_pi() {
+  MISE_MINIMUM_RELEASE_AGE=0 mise ls-remote pi 2>/dev/null \
+    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1
+}
+
+candidate_bin() { echo "$MISE_INSTALLS/$1/pi/pi"; }
+
+scan_changelog() {
+  local cand="$1" current="$2"
+  local cl="$MISE_INSTALLS/$cand/pi/CHANGELOG.md"
+  [ -f "$cl" ] || return 0
+  awk -v stop="[$current]" '
+    /^## \[/ { if (index($0, stop)) exit }
+    { print }
+  ' "$cl" | grep -inE "$WATCHLIST" | head -25
+}
+
+# --- commands ------------------------------------------------------------
+do_check() {
+  local cur newest
+  cur="$(lock_get pi)"
+  newest="$(newest_pi)"
+  echo "pi pinned: $cur"
+  echo "pi newest: ${newest:-<none found>}"
+  if [ -n "$newest" ] && [ "$newest" != "$cur" ]; then
+    echo "  -> candidate available: $newest  (run: pi-safe-update update)"
+  fi
+  echo
+
+  echo "extension packages:"
+  for pkg in $(lock_packages); do
+    local locked latest
+    locked="$(lock_get "$pkg")"
+    latest="$(npm view "$pkg" version 2>/dev/null || echo "?")"
+    printf '  %-32s pinned=%-10s latest=%s\n' "$pkg" "$locked" "$latest"
+  done
+  echo
+
+  if [ -n "$newest" ] && [ "$newest" != "$cur" ]; then
+    echo "changelog risk scan ($cur -> $newest), watchlist hits:"
+    if [ ! -d "$MISE_INSTALLS/$newest" ]; then
+      echo "  (candidate not staged yet; run 'update' to download and scan its CHANGELOG)"
+    else
+      local hits
+      hits="$(scan_changelog "$newest" "$cur")"
+      if [ -n "$hits" ]; then
+        echo "$hits" | sed 's/^/  /'
+      else
+        echo "  (none)"
+      fi
+    fi
+  fi
+}
+
+do_doctor() {
+  echo "doctor: learn-check against the current pin ($(lock_get pi))"
+  LEARN_CHECK_PI="${LEARN_CHECK_PI:-$LAYER/bin/pi}" LEARNING_PI_ROOT="$LAYER" \
+    bash "$LAYER/scripts/learn-check" --with-sidecars
+}
+
+do_update() {
+  local to="" dry=0 pkgs=0 models=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --to) to="$2"; shift 2 ;;
+      --dry-run) dry=1; shift ;;
+      --packages) pkgs=1; shift ;;
+      --models) models=1; shift ;;
+      *) die "unknown update option: $1" 2 ;;
+    esac
+  done
+
+  local cur; cur="$(lock_get pi)"
+  [ -n "$to" ] || to="$(newest_pi)"
+  [ -n "$to" ] || die "could not determine a candidate version" 3
+
+  if [ "$to" = "$cur" ]; then
+    echo "already pinned at $to; nothing to do"
+    return 0
+  fi
+
+  echo "staging pi $to (current pin: $cur)..."
+  if ! MISE_MINIMUM_RELEASE_AGE=0 mise install "pi@$to" >/dev/null 2>&1; then
+    die "mise failed to install pi@$to" 3
+  fi
+  local cand; cand="$(candidate_bin "$to")"
+  [ -x "$cand" ] || die "candidate binary not found at $cand" 3
+
+  local stamp report
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  report="$CACHE/diagnosis-$stamp.md"
+
+  echo "running learn-check against candidate $to ..."
+  if LEARN_CHECK_PI="$cand" LEARNING_PI_ROOT="$LAYER" \
+       bash "$LAYER/scripts/learn-check" >"$report" 2>&1; then
+    {
+      echo "# Candidate $to vs pin $cur — learn-check"
+      echo
+      echo "Result: PASS (all gates green)"
+      echo
+      cat "$report"
+    } >"$report.tmp" && mv "$report.tmp" "$report"
+    if [ "$dry" = 1 ]; then
+      echo "DRY RUN: learn-check passed; would promote $cur -> $to"
+      echo "report: $report"
+      return 0
+    fi
+    promote "$cur" "$to"
+    echo "promoted pi $cur -> $to"
+    echo "report: $report"
+    if [ "$pkgs" = 1 ]; then
+      echo "note: extension-package pin bumps require golden/live tests (see README); pi promoted only"
+    fi
+    if [ "$models" = 1 ]; then
+      echo "note: model catalogs refresh via 'pi update --models' (not gated)"
+    fi
+    return 0
+  else
+    {
+      echo "# Candidate $to rejected — pi-safe-update stayed at $cur"
+      echo
+      echo "learn-check FAILED against $to. Nothing was promoted."
+      echo
+      echo "## Diagnosis"
+      echo
+      echo "- Failing step(s) are the FAIL lines below (invariant IDs map to CONTRACT.md)."
+      echo "- Classify: if the failure is an adapter/load shape issue, patch pi-adapter;"
+      echo "  if it is behavior, treat it as the revise door (CONTRACT + tests + impl)."
+      echo
+      echo "## Changelog risk scan ($cur -> $to), watchlist hits"
+      echo
+      scan_changelog "$to" "$cur" | sed 's/^/    /'
+      echo
+      echo "## learn-check output"
+      echo
+      echo '```'
+      cat "$report"
+      echo '```'
+    } >"$report.tmp" && mv "$report.tmp" "$report"
+
+    echo "learn-check FAILED against $to — staying pinned at $cur"
+    echo "diagnosis report: $report"
+    grep -E '^FAIL' "$report" | head -20
+    return 1
+  fi
+}
+
+promote() {
+  local from="$1" to="$2"
+  python3 - "$LOCK" "$from" "$to" <<'PY'
+import datetime, json, sys
+lock, frm, to = sys.argv[1], sys.argv[2], sys.argv[3]
+d = json.load(open(lock))
+d["pi"] = to
+d.setdefault("journal", []).append({
+    "at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "action": "promote",
+    "from": frm,
+    "to": to,
+    "note": "pi-safe-update: learn-check passed",
+})
+with open(lock, "w") as fh:
+    json.dump(d, fh, indent=2)
+    fh.write("\n")
+PY
+  # Keep mise's own global pin consistent so stray `mise use`/pipelines agree.
+  if [ -f "$CONFIG" ]; then
+    python3 - "$CONFIG" "$to" <<'PY'
+import re, sys
+path, to = sys.argv[1], sys.argv[2]
+s = open(path).read()
+if re.search(r'^pi = ".*"$', s, flags=re.M):
+    s = re.sub(r'^pi = ".*"$', f'pi = "{to}"', s, flags=re.M)
+else:
+    s = s.rstrip() + f'\npi = "{to}"\n'
+open(path, "w").write(s)
+PY
+  fi
+}
+
+do_rollback() {
+  local entry
+  entry="$(python3 - "$LOCK" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for e in reversed(d.get("journal") or []):
+    if e.get("action") == "promote":
+        print(f'{e.get("from")}|{e.get("to")}')
+        break
+PY
+)"
+  [ -n "$entry" ] || die "no promotion in the journal to roll back" 3
+  local from="${entry%%|*}" to="${entry##*|}"
+  [ -n "$from" ] || die "journal entry has no previous version" 3
+  echo "rolling back pi $to -> $from"
+  promote "$to" "$from"
+  echo "rolled back; pinned at $from"
+}
+
+usage() {
+  sed -n '3,20p' "$0"
+}
+
+case "${1:-}" in
+  check) shift; do_check "$@" ;;
+  doctor) shift; do_doctor "$@" ;;
+  update) shift; do_update "$@" ;;
+  rollback) shift; do_rollback "$@" ;;
+  ""|-h|--help) usage; exit 2 ;;
+  *) die "unknown command: $1" 2 ;;
+esac

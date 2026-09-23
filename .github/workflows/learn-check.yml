@@ -1,0 +1,26 @@
+name: learn-check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Offline checks only: behavior suites, resources, contract coverage,
+      # sidecar compile. The load probe needs a pi binary and runs locally in
+      # the update conductor.
+      - name: learn-check (offline)
+        run: scripts/learn-check --no-load

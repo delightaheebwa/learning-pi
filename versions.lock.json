@@ -1,0 +1,16 @@
+{
+  "_comment": "Single source of truth for pinned pi + extension-package versions. Managed by harness/pi-safe-update. Do not hand-edit except during a deliberate revise (see CONTRACT.md).",
+  "pi": "0.85.1",
+  "packages": {
+    "pi-subagents": "0.68.0",
+    "pi-web-access": "0.29.0",
+    "@monotykamary/pi-math": "0.5.4"
+  },
+  "journal": [
+    {
+      "at": "2026-09-23T00:00:00Z",
+      "action": "baseline",
+      "note": "Initial pin: froze the then-current install before the update gate existed."
+    }
+  ]
+}

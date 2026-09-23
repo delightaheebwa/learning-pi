@@ -1,0 +1,6 @@
+[Unit]
+Description=Weekly read-only gate-provenance audit (learning-pi)
+
+[Service]
+Type=oneshot
+ExecStart=%h/learning-pi/harness/audit-recent-sessions.sh

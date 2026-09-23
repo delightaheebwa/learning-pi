@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly learning-pi gate-provenance audit
+
+[Timer]
+OnCalendar=Sun *-*-* 09:00:00
+Persistent=true
+AccuracySec=1min
+Unit=learning-pi-audit.service
+
+[Install]
+WantedBy=timers.target

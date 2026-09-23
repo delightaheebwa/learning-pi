@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# pi launcher — hard-pinned to the version promoted by `pi-safe-update`.
+#
+# This launcher NEVER updates pi. It runs the exact version recorded in
+# ~/learning-pi/versions.lock.json (override with $LEARNING_PI_ROOT), and kicks
+# off a debounced background availability check that only *notifies*.
+#
+# Updating pi/extension packages is done exclusively through:
+#     ~/learning-pi/harness/pi-safe-update update
+# See CONTRACT.md (invariants S1–S4) and bin/README.md.
+set -uo pipefail
+
+LEARNING_PI_ROOT="${LEARNING_PI_ROOT:-$HOME/learning-pi}"
+LOCK="$LEARNING_PI_ROOT/versions.lock.json"
+MISE_INSTALLS="$HOME/.local/share/mise/installs/pi"
+
+version=""
+if [ -r "$LOCK" ]; then
+  version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("pi",""))' "$LOCK" 2>/dev/null || true)"
+fi
+
+# Background availability check (debounced, never blocks launch).
+if [ -x "$LEARNING_PI_ROOT/bin/notify-if-outdated" ]; then
+  "$LEARNING_PI_ROOT/bin/notify-if-outdated" >/dev/null 2>&1 &
+fi
+
+# Preferred: run the exact installed binary directly (fast, no mise resolution).
+if [ -n "$version" ] && [ -x "$MISE_INSTALLS/$version/pi/pi" ]; then
+  exec "$MISE_INSTALLS/$version/pi/pi" "$@"
+fi
+
+# Fallback: let mise resolve the pinned version (installs it if missing).
+if [ -n "$version" ]; then
+  exec mise x "pi@$version" -- pi "$@"
+fi
+
+# Last resort (no lock readable): behave like a normal mise install.
+exec mise x pi -- pi "$@"

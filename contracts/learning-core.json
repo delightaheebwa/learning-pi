@@ -1,0 +1,137 @@
+{
+  "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
+  "version": 1,
+  "updated": "2026-09-23",
+  "invariants": [
+    {
+      "id": "G-grade-requires-agreeing-audit",
+      "severity": "hard",
+      "statement": "A grade turn must not render unless an agreeing grade-audit receipt is present; a missing receipt is withheld with NO_GRADE_AUDIT_PASS.",
+      "tests": ["normal grade turn allowed", "grade turn with no receipt withheld"]
+    },
+    {
+      "id": "G-receipts-consumed-per-message",
+      "severity": "hard",
+      "statement": "A verifier receipt is consumed by the message it verifies, so the same receipt cannot authorize a second grading turn (verify A, emit B is blocked).",
+      "tests": ["second grade turn blocked once receipt consumed"]
+    },
+    {
+      "id": "G-partial-ungated",
+      "severity": "hard",
+      "statement": "A generation that did not finish (stopReason error/aborted/length) passes through ungated with its turn tag stripped, and does not consume a verifier receipt.",
+      "tests": ["errored partial is not withheld", "re-emitted grade turn allowed after errored partial"]
+    },
+    {
+      "id": "G-ingest-requires-review",
+      "severity": "hard",
+      "statement": "An ingest summary does not render without a valid review verdict (NO_REVIEW_GATE_PASS), and an ingest summary is not held hostage after the Clerk returns.",
+      "tests": ["ingest summary renders", "tagged ingest follow-up not held hostage"]
+    },
+    {
+      "id": "G-ingest-clerk-relay-flagged",
+      "severity": "policy",
+      "statement": "A review verdict relayed by the Clerk instead of an independent review-gate run is surfaced with an INGEST GATE banner (never silently trusted).",
+      "tests": ["clerk-relayed verdict triggers INGEST GATE banner"]
+    },
+    {
+      "id": "G-review-evidence-required",
+      "severity": "policy",
+      "statement": "A review-family verdict with no evidence list is treated as unsubstantiated and surfaced with a banner.",
+      "tests": ["missing-evidence banner surfaced"]
+    },
+    {
+      "id": "G-scout-banner-not-withhold",
+      "severity": "policy",
+      "statement": "A partial or missing Scout digest surfaces a banner but never withholds the teaching turn.",
+      "tests": ["scout-unverified banner surfaced", "sources-incomplete banner surfaced"]
+    },
+    {
+      "id": "G-provider-fallback",
+      "severity": "policy",
+      "statement": "After two consecutive provider failures for a verifier/scout, the withheld banner offers a one-shot alternate-model fallback directive (never forces it).",
+      "tests": ["fallback directive after two provider failures"]
+    },
+    {
+      "id": "G-no-duplicate-factcheck",
+      "severity": "hard",
+      "statement": "Re-dispatching a fact-check for a draft that already has a valid receipt is blocked, while a materially corrected draft after an ISSUES verdict is allowed.",
+      "tests": ["duplicate fact-check of a verified draft is blocked", "corrected re-dispatch after ISSUES is allowed"]
+    },
+    {
+      "id": "G-async-notify-mints",
+      "severity": "hard",
+      "statement": "Async subagent completion notifications mint content-bound receipts from the dispatch envelope, and a failed async run clears its pending state without minting.",
+      "tests": [
+        "async fact-check binds its tagged claims turn",
+        "claims emit after the completion notification renders",
+        "failed verifier is not reported as in-flight"
+      ]
+    },
+    {
+      "id": "G-infer-claims-from-bound",
+      "severity": "hard",
+      "statement": "A dropped claims tag is recovered only from a content-bound passing fact-check receipt (≥85% coverage); unbound messages still withhold.",
+      "tests": ["dropped claims tag recovered from bound fact-check"]
+    },
+    {
+      "id": "G-infer-grade-quiz",
+      "severity": "hard",
+      "statement": "A dropped grade/quiz tag is inferred from a bound verifier receipt, or the single valid pending receipt; ambiguous or absent receipts withhold.",
+      "tests": ["items[] grade envelope binds a dropped-tag grade turn"]
+    },
+    {
+      "id": "G-claims-requires-factcheck",
+      "severity": "hard",
+      "statement": "A claims turn does not render without a content-matched, passing fact-check; a pending async fact-check withholds with a wait hint instead of dead-ending.",
+      "tests": ["unverified untagged message still withheld", "claims emit before notification is withheld with a wait hint"]
+    },
+    {
+      "id": "G-none-evasion-guard",
+      "severity": "hard",
+      "statement": "Teaching content tagged [[TURN:none]] while its fact-check is still in flight or already verified is withheld (FACT_CHECK_PENDING / TURN_TAG_MISMATCH).",
+      "tests": ["none-tagged teaching draft withheld while fact-check in flight", "none tag over a verified draft is withheld"]
+    },
+    {
+      "id": "G-non-learning-not-gated",
+      "severity": "hard",
+      "statement": "A session that never starts a learning flow (no [[FLOW:...]] marker) is never gated; messages pass through untouched.",
+      "tests": ["non-learning session is never gated"]
+    },
+    {
+      "id": "G-tutor-audit-required",
+      "severity": "hard",
+      "statement": "After a Learning System write in teach/resume, a summary turn requires a passing tutor-audit over the files written; a quiz/grade turn is not held hostage.",
+      "tests": ["tutor-audit required after a learning-system write", "tutor-audit pass releases the handoff summary"]
+    },
+    {
+      "id": "G-review-session-audit",
+      "severity": "hard",
+      "statement": "After the review flow writes its session note, a summary turn requires a review-session audit receipt.",
+      "tests": ["review-session audit required after session-note write", "review-session pass releases the close summary"]
+    },
+    {
+      "id": "G-scout-required",
+      "severity": "hard",
+      "statement": "A new lesson's teaching claims are withheld with NO_SCOUT_CONTEXT until a scout run has happened.",
+      "tests": ["new lesson without a scout run is withheld"]
+    },
+    {
+      "id": "G-retry-cap",
+      "severity": "hard",
+      "statement": "Repeated withheld turns are capped; after the cap the turn surfaces with ⛔ UNVERIFIED rather than looping forever.",
+      "tests": ["repeated withheld turns are blocked before the cap", "retry cap surfaces unverified after 2 withholdings"]
+    },
+    {
+      "id": "G-out-of-scope-demoted",
+      "severity": "policy",
+      "statement": "Review findings that are all out-of-scope state/bookkeeping are demoted to flags so a clean target page is not re-reviewed forever.",
+      "tests": ["out-of-scope review issues render as flags, not withheld"]
+    },
+    {
+      "id": "A-subagent-result-shape",
+      "severity": "hard",
+      "statement": "The dispatch envelope is recovered from tool_call when pi-subagents compacts a foreground result (task redacted), so receipts still bind.",
+      "tests": ["redacted foreground task binds a tagged claims turn", "redacted foreground task binds a dropped-tag claims turn"]
+    }
+  ]
+}
