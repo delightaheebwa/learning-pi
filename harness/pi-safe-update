@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # pi-safe-update — gated update conductor for the pi learning layer.
 #
-# The ONLY supported way to change the pinned pi version. It stages a candidate
-# side-by-side, runs learn-check against it, and promotes only if everything
-# passes. On failure it discards the candidate, keeps the current pin, and writes
-# a diagnosis report. It never patches code (that is interactive work).
+# The ONLY supported way to change pinned pi / extension-package versions. It
+# stages candidates in an isolated sandbox, runs learn-check against them, and
+# promotes only if everything passes. On failure it discards the candidates,
+# keeps the current pins, and writes a diagnosis report. It never patches code
+# (that is interactive work).
 #
 # Usage:
-#   pi-safe-update check                report newer pi/packages + changelog risk
-#   pi-safe-update update [--to VER] [--dry-run] [--packages] [--models]
-#   pi-safe-update doctor               run learn-check against the current pin
-#   pi-safe-update rollback             restore the previous pinned version
+#   pi-safe-update check                 report newer pi/packages + changelog risk
+#   pi-safe-update update [--to VER] [--dry-run] [--pi-only]
+#   pi-safe-update doctor                run learn-check against the current pins
+#   pi-safe-update rollback              restore the previous promoted set
 #
 # Exit codes: 0 ok / 1 test-failed (stayed pinned) / 2 usage / 3 staging error.
 set -uo pipefail
@@ -18,41 +19,25 @@ set -uo pipefail
 LAYER="${LEARNING_PI_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 LOCK="${SAFE_UPDATE_LOCK:-$LAYER/versions.lock.json}"
 CONFIG="${SAFE_UPDATE_CONFIG:-$HOME/.config/mise/config.toml}"
+AGENT_DIR="${SAFE_UPDATE_AGENT_DIR:-$HOME/.pi/agent}"
+PI_BIN="${LEARN_CHECK_PI:-$LAYER/bin/pi}"
 MISE_INSTALLS="$HOME/.local/share/mise/installs/pi"
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/learning-pi"
+LT="$LAYER/harness/locktool.py"
 mkdir -p "$CACHE"
 
 WATCHLIST='pi-tui|pi-coding-agent|pi-ai|ExtensionAPI|registerCommand|prompt.?template|commands/|hooks|subagent|stopReason|tool_result|tool_call|message_end|before_agent_start|session_manager|ExtensionContext'
 
 # --- helpers -------------------------------------------------------------
 die() { echo "pi-safe-update: $*" >&2; exit "${2:-1}"; }
-
-lock_get() {
-  python3 - "$LOCK" "$1" <<'PY'
-import json, sys
-d = json.load(open(sys.argv[1]))
-key = sys.argv[2]
-if key == "pi":
-    print(d.get("pi", ""))
-else:
-    print((d.get("packages") or {}).get(key, ""))
-PY
-}
-
-lock_packages() {
-  python3 - "$LOCK" <<'PY'
-import json, sys
-d = json.load(open(sys.argv[1]))
-for k in (d.get("packages") or {}):
-    print(k)
-PY
-}
+lock_get() { python3 "$LT" get "$LOCK" "$1"; }
+lock_pkgs_json() { python3 "$LT" packages "$LOCK" | python3 -c 'import json,sys
+print(json.dumps(dict(l.split("=",1) for l in sys.stdin.read().splitlines() if l)))'; }
 
 newest_pi() {
   MISE_MINIMUM_RELEASE_AGE=0 mise ls-remote pi 2>/dev/null \
     | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1
 }
-
 candidate_bin() { echo "$MISE_INSTALLS/$1/pi/pi"; }
 
 scan_changelog() {
@@ -65,25 +50,53 @@ scan_changelog() {
   ' "$cl" | grep -inE "$WATCHLIST" | head -25
 }
 
-# --- commands ------------------------------------------------------------
+update_config_pi() {
+  local to="$1"
+  [ -f "$CONFIG" ] || return 0
+  python3 - "$CONFIG" "$to" <<'PY'
+import re, sys
+path, to = sys.argv[1], sys.argv[2]
+s = open(path).read()
+if re.search(r'^pi = ".*"$', s, flags=re.M):
+    s = re.sub(r'^pi = ".*"$', f'pi = "{to}"', s, flags=re.M)
+else:
+    s = s.rstrip() + f'\npi = "{to}"\n'
+open(path, "w").write(s)
+PY
+}
+
+# Install `npm:name@ver` for each entry of a JSON {name: ver} map into $AGENT_DIR.
+install_pkgs_json() {
+  local json="$1" bin="$2"
+  [ -n "$json" ] && [ "$json" != "{}" ] || return 0
+  while IFS= read -r spec; do
+    [ -n "$spec" ] || continue
+    echo "installing $spec ..."
+    if ! PI_CODING_AGENT_DIR="$AGENT_DIR" "$bin" install "$spec" >/dev/null 2>&1; then
+      echo "  warning: failed to install $spec" >&2
+    fi
+  done < <(python3 -c 'import json,sys
+for k,v in json.loads(sys.argv[1]).items(): print(f"npm:{k}@{v}")' "$json")
+}
+
+# --- check ---------------------------------------------------------------
 do_check() {
-  local cur newest
+  local cur newest pkg_updates=0
   cur="$(lock_get pi)"
   newest="$(newest_pi)"
   echo "pi pinned: $cur"
   echo "pi newest: ${newest:-<none found>}"
-  if [ -n "$newest" ] && [ "$newest" != "$cur" ]; then
-    echo "  -> candidate available: $newest  (run: pi-safe-update update)"
-  fi
   echo
 
   echo "extension packages:"
-  for pkg in $(lock_packages); do
-    local locked latest
-    locked="$(lock_get "$pkg")"
+  while IFS='=' read -r pkg locked; do
+    [ -n "$pkg" ] || continue
+    local latest
     latest="$(npm view "$pkg" version 2>/dev/null || echo "?")"
-    printf '  %-32s pinned=%-10s latest=%s\n' "$pkg" "$locked" "$latest"
-  done
+    local mark=""
+    if [ "$latest" != "?" ] && [ "$latest" != "$locked" ]; then mark="  <- update"; pkg_updates=1; fi
+    printf '  %-32s pinned=%-10s latest=%s%s\n' "$pkg" "$locked" "$latest" "$mark"
+  done < <(python3 "$LT" packages "$LOCK")
   echo
 
   if [ -n "$newest" ] && [ "$newest" != "$cur" ]; then
@@ -93,89 +106,163 @@ do_check() {
     else
       local hits
       hits="$(scan_changelog "$newest" "$cur")"
-      if [ -n "$hits" ]; then
-        echo "$hits" | sed 's/^/  /'
-      else
-        echo "  (none)"
-      fi
+      if [ -n "$hits" ]; then echo "$hits" | sed 's/^/  /'; else echo "  (none)"; fi
     fi
+    echo
+  fi
+
+  if [ "$pkg_updates" = 1 ] || { [ -n "$newest" ] && [ "$newest" != "$cur" ]; }; then
+    echo "Apply everything (staged, gated, auto-rolled-back on failure):"
+    echo "    $LAYER/harness/pi-safe-update update"
+  else
+    echo "Everything is up to date."
   fi
 }
 
 do_doctor() {
-  echo "doctor: learn-check against the current pin ($(lock_get pi))"
+  echo "doctor: learn-check against the current pins (pi $(lock_get pi))"
   LEARN_CHECK_PI="${LEARN_CHECK_PI:-$LAYER/bin/pi}" LEARNING_PI_ROOT="$LAYER" \
     bash "$LAYER/scripts/learn-check" --with-sidecars
 }
 
+# --- update --------------------------------------------------------------
 do_update() {
-  local to="" dry=0 pkgs=0 models=0
+  local to="" dry=0 pi_only=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --to) to="$2"; shift 2 ;;
       --dry-run) dry=1; shift ;;
-      --packages) pkgs=1; shift ;;
-      --models) models=1; shift ;;
+      --pi-only) pi_only=1; shift ;;
       *) die "unknown update option: $1" 2 ;;
     esac
   done
 
   local cur; cur="$(lock_get pi)"
   [ -n "$to" ] || to="$(newest_pi)"
-  [ -n "$to" ] || die "could not determine a candidate version" 3
+  [ -n "$to" ] || to="$cur"
+  local pi_change=0
+  [ "$to" != "$cur" ] && pi_change=1
 
-  if [ "$to" = "$cur" ]; then
-    echo "already pinned at $to; nothing to do"
+  # Gather the candidate set: all packages with their resolved version.
+  local all_lines="" changed_lines="" any_pkg=0
+  while IFS='=' read -r name locked; do
+    [ -n "$name" ] || continue
+    local latest; latest="$(npm view "$name" version 2>/dev/null || echo "")"
+    all_lines+="$name|$locked|$latest"$'\n'
+    if [ "$pi_only" = 0 ] && [ -n "$latest" ] && [ "$latest" != "$locked" ]; then
+      changed_lines+="$name|$locked|$latest"$'\n'
+      any_pkg=1
+    fi
+  done < <(python3 "$LT" packages "$LOCK")
+
+  if [ "$pi_change" = 0 ] && [ "$any_pkg" = 0 ]; then
+    echo "everything is up to date (pi $cur; packages pinned)"
     return 0
   fi
 
-  echo "staging pi $to (current pin: $cur)..."
-  if ! MISE_MINIMUM_RELEASE_AGE=0 mise install "pi@$to" >/dev/null 2>&1; then
-    die "mise failed to install pi@$to" 3
+  echo "plan: pi $cur -> $to$([ "$pi_change" = 0 ] && echo ' (unchanged)')"
+  if [ "$any_pkg" = 1 ]; then
+    echo "plan: packages -> $(printf '%s' "$changed_lines" | tr '\n' ' ')"
   fi
-  local cand; cand="$(candidate_bin "$to")"
-  [ -x "$cand" ] || die "candidate binary not found at $cand" 3
+
+  # Stage the pi binary side-by-side (never touching the active pin).
+  local cand_bin="$PI_BIN"
+  if [ "$pi_change" = 1 ]; then
+    echo "staging pi $to ..."
+    MISE_MINIMUM_RELEASE_AGE=0 mise install "pi@$to" >/dev/null 2>&1 || die "mise failed to install pi@$to" 3
+    cand_bin="$(candidate_bin "$to")"
+    [ -x "$cand_bin" ] || die "candidate binary not found at $cand_bin" 3
+  fi
+
+  # All resolved specs for the sandbox (changed -> candidate, else pinned).
+  local all_specs sandbox_pkgs
+  all_specs="$(printf '%s' "$all_lines" | python3 -c 'import json,sys
+out=[]
+for line in sys.stdin:
+    line=line.strip()
+    if not line: continue
+    n,l,latest=line.split("|")
+    out.append(f"npm:{n}@{latest if latest and latest != l else l}")
+print(json.dumps(out))')"
+  sandbox_pkgs="$all_specs"
+
+  local sandbox
+  sandbox="$(bash "$LAYER/harness/mk-sandbox.sh" --pi "$cand_bin" --layer "$LAYER" --packages "$sandbox_pkgs" 2>"$CACHE/sandbox.err")" \
+    || { cat "$CACHE/sandbox.err" >&2; die "sandbox build failed" 3; }
+  sandbox="$(printf '%s\n' "$sandbox" | tail -1)"
+
+  # Stage every package into the sandbox (not the real ~/.pi/agent).
+  while IFS= read -r spec; do
+    [ -n "$spec" ] || continue
+    echo "staging package $spec ..."
+    PI_CODING_AGENT_DIR="$sandbox/agent" "$cand_bin" install "$spec" >/dev/null 2>&1 \
+      || die "staging package failed: $spec" 3
+  done < <(python3 -c 'import json,sys
+for s in json.loads(sys.argv[1]): print(s)' "$all_specs")
 
   local stamp report
   stamp="$(date +%Y%m%d-%H%M%S)"
   report="$CACHE/diagnosis-$stamp.md"
 
-  echo "running learn-check against candidate $to ..."
-  if LEARN_CHECK_PI="$cand" LEARNING_PI_ROOT="$LAYER" \
-       bash "$LAYER/scripts/learn-check" >"$report" 2>&1; then
+  echo "running learn-check against the candidate set ..."
+  if LEARN_CHECK_PI="$cand_bin" LEARNING_PI_ROOT="$LAYER" \
+       bash "$LAYER/scripts/learn-check" --sandbox "$sandbox" >"$report" 2>&1; then
     {
-      echo "# Candidate $to vs pin $cur — learn-check"
+      echo "# Candidate set — learn-check"
       echo
       echo "Result: PASS (all gates green)"
+      echo "- pi: $cur -> $to$([ "$pi_change" = 0 ] && echo ' (unchanged)')"
+      echo "- packages: ${changed_lines:-none}"
       echo
       cat "$report"
     } >"$report.tmp" && mv "$report.tmp" "$report"
+
     if [ "$dry" = 1 ]; then
-      echo "DRY RUN: learn-check passed; would promote $cur -> $to"
+      echo "DRY RUN: learn-check passed; would promote pi=$to, packages=$(printf '%s' "$changed_lines" | wc -w | tr -d ' ')"
       echo "report: $report"
       return 0
     fi
-    promote "$cur" "$to"
-    echo "promoted pi $cur -> $to"
+
+    local pkg_from_json pkg_to_json
+    pkg_from_json="$(printf '%s' "$changed_lines" | python3 -c 'import json,sys
+out={}
+for line in sys.stdin:
+    line=line.strip()
+    if not line: continue
+    n,l,_=line.split("|"); out[n]=l
+print(json.dumps(out))')"
+    pkg_to_json="$(printf '%s' "$changed_lines" | python3 -c 'import json,sys
+out={}
+for line in sys.stdin:
+    line=line.strip()
+    if not line: continue
+    n,_,latest=line.split("|"); out[n]=latest
+print(json.dumps(out))')"
+
+    local lock_pi=""
+    [ "$pi_change" = 1 ] && lock_pi="$to"
+    python3 "$LT" promote "$LOCK" "promote" "$cur" "$lock_pi" "$pkg_from_json" "$pkg_to_json"
+    [ "$pi_change" = 1 ] && update_config_pi "$to"
+    install_pkgs_json "$pkg_to_json" "$cand_bin"
+
+    echo "promoted pi $cur -> $to$([ "$pi_change" = 0 ] && echo ' (unchanged)')"
+    [ "$any_pkg" = 1 ] && echo "promoted packages: $(printf '%s' "$changed_lines" | tr '\n' ' ')"
     echo "report: $report"
-    if [ "$pkgs" = 1 ]; then
-      echo "note: extension-package pin bumps require golden/live tests (see README); pi promoted only"
-    fi
-    if [ "$models" = 1 ]; then
-      echo "note: model catalogs refresh via 'pi update --models' (not gated)"
-    fi
     return 0
   else
     {
-      echo "# Candidate $to rejected — pi-safe-update stayed at $cur"
+      echo "# Candidate set rejected — pi-safe-update stayed at pi $cur"
       echo
-      echo "learn-check FAILED against $to. Nothing was promoted."
+      echo "learn-check FAILED. Nothing was promoted."
+      echo
+      echo "- pi candidate: $to$([ "$pi_change" = 0 ] && echo ' (unchanged)')"
+      echo "- package candidates: ${changed_lines:-none}"
       echo
       echo "## Diagnosis"
       echo
       echo "- Failing step(s) are the FAIL lines below (invariant IDs map to CONTRACT.md)."
-      echo "- Classify: if the failure is an adapter/load shape issue, patch pi-adapter;"
-      echo "  if it is behavior, treat it as the revise door (CONTRACT + tests + impl)."
+      echo "- If it is an adapter/load shape issue, patch pi-adapter; if it is behavior,"
+      echo "  it is the revise door (edit CONTRACT.md + tagged test + implementation)."
       echo
       echo "## Changelog risk scan ($cur -> $to), watchlist hits"
       echo
@@ -188,68 +275,33 @@ do_update() {
       echo '```'
     } >"$report.tmp" && mv "$report.tmp" "$report"
 
-    echo "learn-check FAILED against $to — staying pinned at $cur"
+    echo "learn-check FAILED — staying pinned at pi $cur"
     echo "diagnosis report: $report"
     grep -E '^FAIL' "$report" | head -20
     return 1
   fi
 }
 
-promote() {
-  local from="$1" to="$2"
-  python3 - "$LOCK" "$from" "$to" <<'PY'
-import datetime, json, sys
-lock, frm, to = sys.argv[1], sys.argv[2], sys.argv[3]
-d = json.load(open(lock))
-d["pi"] = to
-d.setdefault("journal", []).append({
-    "at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    "action": "promote",
-    "from": frm,
-    "to": to,
-    "note": "pi-safe-update: learn-check passed",
-})
-with open(lock, "w") as fh:
-    json.dump(d, fh, indent=2)
-    fh.write("\n")
-PY
-  # Keep mise's own global pin consistent so stray `mise use`/pipelines agree.
-  if [ -f "$CONFIG" ]; then
-    python3 - "$CONFIG" "$to" <<'PY'
-import re, sys
-path, to = sys.argv[1], sys.argv[2]
-s = open(path).read()
-if re.search(r'^pi = ".*"$', s, flags=re.M):
-    s = re.sub(r'^pi = ".*"$', f'pi = "{to}"', s, flags=re.M)
-else:
-    s = s.rstrip() + f'\npi = "{to}"\n'
-open(path, "w").write(s)
-PY
-  fi
-}
-
+# --- rollback ------------------------------------------------------------
 do_rollback() {
-  local entry
-  entry="$(python3 - "$LOCK" <<'PY'
-import json, sys
-d = json.load(open(sys.argv[1]))
-for e in reversed(d.get("journal") or []):
-    if e.get("action") == "promote":
-        print(f'{e.get("from")}|{e.get("to")}')
-        break
-PY
-)"
+  local entry; entry="$(python3 "$LT" last-promotion "$LOCK")"
   [ -n "$entry" ] || die "no promotion in the journal to roll back" 3
-  local from="${entry%%|*}" to="${entry##*|}"
-  [ -n "$from" ] || die "journal entry has no previous version" 3
-  echo "rolling back pi $to -> $from"
-  promote "$to" "$from"
-  echo "rolled back; pinned at $from"
+  local cur_pi pi_from pi_to pkg_from pkg_to
+  cur_pi="$(lock_get pi)"
+  pi_from="$(printf '%s' "$entry" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("piFrom",""))')"
+  pi_to="$(printf '%s' "$entry" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("piTo",""))')"
+  pkg_from="$(printf '%s' "$entry" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin).get("packagesFrom",{})))')"
+  pkg_to="$(printf '%s' "$entry" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin).get("packagesTo",{})))')"
+  [ -n "$pi_from" ] || die "journal entry has no previous pi version" 3
+
+  echo "rolling back: pi $cur_pi -> $pi_from; packages -> $pkg_from"
+  python3 "$LT" promote "$LOCK" "rollback" "$cur_pi" "$pi_from" "$(lock_pkgs_json)" "$pkg_from"
+  [ "$cur_pi" != "$pi_from" ] && update_config_pi "$pi_from"
+  install_pkgs_json "$pkg_from" "$PI_BIN"
+  echo "rolled back; pinned at pi $pi_from"
 }
 
-usage() {
-  sed -n '3,20p' "$0"
-}
+usage() { sed -n '3,20p' "$0"; }
 
 case "${1:-}" in
   check) shift; do_check "$@" ;;

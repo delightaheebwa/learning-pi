@@ -13,7 +13,7 @@
 # whether a candidate may be promoted.
 #
 # Usage:
-#   scripts/learn-check [--with-sidecars] [--keep]
+#   scripts/learn-check [--with-sidecars] [--no-load] [--sandbox DIR] [--keep]
 # Env:
 #   LEARN_CHECK_PI     pi binary under test (default: <layer>/bin/pi)
 #   LEARNING_PI_ROOT   layer root (default: parent of this script)
@@ -25,18 +25,20 @@ PI_BIN="${LEARN_CHECK_PI:-$LAYER/bin/pi}"
 WITH_SIDECARS=0
 KEEP=0
 NO_LOAD=0
+SANDBOX_OVERRIDE=""
 
-for arg in "$@"; do
-  case "$arg" in
-    --with-sidecars) WITH_SIDECARS=1 ;;
-    --no-load) NO_LOAD=1 ;;
-    --keep) KEEP=1 ;;
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --with-sidecars) WITH_SIDECARS=1; shift ;;
+    --no-load) NO_LOAD=1; shift ;;
+    --sandbox) SANDBOX_OVERRIDE="$2"; shift 2 ;;
+    --keep) KEEP=1; shift ;;
     -h|--help)
       sed -n '2,20p' "$0"
       exit 0
       ;;
     *)
-      echo "learn-check: unknown argument: $arg" >&2
+      echo "learn-check: unknown argument: $1" >&2
       exit 2
       ;;
   esac
@@ -88,6 +90,12 @@ fi
 # 3. load probe -----------------------------------------------------------
 if [ "$NO_LOAD" = 1 ]; then
   echo "SKIP load-probe (--no-load)"
+elif [ -n "$SANDBOX_OVERRIDE" ]; then
+  if python3 "$LAYER/test/contract/load_probe.py" --sandbox "$SANDBOX_OVERRIDE" --pi "$PI_BIN"; then
+    :
+  else
+    FAILED=1
+  fi
 elif SANDBOX="$(bash "$LAYER/harness/mk-sandbox.sh" --pi "$PI_BIN" --layer "$LAYER" 2>"$TMP/sandbox.err")"; then
   SANDBOX="$(printf '%s\n' "$SANDBOX" | tail -1)"
   if python3 "$LAYER/test/contract/load_probe.py" --sandbox "$SANDBOX" --pi "$PI_BIN"; then

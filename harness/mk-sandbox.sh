@@ -18,11 +18,13 @@ set -euo pipefail
 LAYER="${LEARNING_PI_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PI_BIN="${LEARN_CHECK_PI:-$LAYER/bin/pi}"
 DEST=""
+PACKAGES_JSON=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --pi) PI_BIN="$2"; shift 2 ;;
     --layer) LAYER="$2"; shift 2 ;;
+    --packages) PACKAGES_JSON="$2"; shift 2 ;;
     --dest) DEST="$2"; shift 2 ;;
     *) echo "mk-sandbox: unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -49,9 +51,28 @@ for entry in APPEND_SYSTEM.md settings.json skills prompts agents extensions; do
 done
 
 # Sandbox pi config: trust the fixture project so project resources load
-# headless, and add the load probe as an explicit extension path.
+# headless, and add the load probe as an explicit extension path. Optionally
+# carry candidate package specs so `pi install` stages them here, not in the
+# real ~/.pi/agent.
 printf '{"%s": true}\n' "$DEST/state" > "$DEST/agent/trust.json"
-printf '{"extensions": ["%s/probe/lp-load-probe.ts"]}\n' "$DEST" > "$DEST/agent/settings.json"
+if [ -n "$PACKAGES_JSON" ]; then
+  python3 - "$PACKAGES_JSON" <<'PY' >"$DEST/agent/packages.json" || { echo "mk-sandbox: --packages must be a JSON array" >&2; exit 2; }
+import json, sys
+data = json.loads(sys.argv[1])
+if not isinstance(data, list):
+    raise SystemExit("not a list")
+print(json.dumps(data))
+PY
+  python3 - "$DEST" "$DEST/agent/packages.json" <<'PY'
+import json, sys
+dest, pkgfile = sys.argv[1], sys.argv[2]
+packages = json.load(open(pkgfile))
+settings = {"extensions": [f"{dest}/probe/lp-load-probe.ts"], "packages": packages}
+open(f"{dest}/agent/settings.json", "w").write(json.dumps(settings))
+PY
+else
+  printf '{"extensions": ["%s/probe/lp-load-probe.ts"]}\n' "$DEST" > "$DEST/agent/settings.json"
+fi
 
 # Load probe: importing the real entry modules validates the module graph
 # resolves under the candidate pi; the sentinel command proves the probe itself

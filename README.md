@@ -166,11 +166,16 @@ Commands:
 
 ```bash
 ~/learning-pi/harness/pi-safe-update check       # newer pi/packages + changelog risk scan
-~/learning-pi/harness/pi-safe-update update      # stage, gate, promote (or stay pinned + diagnosis)
-~/learning-pi/harness/pi-safe-update doctor      # re-run the suite against the current pin
-~/learning-pi/harness/pi-safe-update rollback    # restore the previous promoted version
+~/learning-pi/harness/pi-safe-update update      # stage pi + packages, gate, promote (or stay + diagnosis)
+~/learning-pi/harness/pi-safe-update doctor      # re-run the suite against the current pins
+~/learning-pi/harness/pi-safe-update rollback    # restore the previous promoted pi + package set
 ~/learning-pi/scripts/learn-check                # the test entrypoint (offline + load probe)
 ```
+
+`update` is the one command you run. It resolves newer pi **and** extension-package versions, stages
+them side-by-side in an isolated sandbox (never touching `~/.pi/agent` until promotion), runs
+`learn-check`, and promotes the whole set only if every invariant passes. Add `--dry-run` to see the
+result without changing anything, or `--pi-only` to ignore package updates.
 
 On a failed update the conductor **does not patch code**. It stays pinned and writes a diagnosis
 report (failing invariant IDs, the relevant changelog watchlist hits) to
