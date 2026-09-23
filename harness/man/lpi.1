@@ -1,30 +1,28 @@
-.TH PISU 1 "2026-09-23" "learning-pi" "User Commands"
+.TH LPI 1 "2026-09-23" "learning-pi" "User Commands"
 .SH NAME
-pisu \- safely update pi and the learning-system extension packages
+lpi \- control the pi learning system: gated updates and the test suite
 .SH SYNOPSIS
-.B pisu
+.B lpi
 .RI [ command ]
-.br
-.B pi-safe-update
-.RI [ command ]
+.RI [ options ]
 .SH DESCRIPTION
-.B pisu
-is the update gate for the pi learning system. pi and its extension packages
+.B lpi
+is the control command for the pi learning system. pi and its extension packages
 are hard-pinned in
 .IR ~/learning-pi/versions.lock.json ;
 nothing updates itself.
-.B pisu
+.B lpi update
 stages any newer pi and extension-package versions in an isolated sandbox, runs
-.BR lpcheck (1)
+.B "lpi test"
 against that candidate set, and promotes everything only if every learning
 behavior invariant still passes. On failure it stays pinned and writes a
 diagnosis report. It never patches code.
 .PP
-.B pi-safe-update
-is the full command;
-.B pisu
-is the short alias installed on
-.IR PATH .
+.B lpi
+wraps
+.IR ~/learning-pi/harness/pi-safe-update " (updates)"
+and
+.IR ~/learning-pi/scripts/learn-check " (tests)."
 .SH COMMANDS
 .TP
 .BR check ", " c " (default)"
@@ -34,7 +32,7 @@ learning layer depends on.
 .TP
 .BR update ", " up " [\-\-to VER] [\-\-dry-run] [\-\-pi-only]"
 Resolve newer pi and package versions, stage them side-by-side, run
-.BR lpcheck ,
+.BR "lpi test" ,
 and promote only on success. Options:
 .RS
 .TP
@@ -48,10 +46,29 @@ Stage and test, but change nothing.
 Ignore extension-package updates and consider pi only.
 .RE
 .TP
+.BR test ", " t " [\-\-with-sidecars] [\-\-no-load] [\-\-sandbox DIR]"
+Run the learning-layer test suite: gate behavior and golden scenarios, resource
+checks, contract coverage against
+.IR contracts/learning-core.json ,
+and an isolated, no-model load probe. Exits non-zero unless every invariant
+passes.
+.RS
+.TP
+.B \-\-with-sidecars
+Also run the learning-system
+.I ops
+unittest suite (read-only) against the real checkout.
+.TP
+.B \-\-no-load
+Skip the load probe (used in CI, where no pi binary is present).
+.TP
+.B \-\-sandbox DIR
+Run the load probe against a pre-built sandbox instead of building one.
+.RE
+.TP
 .BR doctor ", " dr
-Re-run
-.B lpcheck
-against the currently pinned versions. Use after a hand-run
+Re-run the test suite against the currently pinned versions. Use after a
+hand-run
 .B pi update
 to detect drift.
 .TP
@@ -60,16 +77,19 @@ Restore the pi and package versions from the previous promotion recorded in the
 journal.
 .SH EXAMPLES
 .TP
-.B pisu
+.B lpi
 Show what, if anything, can be updated.
 .TP
-.B pisu up
+.B lpi up
 Apply all available pi and extension-package updates through the gate.
 .TP
-.B pisu up \-\-dry-run
+.B lpi up \-\-dry-run
 See whether the candidate set passes without changing anything.
 .TP
-.B pisu rollback
+.B lpi test
+Reproduce a diagnosis locally.
+.TP
+.B lpi rb
 Undo the last promotion.
 .SH EXIT STATUS
 .TP
@@ -77,9 +97,10 @@ Undo the last promotion.
 Success, or no update was available.
 .TP
 .B 1
-The candidate failed
-.BR lpcheck .
-The current pins were kept and a diagnosis was written.
+A candidate failed
+.BR "lpi test" ,
+or the test suite failed. The current pins were kept and a diagnosis was
+written.
 .TP
 .B 2
 Usage error.
@@ -92,7 +113,7 @@ Staging error (could not install or build the sandbox).
 The pinned pi version, package versions, and the promotion journal.
 .TP
 .I ~/.cache/learning-pi/diagnosis-*.md
-Failure diagnosis reports. Fix them with the
+Failure diagnosis reports. Repair them with the
 .B pi-diagnosis-fix
 opencode skill.
 .TP
@@ -106,7 +127,6 @@ Override the learning-pi checkout root.
 .B PI_OFFLINE
 When set, the launcher's background availability check is skipped.
 .SH SEE ALSO
-.BR lpcheck (1),
 .BR pi (1)
 .PP
 .I ~/learning-pi/CONTRACT.md

@@ -7,7 +7,7 @@
 # keeps the current pins, and writes a diagnosis report. It never patches code
 # (that is interactive work).
 #
-# Usage (or the short `pisu` alias):
+# Usage (normally via the `lpi` command; `pi-safe-update` is the backing script):
 #   pi-safe-update check|c              report newer pi/packages + changelog risk
 #   pi-safe-update update|up [--to V] [--dry-run] [--pi-only]
 #   pi-safe-update doctor|dr            run learn-check against the current pins

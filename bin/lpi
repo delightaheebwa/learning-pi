@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# lpi — the learning-pi control command.
+#
+#   lpi                 what's newer (read-only); same as `lpi check`
+#   lpi update|up       stage + gate + promote pi and extensions; diagnose on failure
+#   lpi test            run the learning-layer test suite
+#   lpi doctor|dr       re-run the suite against the current pins
+#   lpi rollback|rb     restore the previous promoted set
+#
+# See `man lpi`.
+set -euo pipefail
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+LAYER="$(cd "$(dirname "$SELF")/.." && pwd)"
+
+cmd="${1:-check}"
+case "$cmd" in
+  -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+  test|t) shift; exec "$LAYER/scripts/learn-check" "$@" ;;
+  check|c|update|up|doctor|doc|dr|rollback|rb|undo) exec "$LAYER/harness/pi-safe-update" "$@" ;;  *)
+    echo "lpi: unknown command: $cmd (try: check | update | test | doctor | rollback)" >&2
+    exit 2
+    ;;
+esac

@@ -1,17 +1,17 @@
 ---
 name: pi-diagnosis-fix
-description: Repair a failed pi learning-system update from its diagnosis report. Use ONLY when the user mentions a pisu or pi-safe-update failure or diagnosis, a rejected pi/extension update, or asks to make lpcheck pass after an update.
+description: Repair a failed pi learning-system update from its diagnosis report. Use ONLY when the user mentions an lpi update failure or diagnosis, a rejected pi/extension update, or asks to make lpi test pass after an update.
 ---
 
 # pi-diagnosis-fix
 
-Turn a rejected `pisu up` into a green `lpcheck` on the current or candidate pins.
+Turn a rejected `lpi update` into a green `lpi test` on the current or candidate pins.
 
 ## 1. Read the evidence
 
 - Newest report: `ls -t ~/.cache/learning-pi/diagnosis-*.md | head -1` — read it in full.
 - The contract: `~/learning-pi/CONTRACT.md` and `~/learning-pi/contracts/learning-core.json`.
-- Reproduce: `~/learning-pi/bin/lpcheck`. Keep the `FAIL` lines; each names an invariant.
+- Reproduce: `lpi test` (`~/learning-pi/bin/lpi test`). Keep the `FAIL` lines; each names an invariant.
 
 ## 2. Classify
 
@@ -29,10 +29,10 @@ Two leading words decide the fix:
 
 ## 4. Verify
 
-`lpcheck` green, every invariant covered. If it is not, return to step 2 with the new failure.
+`lpi test` green, every invariant covered. If it is not, return to step 2 with the new failure.
 
 ## 5. Hand back
 
-Tell the user to re-run `pisu up`. If the revise door was used, state the contract change and that the update will now pass. If the break is an upstream pi regression you cannot absorb, leave the pin in place, record the blocker, and suggest an upstream issue.
+Tell the user to re-run `lpi update`. If the revise door was used, state the contract change and that the update will now pass. If the break is an upstream pi regression you cannot absorb, leave the pin in place, record the blocker, and suggest an upstream issue.
 
-Completion: `lpcheck` passes, and the failing step named in the diagnosis is gone.
+Completion: `lpi test` passes, and the failing step named in the diagnosis is gone.

@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# lpcheck — short entrypoint for scripts/learn-check.
-# Runs the full learning-layer test suite (behavior, resources, contract
-# coverage, load probe). See `man pisu` and `scripts/learn-check --help`.
-set -euo pipefail
-SELF="$(readlink -f "${BASH_SOURCE[0]}")"
-LAYER="$(cd "$(dirname "$SELF")/.." && pwd)"
-exec "$LAYER/scripts/learn-check" "$@"
