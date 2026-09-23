@@ -158,30 +158,41 @@ One-time wiring (already done on this machine):
 
 ```bash
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
+ln -sf ~/learning-pi/bin/pisu ~/.local/bin/pisu
+ln -sf ~/learning-pi/bin/lpcheck ~/.local/bin/lpcheck
+install -m644 ~/learning-pi/harness/man/{pisu,lpcheck}.1 ~/.local/share/man/man1/
 install -m644 ~/learning-pi/harness/systemd/learning-pi-audit.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload && systemctl --user enable --now learning-pi-audit.timer
 ```
 
-Commands:
+The `pi-diagnosis-fix` opencode skill is registered by `skills.paths` in
+`~/.config/opencode/opencode.json` pointing at `~/learning-pi/opencode`.
+
+Commands (short forms):
 
 ```bash
-~/learning-pi/harness/pi-safe-update check       # newer pi/packages + changelog risk scan
-~/learning-pi/harness/pi-safe-update update      # stage pi + packages, gate, promote (or stay + diagnosis)
-~/learning-pi/harness/pi-safe-update doctor      # re-run the suite against the current pins
-~/learning-pi/harness/pi-safe-update rollback    # restore the previous promoted pi + package set
-~/learning-pi/scripts/learn-check                # the test entrypoint (offline + load probe)
+pisu              # what's newer (read-only); same as `pisu check`/`pisu c`
+pisu up           # stage pi + packages, gate, promote (or stay + diagnosis)
+pisu up --dry-run # gate without changing anything
+pisu doctor       # re-run the suite against the current pins
+pisu rb           # rollback the last promotion (pi + packages)
+lpcheck           # the test suite (same as scripts/learn-check)
+man pisu          # full reference
 ```
 
-`update` is the one command you run. It resolves newer pi **and** extension-package versions, stages
-them side-by-side in an isolated sandbox (never touching `~/.pi/agent` until promotion), runs
-`learn-check`, and promotes the whole set only if every invariant passes. Add `--dry-run` to see the
-result without changing anything, or `--pi-only` to ignore package updates.
+`pi-safe-update` is the long name; `pisu` is the same command. `update`/`up` resolves newer pi
+**and** extension-package versions, stages them side-by-side in an isolated sandbox (never touching
+`~/.pi/agent` until promotion), runs `lpcheck`, and promotes the whole set only if every invariant
+passes. Add `--dry-run` to see the result without changing anything, or `--pi-only` to ignore
+package updates.
 
 On a failed update the conductor **does not patch code**. It stays pinned and writes a diagnosis
 report (failing invariant IDs, the relevant changelog watchlist hits) to
-`~/.cache/learning-pi/diagnosis-*.md`; bring that report to a session and fix it there. Changing
-expected behavior is the *revise door*: edit `CONTRACT.md` + the tagged test + the implementation in
-one commit (see `CONTRACT.md`).
+`~/.cache/learning-pi/diagnosis-*.md`. Then run the **`pi-diagnosis-fix`** opencode skill: it reads
+the report, classifies the break (adapter drift vs behavior drift vs package breakage), fixes it
+under the contract, and re-runs `lpcheck`. Changing expected behavior is the *revise door* — the
+skill gets your explicit agreement before editing `CONTRACT.md`/tests/implementation together (see
+`CONTRACT.md`).
 
 A weekly `learning-pi-audit.timer` runs `pi/audit_gates.py` over the last 7 days of real sessions
 (read-only) as a standing net for whatever tests miss.
@@ -193,14 +204,19 @@ CONTRACT.md                  declared behavior (the thing updates must not break
 contracts/learning-core.json machine-readable invariants -> test names
 bin/pi                       pinned launcher (never updates)
 bin/notify-if-outdated       debounced availability check (never updates)
+bin/pisu                     short entrypoint -> harness/pi-safe-update
+bin/lpcheck                  short entrypoint -> scripts/learn-check
 harness/pi-safe-update       update conductor (check|update|doctor|rollback)
+harness/locktool.py          versions.lock.json / journal helper
 harness/mk-sandbox.sh         isolated duplicate harness builder
+harness/man/                 pisu(1) + lpcheck(1) man pages
 harness/audit-recent-sessions.sh + systemd/  weekly provenance audit
 scripts/learn-check          the single test entrypoint
 test/gate_test.mjs           core gate behavior (mocked pi)
 test/golden/golden_test.mjs  write-gate / scout / retry / demotion scenarios
 test/contract/               resource checks, load probe
 test/fixtures/               synthetic learning-system state (never real data)
+opencode/skills/pi-diagnosis-fix/  opencode skill to repair a failed update
 .pi/extensions/learning-gate/gate-core/   pure, pi-independent decision logic
 .pi/extensions/learning-gate/pi-adapter/  the ONLY pi-version-aware file
 ```

@@ -7,11 +7,12 @@
 # keeps the current pins, and writes a diagnosis report. It never patches code
 # (that is interactive work).
 #
-# Usage:
-#   pi-safe-update check                 report newer pi/packages + changelog risk
-#   pi-safe-update update [--to VER] [--dry-run] [--pi-only]
-#   pi-safe-update doctor                run learn-check against the current pins
-#   pi-safe-update rollback              restore the previous promoted set
+# Usage (or the short `pisu` alias):
+#   pi-safe-update check|c              report newer pi/packages + changelog risk
+#   pi-safe-update update|up [--to V] [--dry-run] [--pi-only]
+#   pi-safe-update doctor|dr            run learn-check against the current pins
+#   pi-safe-update rollback|rb          restore the previous promoted set
+#   pi-safe-update                      same as check
 #
 # Exit codes: 0 ok / 1 test-failed (stayed pinned) / 2 usage / 3 staging error.
 set -uo pipefail
@@ -301,13 +302,11 @@ do_rollback() {
   echo "rolled back; pinned at pi $pi_from"
 }
 
-usage() { sed -n '3,20p' "$0"; }
-
 case "${1:-}" in
-  check) shift; do_check "$@" ;;
-  doctor) shift; do_doctor "$@" ;;
-  update) shift; do_update "$@" ;;
-  rollback) shift; do_rollback "$@" ;;
-  ""|-h|--help) usage; exit 2 ;;
-  *) die "unknown command: $1" 2 ;;
+  check|c) shift; do_check "$@" ;;
+  doctor|doc|dr) shift; do_doctor "$@" ;;
+  update|up) shift; do_update "$@" ;;
+  rollback|rb|undo) shift; do_rollback "$@" ;;
+  ""|-h|--help) do_check ;;
+  *) die "unknown command: $1 (try: check | update | doctor | rollback)" 2 ;;
 esac

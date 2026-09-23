@@ -1,0 +1,116 @@
+.TH PISU 1 "2026-09-23" "learning-pi" "User Commands"
+.SH NAME
+pisu \- safely update pi and the learning-system extension packages
+.SH SYNOPSIS
+.B pisu
+.RI [ command ]
+.br
+.B pi-safe-update
+.RI [ command ]
+.SH DESCRIPTION
+.B pisu
+is the update gate for the pi learning system. pi and its extension packages
+are hard-pinned in
+.IR ~/learning-pi/versions.lock.json ;
+nothing updates itself.
+.B pisu
+stages any newer pi and extension-package versions in an isolated sandbox, runs
+.BR lpcheck (1)
+against that candidate set, and promotes everything only if every learning
+behavior invariant still passes. On failure it stays pinned and writes a
+diagnosis report. It never patches code.
+.PP
+.B pi-safe-update
+is the full command;
+.B pisu
+is the short alias installed on
+.IR PATH .
+.SH COMMANDS
+.TP
+.BR check ", " c " (default)"
+Read-only. Reports the pinned and newest pi version and extension-package
+versions, and scans the candidate pi changelog for changes to surfaces the
+learning layer depends on.
+.TP
+.BR update ", " up " [\-\-to VER] [\-\-dry-run] [\-\-pi-only]"
+Resolve newer pi and package versions, stage them side-by-side, run
+.BR lpcheck ,
+and promote only on success. Options:
+.RS
+.TP
+.B \-\-to VER
+Use a specific pi version instead of the newest.
+.TP
+.B \-\-dry-run
+Stage and test, but change nothing.
+.TP
+.B \-\-pi-only
+Ignore extension-package updates and consider pi only.
+.RE
+.TP
+.BR doctor ", " dr
+Re-run
+.B lpcheck
+against the currently pinned versions. Use after a hand-run
+.B pi update
+to detect drift.
+.TP
+.BR rollback ", " rb
+Restore the pi and package versions from the previous promotion recorded in the
+journal.
+.SH EXAMPLES
+.TP
+.B pisu
+Show what, if anything, can be updated.
+.TP
+.B pisu up
+Apply all available pi and extension-package updates through the gate.
+.TP
+.B pisu up \-\-dry-run
+See whether the candidate set passes without changing anything.
+.TP
+.B pisu rollback
+Undo the last promotion.
+.SH EXIT STATUS
+.TP
+.B 0
+Success, or no update was available.
+.TP
+.B 1
+The candidate failed
+.BR lpcheck .
+The current pins were kept and a diagnosis was written.
+.TP
+.B 2
+Usage error.
+.TP
+.B 3
+Staging error (could not install or build the sandbox).
+.SH FILES
+.TP
+.I ~/learning-pi/versions.lock.json
+The pinned pi version, package versions, and the promotion journal.
+.TP
+.I ~/.cache/learning-pi/diagnosis-*.md
+Failure diagnosis reports. Fix them with the
+.B pi-diagnosis-fix
+opencode skill.
+.TP
+.I ~/.cache/learning-pi/audit-recent.log
+Weekly read-only gate-provenance audit output.
+.SH ENVIRONMENT
+.TP
+.B LEARNING_PI_ROOT
+Override the learning-pi checkout root.
+.TP
+.B PI_OFFLINE
+When set, the launcher's background availability check is skipped.
+.SH SEE ALSO
+.BR lpcheck (1),
+.BR pi (1)
+.PP
+.I ~/learning-pi/CONTRACT.md
+and
+.I ~/learning-pi/README.md
+document the behavior the gate protects and the revise door for intentional
+behavior changes.

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# pisu — short entrypoint for pi-safe-update.
+#   pisu            -> check
+#   pisu up         -> update (staged, gated, auto-rollback on failure)
+#   pisu doctor     -> re-run the suite against the current pins
+#   pisu rollback   -> restore the previous promoted set
+# See `man pisu`.
+set -euo pipefail
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+LAYER="$(cd "$(dirname "$SELF")/.." && pwd)"
+exec "$LAYER/harness/pi-safe-update" "${@:-check}"
