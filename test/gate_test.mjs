@@ -15,6 +15,8 @@ const setPrompt = (p) => fire('before_agent_start', { prompt: p });
 const msg = (t, stopReason) => fire('message_end', { message: { role: 'assistant', content: [{ type: 'text', text: t }], stopReason } });
 const notify = (t) => fire('message_end', { message: { role: 'custom', customType: 'subagent-notify', content: [{ type: 'text', text: t }] } });
 const dispatch = async (agent, task, id) => { await fire('tool_call', { toolName: 'subagent', toolCallId: id, input: { agent, task } }); };
+const writeCall = (path, id) => fire('tool_call', { toolName: 'write', toolCallId: id, input: { filePath: path, content: 'x' } });
+const bashCall = (command, id) => fire('tool_call', { toolName: 'bash', toolCallId: id, input: { command } });
 const outText = (r) => {
   if (!r || !r.message) return '';
   const c = r.message.content;
@@ -336,6 +338,58 @@ await dispatch('fact-check', fcEnvelope(vDraft), 'rfc2');
 await fgRedacted('rfc2', 'fact-check', FC_PASS);
 const redactedUntagged = await msg(vDraft, 'stop');
 assert('redacted foreground task binds a dropped-tag claims turn', allowed(redactedUntagged));
+
+// --- 2026-09-26: a receipt from a wrong-shape envelope must not bind ---
+// A quiz-audit sent with `items[]` (no `questions_json`) mints a valid receipt
+// with no bound text. It must NOT authorize an unrelated quiz turn (the empty
+// bound used to fall through the back-compat path and bind anything).
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const itemsQuiz = JSON.stringify({ gate: 'quiz_audit', purpose: 'probe', items: [{ id: 1, question: 'What is the entropy of a fair coin?' }] });
+await dispatch('quiz-audit', itemsQuiz, 'sq1');
+await fg('sq1', 'quiz-audit', itemsQuiz, JSON.stringify({ verdict: 'PASS', issues: [] }));
+const wrongShapeQuiz = await msg('[[TURN:quiz]]\nState the KL divergence identity and compute it for Q=(0.5,0.5), P=(0.8,0.2).', 'stop');
+assert('wrong-shape quiz receipt does not bind an unrelated quiz turn', blocked(wrongShapeQuiz, 'QUIZ_AUDIT_STALE'));
+
+// A correctly shaped `questions_json` receipt binds only its own batch.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const qEnv = JSON.stringify({ gate: 'quiz_audit', purpose: 'probe', questions_json: [{ id: 1, question: 'State the KL divergence identity.' }] });
+await dispatch('quiz-audit', qEnv, 'sq2');
+await fg('sq2', 'quiz-audit', qEnv, JSON.stringify({ verdict: 'PASS', issues: [] }));
+const boundQuiz = await msg('[[TURN:quiz]]\nState the KL divergence identity.', 'stop');
+assert('questions_json quiz receipt binds its own batch', allowed(boundQuiz));
+
+// An envelope-less async notification still mints an unbound receipt that binds
+// (its dispatch could not be correlated, so there is nothing to bind against).
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await notify('Background task completed: **quiz-audit**\n\nquiz-audit:\n[[TURN:none]]\n{"verdict":"PASS","issues":[]}\n\nRetention-managed async directory: /tmp/x/legacy-notify');
+const legacyQuiz = await msg('[[TURN:quiz]]\nWhat is the entropy of a fair coin?', 'stop');
+assert('envelope-less async quiz receipt still binds its turn', allowed(legacyQuiz));
+
+// --- 2026-09-26: write-gate receipts that name no artifacts must not bind ---
+// tutor-audit without `files` audited nothing identifiable.
+await setPrompt('[[FLOW:teach]] teach me X');
+await writeCall('Learning System/Lessons/Lesson — X.md', 'tw1');
+await dispatch('tutor-audit', JSON.stringify({ gate: 'tutor_audit', flow: 'pause' }), 'twa1');
+await fg('twa1', 'tutor-audit', JSON.stringify({ gate: 'tutor_audit', flow: 'pause' }), JSON.stringify({ verdict: 'PASS', issues: [] }));
+const noFilesTutor = await msg('[[TURN:none]]\nLesson handoff complete.', 'stop');
+assert('tutor-audit without files does not release the handoff summary', blocked(noFilesTutor, 'NO_TUTOR_AUDIT'));
+
+// review-session-audit without `written_files` cannot have audited the writes.
+await setPrompt('[[FLOW:review]] review my due concepts');
+await bashCall("python3 scripts/ops.py apply <<'SPEC'\nLearning System/Sessions/Session — Review — 2026-09-26.md\nSPEC", 'rw1');
+await dispatch('review-session-audit', JSON.stringify({ gate: 'review_session', concepts: ['X'] }), 'rsa1');
+await fg('rsa1', 'review-session-audit', JSON.stringify({ gate: 'review_session', concepts: ['X'] }), JSON.stringify({ verdict: 'PASS', evidence: ['read'], issues: [] }));
+const noWritesRS = await msg('Review — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
+assert('review-session audit without written_files does not release the close summary', blocked(noWritesRS, 'NO_REVIEW_SESSION_AUDIT'));
+
+// review-gate without `target_files` reviewed nothing.
+await setPrompt('[[FLOW:ingest]] ingest this');
+await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'ic1');
+await notify('Background task completed: **clerk**\n\n[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"commit":"abc"}');
+await dispatch('review-gate', JSON.stringify({ gate: 'review', concepts: ['X'] }), 'irg1');
+await fg('irg1', 'review-gate', JSON.stringify({ gate: 'review', concepts: ['X'] }), JSON.stringify({ verdict: 'PASS', evidence: ['x'], issues: [], context_notes: [] }));
+const noTargetsRG = await msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}', 'stop');
+assert('review-gate without target_files does not release the ingest summary', blocked(noTargetsRG, 'NO_REVIEW_GATE_PASS'));
 
 // --- a failed async verifier clears the in-flight state (no stale hint) ---
 await setPrompt('[[FLOW:resume]] continue the lesson');

@@ -126,14 +126,15 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `FACT_CHECK_MISMATCH` | verified draft covers too little of the emitted text | emit the verified draft unchanged, or re-verify the new text |
 | `FACT_CHECK_ISSUES` | verifier flagged a claim | apply the correction, re-verify |
 | `NO_QUIZ_AUDIT_PASS` / `QUIZ_AUDIT_ISSUES` | questions not audited / leaked | fix and re-audit |
+| `QUIZ_AUDIT_STALE` / `GRADE_AUDIT_STALE` | a valid receipt exists but does not bind this message — either the emission differs from what was audited, or the dispatch envelope was the wrong shape (quiz: `items[]` instead of `questions_json`; grade: no question/answer/verdict) so there is nothing to bind | re-emit the audited text, or re-dispatch the verifier with the correctly shaped envelope (never re-audit an already-bound draft) |
 | `NO_GRADE_AUDIT_PASS` / `GRADE_MISMATCH` | grade unverified / conflicts with verifier | use the verifier's `correct_verdict` |
-| `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged | after the Clerk returns `CLERK_WRITES`, dispatch ONE independent `review-gate` on the wiki pages it wrote |
+| `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged, or the receipt named no `target_files` | after the Clerk returns `CLERK_WRITES`, dispatch ONE independent `review-gate` with `target_files` naming the wiki pages it wrote |
 | `⚠️ INGEST GATE` | the review verdict was relayed by the Clerk's own output, not an independent `review-gate` run | dispatch a `review-gate` on the Clerk's writes before trusting the summary |
 | `⚠️ REVIEW GATE` / `⚠️ REVIEW SESSION GATE` | a review-family verdict carried no `evidence` list (what it read/checked) | treat the pass as unsubstantiated; re-run the gate so it names its evidence |
 | `⚠️ SOURCES INCOMPLETE` | Scout could not fetch one or more sources (`failed_refs` non-empty) | teach around the gaps; consider re-scouting or adding a fallback source |
 | `⚠️ SCOUT DIGEST UNVERIFIED` | Scout finished without a parseable `SCOUT_DIGEST:` receipt | verify the digest exists on disk; re-run Scout if the lesson context looks thin |
-| `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked / verifier flagged high-or-medium issues | dispatch `tutor-audit` on the handoff batch; fix and re-audit (lows pass as `PASS_WITH_FLAGS`) |
-| `NO_REVIEW_SESSION_AUDIT` | review close wrote notes/rows but wasn't audited | dispatch `review-session-audit` on the exact writes, then summarize |
+| `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked (or the receipt named no `files`) / verifier flagged high-or-medium issues | dispatch `tutor-audit` on the handoff batch with `files:[...]`; fix and re-audit (lows pass as `PASS_WITH_FLAGS`) |
+| `NO_REVIEW_SESSION_AUDIT` | review close wrote notes/rows but wasn't audited, or the receipt named no `written_files` | dispatch `review-session-audit` with `written_files:[{path,content},...]` on the exact writes, then summarize |
 | `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output **or** the review-session audit returned `ISSUES` | shown with a banner, **not** withheld or re-run (review close caps at 2 passes) |
 | `⚠️ STATE AUDIT` | `audit_state.py` found errors or warnings still outstanding (touched ones are fixed in-flow) | run `/audit` for details |
 | `⛔ UNVERIFIED` | retries exhausted (2); content shown unverified | review it manually |
@@ -215,6 +216,11 @@ prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flo
 - **Withheld banner says a `subagent` call omitted the `agent` field** → that dispatch minted no
   receipt; the model must name the verifier (e.g. `tutor-audit`) as the subagent's `agent` field, or
   as the `agent` inside `runs.run(...)` when using a workflow script.
+- **Tool result is `Validation failed for tool "subagent": - task: must be string`** → the model
+  passed the envelope as a JSON object. pi-subagents >= 0.71 requires `task` to be a JSON **string**
+  (serialize it). The dispatch launches no child and mints no receipt, so the turn dead-ends until
+  the call is re-emitted as a string. The prompt resources show the string form; a fresh session also
+  needs `subagents_enable` before `subagent` is available.
 - **State looks stale after Open WebUI use** → `git pull` in `~/learning-system`.
 
 ---

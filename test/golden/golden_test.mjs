@@ -125,7 +125,7 @@ await dispatch('review-gate', JSON.stringify({ gate: 'review', concepts: ['X'], 
 await fg(
   'rg1',
   'review-gate',
-  JSON.stringify({ gate: 'review' }),
+  JSON.stringify({ gate: 'review', concepts: ['X'], target_files: [{ path: 'p.md' }] }),
   JSON.stringify({ verdict: 'ISSUES', issues: [{ severity: 'high', location: 'ATTEMPTS.json', issue: 'stale schedule' }], evidence: ['x'] })
 );
 const demoted = await msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}', 'stop');

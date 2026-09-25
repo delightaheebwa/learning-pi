@@ -80,7 +80,6 @@ export function createGate(): GateEngine {
   };
 
   const addReceipt = (r: P.Receipt) => run.receipts.push(r);
-  const findAny = (gate: string) => run.receipts.find((r) => r.gate === gate);
   const consume = (r: P.Receipt) => {
     const i = run.receipts.indexOf(r);
     if (i >= 0) run.receipts.splice(i, 1);
@@ -446,7 +445,10 @@ export function createGate(): GateEngine {
         if (run.clerkCalled && P.looksLikeIngestSummary(text)) {
           // Prefer a verdict from an actual review-gate dispatch over a Clerk-
           // relayed marker when both are present.
-          const reviews = run.receipts.filter((r) => r.gate === "review");
+          // Require the review to name its target files: a present-but-
+          // artifactless envelope reviewed nothing (the Clerk-relayed receipt
+          // has no envelope and still falls back, surfaced with INGEST GATE).
+          const reviews = run.receipts.filter((r) => r.gate === "review" && P.receiptAuditsArtifacts(r));
           const any = reviews.find((r) => r.provenance === "dispatch") || reviews[0];
           if (any && any.valid) {
             toConsume.push(any);
@@ -536,7 +538,7 @@ export function createGate(): GateEngine {
         }
       } else if (tag === "quiz") {
         const candidates = run.receipts.filter(
-          (r) => r.gate === "quiz_audit" && r.valid && P.bindingMatches(r.questionsText, text)
+          (r) => r.gate === "quiz_audit" && r.valid && P.receiptBinds(r, text)
         );
         const q = candidates[0];
         if (q) {
@@ -548,7 +550,7 @@ export function createGate(): GateEngine {
         }
       } else if (tag === "grade") {
         const candidates = run.receipts.filter(
-          (r) => r.gate === "grade_audit" && r.valid && P.bindingMatches(r.gradeText, text)
+          (r) => r.gate === "grade_audit" && r.valid && P.receiptBinds(r, text)
         );
         const g = candidates[0];
         if (g) toConsume.push(g);
@@ -595,7 +597,9 @@ export function createGate(): GateEngine {
         (!tag || tag === "claims" || tag === "none") &&
         P.looksLikeReviewSummary(text);
       if (reviewSessionGateApplies) {
-        const audit = findAny("review_session");
+        // Require the audit to name the writes it checked: a present-but-
+        // artifactless envelope cannot have audited the session note/rows.
+        const audit = run.receipts.find((r) => r.gate === "review_session" && P.receiptAuditsArtifacts(r));
         if (audit) {
           toConsume.push(audit);
           run.reviewSessionWrote = false;
@@ -624,6 +628,8 @@ export function createGate(): GateEngine {
       if (tutorGateApplies) {
         const candidates = run.receipts.filter((r) => {
           if (r.gate !== "tutor_audit" || !r.valid) return false;
+          // A present-but-artifactless envelope audited nothing identifiable.
+          if (!P.receiptAuditsArtifacts(r)) return false;
           if (!r.auditFiles || r.auditFiles.length === 0) return true;
           if (run.writtenPaths.length === 0) return true;
           return r.auditFiles.some((f) => run.writtenPaths.includes(P.normPath(f)));
@@ -634,7 +640,8 @@ export function createGate(): GateEngine {
           run.tutorWrote = false;
           run.writtenPaths = [];
         } else {
-          blockers.push(findAny("tutor_audit") ? "TUTOR_AUDIT_ISSUES" : "NO_TUTOR_AUDIT");
+          const badAudit = run.receipts.some((r) => r.gate === "tutor_audit" && !r.valid);
+          blockers.push(badAudit ? "TUTOR_AUDIT_ISSUES" : "NO_TUTOR_AUDIT");
         }
       }
 
@@ -682,13 +689,13 @@ export function createGate(): GateEngine {
       const fix = [
         "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, or `[[TURN:none]]`.",
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged. A `[[TURN:claims]]` tag is also inferred automatically when your text matches an already-verified `rendered_content`, so if a message is withheld here, just re-emit the verified draft with its tag.",
-        "quiz: send the exact batch; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
+        "quiz: send the exact batch as `questions_json` (not `items[]`) so the receipt binds; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
         "grade: when one learner reply answers several questions, send ONE `grade-audit` envelope with an `items[]` entry per answer (`{id,concept,question,learner_answer,claimed_verdict,source_excerpt}`); a single answer may use the flat object. Use the verifier's per-item `correct_verdict`.",
         "grade mismatch: on GRADE_MISMATCH, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict`, then emit those verdicts — do not emit a disputed grade.",
         "do not re-verify: if a fact-check receipt already covers your draft, emit that draft unchanged — re-dispatching the same claims is blocked and only for a materially corrected draft after an ISSUES verdict.",
         "in flight: if a verifier is still running, wait for its completion notification, then re-emit — do NOT re-dispatch and do NOT downgrade the tag.",
         "do not tag teaching content `[[TURN:none]]` to bypass the gate: a `none` message matching a verified or in-flight `fact-check` draft is withheld (TURN_TAG_MISMATCH / FACT_CHECK_PENDING).",
-        "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch and fold its verdict before the summary.",
+        "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch (`files:[...]`) and fold its verdict before the summary.",
         "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary.",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review close: after writing the Review notes / session note / touched rows, dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files/state_rows), then summarize; a PASS/PASS_WITH_FLAGS renders clean and an ISSUES verdict renders with a flags banner (no re-run, cap 2 passes).",

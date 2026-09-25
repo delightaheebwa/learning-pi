@@ -26,6 +26,17 @@ contradiction to the user** — do not guess, merge, or trust any status written
   files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at `/ingest`.
 - Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate` (read-only; separate runs on preferred models — model separation is a default, not a guarantee).
 
+**Subagent dispatch shape:** every dispatch is `subagent({ agent: "<name>", task: "<JSON envelope>", async: false })`.
+The `task` argument must be a **JSON string**, not a JSON object — serialize the envelope
+(`JSON.stringify({...})`). pi-subagents rejects an object with `task: must be string`, which launches
+no child and mints no receipt, so the turn dead-ends. In a fresh session the `subagent` tool is not
+loaded: call `subagents_enable` once, then dispatch. Never use `subagent_supervisor`, `action:
+"validate"`, or `action: "status"` to launch a verifier — those do not dispatch a child. Every
+envelope must carry the field that binds its receipt — `rendered_content` (fact-check),
+`questions_json` (quiz-audit), question+learner_answer+claimed_verdict (grade-audit), `files`
+(tutor-audit), `written_files` (review-session-audit), `target_files` (review-gate). A valid verdict
+with no binding field authorizes nothing and the turn is withheld.
+
 ## Teaching behavior
 
 - **Write discipline:** during teach/resume, write nothing to `Learning System/` except the attempts

@@ -76,6 +76,15 @@ its tagged test, change the implementation, all in one reviewed commit.
   not re-reviewed forever.
 - **A-subagent-result-shape** *(hard)* — the dispatch envelope is recovered from
   `tool_call` when pi-subagents redacts `task` on a foreground result.
+- **G-receipt-shape-binds** *(hard)* — a receipt minted from a
+  present-but-wrong-shape envelope must not satisfy its gate. A quiz/grade
+  receipt with no bound text (a quiz-audit sent with `items[]` instead of
+  `questions_json`, or a grade envelope with no question/answer/verdict)
+  authorizes no emission; a write-gate receipt with no artifact list
+  (tutor-audit `files`, review-session `written_files`, review-gate
+  `target_files`) releases no summary. Only an envelope-less async completion
+  notification falls back to unbound. One wrong-shape receipt must not bind every
+  later turn.
 
 ### Launcher & update gate
 

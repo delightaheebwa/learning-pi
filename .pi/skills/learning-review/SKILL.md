@@ -22,7 +22,7 @@ A second gate covers the writes a standalone review persists: the `Reviews/Revie
 
 ## Config
 
-- Verifier: the `review-gate` subagent (`subagent({ agent: "review-gate", task: <envelope JSON> })`), running on `muse-spark-1.3-contributor` by default. It is a **separate run with its own context**, dispatched by the parent (not by the Clerk whose writes it reviews). Model separation from the writer is a preference, not a guarantee.
+- Verifier: the `review-gate` subagent (`subagent({ agent: "review-gate", task: '<envelope JSON>', async: false })`; `task` is a JSON **string**, not an object), running on `muse-spark-1.3-contributor` by default. It is a **separate run with its own context**, dispatched by the parent (not by the Clerk whose writes it reviews). Model separation from the writer is a preference, not a guarantee.
 - The gate is enforced by the `learning-gate` extension (a matching receipt must exist) plus the fixed `review-gate` agent prompt. Do not bypass either.
 - Envelope schema: `{"gate":"review","concepts":[...],"target_files":[{"path","content"}],"out_of_scope":[...],"source_url"|"source_file"|"lesson_ref","pass_number":N}`.
 - Verdict: `{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","evidence":["<file read / check run>",...],"issues":[{"severity","location","issue"}],"context_notes":[{"location","note"}]}`. `evidence` is mandatory — a verdict without it is surfaced as unsubstantiated.

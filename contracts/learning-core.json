@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
   "version": 1,
-  "updated": "2026-09-23",
+  "updated": "2026-09-26",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -138,6 +138,19 @@
       "severity": "hard",
       "statement": "The dispatch envelope is recovered from tool_call when pi-subagents compacts a foreground result (task redacted), so receipts still bind.",
       "tests": ["redacted foreground task binds a tagged claims turn", "redacted foreground task binds a dropped-tag claims turn"]
+    },
+    {
+      "id": "G-receipt-shape-binds",
+      "severity": "hard",
+      "statement": "A receipt minted from a present-but-wrong-shape dispatch envelope must not satisfy its gate: a quiz/grade receipt with no bound text (quiz: no questions_json/questions; grade: no question+learner_answer+claimed_verdict) authorizes no emission, and a write-gate receipt with no artifact list (tutor-audit files, review-session written_files, review-gate target_files) releases no summary. Only an envelope-less async completion notification falls back to unbound.",
+      "tests": [
+        "wrong-shape quiz receipt does not bind an unrelated quiz turn",
+        "questions_json quiz receipt binds its own batch",
+        "envelope-less async quiz receipt still binds its turn",
+        "tutor-audit without files does not release the handoff summary",
+        "review-session audit without written_files does not release the close summary",
+        "review-gate without target_files does not release the ingest summary"
+      ]
     }
   ]
 }

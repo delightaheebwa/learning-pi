@@ -68,6 +68,11 @@ export interface Receipt {
   gradeText?: string;
   auditFiles?: string[];
   envelopeGate?: string;
+  // Whether a dispatch envelope was present when this receipt was minted. A
+  // present-but-wrong-shape envelope (missing the gate's binding field) must
+  // not bind any emission; only an envelope-less async notification may fall
+  // back to unbound. See `receiptBinds`.
+  hasEnvelope?: boolean;
   // How a `review` receipt was produced: an actual review-gate dispatch, or a
   // verdict marker relayed inside the Clerk's own output (self-attested).
   provenance?: "dispatch" | "clerk";
@@ -336,6 +341,40 @@ export function bindingMatches(bound: string | undefined, emittedText: string): 
 }
 
 /**
+ * Quiz/grade binding for a receipt, distinguishing the two reasons its bound
+ * text can be empty:
+ *
+ *   - the receipt was minted with **no envelope at all** (an async completion
+ *     notification whose dispatch could not be correlated). Its verdict cannot
+ *     be content-bound, so fall back to unbound (back-compat).
+ *   - the receipt was minted from a **present but wrong-shape envelope** — a
+ *     quiz-audit sent with `items[]` instead of `questions_json`, or a grade
+ *     envelope with none of `question`/`learner_answer`/`claimed_verdict`.
+ *     There is no binding to check, and accepting it would let one such receipt
+ *     authorize every later quiz/grade turn. Refuse to bind.
+ */
+export function receiptBinds(r: Receipt, emittedText: string): boolean {
+  const bound = r.gate === "grade_audit" ? r.gradeText : r.questionsText;
+  if (bound && bound.trim().length > 0) return coverage(bound, emittedText) >= 0.5;
+  return !r.hasEnvelope;
+}
+
+/**
+ * Whether a receipt names the artifacts it audited.
+ *
+ * The write gates (tutor-audit, review-session, review-gate) verify files, not
+ * emitted text. A receipt whose dispatch envelope was present but omitted its
+ * artifact list (`files` / `written_files` / `target_files`) audited nothing
+ * identifiable and must not satisfy the gate — otherwise one wrong-shape
+ * envelope releases every later handoff/close/ingest summary. An envelope-less
+ * async notification has no list to bind against, so it falls back.
+ */
+export function receiptAuditsArtifacts(r: Receipt): boolean {
+  if (!r.hasEnvelope) return true;
+  return !!r.auditFiles && r.auditFiles.length > 0;
+}
+
+/**
  * Near-identical drafts: used to catch a re-dispatch of already-verified text.
  * Deliberately stricter than `contentMatches` so a materially corrected draft
  * (the legitimate post-ISSUES re-verification) is never treated as a duplicate.
@@ -415,6 +454,24 @@ export function envelopeText(value: any): string {
       .join("\n");
   }
   return "";
+}
+
+/**
+ * Paths named by a verifier envelope's artifact list. Different gates name the
+ * same idea differently: `files` (tutor-audit, array of strings),
+ * `written_files` (review-session, array of {path}), `target_files`
+ * (review-gate, array of {path}). Returns the first list found, or undefined
+ * when the envelope names none.
+ */
+export function artifactPaths(envelope: any): string[] | undefined {
+  if (!envelope || typeof envelope !== "object") return undefined;
+  for (const value of [envelope.files, envelope.written_files, envelope.target_files]) {
+    if (!Array.isArray(value)) continue;
+    return value
+      .map((v: any) => (typeof v === "string" ? v : v && typeof v === "object" && typeof v.path === "string" ? v.path : ""))
+      .filter((p: string) => p.length > 0);
+  }
+  return undefined;
 }
 
 /**
@@ -510,7 +567,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
   // Grade envelope: flat single-answer object, or the batched `items:[{…}]`
   // shape. Both bind so a dropped tag is still recovered from the receipt.
   const gradeText = gradeTextOf(envelope);
-  const auditFiles = envelope && Array.isArray(envelope.files) ? envelope.files.filter((x: any) => typeof x === "string") : undefined;
+  const auditFiles = artifactPaths(envelope);
   // Review-family verdicts: a PASS without an evidence list is unsubstantiated.
   let evidenceMissing = false;
   if (gate === "review" || gate === "review_session") {
@@ -550,6 +607,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     gradeText: gradeText || undefined,
     auditFiles,
     envelopeGate: envelope && typeof envelope.gate === "string" ? envelope.gate : undefined,
+    hasEnvelope: !!envelope && typeof envelope === "object",
     provenance: "dispatch",
     evidenceMissing,
     raw: text,
