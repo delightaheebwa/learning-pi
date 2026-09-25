@@ -5,7 +5,7 @@ argument-hint: "<topic>"
 [[FLOW:teach]]
 Teach me about: $ARGUMENTS
 
-First call the `scout` subagent to gather context for this topic, then load the `learning-teach` skill and run the probe -> plan -> teach loop in this session. Dispatch foreground `fact-check` / `quiz-audit` subagents exactly as the skill requires — do not bypass the gate. Derive the current position from `Learning System/CURRICULUM.md` and `Learning System/MISSION.md`; stop and report if they disagree.
+First call the `scout` subagent to gather context for this topic, then load the `learning-teach` skill and run the probe -> plan -> teach loop in this session. Dispatch foreground `fact-check` / `quiz-audit` / `grade-audit` subagents exactly as the skill requires — do not bypass the gate — and when one learner reply answers several questions, grade them in ONE batched `grade-audit` envelope (`items[]`), not one subagent per answer. Derive the current position from `Learning System/CURRICULUM.md` and `Learning System/MISSION.md`; stop and report if they disagree.
 
 Honor the checkpoint pause protocol: teach one checkpoint's idea, pause and invite questions, then give its practice; after grading, pause again before the next checkpoint. Surface any source contradiction loudly. Write no `Learning System/` files mid-lesson — batch them at the pause/lesson-end handoff, then dispatch one foreground `tutor-audit` on that batch before the summary.
 

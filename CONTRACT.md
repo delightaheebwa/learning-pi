@@ -29,7 +29,9 @@ its tagged test, change the implementation, all in one reviewed commit.
 
 - **G-grade-requires-agreeing-audit** *(hard)* — a grade turn renders only with
   an agreeing `grade-audit` receipt; a verifier disagreement is rejected and its
-  `correct_verdict` is surfaced (`GRADE_MISMATCH`).
+  `correct_verdict` is surfaced (`GRADE_MISMATCH`). One batched `items[]`
+  envelope may carry several learner answers from a single reply (one entry per
+  answer); a mismatch surfaces the per-item corrections.
 - **G-receipts-consumed-per-message** *(hard)* — a receipt is consumed by the
   message it verified; the same receipt cannot authorize a later turn.
 - **G-partial-ungated** *(hard)* — an unfinished generation

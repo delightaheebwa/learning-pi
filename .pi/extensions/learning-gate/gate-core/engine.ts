@@ -556,9 +556,17 @@ export function createGate(): GateEngine {
           const bad = run.receipts.find((r) => r.gate === "grade_audit" && r.agrees === false);
           if (bad) {
             blockers.push("GRADE_MISMATCH");
-            verdictNote = bad.correctVerdict
-              ? `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.`
-              : "";
+            const corrections = (bad.gradeItems || []).filter((it) => it.agrees === false && it.correctVerdict);
+            if (corrections.length > 0) {
+              const listed = corrections
+                .map((it) => `#${it.id ?? "?"} → ${it.correctVerdict}${it.explanation ? ` (${it.explanation})` : ""}`)
+                .join("; ");
+              verdictNote =
+                `The verifier corrected ${corrections.length} answer(s): ${listed}. ` +
+                "Re-dispatch the corrected batch (claimed_verdict = the verifier's correct_verdict) once, then present those verdicts.";
+            } else if (bad.correctVerdict) {
+              verdictNote = `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.`;
+            }
           } else if (run.receipts.some((r) => r.gate === "grade_audit" && r.valid)) {
             blockers.push("GRADE_AUDIT_STALE");
           } else blockers.push("NO_GRADE_AUDIT_PASS");
@@ -675,7 +683,8 @@ export function createGate(): GateEngine {
         "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, or `[[TURN:none]]`.",
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged. A `[[TURN:claims]]` tag is also inferred automatically when your text matches an already-verified `rendered_content`, so if a message is withheld here, just re-emit the verified draft with its tag.",
         "quiz: send the exact batch; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
-        "grade: send question + raw learner answer + claimed verdict as ONE object; use the verifier's `correct_verdict`.",
+        "grade: when one learner reply answers several questions, send ONE `grade-audit` envelope with an `items[]` entry per answer (`{id,concept,question,learner_answer,claimed_verdict,source_excerpt}`); a single answer may use the flat object. Use the verifier's per-item `correct_verdict`.",
+        "grade mismatch: on GRADE_MISMATCH, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict`, then emit those verdicts — do not emit a disputed grade.",
         "do not re-verify: if a fact-check receipt already covers your draft, emit that draft unchanged — re-dispatching the same claims is blocked and only for a materially corrected draft after an ISSUES verdict.",
         "in flight: if a verifier is still running, wait for its completion notification, then re-emit — do NOT re-dispatch and do NOT downgrade the tag.",
         "do not tag teaching content `[[TURN:none]]` to bypass the gate: a `none` message matching a verified or in-flight `fact-check` draft is withheld (TURN_TAG_MISMATCH / FACT_CHECK_PENDING).",

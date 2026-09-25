@@ -28,7 +28,7 @@ Teaching verification runs as **foreground** subagent tasks with **envelope sche
 > | --- | --- |
 > | Teach claims (definitions, formulas, mechanisms, code assertions) | `fact-check` with `claims[] + rendered_content` = this turn's draft |
 > | Ask questions (probe or end-of-lesson quiz) | `quiz-audit` with `questions_json` = this turn's exact batch |
-> | Grade a learner answer (pass/fail) | `grade-audit` — **only** `grade-audit`; `fact-check` does NOT satisfy a grade turn |
+> | Grade learner answers (pass/fail) | `grade-audit` — **only** `grade-audit`; batch every answer from one learner reply into ONE `items[]` envelope |
 > | Teach claims AND ask questions in one turn | **BOTH** `fact-check` **and** `quiz-audit` for this turn |
 >
 > The gate checks the envelope type against the turn content. A right envelope for the wrong turn type is still a block. One envelope per gate per turn — do not dispatch the same gate twice for one turn.
@@ -37,11 +37,11 @@ All gates dispatch as ONE `subagent` call per gate with a JSON envelope: `subage
 
 Rules:
 
-- **Batch, don't trickle:** collect all claims (or all questions) for the current step and send them in a single task. Number every item so verdicts map back unambiguously.
+- **Batch, don't trickle:** collect all claims (or all questions) for the current step and send them in a single task. Number every item so verdicts map back unambiguously. **The same applies to grades:** when one learner reply answers several questions, dispatch ONE `grade-audit` carrying every answer as an `items[]` entry — never one subagent per answer. The harness allows only one subagent call per turn, and multiple per-item calls are rejected; batching is what makes a multi-answer reply gradable in one turn.
 - **Envelope, not freeform prompt:** send `{"gate":"fact_check","claims":[{"id":1,"claim":"..."}],"rendered_content":"...","source_urls":[...],"reference_excerpt":"...","context":"..."}` (and analogously `{"gate":"quiz_audit", ...}`). Do not add prose outside the envelope.
 - **Fold verdicts in before proceeding:** never present claims or questions to the learner while a gate task is still pending.
 - **Per-generation (Tutor only):** every Tutor generation that teaches a step must have its own fresh `fact-check` receipt **for the actual draft text, right before emission**. Draft the step internally, send `claims[] + rendered_content=draft + source_urls + reference_excerpt` in ONE foreground call, fold verdicts (apply `corrected_claim`), then emit the corrected final. Do not verify a plan and then generate different text. Each assistant message that contains teaching claims needs its own `fact-check` receipt.
-- **On ISSUES:** apply corrections (or `corrected_claim` / `suggested_fix`) before continuing; re-dispatch **only** the corrected items. Max 2 cycles per batch; then surface remaining flags to the user. This is the **only** case in which a second `fact-check`/`quiz-audit` for the same turn is legitimate — a materially corrected draft. After a PASS, never re-dispatch: emit the verified text.
+- **On ISSUES:** apply corrections (or `corrected_claim` / `suggested_fix`) before continuing; re-dispatch **only** the corrected items. Max 2 cycles per batch; then surface remaining flags to the user. This is the **only** case in which a second `fact-check`/`quiz-audit` for the same turn is legitimate — a materially corrected draft. After a PASS, never re-dispatch: emit the verified text. For a `grade-audit` with `agrees:false`, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict` (see the grade envelope below), then emit.
 - **On a match/binding withhold** (`NO_FACT_CHECK_MATCH`, `FACT_CHECK_MISMATCH`, `FACT_CHECK_MISSING_DRAFT`, `QUIZ_AUDIT_STALE`, `GRADE_AUDIT_STALE`, `NO_TURN_TAG`, `FACT_CHECK_PENDING`): do **not** re-run the verifier. The receipt already exists — re-emit the verified draft unchanged (or add the missing `[[TURN:…]]` tag). Re-dispatching the same draft is blocked by the gate and will not clear the withhold. If the withhold says a verifier is **still in flight**, wait for its completion notification, then re-emit.
 - **Never tag teaching content `[[TURN:none]]` to dodge the gate.** `none` is transitions/summaries only; a `none` message that matches a verified or pending `fact-check` draft is withheld (`TURN_TAG_MISMATCH` / `FACT_CHECK_PENDING`). This is not a workaround — fix the tag and emit the verified text.
 - **Never surface gate/tooling internals to the learner** (receipts, verifiers, dispatches, gate codes, "the gate is broken"). Fold verdicts silently; the learner sees only the lesson.
@@ -77,23 +77,32 @@ Generation-to-emission (not plan-to-generation): draft the step internally first
 
 The subagent returns `{"issues":[...],"verdict":"PASS|PASS_WITH_FLAGS|ISSUES"}`. Mechanical pre-checks (done BEFORE dispatch): each MCQ has 4 options; `correct_index` in range; correct positions not all in one slot.
 
-### Grade-audit envelope (one graded answer)
+### Grade-audit envelope (one envelope per learner reply — batched)
+
+Batched (the normal case when a probe or quiz batch is answered in one reply):
 
 ```json
 {
   "gate": "grade_audit",
-  "concept": "Concept",
-  "question": "the exact question that was asked",
-  "learner_answer": "the learner's raw answer, verbatim",
-  "claimed_verdict": "pass | fail",
-  "source_excerpt": "the passage the answer is graded against",
-  "feynman_transcript": "optional — the explain-back, for concept/design types"
+  "items": [
+    {
+      "id": 1,
+      "concept": "Concept",
+      "question": "the exact question that was asked",
+      "learner_answer": "the learner's raw answer, verbatim",
+      "claimed_verdict": "pass | fail",
+      "source_excerpt": "the passage the answer is graded against",
+      "feynman_transcript": "optional — the explain-back, for concept/design types"
+    }
+  ]
 }
 ```
 
-One `grade_audit` envelope per graded item (the schema is a single object — **not** `items:[...]`; the gate tolerates that shape but `question`/`learner_answer` binding is what lets a dropped tag be inferred). Dispatch it **before** emitting the grade, then present the verifier's `correct_verdict` (not your own). The verifier returns `{"verdict":"PASS|ISSUES","agrees":true|false,"correct_verdict":"pass|fail"}`.
+A single-answer turn (a checkpoint's one practice question) may use the flat single-object shape — `{gate, concept, question, learner_answer, claimed_verdict, source_excerpt, feynman_transcript}` — which is exactly the batch above with one item. **Never mix the two:** a batched envelope has `items` and no top-level `question`/`learner_answer`/`claimed_verdict`, because the top-level fields are what bind the receipt to an emitted grade.
 
-> **Dispatch shape (all gates):** ONE `subagent({ agent: "<verifier>", task: <envelope>, async: false })` per gate, and **wait for the verdict in the tool result before emitting** (`async: false` is required — a default async dispatch returns a fan-out notice and forces a second round-trip). Do not use `action: "validate"/"status"` to dispatch. Do not launch the same gate twice.
+Dispatch it **before** emitting the grade, then present the verifier's per-item `correct_verdict` (not your own). The verifier returns `{"verdict":"PASS|ISSUES","agrees":true|false,"correct_verdict":"pass|fail","items":[{"id":1,"agrees":true,"correct_verdict":"pass","explanation":"..."}]}` — `agrees` is true only when it endorses every claimed verdict. **On `agrees:false`** (GRADE_MISMATCH): re-dispatch the corrected batch once with each disputed item's `claimed_verdict` set to the verifier's `correct_verdict` (a materially corrected batch — the one legitimate second grade dispatch), then emit the corrected grades. Never emit a disputed verdict without the correction.
+
+> **Dispatch shape (all gates):** ONE `subagent({ agent: "<verifier>", task: <envelope>, async: false })` per gate, and **wait for the verdict in the tool result before emitting** (`async: false` is required — a default async dispatch returns a fan-out notice and forces a second round-trip). Do not use `action: "validate"/"status"` to dispatch. Do not launch the same gate twice — the one exception is a materially corrected `grade-audit` batch after `agrees:false`.
 
 ### Hint protocol (never leak the answer)
 

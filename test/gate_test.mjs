@@ -201,6 +201,103 @@ gradeNotify(uuid3, JSON.stringify({ verdict: 'PASS', agrees: true, correct_verdi
 const itemsGrade = await msg('Compute I(X;Y) for the fresh joint: FAIL — -0.119, the sign is impossible.', 'stop');
 assert('items[] grade envelope binds a dropped-tag grade turn', allowed(itemsGrade));
 
+// --- batched `items[]` grade envelope: several answers, ONE dispatch ---
+const uuid7 = '1b2c3d4e-5f60-4789-9a01-2345678901cd';
+const uuid8 = '2c3d4e5f-6071-4890-ab12-3456789012de';
+const batchEnvelope = JSON.stringify({
+  gate: 'grade_audit',
+  items: [
+    { id: 1, concept: 'A', question: 'Q1 compute the number', learner_answer: 'B', claimed_verdict: 'pass' },
+    { id: 2, concept: 'B', question: 'Q2 compute the number', learner_answer: 'A', claimed_verdict: 'fail' },
+  ],
+});
+const batchText = '[[TURN:grade]]\nQ1 compute the number — PASS (answer B); Q2 compute the number — FAIL (answer A).';
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await asyncDispatch('a7', 'grade-audit', batchEnvelope);
+await asyncResult('a7', uuid7);
+gradeNotify(
+  uuid7,
+  JSON.stringify({
+    verdict: 'PASS',
+    agrees: true,
+    correct_verdict: 'pass',
+    issues: [],
+    items: [
+      { id: 1, agrees: true, correct_verdict: 'pass', explanation: 'ok' },
+      { id: 2, agrees: true, correct_verdict: 'fail', explanation: 'as claimed' },
+    ],
+  })
+);
+const batchGrade = await msg(batchText, 'stop');
+assert('batched items[] grade envelope binds a multi-answer grade turn', allowed(batchGrade));
+
+// --- a batched mismatch surfaces which answers the verifier corrected ---
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await asyncDispatch('a8', 'grade-audit', batchEnvelope);
+await asyncResult('a8', uuid8);
+gradeNotify(
+  uuid8,
+  JSON.stringify({
+    verdict: 'ISSUES',
+    agrees: false,
+    correct_verdict: 'pass',
+    issues: ['#2 wrong'],
+    items: [
+      { id: 1, agrees: true, correct_verdict: 'pass', explanation: 'ok' },
+      { id: 2, agrees: false, correct_verdict: 'pass', explanation: 'the dot product is shown' },
+    ],
+  })
+);
+const batchMismatch = await msg(batchText, 'stop');
+assert(
+  'batched grade mismatch surfaces per-item corrections',
+  blocked(batchMismatch, 'GRADE_MISMATCH') && outText(batchMismatch).includes('#2 → pass')
+);
+
+// --- a materially corrected batch clears the mismatch and renders ---
+const uuid9 = '3d4e5f60-7182-4903-bc34-567890123def';
+const uuid10 = '4e5f6071-8293-4014-cd56-789012345efa';
+const correctedEnvelope = JSON.stringify({
+  gate: 'grade_audit',
+  items: [
+    { id: 1, concept: 'A', question: 'Q1 compute the number', learner_answer: 'B', claimed_verdict: 'pass' },
+    { id: 2, concept: 'B', question: 'Q2 compute the number', learner_answer: 'A', claimed_verdict: 'pass' },
+  ],
+});
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await asyncDispatch('a9', 'grade-audit', batchEnvelope);
+await asyncResult('a9', uuid9);
+gradeNotify(
+  uuid9,
+  JSON.stringify({
+    verdict: 'ISSUES',
+    agrees: false,
+    correct_verdict: 'pass',
+    issues: ['#2 wrong'],
+    items: [
+      { id: 1, agrees: true, correct_verdict: 'pass', explanation: 'ok' },
+      { id: 2, agrees: false, correct_verdict: 'pass', explanation: 'the dot product is shown' },
+    ],
+  })
+);
+await asyncDispatch('a10', 'grade-audit', correctedEnvelope);
+await asyncResult('a10', uuid10);
+gradeNotify(
+  uuid10,
+  JSON.stringify({
+    verdict: 'PASS',
+    agrees: true,
+    correct_verdict: 'pass',
+    issues: [],
+    items: [
+      { id: 1, agrees: true, correct_verdict: 'pass', explanation: 'ok' },
+      { id: 2, agrees: true, correct_verdict: 'pass', explanation: 'confirmed' },
+    ],
+  })
+);
+const corrected = await msg('[[TURN:grade]]\nQ1 compute the number — PASS (answer B); Q2 compute the number — PASS (answer A).', 'stop');
+assert('corrected batched re-dispatch clears the mismatch', allowed(corrected));
+
 // --- an ISSUES verdict does not block a materially corrected re-dispatch ---
 await setPrompt('[[FLOW:resume]] continue the lesson');
 await asyncDispatch('a5', 'fact-check', fcEnvelope(vDraft));

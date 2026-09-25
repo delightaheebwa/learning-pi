@@ -6,8 +6,14 @@
     {
       "id": "G-grade-requires-agreeing-audit",
       "severity": "hard",
-      "statement": "A grade turn must not render unless an agreeing grade-audit receipt is present; a missing receipt is withheld with NO_GRADE_AUDIT_PASS.",
-      "tests": ["normal grade turn allowed", "grade turn with no receipt withheld"]
+      "statement": "A grade turn must not render unless an agreeing grade-audit receipt is present; a missing receipt is withheld with NO_GRADE_AUDIT_PASS. One batched `items[]` envelope may carry several learner answers, and a mismatch surfaces the per-item corrections.",
+      "tests": [
+        "normal grade turn allowed",
+        "grade turn with no receipt withheld",
+        "batched items[] grade envelope binds a multi-answer grade turn",
+        "batched grade mismatch surfaces per-item corrections",
+        "corrected batched re-dispatch clears the mismatch"
+      ]
     },
     {
       "id": "G-receipts-consumed-per-message",

@@ -90,8 +90,11 @@ the lesson.
   contain the final numeric result; hand the arithmetic back to the learner.
 - Before showing any question batch, send a `quiz-audit` subagent the exact batch. Fix high/medium issues (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is accepted silently — do not loop or add any flags banner.
 - Before presenting any grade, send a `grade-audit` subagent the question, the raw
-  learner answer, and the claimed verdict. Grade turns use `grade-audit` only; a disagreement is
-  withheld and the verifier's `correct_verdict` must be used.
+  learner answer, and the claimed verdict. **Batch:** when one learner reply answers several
+  questions, send ONE envelope with an `items[]` entry per answer (never one subagent per answer —
+  the harness rejects more than one subagent call per turn). Grade turns use `grade-audit` only; a
+  disagreement is withheld and the verifier's per-item `correct_verdict` must be used — re-dispatch
+  the corrected batch once, then emit.
 - After writing any `Learning System/` files (lesson file, session note, learning record,
   `Pending Ingest.json`), send a `tutor-audit` subagent the written file paths; a teach/resume
   summary is withheld (`NO_TUTOR_AUDIT`) until it passes. Write these four artifacts **only** at a

@@ -59,6 +59,9 @@ export interface Receipt {
   flags?: boolean;
   agrees?: boolean;
   correctVerdict?: string;
+  // Per-item grade corrections from a batched `grade-audit` response. Lets the
+  // gate surface exactly which answers the verifier disputed on a mismatch.
+  gradeItems?: GradeCorrection[];
   renderedContent?: string;
   // Content binding so an old PASS can't satisfy a new turn.
   questionsText?: string;
@@ -76,6 +79,14 @@ export interface Receipt {
 export interface StateAudit {
   errors: number;
   warnings: number;
+}
+
+/** One entry of a batched grade-audit response's `items[]`. */
+export interface GradeCorrection {
+  id?: string | number;
+  agrees?: boolean;
+  correctVerdict?: string;
+  explanation?: string;
 }
 
 export interface RunState {
@@ -407,9 +418,10 @@ export function envelopeText(value: any): string {
 }
 
 /**
- * Bound text for a grade-audit receipt. Primary shape is the single
- * `{question, learner_answer, claimed_verdict}` object; the `items:[{…}]`
- * array shape is accepted as a fallback so an off-spec envelope still binds.
+ * Bound text for a grade-audit receipt. The flat single-answer shape is
+ * `{question, learner_answer, claimed_verdict}`; a batched envelope carries
+ * `items:[{question, learner_answer, claimed_verdict}, …]` (one entry per
+ * learner answer) and binds the same way.
  */
 export function gradeTextOf(envelope: any): string | undefined {
   if (!envelope || typeof envelope !== "object") return undefined;
@@ -495,9 +507,8 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
   const cm = text.match(/"correct_verdict"\s*:\s*"(pass|fail)"/i);
   const am = text.match(/"agrees"\s*:\s*(true|false)/i);
   const questionsText = envelope ? envelopeText(envelope.questions_json || envelope.questions) : undefined;
-  // Grade envelope is a single object, but tolerate the `items:[{…}]` shape
-  // some generations emit so the receipt still binds (the malformed envelope
-  // otherwise left `gradeText` undefined and mis-inferred the turn as `quiz`).
+  // Grade envelope: flat single-answer object, or the batched `items:[{…}]`
+  // shape. Both bind so a dropped tag is still recovered from the receipt.
   const gradeText = gradeTextOf(envelope);
   const auditFiles = envelope && Array.isArray(envelope.files) ? envelope.files.filter((x: any) => typeof x === "string") : undefined;
   // Review-family verdicts: a PASS without an evidence list is unsubstantiated.
@@ -509,6 +520,23 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
       (Array.isArray(ev) && ev.length > 0) || (typeof ev === "string" && ev.trim().length > 0);
     evidenceMissing = !hasEvidence;
   }
+  // Batched grade-audit responses carry a per-item `items[]`; keep the disputed
+  // entries so a mismatch can name exactly which answers were corrected.
+  let gradeItems: GradeCorrection[] | undefined;
+  if (gate === "grade_audit") {
+    const obj = parseVerdictObject(text);
+    if (obj && Array.isArray(obj.items)) {
+      gradeItems = obj.items
+        .filter((it: any) => it && typeof it === "object")
+        .map((it: any): GradeCorrection => ({
+          id: typeof it.id === "string" || typeof it.id === "number" ? it.id : undefined,
+          agrees: typeof it.agrees === "boolean" ? it.agrees : undefined,
+          correctVerdict: typeof it.correct_verdict === "string" ? it.correct_verdict.toLowerCase() : undefined,
+          explanation: typeof it.explanation === "string" ? it.explanation : undefined,
+        }));
+      if (gradeItems.length === 0) gradeItems = undefined;
+    }
+  }
   const r: Receipt = {
     gate,
     valid: false,
@@ -516,6 +544,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     flags: passWithFlags,
     agrees: am ? am[1].toLowerCase() === "true" : undefined,
     correctVerdict: cm ? cm[1].toLowerCase() : undefined,
+    gradeItems,
     renderedContent: envelope && typeof envelope.rendered_content === "string" ? envelope.rendered_content : undefined,
     questionsText: questionsText || undefined,
     gradeText: gradeText || undefined,

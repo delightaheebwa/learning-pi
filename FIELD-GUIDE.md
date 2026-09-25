@@ -71,7 +71,7 @@ or tmux, where pi-math can't draw, the Tutor falls back to plain Unicode.
 
 - Queue: up to 2 due mistakes (priority) + 3 due concepts, shuffled.
 - One question, one short answer per concept.
-- Every grade is verified by an independent `grade-audit` subagent before it is shown.
+- Every grade is verified by an independent `grade-audit` subagent before it is shown. When several questions are answered in one reply, all answers go in ONE batched `items[]` envelope (one subagent call per reply, not per answer).
 - Grades update `Attempts.json` (advisory mastery), `📚 Active Concepts.md`, and `🧯 Mistakes.md`.
 
 ---
