@@ -30,7 +30,7 @@ A practical guide to running your spaced-repetition learning system from the pi 
 | --- | --- |
 | `/teach <topic>` | New topic: Scout gathers live sources → probe → plan → teach |
 | `/lesson` | Next curriculum lesson (sequential within the phase) |
-| `/continue` | Resume a paused lesson at its checkpoint (no Scout needed) |
+| `/continue` | Resume a paused lesson at its next mini-checkpoint (no Scout needed) |
 | `/pause` | Stop cleanly: exit ticket, partial lesson file, bank progress via Clerk |
 | `/review` | Spaced-repetition review session (up to 5 concepts) |
 | `/ingest <content or URL>` | Standalone ingest via Clerk (also used after a lesson handoff: `/ingest` with no args) |
@@ -50,11 +50,13 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
 3. **Probe** — a small batch of questions, always with an "I don't know". Answer with a confidence
    tag (`sure` / `hunch` / `no idea`). Feedback is withheld until the batch ends.
 4. **Plan** — a Mermaid dependency graph + what to skip/expand/reframe. You can push back.
-5. **Teach** — checkpoints, one idea + one practice each, always stoppable. The Tutor **pauses
-   twice per checkpoint**: after the idea (invites questions before the practice) and after the
-   practice grade (invites questions before the next checkpoint). It won't chain ahead of you.
+5. **Teach** — a checkpoint is delivered as **mini-checkpoints**: one atomic idea per message,
+   each followed by a pause that invites your questions and tangents. After the last
+   mini-checkpoint comes the checkpoint's single practice, then another pause after grading. It
+   won't chain ahead of you or dump a whole checkpoint at once.
 6. **Pause anytime** with `/pause` (student-paced). It banks today's progress and keeps the lesson
-   in-progress; `/continue` resumes at the next checkpoint.
+   in-progress; `/continue` resumes at the next mini-checkpoint (the pause pointer records
+   `Checkpoint N/M, mini K/L`).
 7. **Lesson end** — cumulative quiz + Feynman explain-back. Then run `/ingest` to finalize: Clerk
    writes the wiki + Active Concepts, reconciles the position pointers, runs the state audit,
    regenerates Learner History, and commits state; then the **Tutor** dispatches an independent

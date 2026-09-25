@@ -18,8 +18,8 @@ There is no `expected` block. You derive everything from the files themselves: r
 
 Checks (all against the four handoff artifacts only):
 
-- Lesson file exists at the stated path; its `Status:` and `Resume from:` pointer agree with each other (the resume point is not past the last completed checkpoint, and no checkpoint is claimed done beyond it).
-- Session note exists and records the same checkpoint position and the same concept list as the lesson file.
+- Lesson file exists at the stated path; its `Status:` and `Resume from:` pointer agree with each other (the resume point is not past the last completed checkpoint/mini-checkpoint, and no checkpoint or mini-checkpoint is claimed done beyond it). A `Status` of the form `paused at Checkpoint N/M, mini K/L` is valid; the checkpoint fraction and the mini index must be consistent with the `Resume from:` chain.
+- Session note exists and records the same checkpoint/mini-checkpoint position and the same concept list as the lesson file.
 - Learning record (lesson-end only) is numbered highest-existing + 1 and its stated Bloom level / evidence matches the lesson's own record of what the learner demonstrated.
 - `Pending Ingest.json` exists and contains `lesson_file`, `session_file`, a non-empty `concepts` array, a `status` string, a `resume_from` string, and a `source_url` or `source_file`; its `partial` flag is `true` for a pause handoff and absent or `false` for a final lesson-end handoff. Its `lesson_file` / `session_file` values resolve to files that exist, and its `concepts` appear in the lesson file / session note.
 - No artifact claims work that does not exist on disk, and no artifact contradicts another (do not verify against the Tutor's claims about state the Tutor does not write).
