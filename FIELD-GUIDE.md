@@ -51,9 +51,13 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
    tag (`sure` / `hunch` / `no idea`). Feedback is withheld until the batch ends.
 4. **Plan** — a Mermaid dependency graph + what to skip/expand/reframe. You can push back.
 5. **Teach** — a checkpoint is delivered as **mini-checkpoints**: one atomic idea per message,
-   each followed by a pause that invites your questions and tangents. After the last
-   mini-checkpoint comes the checkpoint's single practice, then another pause after grading. It
-   won't chain ahead of you or dump a whole checkpoint at once.
+   each followed by a pause that invites your questions and tangents. Each idea is delivered
+   through **elicit → attempt → consolidate** — it asks what you predict (grounded in your Learner
+   History and past learning records), nudges with at most two guiding questions if you're off,
+   then states the idea cleanly and ties it back to your own words. Say **"just tell me"** and it
+   skips straight to the explanation. After the last mini-checkpoint comes the checkpoint's single
+   practice, then another pause after grading. It won't chain ahead of you or dump a whole
+   checkpoint at once.
 6. **Pause anytime** with `/pause` (student-paced). It banks today's progress and keeps the lesson
    in-progress; `/continue` resumes at the next mini-checkpoint (the pause pointer records
    `Checkpoint N/M, mini K/L`).
