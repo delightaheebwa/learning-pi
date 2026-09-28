@@ -4,7 +4,7 @@
 Two jobs:
   1. Resources: the layer's own files exist and parse — APPEND_SYSTEM.md,
      .pi/settings.json, the seven prompt templates with their [[FLOW:...]]
-     markers, the eight agent definitions, the four skills.
+     markers, the ten agent definitions, the four skills.
   2. Contract coverage: every invariant in contracts/learning-core.json has at
      least one passing test (by name substring), and every listed test name
      matches something. This keeps the contract registry and the tests from
@@ -32,6 +32,8 @@ EXPECTED_PROMPTS = {
 EXPECTED_AGENTS = {
     "scout",
     "clerk",
+    "review-scout",
+    "review-clerk",
     "fact-check",
     "quiz-audit",
     "grade-audit",

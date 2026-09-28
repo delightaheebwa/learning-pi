@@ -25,6 +25,12 @@
  *   - new lesson -> a `scout` run; its `SCOUT_DIGEST: {...}` receipt is parsed so a
  *     partial/missing digest surfaces `⚠️ SOURCES INCOMPLETE` / `⚠️ SCOUT DIGEST
  *     UNVERIFIED` (banner, never a withhold).
+ *   - review -> a `review-scout` run before the first claims/quiz turn
+ *     (`NO_REVIEW_CONTEXT` until then); its `REVIEW_SCOUT_DIGEST: {...}` receipt
+ *     surfaces `⚠️ REVIEW CONTEXT INCOMPLETE` / `⚠️ REVIEW SCOUT DIGEST UNVERIFIED`
+ *     (banner, never a withhold). The close writes are delegated to `review-clerk`;
+ *     a completed run arms the review-session audit gate, so the summary needs a
+ *     passing `review-session-audit` over the writes.
  *   - ingest -> the parent dispatches an independent `review-gate` after the Clerk
  *     returns `CLERK_WRITES`. A PASS renders clean; ISSUES/PASS_WITH_FLAGS render
  *     with a visible `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run

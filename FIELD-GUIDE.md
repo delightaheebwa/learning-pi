@@ -32,7 +32,7 @@ A practical guide to running your spaced-repetition learning system from the pi 
 | `/lesson` | Next curriculum lesson (sequential within the phase) |
 | `/continue` | Resume a paused lesson at its next mini-checkpoint (no Scout needed) |
 | `/pause` | Stop cleanly: exit ticket, partial lesson file, bank progress via Clerk |
-| `/review` | Spaced-repetition review session (up to 5 concepts) |
+| `/review` | Spaced-repetition review session (Review Scout builds the queue → up to 5 concepts → review-clerk persists) |
 | `/ingest <content or URL>` | Standalone ingest via Clerk (also used after a lesson handoff: `/ingest` with no args) |
 | `/audit` | Read-only state consistency audit (MISSION/CURRICULUM/Profile/Active Concepts/index); reports loudly, never writes |
 
@@ -75,10 +75,13 @@ or tmux, where pi-math can't draw, the Tutor falls back to plain Unicode.
 
 ## 4. Review sessions (`/review`)
 
+- **Review Scout** runs first: it reads your learner state in one bundle and builds the queue.
 - Queue: up to 2 due mistakes (priority) + 3 due concepts, shuffled.
 - One question, one short answer per concept.
 - Every grade is verified by an independent `grade-audit` subagent before it is shown. When several questions are answered in one reply, all answers go in ONE batched `items[]` envelope (one subagent call per reply, not per answer).
-- Grades update `Attempts.json` (advisory mastery), `📚 Active Concepts.md`, and `🧯 Mistakes.md`.
+- The Reviewer writes nothing. At the close, **review-clerk** writes the Review note(s) + session note, updates `Attempts.json` / `📚 Active Concepts.md` / `🧯 Mistakes.md`, runs the state audit, and commits; then the Reviewer dispatches a `review-session-audit` over those writes.
+
+The review flow mirrors the teaching flow: `review-scout` → Reviewer (this session) → `review-clerk`, with the close checked by `review-session-audit` — exactly like `scout` → Tutor → `clerk` with `tutor-audit`.
 
 ---
 
@@ -108,6 +111,11 @@ checks that batch **once** before the summary renders. Mid-lesson it writes noth
 Position/state files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner
 History) are reconciled by the **Clerk** at `/ingest`, not the Tutor.
 
+The review flow is symmetric: `review-scout` gathers context + the due queue at the start (the first
+review turn is withheld `NO_REVIEW_CONTEXT` until it runs), the Reviewer writes nothing, and
+`review-clerk` persists the Review note(s)/session note and reconciles the touched rows at the close;
+`review-session-audit` checks those writes before the summary renders.
+
 Prompt templates also carry `[[FLOW:teach|resume|review|ingest]]` so the gate knows the mode
 deterministically. You never type these.
 
@@ -121,6 +129,7 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | --- | --- | --- |
 | `NO_TURN_TAG` | message wasn't tagged | model self-corrects; if persistent, restart pi. **Not raised for an ingest summary after a clerk dispatch** (implicit `[[TURN:none]]`, verified by the clerk's `REVIEW_GATE_VERDICT` receipt), **for a grade/quiz turn in teach/resume/review that a `grade-audit`/`quiz-audit` receipt binds** — or when exactly one gate type has a valid pending receipt (async completion) — **or for an untagged review close once the session note is written** (implicit `[[TURN:none]]`, verified by the `review-session-audit` receipt) |
 | `NO_SCOUT_CONTEXT` | new lesson without a Scout run | let it run `scout`, or resume instead |
+| `NO_REVIEW_CONTEXT` | `/review` without a Review Scout run | let it run `review-scout` to build the queue |
 | `NO_FACT_CHECK_MATCH` | draft wasn't verified / changed after verifying | re-draft and re-verify |
 | `FACT_CHECK_MISSING_DRAFT` | fact-check passed but its envelope had no `rendered_content` | re-send the claims WITH the exact draft in `rendered_content` |
 | `FACT_CHECK_MISMATCH` | verified draft covers too little of the emitted text | emit the verified draft unchanged, or re-verify the new text |
@@ -133,8 +142,10 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `⚠️ REVIEW GATE` / `⚠️ REVIEW SESSION GATE` | a review-family verdict carried no `evidence` list (what it read/checked) | treat the pass as unsubstantiated; re-run the gate so it names its evidence |
 | `⚠️ SOURCES INCOMPLETE` | Scout could not fetch one or more sources (`failed_refs` non-empty) | teach around the gaps; consider re-scouting or adding a fallback source |
 | `⚠️ SCOUT DIGEST UNVERIFIED` | Scout finished without a parseable `SCOUT_DIGEST:` receipt | verify the digest exists on disk; re-run Scout if the lesson context looks thin |
+| `⚠️ REVIEW CONTEXT INCOMPLETE` | Review Scout could not read one or more state items | review around the gaps; re-run `review-scout` if the queue looks thin |
+| `⚠️ REVIEW SCOUT DIGEST UNVERIFIED` | Review Scout finished without a parseable `REVIEW_SCOUT_DIGEST:` receipt | verify the digest exists on disk; re-run `review-scout` |
 | `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked (or the receipt named no `files`) / verifier flagged high-or-medium issues | dispatch `tutor-audit` on the handoff batch with `files:[...]`; fix and re-audit (lows pass as `PASS_WITH_FLAGS`) |
-| `NO_REVIEW_SESSION_AUDIT` | review close wrote notes/rows but wasn't audited, or the receipt named no `written_files` | dispatch `review-session-audit` with `written_files:[{path,content},...]` on the exact writes, then summarize |
+| `NO_REVIEW_SESSION_AUDIT` | review close (review-clerk writes) wasn't audited, or the receipt named no `written_files` | dispatch `review-session-audit` with `written_files:[{path},...]` on the exact writes, then summarize |
 | `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output **or** the review-session audit returned `ISSUES` | shown with a banner, **not** withheld or re-run (review close caps at 2 passes) |
 | `⚠️ STATE AUDIT` | `audit_state.py` found errors or warnings still outstanding (touched ones are fixed in-flow) | run `/audit` for details |
 | `⛔ UNVERIFIED` | retries exhausted (2); content shown unverified | review it manually |
@@ -161,7 +172,7 @@ Set in `~/learning-pi/.pi/settings.json` (project scope only):
 | Role | Model |
 | --- | --- |
 | Tutor (your session) | `glm-5.3-flash` |
-| Scout / Clerk | `deepseek-v4.1-flash` |
+| Scout / Clerk / Review Scout / Review Clerk | `deepseek-v4.1-flash` |
 | Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` |
 

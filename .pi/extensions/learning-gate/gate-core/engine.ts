@@ -140,9 +140,16 @@ export function createGate(): GateEngine {
       const reviewGateCalls = calls.filter((c) => c.agent === "review-gate").length;
       const reviewSessionCalls = calls.filter((c) => c.agent === "review-session-audit").length;
       const clerkCalls = calls.filter((c) => c.agent === "clerk").length;
+      const reviewScoutCalls = calls.filter((c) => c.agent === "review-scout").length;
+      const reviewClerkCalls = calls.filter((c) => c.agent === "review-clerk").length;
       if (reviewGateCalls > 0) run.reviewGates += reviewGateCalls;
       if (reviewSessionCalls > 0) run.reviewSessionAudits += reviewSessionCalls;
       if (clerkCalls > 0) run.clerkDispatches += clerkCalls;
+      if (reviewScoutCalls > 0) run.reviewScoutCalled = true;
+      if (reviewClerkCalls > 0) {
+        run.reviewClerkCalled = true;
+        run.reviewClerkDispatches += reviewClerkCalls;
+      }
       if (reviewSessionCalls > 0 && run.reviewSessionAudits > P.MAX_REVIEW_SESSION_AUDITS) {
         return {
           block: true,
@@ -159,6 +166,12 @@ export function createGate(): GateEngine {
         return {
           block: true,
           reason: `clerk ingest cap reached (${P.MAX_CLERK_DISPATCHES} per flow). The ingest is already running or done — report its result instead of re-dispatching.`,
+        };
+      }
+      if (reviewClerkCalls > 0 && run.reviewClerkDispatches > P.MAX_REVIEW_CLERK_DISPATCHES) {
+        return {
+          block: true,
+          reason: `review-clerk cap reached (${P.MAX_REVIEW_CLERK_DISPATCHES} per flow). The review close is already running or done — report its result instead of re-dispatching.`,
         };
       }
       // Duplicate fact-check guard: re-dispatching a draft that already has a
@@ -203,7 +216,7 @@ export function createGate(): GateEngine {
           // Provider failures (503/429/overloaded) count toward the one-shot
           // alternate-model fallback directive. They mint no receipt.
           const providerFail = input.isError === true || P.PROVIDER_FAILURE_RE.test(output);
-          if (providerFail && (P.VERIFIER_AGENTS[call.agent] || call.agent === "scout")) {
+          if (providerFail && (P.VERIFIER_AGENTS[call.agent] || call.agent === "scout" || call.agent === "review-scout" || call.agent === "review-clerk")) {
             run.agentFailures[call.agent] = (run.agentFailures[call.agent] || 0) + 1;
           }
           if (input.isError === true) continue;
@@ -226,6 +239,11 @@ export function createGate(): GateEngine {
             const r = P.parseClerkReview(output);
             if (r) addReceipt(r);
           }
+          if (call.agent === "review-clerk") {
+            // The review close is a writer subagent now; a completed run means
+            // the parent's closing summary must be backed by a review-session audit.
+            run.reviewSessionWrote = true;
+          }
           if (call.agent === "scout") {
             run.scoutFinished = true;
             const sr = P.parseScoutReceipt(output);
@@ -233,6 +251,15 @@ export function createGate(): GateEngine {
               run.scoutReceiptSeen = true;
               run.scoutFailedRefs = sr.failedRefs;
               run.agentFailures["scout"] = 0;
+            }
+          }
+          if (call.agent === "review-scout") {
+            run.reviewScoutFinished = true;
+            const sr = P.parseReviewScoutReceipt(output);
+            if (sr) {
+              run.reviewScoutReceiptSeen = true;
+              run.reviewScoutFailedRefs = sr.failedRefs;
+              run.agentFailures["review-scout"] = 0;
             }
           }
         }
@@ -256,7 +283,7 @@ export function createGate(): GateEngine {
     // pending" hint does not lie) and counts provider failures, without minting.
     if (input.failedAgent) {
       if (input.runId) pendingAsync.delete(input.runId);
-      if (P.VERIFIER_AGENTS[input.failedAgent] || input.failedAgent === "scout") {
+      if (P.VERIFIER_AGENTS[input.failedAgent] || input.failedAgent === "scout" || input.failedAgent === "review-scout" || input.failedAgent === "review-clerk") {
         if (P.PROVIDER_FAILURE_RE.test(text)) run.agentFailures[input.failedAgent] = (run.agentFailures[input.failedAgent] || 0) + 1;
       }
       return;
@@ -269,12 +296,26 @@ export function createGate(): GateEngine {
       if (r) addReceipt(r);
       return;
     }
+    if (agent === "review-clerk") {
+      // A completed review close (async) arms the review-session audit gate.
+      run.reviewSessionWrote = true;
+      return;
+    }
     if (agent === "scout") {
       run.scoutFinished = true;
       const sr = P.parseScoutReceipt(text);
       if (sr) {
         run.scoutReceiptSeen = true;
         run.scoutFailedRefs = sr.failedRefs;
+      }
+      return;
+    }
+    if (agent === "review-scout") {
+      run.reviewScoutFinished = true;
+      const sr = P.parseReviewScoutReceipt(text);
+      if (sr) {
+        run.reviewScoutReceiptSeen = true;
+        run.reviewScoutFailedRefs = sr.failedRefs;
       }
       return;
     }
@@ -422,6 +463,7 @@ export function createGate(): GateEngine {
       const blockers: string[] = [];
       let verdictNote = "";
       let scoutNeeded = false;
+      let reviewScoutNeeded = false;
       let surface = "";
       const toConsume: P.Receipt[] = [];
 
@@ -586,6 +628,22 @@ export function createGate(): GateEngine {
         else if (pendingAsyncDraftMatches(text)) blockers.push("FACT_CHECK_PENDING");
       }
 
+      // Review-context gate: the review flow's first content turn (claims/quiz)
+      // is withheld until a `review-scout` run has happened. A finished scout
+      // with a partial/missing digest surfaces a banner (never a withhold),
+      // mirroring Scout for new lessons.
+      if (run.flow === "review" && (tag === "claims" || tag === "quiz")) {
+        if (!run.reviewScoutCalled) {
+          reviewScoutNeeded = true;
+        } else if (run.reviewScoutReceiptSeen && run.reviewScoutFailedRefs.length > 0) {
+          surface += `⚠️ REVIEW CONTEXT INCOMPLETE — review-scout could not read ${run.reviewScoutFailedRefs.length} item(s); the review proceeds around the gaps.\n\n`;
+          run.reviewScoutFailedRefs = [];
+        } else if (run.reviewScoutFinished && !run.reviewScoutReceiptSeen) {
+          surface += `⚠️ REVIEW SCOUT DIGEST UNVERIFIED — review-scout finished without a parseable \`REVIEW_SCOUT_DIGEST:\` receipt; reviewing from whatever context it produced.\n\n`;
+          run.reviewScoutFinished = false;
+        }
+      }
+
       // Review-session gate: after the review flow writes its notes/rows, a
       // summary-like turn needs a review_session audit. A PASS/PASS_WITH_FLAGS
       // renders clean; ISSUES renders with a flags banner (never a withhold —
@@ -652,7 +710,7 @@ export function createGate(): GateEngine {
         run.stateAudit = undefined;
       }
 
-      if (blockers.length === 0 && !scoutNeeded) {
+      if (blockers.length === 0 && !scoutNeeded && !reviewScoutNeeded) {
         for (const r of toConsume) consume(r);
         run.retries = 0;
         run.agentlessDispatch = false;
@@ -664,6 +722,7 @@ export function createGate(): GateEngine {
       run.retries += 1;
       const codes = [...blockers];
       if (scoutNeeded) codes.push("NO_SCOUT_CONTEXT");
+      if (reviewScoutNeeded) codes.push("NO_REVIEW_CONTEXT");
 
       // One-shot availability fallback: after repeated provider failures the
       // alternate model is offered (never forced). Directive fires once per
@@ -671,7 +730,8 @@ export function createGate(): GateEngine {
       const fallbackLines: string[] = [];
       for (const [agent, count] of Object.entries(run.agentFailures)) {
         if (count >= P.FALLBACK_AFTER_FAILURES && !run.agentFallbackUsed[agent]) {
-          const fb = agent === "scout" ? P.SCOUT_FALLBACK_MODEL : P.VERIFIER_AGENTS[agent] ? P.VERIFIER_FALLBACK_MODEL : undefined;
+          const isScout = agent === "scout" || agent === "review-scout";
+          const fb = isScout ? P.SCOUT_FALLBACK_MODEL : P.VERIFIER_AGENTS[agent] ? P.VERIFIER_FALLBACK_MODEL : undefined;
           if (fb) {
             fallbackLines.push(`\`${agent}\` failed ${count}× in a row — re-dispatch it once with \`model: "${fb}"\` before giving up.`);
             run.agentFallbackUsed[agent] = true;
@@ -698,17 +758,21 @@ export function createGate(): GateEngine {
         "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch (`files:[...]`) and fold its verdict before the summary.",
         "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary.",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
-        "review close: after writing the Review notes / session note / touched rows, dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files/state_rows), then summarize; a PASS/PASS_WITH_FLAGS renders clean and an ISSUES verdict renders with a flags banner (no re-run, cap 2 passes).",
-        "verifier failed on provider errors (503/429/timeout): retry once, then re-dispatch the SAME verifier with an explicit `model:` from the alternate set (verifiers → deepseek-v4.1-flash, scout → muse-spark-1.3-contributor); if it still fails, proceed and surface what is unverified.",
+        "review context: run the `review-scout` subagent first; it builds the due queue and writes the review digest (`REVIEW_SCOUT_DIGEST:`). A review's first claims/quiz turn is withheld (NO_REVIEW_CONTEXT) until it has run; a partial digest banners (REVIEW CONTEXT INCOMPLETE), never withholds.",
+        "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. A PASS/PASS_WITH_FLAGS renders clean and an ISSUES verdict renders with a flags banner (no re-run, cap 2 passes).",
+        "verifier failed on provider errors (503/429/timeout): retry once, then re-dispatch the SAME verifier with an explicit `model:` from the alternate set (verifiers → deepseek-v4.1-flash, scout/review-scout → muse-spark-1.3-contributor); if it still fails, proceed and surface what is unverified.",
       ].join("\n");
       const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";
+      const reviewScoutNote = reviewScoutNeeded
+        ? "Run the `review-scout` subagent first to gather the review context and build the due queue.\n"
+        : "";
       const agentNote = run.agentlessDispatch
         ? "A `subagent` call omitted the `agent` field, so it minted no receipt. Always pass `agent: \"<name>\"` (e.g. `tutor-audit`).\n"
         : "";
       run.agentlessDispatch = false;
       const note = verdictNote ? verdictNote + "\n" : "";
       const pendingNote = pendingVerifierNote();
-      const banner = `⛔ WITHHELD (${codes.join(", ")})\n${scoutNote}${agentNote}${pendingNote}${fallbackNote}${note}${fix}\n`;
+      const banner = `⛔ WITHHELD (${codes.join(", ")})\n${scoutNote}${reviewScoutNote}${agentNote}${pendingNote}${fallbackNote}${note}${fix}\n`;
       return { message: P.replaceText(message, banner), notify: `learning-gate blocked: ${codes.join(", ")}` };
     } catch {
       return; // fail open

@@ -112,8 +112,23 @@
     {
       "id": "G-review-session-audit",
       "severity": "hard",
-      "statement": "After the review flow writes its session note, a summary turn requires a review-session audit receipt.",
-      "tests": ["review-session audit required after session-note write", "review-session pass releases the close summary"]
+      "statement": "After the review flow's writes land — the delegated review-clerk run, or a session-note write — a summary turn requires a review-session audit receipt.",
+      "tests": [
+        "review-session audit required after session-note write",
+        "review-session pass releases the close summary",
+        "review-clerk writes require a review-session audit",
+        "review-clerk close released by review-session pass"
+      ]
+    },
+    {
+      "id": "G-review-context-required",
+      "severity": "hard",
+      "statement": "A review's first claims/quiz turn is withheld with NO_REVIEW_CONTEXT until a review-scout run has happened; a partial review digest surfaces a banner (REVIEW CONTEXT INCOMPLETE), never a withhold.",
+      "tests": [
+        "review without a context scout run is withheld",
+        "review context incomplete banner surfaced",
+        "review context scout releases the first review turn"
+      ]
     },
     {
       "id": "G-scout-required",

@@ -5,6 +5,8 @@
     "agentOverrides": {
       "scout": { "model": "deepseek-v4.1-flash", "thinking": "high" },
       "clerk": { "model": "deepseek-v4.1-flash" },
+      "review-scout": { "model": "deepseek-v4.1-flash", "thinking": "high" },
+      "review-clerk": { "model": "deepseek-v4.1-flash" },
       "fact-check": { "model": "muse-spark-1.3-contributor", "thinking": "high" },
       "quiz-audit": { "model": "muse-spark-1.3-contributor", "thinking": "high" },
       "grade-audit": { "model": "muse-spark-1.3-contributor", "thinking": "high" },

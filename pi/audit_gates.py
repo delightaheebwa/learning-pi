@@ -49,7 +49,7 @@ VERIFIER_AGENTS = {
     "review-session-audit",
 }
 # Agents that write/act rather than verify; tracked for provenance but not "verifiers".
-WORKER_AGENTS = {"scout", "clerk"}
+WORKER_AGENTS = {"scout", "clerk", "review-scout", "review-clerk"}
 
 RUNID_RE = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
 REVIEW_MARKER_RE = re.compile(r"REVIEW_GATE_VERDICT\s*:\s*(\{.*?\})", re.S)

@@ -5,7 +5,7 @@ learning-system repository; its `Learning System/` and `Knowledge Wiki/` folders
 
 ## Routing (load the matching skill and follow it — do not improvise)
 
-- **"review"** → the `learning-system` skill, Review flow (runs in this session).
+- **"review"** → the `learning-system` skill, Review flow (runs in this session; `review-scout` gathers context, `review-clerk` writes).
 - **"teach me X" / "learn" / "study" / "lesson" / "continue" / "pause"** → the `learning-teach` skill.
 - **"ingest"** → the `learning-system` skill, Ingest flow, delegated to the `clerk` subagent.
 - **"audit"** → run the read-only state consistency audit (`python3 "$HOME/learning-pi/pi/audit_state.py" --root .`) and report findings loudly; it never writes.
@@ -24,7 +24,10 @@ contradiction to the user** — do not guess, merge, or trust any status written
 - This session is the Tutor: teach, probe, quiz, and grade interactively.
 - `clerk` ingests lesson output into the wiki and Active Concepts, and reconciles all position/state
   files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at `/ingest`.
-- Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate` (read-only; separate runs on preferred models — model separation is a default, not a guarantee).
+- `review-scout` gathers context for a `/review` session and builds the due queue (digest to
+  `Learning System/.tmp/`); the Reviewer runs the review interactively; `review-clerk` writes the
+  Review note(s) / session note, syncs the touched rows + `Attempts.json`, runs the state audit, and commits.
+- Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate`, `review-session-audit` (read-only; separate runs on preferred models — model separation is a default, not a guarantee).
 
 **Subagent dispatch shape:** every dispatch is `subagent({ agent: "<name>", task: "<JSON envelope>", async: false })`.
 The `task` argument is a **string literal containing the JSON envelope**, never a JSON object: pass the
@@ -133,9 +136,11 @@ the lesson.
   summary is withheld (`NO_TUTOR_AUDIT`) until it passes. Write these four artifacts **only** at a
   pause or lesson-end handoff, in one batch — never mid-lesson. The audit envelope carries no
   `expected` block and only those four files.
-- In a **review**, after writing the Review note(s), session note, and touched Active Concepts /
-  Mistakes rows, send ONE foreground `review-session-audit` the exact writes
-  (`concepts/transcript/grade_verdicts/written_files/state_rows`); the closing summary is withheld
+- In a **review**, run `review-scout` first — a review's first claims/quiz turn is withheld
+  (`NO_REVIEW_CONTEXT`) until it runs; a partial `REVIEW_SCOUT_DIGEST` banners (`⚠️ REVIEW CONTEXT
+  INCOMPLETE`), never withholds. You write **no** state files: at the close, hand the writes to ONE
+  foreground `review-clerk` (`REVIEW_WRITES` envelope), then send ONE foreground `review-session-audit`
+  the exact writes (`concepts/transcript/grade_verdicts/written_files`); the closing summary is withheld
   (`NO_REVIEW_SESSION_AUDIT`) until a receipt exists. `ISSUES` renders with a `⚠️ REVIEW FLAGS
   SURFACED` banner — never a withhold, never a re-run (cap 2 passes). Scope is fenced: state drift
   the review did not write is `context_notes`, never a blocking issue.

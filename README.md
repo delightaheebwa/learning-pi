@@ -35,7 +35,9 @@ The main pi session acts as the **Tutor**; `scout`, `clerk`, and the verifier su
 children. The Tutor writes only its four handoff artifacts (lesson file, session note, learning
 record, `Pending Ingest.json`) at a pause or lesson end; the **Clerk** reconciles position/state
 files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at
-`/ingest`.
+`/ingest`. The `/review` flow mirrors it: **`review-scout`** gathers context and the due queue,
+the main session runs the review, and **`review-clerk`** writes the Review note(s)/session note,
+syncs the touched rows, runs the state audit, and commits.
 
 > **Editing `.pi/` takes effect only after a reload.** A running pi process keeps the extension it
 > loaded at startup; changing `extensions/`, `skills/`, `agents/`, or `APPEND_SYSTEM.md` does **not**
@@ -49,7 +51,7 @@ Configured in `.pi/settings.json` (project scope only):
 | Role | Model |
 | --- | --- |
 | Tutor (main session) | `glm-5.3-flash` |
-| Scout / Clerk | `deepseek-v4.1-flash` |
+| Scout / Clerk / review-scout / review-clerk | `deepseek-v4.1-flash` |
 | Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Clerk's writes) |
 
@@ -71,8 +73,9 @@ assistant turn unless the matching, **passing** receipt is present:
 | A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced. One batched `items[]` envelope grades every answer from a single learner reply (never one subagent per answer) |
 | A `Learning System/` handoff write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` (once per handoff batch; high/medium block, lows pass as `PASS_WITH_FLAGS`) |
 | An ingest | after the Clerk returns a `CLERK_WRITES` receipt, the Tutor dispatches an independent `review-gate` on the wiki pages written; `PASS` renders clean, `ISSUES`/`PASS_WITH_FLAGS` render with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run). A verdict relayed by the Clerk instead of a real review-gate run gets a `⚠️ INGEST GATE` banner; a review verdict with no `evidence` list gets a `⚠️ REVIEW GATE` banner |
-| The **close** of a standalone `/review` (Review notes, session note, touched Active Concepts / Mistakes rows written) | `review-session-audit` reading the exact writes back against the transcript + per-concept grade verdicts; `PASS`/`PASS_WITH_FLAGS` render clean, `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner — never withheld, never a re-run (cap 2 passes per flow) |
+| The **close** of a standalone `/review` (the delegated `review-clerk` run wrote the Review notes, session note, and touched Active Concepts / Mistakes rows) | `review-session-audit` reading the writes back against the transcript + per-concept grade verdicts; `PASS`/`PASS_WITH_FLAGS` render clean, `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner — never withheld, never a re-run (cap 2 passes per flow) |
 | A new lesson | a `scout` run before teaching; a partial/missing `SCOUT_DIGEST` receipt surfaces as a `⚠️ SOURCES INCOMPLETE` / `⚠️ SCOUT DIGEST UNVERIFIED` banner (never a withhold) |
+| A `/review` session | a `review-scout` run before the first claims/quiz turn (`NO_REVIEW_CONTEXT` until then); a partial/missing `REVIEW_SCOUT_DIGEST` receipt surfaces as a `⚠️ REVIEW CONTEXT INCOMPLETE` / `⚠️ REVIEW SCOUT DIGEST UNVERIFIED` banner (never a withhold) |
 
 The reviewer's scope is the ingest's own output only (its wiki page(s) + Active Concepts row(s)).
 State drift is reported separately by `audit_state.py`, which runs automatically at ingest and
@@ -210,7 +213,7 @@ harness/man/                 lpi(1) man page
 harness/audit-recent-sessions.sh + systemd/  weekly provenance audit
 scripts/learn-check          the single test entrypoint
 test/gate_test.mjs           core gate behavior (mocked pi)
-test/golden/golden_test.mjs  write-gate / scout / retry / demotion scenarios
+test/golden/golden_test.mjs  write-gate / scout / review-delegation / retry / demotion scenarios
 test/contract/               resource checks, load probe
 test/fixtures/               synthetic learning-system state (never real data)
 opencode/skills/pi-diagnosis-fix/  opencode skill to repair a failed update

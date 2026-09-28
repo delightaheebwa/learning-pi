@@ -44,6 +44,8 @@ const fcEnvelope = (draft) =>
   JSON.stringify({ gate: 'fact_check', claims: [{ id: 1, claim: 'x' }], rendered_content: draft, source_urls: ['https://e.com'] });
 const SCOUT_OK = 'SCOUT_DIGEST: {"slug":"x","digest":"d","raw_files":[],"failed_refs":[]}';
 const CLERK_WRITES = '[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"commit":"abc"}';
+const REVIEW_SCOUT_OK =
+  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[]}';
 
 // ============================================================================
 // First: a session with no [[FLOW:...]] marker is never gated. (Must run before
@@ -130,3 +132,53 @@ await fg(
 );
 const demoted = await msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}', 'stop');
 assert('out-of-scope review issues render as flags, not withheld', allowed(demoted) && outText(demoted).includes('REVIEW FLAGS SURFACED'));
+
+// ============================================================================
+// review context: the review flow's first claims/quiz turn needs a review-scout
+// run; a partial digest banners but never withholds.
+// ============================================================================
+const qEnv = JSON.stringify({ gate: 'quiz_audit', purpose: 'probe', questions_json: [{ id: 1, question: 'State the Bayes rule.' }] });
+const QUIZ_PASS = JSON.stringify({ verdict: 'PASS', issues: [] });
+await setPrompt('[[FLOW:review]] review my due concepts');
+await dispatch('quiz-audit', qEnv, 'rq1');
+await fg('rq1', 'quiz-audit', qEnv, QUIZ_PASS);
+const noReviewScout = await msg('[[TURN:quiz]]\nState the Bayes rule.', 'stop');
+assert('review without a context scout run is withheld', blocked(noReviewScout, 'NO_REVIEW_CONTEXT'));
+
+await setPrompt('[[FLOW:review]] review my due concepts');
+await dispatch('review-scout', 'build the review queue', 'rsc1');
+await fg(
+  'rsc1',
+  'review-scout',
+  'build the review queue',
+  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[{"what":"Attempts.json","reason":"unreadable"}]}'
+);
+await dispatch('quiz-audit', qEnv, 'rq2');
+await fg('rq2', 'quiz-audit', qEnv, QUIZ_PASS);
+const partialCtx = await msg('[[TURN:quiz]]\nState the Bayes rule.', 'stop');
+assert('review context incomplete banner surfaced', allowed(partialCtx) && outText(partialCtx).includes('REVIEW CONTEXT INCOMPLETE'));
+
+await setPrompt('[[FLOW:review]] review my due concepts');
+await dispatch('review-scout', 'build the review queue', 'rsc2');
+await fg('rsc2', 'review-scout', 'build the review queue', REVIEW_SCOUT_OK);
+await dispatch('quiz-audit', qEnv, 'rq3');
+await fg('rq3', 'quiz-audit', qEnv, QUIZ_PASS);
+const okCtx = await msg('[[TURN:quiz]]\nState the Bayes rule.', 'stop');
+assert('review context scout releases the first review turn', allowed(okCtx) && !outText(okCtx).includes('REVIEW CONTEXT'));
+
+// ============================================================================
+// review close: a completed review-clerk (the delegated writer) arms the
+// review-session audit gate; the summary needs a passing audit.
+// ============================================================================
+const RC_ENV = JSON.stringify({ gate: 'review_writes', track: 'aiefs', concepts: ['X'], grade_verdicts: [{ concept: 'X', correct_verdict: 'pass' }] });
+const SESSION_PATH = 'Learning System/Sessions/Session — Review — 2026-09-28.md';
+await setPrompt('[[FLOW:review]] review my due concepts');
+await dispatch('review-clerk', RC_ENV, 'rc1');
+await fg('rc1', 'review-clerk', RC_ENV, 'REVIEW_CLERK_WRITES: {"reviews":[],"session":"' + SESSION_PATH + '","state":[],"concepts":["X"],"commit":"abc","state_audit":{"errors":0,"warnings":0}}');
+const noRsaAfterClerk = await msg('[[TURN:none]]\nReview — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
+assert('review-clerk writes require a review-session audit', blocked(noRsaAfterClerk, 'NO_REVIEW_SESSION_AUDIT'));
+const rsaEnv = JSON.stringify({ gate: 'review_session', written_files: [{ path: SESSION_PATH }] });
+await dispatch('review-session-audit', rsaEnv, 'rsa2');
+await fg('rsa2', 'review-session-audit', rsaEnv, JSON.stringify({ verdict: 'PASS', evidence: ['read the session note'], issues: [] }));
+const rsaReleased = await msg('[[TURN:none]]\nReview — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
+assert('review-clerk close released by review-session pass', allowed(rsaReleased));

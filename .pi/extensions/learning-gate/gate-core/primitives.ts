@@ -32,6 +32,9 @@ export const MAX_REVIEW_SESSION_AUDITS = 2;
 // The ingest is delegated to clerk once per flow. Re-dispatching it re-ingests
 // the same handoff and re-runs the whole review-gate chain.
 export const MAX_CLERK_DISPATCHES = 2;
+// The review close is delegated to review-clerk once per flow. Re-dispatching it
+// re-writes the same Review notes / rows and re-commits.
+export const MAX_REVIEW_CLERK_DISPATCHES = 2;
 export const MATCH_THRESHOLD = 0.85;
 // Emitted text may be slightly longer than the verified draft (tag strip,
 // minor edits) but must not carry a large unverified tail.
@@ -103,6 +106,16 @@ export interface RunState {
   scoutFailedRefs: unknown[];
   clerkCalled: boolean;
   clerkDispatches: number;
+  // Review-context: the review flow's `review-scout` run (its `REVIEW_SCOUT_DIGEST:`
+  // receipt is parsed so a partial/missing digest surfaces a banner, never a withhold).
+  reviewScoutCalled: boolean;
+  reviewScoutFinished: boolean;
+  reviewScoutReceiptSeen: boolean;
+  reviewScoutFailedRefs: unknown[];
+  // Review-close writer: `review-clerk` owns the durable writes; a completed run
+  // arms the review-session audit gate. Capped to stop a re-ingest loop.
+  reviewClerkCalled: boolean;
+  reviewClerkDispatches: number;
   reviewGates: number;
   retries: number;
   // Consecutive provider-failure count per verifier/scout, and whether the
@@ -137,6 +150,12 @@ export function newRun(flow: Flow): RunState {
     scoutFailedRefs: [],
     clerkCalled: false,
     clerkDispatches: 0,
+    reviewScoutCalled: false,
+    reviewScoutFinished: false,
+    reviewScoutReceiptSeen: false,
+    reviewScoutFailedRefs: [],
+    reviewClerkCalled: false,
+    reviewClerkDispatches: 0,
     reviewGates: 0,
     retries: 0,
     agentFailures: {},
@@ -703,6 +722,31 @@ export function parseScoutReceipt(text: string): { digest?: string; rawFiles: st
     return {
       digest: typeof j.digest === "string" ? j.digest : undefined,
       rawFiles: Array.isArray(j.raw_files) ? j.raw_files.filter((x: any) => typeof x === "string") : [],
+      failedRefs: Array.isArray(j.failed_refs) ? j.failed_refs : [],
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Review-scout receipt: the machine-readable `REVIEW_SCOUT_DIGEST: {...}` line a
+ * finished review-scout emits. Mirrors `parseScoutReceipt`: a partial/missing
+ * digest surfaces a banner on the first review turn, never a withhold.
+ */
+export function parseReviewScoutReceipt(text: string): { digest?: string; queue: unknown[]; failedRefs: unknown[] } | undefined {
+  const idx = text.search(/REVIEW_SCOUT_DIGEST\s*:\s*/i);
+  if (idx < 0) return undefined;
+  const brace = text.indexOf("{", idx);
+  if (brace < 0) return undefined;
+  const blob = extractBalancedJson(text, brace);
+  if (!blob) return undefined;
+  try {
+    const j = JSON.parse(blob);
+    if (!j || typeof j !== "object") return undefined;
+    return {
+      digest: typeof j.digest === "string" ? j.digest : undefined,
+      queue: Array.isArray(j.queue) ? j.queue : [],
       failedRefs: Array.isArray(j.failed_refs) ? j.failed_refs : [],
     };
   } catch {

@@ -66,7 +66,11 @@ its tagged test, change the implementation, all in one reviewed commit.
   teach/resume, a summary turn needs a passing `tutor-audit` over the files
   written; quiz/grade turns are not held hostage.
 - **G-review-session-audit** *(hard)* — after the review flow writes its session
-  note, a summary turn needs a `review-session-audit` receipt.
+  note (or the delegated `review-clerk` run returns), a summary turn needs a
+  `review-session-audit` receipt.
+- **G-review-context-required** *(hard)* — a review's first claims/quiz turn is
+  withheld (`NO_REVIEW_CONTEXT`) until a `review-scout` run has happened; a
+  partial review digest banners, never withholds.
 - **G-scout-required** *(hard)* — a new lesson's teaching claims are withheld
   (`NO_SCOUT_CONTEXT`) until a scout run has happened.
 - **G-retry-cap** *(hard)* — repeated withheld turns are capped; beyond the cap

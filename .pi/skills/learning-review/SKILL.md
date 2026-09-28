@@ -13,12 +13,14 @@ Lesson files, learning records, and glossary entries promoted by lessons are ver
 
 ## Review-session gate (standalone `/review` close)
 
-A second gate covers the writes a standalone review persists: the `Reviews/Review — [Concept] — [Date].md` note(s), the `Sessions/Session — …md` note, and the touched `📚 Active Concepts.md` / `🧯 Mistakes.md` rows. Per-grade `grade-audit` validates each verdict as it is presented; this gate validates the **persisted writes** against the transcript and those verdicts.
+A standalone review mirrors the teaching pipeline: **`review-scout`** gathers context and builds the due queue at the start (`NO_REVIEW_CONTEXT` until it runs; a partial `REVIEW_SCOUT_DIGEST` banners), the **Reviewer** (main session) runs the interactive review, and **`review-clerk`** owns the durable writes at the close. Per-grade `grade-audit` validates each verdict as it is presented; the review-session gate validates the **persisted writes** against the transcript and those verdicts.
 
-- Verifier: the `review-session-audit` subagent (`muse-spark-1.3-contributor`, high, read-only), envelope `{"gate":"review_session","concepts":[...],"transcript":"exact Q/A + learner answers + claimed verdicts","grade_verdicts":[{"concept","correct_verdict"}],"written_files":[{"path","content"}],"state_rows":"...","pass_number":N}`.
-- The `learning-gate` arms the gate when the review writes its session note and withholds the closing summary until a receipt exists (`NO_REVIEW_SESSION_AUDIT`). An untagged closing summary is treated as implicit `[[TURN:none]]` once the receipt is present — a dropped tag never dead-ends the session.
+The writes a review-clerk persists: the `Reviews/Review — [Concept] — [Date].md` note(s), the `Sessions/Session — …md` note, and the touched `📚 Active Concepts.md` / `🧯 Mistakes.md` / `Attempts.json` rows.
+
+- Verifier: the `review-session-audit` subagent (`muse-spark-1.3-contributor`, high, read-only), envelope `{"gate":"review_session","concepts":[...],"transcript":"exact Q/A + learner answers + claimed verdicts","grade_verdicts":[{"concept","correct_verdict"}],"written_files":[{"path"}],"state_rows":"...","pass_number":N}`.
+- The `learning-gate` arms the gate when the delegated `review-clerk` run returns (or the main session writes the session note) and withholds the closing summary until a receipt exists (`NO_REVIEW_SESSION_AUDIT`). An untagged closing summary is treated as implicit `[[TURN:none]]` once the receipt is present — a dropped tag never dead-ends the session.
 - Verdict: `PASS|PASS_WITH_FLAGS|ISSUES` + `issues` + `context_notes`. `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner, **never** withheld or re-run; hard cap **2 passes per flow**.
-- Scope is fenced: MISSION/CURRICULUM/Learning Profile/Learner History/`Knowledge Wiki/`/git drift → `context_notes`, never `issues` (state drift is `audit_state.py`'s job; the wiki is `review-gate`'s job).
+- Scope is fenced: MISSION/CURRICULUM/Learning Profile/Learner History/`Knowledge Wiki/`/git drift → `context_notes`, never `issues` (state drift is `audit_state.py`'s job, run by review-clerk; the wiki is `review-gate`'s job).
 
 ## Config
 
