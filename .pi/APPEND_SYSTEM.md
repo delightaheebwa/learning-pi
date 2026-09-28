@@ -27,11 +27,13 @@ contradiction to the user** — do not guess, merge, or trust any status written
 - Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate` (read-only; separate runs on preferred models — model separation is a default, not a guarantee).
 
 **Subagent dispatch shape:** every dispatch is `subagent({ agent: "<name>", task: "<JSON envelope>", async: false })`.
-The `task` argument must be a **JSON string**, not a JSON object — serialize the envelope
-(`JSON.stringify({...})`). pi-subagents rejects an object with `task: must be string`, which launches
-no child and mints no receipt, so the turn dead-ends. In a fresh session the `subagent` tool is not
-loaded: call `subagents_enable` once, then dispatch. Never use `subagent_supervisor`, `action:
-"validate"`, or `action: "status"` to launch a verifier — those do not dispatch a child. Every
+The `task` argument is a **string literal containing the JSON envelope**, never a JSON object: pass the
+envelope as text inside quotes with its inner quotes escaped (`task: "{\"gate\":\"quiz_audit\", ...}"`),
+not as a nested `{...}` value. pi-subagents rejects an object with `Validation failed for tool
+"subagent": task: must be string`; that launches no child and mints no receipt, so the turn dead-ends
+until you **re-emit the same envelope as a quoted string** — do not rebuild the content, and never fall
+back to `subagent_supervisor`, `action: "validate"`, or `action: "status"` (none dispatch a child). In
+a fresh session the `subagent` tool is not loaded: call `subagents_enable` once, then dispatch. Every
 envelope must carry the field that binds its receipt — `rendered_content` (fact-check),
 `questions_json` (quiz-audit), question+learner_answer+claimed_verdict (grade-audit), `files`
 (tutor-audit), `written_files` (review-session-audit), `target_files` (review-gate). A valid verdict

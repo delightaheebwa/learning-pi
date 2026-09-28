@@ -217,10 +217,13 @@ prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flo
   receipt; the model must name the verifier (e.g. `tutor-audit`) as the subagent's `agent` field, or
   as the `agent` inside `runs.run(...)` when using a workflow script.
 - **Tool result is `Validation failed for tool "subagent": - task: must be string`** → the model
-  passed the envelope as a JSON object. pi-subagents >= 0.71 requires `task` to be a JSON **string**
-  (serialize it). The dispatch launches no child and mints no receipt, so the turn dead-ends until
-  the call is re-emitted as a string. The prompt resources show the string form; a fresh session also
-  needs `subagents_enable` before `subagent` is available.
+  passed the envelope as a JSON object. pi-subagents >= 0.71 requires `task` to be a JSON **string
+  literal** — the envelope as text inside quotes with its inner quotes escaped
+  (`task: "{\"gate\":\"quiz_audit\", ...}"`), never a nested `{...}` value. The dispatch launches no
+  child and mints no receipt, so the turn dead-ends until the *same* envelope is re-emitted as a
+  quoted string (do not rebuild the content, and do not fall back to `subagent_supervisor` /
+  `action: "validate"`). The prompt resources show the string form; a fresh session also needs
+  `subagents_enable` before `subagent` is available.
 - **State looks stale after Open WebUI use** → `git pull` in `~/learning-system`.
 
 ---

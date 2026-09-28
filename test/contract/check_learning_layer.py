@@ -107,9 +107,11 @@ def check_resources(root: Path) -> None:
 
     # Regression guard: pi-subagents >= 0.71 requires the `subagent` tool's
     # `task` argument to be a JSON *string* (an object fails validation with
-    # `task: must be string`, launches no child, and mints no receipt). A
-    # dispatch example showing an object primes the model to emit that invalid
-    # call, so the prompt resources must never spell `task: {`.
+    # `task: must be string`, launches no child, and mints no receipt — the
+    # 2026-09-26 review session dead-ended on exactly this). A dispatch example
+    # showing an object primes the model to emit that invalid call, so the
+    # prompt resources must never spell `task: {` (or its quoted-key form
+    # `"task": {`).
     import re
 
     dispatch_docs = [
@@ -117,15 +119,16 @@ def check_resources(root: Path) -> None:
         *sorted((root / ".pi" / "skills").glob("*/SKILL.md")),
         *sorted((root / ".pi" / "prompts").glob("*.md")),
     ]
+    object_task_re = re.compile(r"[\"']?\btask[\"']?\s*:\s*\{")
     offenders = [
         p.relative_to(root).as_posix()
         for p in dispatch_docs
-        if p.is_file() and re.search(r"\btask\s*:\s*\{", p.read_text(encoding="utf-8", errors="replace"))
+        if p.is_file() and object_task_re.search(p.read_text(encoding="utf-8", errors="replace"))
     ]
     if offenders:
         fail(
             "resources: subagent dispatch examples pass `task` as an object "
-            "(must be a JSON string): " + ", ".join(offenders)
+            "(must be a JSON-string literal, never a nested `{...}`): " + ", ".join(offenders)
         )
     else:
         ok("resources: subagent dispatch examples use a JSON-string `task`")
