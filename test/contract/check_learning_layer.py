@@ -28,6 +28,7 @@ EXPECTED_PROMPTS = {
     "review": "review",
     "ingest": "ingest",
     "audit": None,
+    "show": "resume",
 }
 EXPECTED_AGENTS = {
     "scout",
@@ -40,8 +41,10 @@ EXPECTED_AGENTS = {
     "tutor-audit",
     "review-gate",
     "review-session-audit",
+    "viz",
+    "viz-audit",
 }
-EXPECTED_SKILLS = {"learning-system", "learning-teach", "learning-review", "llm-wiki"}
+EXPECTED_SKILLS = {"learning-system", "learning-teach", "learning-review", "learning-viz", "llm-wiki"}
 
 FAILURES: list[str] = []
 

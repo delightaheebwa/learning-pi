@@ -19,6 +19,7 @@ export const VERIFIER_AGENTS: Record<string, string> = {
   "review-gate": "review",
   "tutor-audit": "tutor_audit",
   "review-session-audit": "review_session",
+  "viz-audit": "viz_audit",
 };
 
 export const MAX_RETRIES = 2;
@@ -40,7 +41,7 @@ export const MATCH_THRESHOLD = 0.85;
 // minor edits) but must not carry a large unverified tail.
 export const MAX_LENGTH_RATIO = 1.4;
 export const LENGTH_SLACK_TOKENS = 30;
-export const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|none)\]\]\s*/i;
+export const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|viz|none)\]\]\s*/i;
 export const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest)\]\]/i;
 export const STATE_AUDIT_RE = /(\d+)\s+errors?\b[^\d]*(\d+)\s+warnings?/i;
 export const WRITE_TOOLS = new Set(["write", "edit"]);
@@ -66,6 +67,9 @@ export interface Receipt {
   // gate surface exactly which answers the verifier disputed on a mismatch.
   gradeItems?: GradeCorrection[];
   renderedContent?: string;
+  // Canonical JSON of the verified visualization spec (viz_audit). A viz turn
+  // binds only when its emitted fenced spec canonicalizes to this value.
+  vizSpec?: string;
   // Content binding so an old PASS can't satisfy a new turn.
   questionsText?: string;
   gradeText?: string;
@@ -379,6 +383,68 @@ export function receiptBinds(r: Receipt, emittedText: string): boolean {
 }
 
 /**
+ * Fenced ` ```viz ` blocks in a message; returns the raw inner JSON strings.
+ * The viz-mode extension renders these at display time; the gate uses them to
+ * bind a `viz_audit` receipt to the exact spec that was audited.
+ */
+export function extractVizFences(text: string): string[] {
+  const out: string[] = [];
+  if (typeof text !== "string") return out;
+  const re = /```viz[^\n]*\n([\s\S]*?)```/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const body = m[1].trim();
+    if (body.length > 0) out.push(body);
+  }
+  return out;
+}
+
+/** Canonical JSON (recursively sorted keys, insignificant whitespace dropped). */
+export function canonicalJson(value: unknown): string {
+  const norm = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(norm);
+    if (v && typeof v === "object") {
+      const obj = v as Record<string, unknown>;
+      const out: Record<string, unknown> = {};
+      for (const key of Object.keys(obj).sort()) {
+        if (obj[key] === undefined) continue;
+        out[key] = norm(obj[key]);
+      }
+      return out;
+    }
+    return v;
+  };
+  return JSON.stringify(norm(value));
+}
+
+/**
+ * Viz binding: a `viz_audit` receipt authorizes a `[[TURN:viz]]` only when the
+ * emitted fenced spec canonicalizes to the audited spec AND the audit's
+ * `rendered_content` covers the emitted text. A present-but-wrong-shape
+ * envelope (no spec, or no rendered_content) binds nothing; only an
+ * envelope-less async completion falls back to unbound.
+ */
+export function vizBinds(r: Receipt, emittedText: string): boolean {
+  if (!r.hasEnvelope) return true;
+  if (!r.vizSpec || !r.renderedContent) return false;
+  const fences = extractVizFences(emittedText);
+  if (fences.length === 0) return false;
+  let match = false;
+  for (const f of fences) {
+    try {
+      if (canonicalJson(JSON.parse(f)) === r.vizSpec) {
+        match = true;
+        break;
+      }
+    } catch {
+      /* unparseable fence cannot bind */
+    }
+  }
+  if (!match) return false;
+  return contentMatches(r.renderedContent, emittedText);
+}
+
+/**
  * Whether a receipt names the artifacts it audited.
  *
  * The write gates (tutor-audit, review-session, review-gate) verify files, not
@@ -622,6 +688,10 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     correctVerdict: cm ? cm[1].toLowerCase() : undefined,
     gradeItems,
     renderedContent: envelope && typeof envelope.rendered_content === "string" ? envelope.rendered_content : undefined,
+    vizSpec:
+      gate === "viz_audit" && envelope && envelope.spec && typeof envelope.spec === "object"
+        ? canonicalJson(envelope.spec)
+        : undefined,
     questionsText: questionsText || undefined,
     gradeText: gradeText || undefined,
     auditFiles,
@@ -762,4 +832,5 @@ export const EXPECTED_ENVELOPE_GATE: Record<string, string> = {
   "review-gate": "review",
   "tutor-audit": "tutor_audit",
   "review-session-audit": "review_session",
+  "viz-audit": "viz_audit",
 };

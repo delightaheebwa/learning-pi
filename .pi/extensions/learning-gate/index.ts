@@ -9,12 +9,15 @@
  * Turn type is explicit, not guessed:
  *   - Prompt templates carry a flow marker (`[[FLOW:teach|resume|review|ingest]]`).
  *   - Every assistant message in a learning flow must start with a turn tag
- *     `[[TURN:claims|quiz|grade|none]]`. The gate strips the tag before the learner sees it.
+ *     `[[TURN:claims|quiz|grade|viz|none]]`. The gate strips the tag before the learner sees it.
  *   - claims -> a fact-check receipt whose `rendered_content` matches the emitted text
  *     (>=85% token coverage, with a length-ratio guard against unverified tails) with no ISSUES.
  *   - quiz  -> a quiz-audit receipt returning PASS, or PASS_WITH_FLAGS (lows only)
  *     which is accepted silently (flags are not surfaced to the learner).
  *   - grade -> a grade-audit receipt that agrees (a conflicting correct_verdict is surfaced).
+ *   - viz   -> a [[TURN:viz]] message carrying one ```viz spec needs a passing viz-audit
+ *     whose canonical spec matches the emitted block and whose rendered_content covers the turn;
+ *     a viz fence in a claims/none turn is withheld (VIZ_REQUIRES_OWN_TURN).
  *   - none  -> allowed, unless an unused verification receipt matches the text
  *     (tag mismatch / would-be evasion).
  *   - A dropped tag on a grade/quiz turn is inferred from a bound verifier

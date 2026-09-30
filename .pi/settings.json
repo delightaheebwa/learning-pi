@@ -12,7 +12,9 @@
       "grade-audit": { "model": "muse-spark-1.3-contributor", "thinking": "high" },
       "tutor-audit": { "model": "muse-spark-1.3-contributor", "thinking": "high" },
       "review-session-audit": { "model": "muse-spark-1.3-contributor", "thinking": "high" },
-      "review-gate": { "model": "muse-spark-1.3-contributor" }
+      "review-gate": { "model": "muse-spark-1.3-contributor" },
+      "viz": { "model": "deepseek-v4.1-flash", "thinking": "high" },
+      "viz-audit": { "model": "muse-spark-1.3-contributor", "thinking": "high" }
     }
   }
 }

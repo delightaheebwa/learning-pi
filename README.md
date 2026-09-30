@@ -30,7 +30,7 @@ cd ~/learning-system && pi        # approve/trust the project once
 ## Usage
 
 Slash commands: `/review`, `/ingest <content>`, `/teach <topic>`, `/lesson`, `/continue`, `/pause`,
-`/audit`.
+`/audit`, `/show <concept>` (a verified visualization; `/viz` reopens/controls the explorer).
 The main pi session acts as the **Tutor**; `scout`, `clerk`, and the verifier subagents run as
 children. The Tutor writes only its four handoff artifacts (lesson file, session note, learning
 record, `Pending Ingest.json`) at a pause or lesson end; the **Clerk** reconciles position/state
@@ -51,8 +51,8 @@ Configured in `.pi/settings.json` (project scope only):
 | Role | Model |
 | --- | --- |
 | Tutor (main session) | `glm-5.3-flash` |
-| Scout / Clerk / review-scout / review-clerk | `deepseek-v4.1-flash` |
-| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
+| Scout / Clerk / review-scout / review-clerk / `viz` | `deepseek-v4.1-flash` |
+| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `viz-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Clerk's writes) |
 
 Verifiers run on these models by default for cost/availability, but separation is a **preference,
@@ -71,6 +71,7 @@ assistant turn unless the matching, **passing** receipt is present:
 | Teaching claims (Tutor) | `fact-check` whose `rendered_content` matches the emitted text (≥85% token coverage) and has no `ISSUES` |
 | A question batch | `quiz-audit` returning `PASS` (or `PASS_WITH_FLAGS` for lows-only, accepted silently with no banner to the learner, max 2 cycles) |
 | A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced. One batched `items[]` envelope grades every answer from a single learner reply (never one subagent per answer) |
+| A visualization (`[[TURN:viz]]` — a ` ```viz ` spec + supporting words) | `viz-audit` whose canonical `spec` matches the emitted fenced spec and whose `rendered_content` covers the turn (missing → `NO_VIZ_AUDIT`, `ISSUES` → `VIZ_AUDIT_ISSUES`, unbound/stale → `VIZ_AUDIT_STALE`). A ` ```viz ` block in any other turn is withheld (`VIZ_REQUIRES_OWN_TURN`); a missing parseable spec is withheld (`VIZ_SPEC_INVALID`). Figures are opt-in and teach/resume-only; `viz-mode` renders them inline and opens an interactive explorer overlay |
 | A `Learning System/` handoff write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` (once per handoff batch; high/medium block, lows pass as `PASS_WITH_FLAGS`) |
 | An ingest | after the Clerk returns a `CLERK_WRITES` receipt, the Tutor dispatches an independent `review-gate` on the wiki pages written; `PASS` renders clean, `ISSUES`/`PASS_WITH_FLAGS` render with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run). A verdict relayed by the Clerk instead of a real review-gate run gets a `⚠️ INGEST GATE` banner; a review verdict with no `evidence` list gets a `⚠️ REVIEW GATE` banner |
 | The **close** of a standalone `/review` (the delegated `review-clerk` run wrote the Review notes, session note, and touched Active Concepts / Mistakes rows) | `review-session-audit` reading the writes back against the transcript + per-concept grade verdicts; `PASS`/`PASS_WITH_FLAGS` render clean, `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner — never withheld, never a re-run (cap 2 passes per flow) |
@@ -106,7 +107,8 @@ banner; internal errors fail open. Non-learning sessions are never gated.
 
 ## Skills
 
-The four skills in `.pi/skills/` are **sanitized, vendored copies** of the originals — stripped of
+Four of the skills in `.pi/skills/` (`learning-system`, `learning-teach`, `learning-review`,
+`llm-wiki`) are **sanitized, vendored copies** of the originals — stripped of
 Open WebUI plumbing, host-specific paths, and all volatile state (lesson positions, dates,
 statuses, archive logic). The originals under the state repo's `Skills/` are untouched.
 
@@ -115,6 +117,10 @@ They are derived, not symlinked, so re-derive and diff them if the canonical ski
 ```bash
 diff -u ~/learning-system/Skills/learning-system/SKILL.md ~/learning-pi/.pi/skills/learning-system/SKILL.md
 ```
+
+The fifth skill, `learning-viz`, is **pi-only** (the opt-in visualization flow: dispatch `viz` →
+`viz-audit` → a standalone `[[TURN:viz]]` message, rendered inline by the `viz-mode` extension). It
+has no Open WebUI counterpart and is not derived from the state repo.
 
 ## State audit (read-only)
 
@@ -213,12 +219,14 @@ harness/man/                 lpi(1) man page
 harness/audit-recent-sessions.sh + systemd/  weekly provenance audit
 scripts/learn-check          the single test entrypoint
 test/gate_test.mjs           core gate behavior (mocked pi)
-test/golden/golden_test.mjs  write-gate / scout / review-delegation / retry / demotion scenarios
+test/golden/golden_test.mjs  write-gate / scout / review-delegation / retry / demotion / viz scenarios
+test/viz_test.mjs            viz-mode pure units (spec validation, expression eval, ASCII render)
 test/contract/               resource checks, load probe
 test/fixtures/               synthetic learning-system state (never real data)
 opencode/skills/pi-diagnosis-fix/  opencode skill to repair a failed update
 .pi/extensions/learning-gate/gate-core/   pure, pi-independent decision logic
 .pi/extensions/learning-gate/pi-adapter/  the ONLY pi-version-aware file
+.pi/extensions/viz-mode/     spec/render/explorer (display + interaction; no gating)
 ```
 
 ## Uninstall

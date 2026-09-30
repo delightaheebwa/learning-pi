@@ -182,3 +182,69 @@ await dispatch('review-session-audit', rsaEnv, 'rsa2');
 await fg('rsa2', 'review-session-audit', rsaEnv, JSON.stringify({ verdict: 'PASS', evidence: ['read the session note'], issues: [] }));
 const rsaReleased = await msg('[[TURN:none]]\nReview — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
 assert('review-clerk close released by review-session pass', allowed(rsaReleased));
+
+// ============================================================================
+// viz turns: a [[TURN:viz]] message carries a ```viz spec and requires a
+// passing viz-audit bound to that exact spec plus the supporting prose.
+// ============================================================================
+const VSPEC = { viz: '1', kind: 'bar', title: 'Counts', bars: [{ label: 'a', value: 1 }, { label: 'b', value: 4 }] };
+const VSPEC_OTHER = { viz: '1', kind: 'bar', title: 'Counts', bars: [{ label: 'a', value: 4 }, { label: 'b', value: 1 }] };
+const fence = (s) => '```viz\n' + JSON.stringify(s) + '\n```';
+const VDRAFT = `Here is the distribution.\n${fence(VSPEC)}\nNotice b dominates.`;
+const VENV = JSON.stringify({ gate: 'viz_audit', concept: 'counts', spec: VSPEC, rendered_content: VDRAFT });
+const VIZ_PASS = JSON.stringify({ verdict: 'PASS', issues: [] });
+
+// A bound, passing viz-audit releases the viz turn.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('viz-audit', VENV, 'v1');
+await fg('v1', 'viz-audit', VENV, VIZ_PASS);
+const okViz = await msg(`[[TURN:viz]]\n${VDRAFT}`, 'stop');
+assert('viz turn renders with a bound viz-audit', allowed(okViz) && stripped(okViz));
+
+// No receipt at all -> withheld.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const noViz = await msg(`[[TURN:viz]]\n${VDRAFT}`, 'stop');
+assert('viz turn without a viz-audit is withheld', blocked(noViz, 'NO_VIZ_AUDIT'));
+
+// The audited spec must match the emitted spec.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('viz-audit', VENV, 'v2');
+await fg('v2', 'viz-audit', VENV, VIZ_PASS);
+const otherSpec = await msg(`[[TURN:viz]]\nHere is the distribution.\n${fence(VSPEC_OTHER)}\nNotice a dominates.`, 'stop');
+assert('viz-audit with a different spec does not bind', blocked(otherSpec, 'VIZ_AUDIT_STALE'));
+
+// A wrong-shape receipt (no spec / no rendered_content) binds nothing.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('viz-audit', JSON.stringify({ gate: 'viz_audit', concept: 'counts' }), 'v3');
+await fg('v3', 'viz-audit', JSON.stringify({ gate: 'viz_audit', concept: 'counts' }), VIZ_PASS);
+const wrongShapeViz = await msg(`[[TURN:viz]]\n${VDRAFT}`, 'stop');
+assert('wrong-shape viz receipt does not bind a viz turn', blocked(wrongShapeViz, 'VIZ_AUDIT_STALE'));
+
+// ISSUES withholds the viz turn.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('viz-audit', VENV, 'v4');
+await fg('v4', 'viz-audit', VENV, JSON.stringify({ verdict: 'ISSUES', issues: [{ severity: 'high', problem: 'axes inverted' }] }));
+const issuesViz = await msg(`[[TURN:viz]]\n${VDRAFT}`, 'stop');
+assert('viz-audit ISSUES withholds the viz turn', blocked(issuesViz, 'VIZ_AUDIT_ISSUES'));
+
+// A viz spec must be present and parseable.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const noSpecViz = await msg('[[TURN:viz]]\nHere is a picture — trust me.', 'stop');
+assert('unparseable viz spec is withheld', blocked(noSpecViz, 'VIZ_SPEC_INVALID'));
+
+// A dropped viz tag is recovered from a bound viz-audit.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('viz-audit', VENV, 'v5');
+await fg('v5', 'viz-audit', VENV, VIZ_PASS);
+const droppedViz = await msg(VDRAFT, 'stop');
+assert('dropped viz tag recovered from a bound viz-audit', allowed(droppedViz));
+
+// A viz fence inside a claims turn is withheld (it must be its own turn).
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const claimsViz = await msg(`[[TURN:claims]]\n${VDRAFT}`, 'stop');
+assert('viz block in a claims turn is withheld', blocked(claimsViz, 'VIZ_REQUIRES_OWN_TURN'));
+
+// A viz fence inside a transition turn is withheld too.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const noneViz = await msg(`[[TURN:none]]\n${VDRAFT}`, 'stop');
+assert('viz block in a none turn is withheld', blocked(noneViz, 'VIZ_REQUIRES_OWN_TURN'));

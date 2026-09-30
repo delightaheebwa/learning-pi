@@ -89,6 +89,22 @@ its tagged test, change the implementation, all in one reviewed commit.
   `target_files`) releases no summary. Only an envelope-less async completion
   notification falls back to unbound. One wrong-shape receipt must not bind every
   later turn.
+- **G-viz-turn-requires-audit** *(hard)* — a `[[TURN:viz]]` message renders only
+  with a passing, bound `viz-audit` receipt: missing → `NO_VIZ_AUDIT`, an
+  `ISSUES` verdict → `VIZ_AUDIT_ISSUES`, a valid-but-unbound receipt →
+  `VIZ_AUDIT_STALE`.
+- **G-viz-audit-binds-spec-and-prose** *(hard)* — a `viz-audit` receipt binds
+  only when its canonical `spec` equals the emitted fenced spec **and** its
+  `rendered_content` covers the emitted text; a different spec, or a
+  present-but-wrong-shape envelope missing the spec/`rendered_content`,
+  authorizes no emission.
+- **G-viz-standalone-turn** *(hard)* — a ```viz fence may only appear in a
+  `[[TURN:viz]]` message; a viz block inside a claims or transition turn is
+  withheld (`VIZ_REQUIRES_OWN_TURN`).
+- **G-viz-spec-valid** *(hard)* — a `[[TURN:viz]]` message with no parseable
+  ```viz JSON spec is withheld (`VIZ_SPEC_INVALID`).
+- **G-viz-infer-from-bound** *(hard)* — a dropped viz tag is recovered from a
+  bound `viz-audit` receipt (canonical spec match + prose coverage).
 
 ### Launcher & update gate
 

@@ -81,6 +81,7 @@ cat > "$DEST/probe/lp-load-probe.ts" <<EOF
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import "$LAYER/.pi/extensions/learning-gate/index.ts";
 import "$LAYER/.pi/extensions/math-mode/index.ts";
+import "$LAYER/.pi/extensions/viz-mode/index.ts";
 export default function (pi: ExtensionAPI): void {
   pi.registerCommand("lp-load-probe", {
     description: "learning-pi load probe (harness only)",

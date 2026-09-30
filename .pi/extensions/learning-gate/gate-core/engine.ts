@@ -371,6 +371,30 @@ export function createGate(): GateEngine {
     return false;
   };
 
+  /** Does this text match a viz draft whose async audit has not notified? */
+  const pendingAsyncVizDraftMatches = (text: string): boolean => {
+    prunePendingAsync();
+    for (const { calls } of pendingAsync.values()) {
+      for (const c of calls) {
+        if (c.agent !== "viz-audit") continue;
+        const rc = c.envelope && typeof c.envelope.rendered_content === "string" ? c.envelope.rendered_content : undefined;
+        if (rc && P.contentMatches(rc, text)) return true;
+      }
+    }
+    return false;
+  };
+
+  /**
+   * Infer a dropped `viz` tag from a bound `viz_audit` receipt — the receipt
+   * carries the audited spec + draft, so binding is a real signal (mirrors the
+   * grade/quiz inference). Only consulted when the message actually contains a
+   * viz fence, so it can never mislabel ordinary teaching text.
+   */
+  const inferVizTurn = (text: string): boolean => {
+    if (run.flow === "ingest" || run.flow === "other") return false;
+    return run.receipts.some((r) => r.gate === "viz_audit" && r.valid && P.vizBinds(r, text));
+  };
+
   /**
    * Infer a `grade`/`quiz` turn from a verifier receipt when the Tutor forgot
    * its `[[TURN:...]]` tag.
@@ -460,6 +484,8 @@ export function createGate(): GateEngine {
       const tagMatch = rawText.match(P.TURN_TAG_RE);
       const text = (tagMatch ? rawText.replace(P.TURN_TAG_RE, "") : rawText).trim();
       const explicitTag = tagMatch ? tagMatch[1].toLowerCase() : undefined;
+      const vizes = P.extractVizFences(text);
+      const hasVizFence = vizes.length > 0;
       const blockers: string[] = [];
       let verdictNote = "";
       let scoutNeeded = false;
@@ -476,13 +502,21 @@ export function createGate(): GateEngine {
           (run.flow === "review" && run.reviewSessionWrote && P.looksLikeReviewSummary(text)));
       // Grade/quiz turns are tightly bound to a verifier receipt, so a
       // forgotten tag can be inferred from it in any interactive flow.
-      let inferredTag: "grade" | "quiz" | "claims" | undefined;
+      let inferredTag: "grade" | "quiz" | "viz" | "claims" | undefined;
       if (!tagMatch && !inferredNone) {
-        if (inferClaimsTurn(text)) inferredTag = "claims";
+        if (hasVizFence && inferVizTurn(text)) inferredTag = "viz";
+        else if (inferClaimsTurn(text)) inferredTag = "claims";
         else inferredTag = inferTaggedTurn(text);
         if (!inferredTag) blockers.push("NO_TURN_TAG");
       }
       const tag = explicitTag || inferredTag || (inferredNone ? "none" : undefined);
+
+      // Viz specs are their own turn: a ```viz block in a teaching or transition
+      // turn is withheld so the figure is always gated as [[TURN:viz]] (and the
+      // standalone-turn decision is enforced, not merely documented).
+      if (hasVizFence && tag && tag !== "viz" && (tag === "claims" || tag === "none")) {
+        blockers.push("VIZ_REQUIRES_OWN_TURN");
+      }
       if (run.flow === "ingest") {
         if (run.clerkCalled && P.looksLikeIngestSummary(text)) {
           // Prefer a verdict from an actual review-gate dispatch over a Clerk-
@@ -615,17 +649,46 @@ export function createGate(): GateEngine {
             blockers.push("GRADE_AUDIT_STALE");
           } else blockers.push("NO_GRADE_AUDIT_PASS");
         }
+      } else if (tag === "viz") {
+        // A viz turn must carry a parseable spec and bind a passing viz-audit
+        // receipt whose canonical spec equals the emitted one and whose
+        // rendered_content covers the emission.
+        const parseable = vizes.some((raw) => {
+          try {
+            JSON.parse(raw);
+            return true;
+          } catch {
+            return false;
+          }
+        });
+        if (!hasVizFence || !parseable) {
+          blockers.push("VIZ_SPEC_INVALID");
+          verdictNote =
+            "A [[TURN:viz]] message must contain exactly one ```viz fenced JSON spec block. Re-emit the exact spec the verifier audited.";
+        } else {
+          const v = run.receipts.filter((r) => r.gate === "viz_audit" && r.valid && P.vizBinds(r, text))[0];
+          if (v) toConsume.push(v);
+          else {
+            const anyValid = run.receipts.some((r) => r.gate === "viz_audit" && r.valid);
+            const issuesReceipt = run.receipts.some((r) => r.gate === "viz_audit" && r.issues);
+            blockers.push(anyValid ? "VIZ_AUDIT_STALE" : issuesReceipt ? "VIZ_AUDIT_ISSUES" : "NO_VIZ_AUDIT");
+          }
+        }
       } else {
         // none: allowed unless an unused verification draft matches this text
         const match = run.receipts.find(
           (r) => r.gate === "fact_check" && r.valid && r.renderedContent && P.contentMatches(r.renderedContent, text)
         );
-        if (match) blockers.push("TURN_TAG_MISMATCH");
+        const vizMatch = run.receipts.find(
+          (r) => r.gate === "viz_audit" && r.valid && r.renderedContent && P.contentMatches(r.renderedContent, text)
+        );
+        if (match || vizMatch) blockers.push("TURN_TAG_MISMATCH");
         // Evasion guard for the exact 2026-09-21 loop: teaching content tagged
         // `[[TURN:none]]` while its fact-check is still running (no receipt
         // yet). Matching the pending draft is decisive — a genuine transition
         // does not quote the teaching draft.
         else if (pendingAsyncDraftMatches(text)) blockers.push("FACT_CHECK_PENDING");
+        else if (pendingAsyncVizDraftMatches(text)) blockers.push("VIZ_PENDING");
       }
 
       // Review-context gate: the review flow's first content turn (claims/quiz)
@@ -747,7 +810,7 @@ export function createGate(): GateEngine {
       }
 
       const fix = [
-        "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, or `[[TURN:none]]`.",
+        "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, `[[TURN:viz]]`, or `[[TURN:none]]`.",
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged. A `[[TURN:claims]]` tag is also inferred automatically when your text matches an already-verified `rendered_content`, so if a message is withheld here, just re-emit the verified draft with its tag.",
         "quiz: send the exact batch as `questions_json` (not `items[]`) so the receipt binds; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
         "grade: when one learner reply answers several questions, send ONE `grade-audit` envelope with an `items[]` entry per answer (`{id,concept,question,learner_answer,claimed_verdict,source_excerpt}`); a single answer may use the flat object. Use the verifier's per-item `correct_verdict`.",
@@ -760,6 +823,7 @@ export function createGate(): GateEngine {
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review context: run the `review-scout` subagent first; it builds the due queue and writes the review digest (`REVIEW_SCOUT_DIGEST:`). A review's first claims/quiz turn is withheld (NO_REVIEW_CONTEXT) until it has run; a partial digest banners (REVIEW CONTEXT INCOMPLETE), never withholds.",
         "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. A PASS/PASS_WITH_FLAGS renders clean and an ISSUES verdict renders with a flags banner (no re-run, cap 2 passes).",
+        "viz: a figure is its own `[[TURN:viz]]` message (never a ```viz block inside a claims/none turn). Give the `viz` subagent the teaching intent, then dispatch ONE foreground `viz-audit` with the spec AND `rendered_content` = the full turn draft (supporting words + the fenced spec); emit the audited draft unchanged. A wrong/different spec, or a receipt with no spec/rendered_content, will not bind.",
         "verifier failed on provider errors (503/429/timeout): retry once, then re-dispatch the SAME verifier with an explicit `model:` from the alternate set (verifiers → deepseek-v4.1-flash, scout/review-scout → muse-spark-1.3-contributor); if it still fails, proceed and surface what is unverified.",
       ].join("\n");
       const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";

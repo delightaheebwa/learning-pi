@@ -1,0 +1,7 @@
+{
+  "name": "viz-mode",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Render learning visualizations (declarative viz specs) inline in the transcript as Unicode/braille, and open an interactive parameter explorer overlay."
+}

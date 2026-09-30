@@ -166,6 +166,46 @@
         "review-session audit without written_files does not release the close summary",
         "review-gate without target_files does not release the ingest summary"
       ]
+    },
+    {
+      "id": "G-viz-turn-requires-audit",
+      "severity": "hard",
+      "statement": "A [[TURN:viz]] message renders only with a passing, bound viz-audit receipt: a missing receipt is withheld NO_VIZ_AUDIT, an ISSUES verdict withholds VIZ_AUDIT_ISSUES, and a valid-but-unbound receipt withholds VIZ_AUDIT_STALE.",
+      "tests": [
+        "viz turn renders with a bound viz-audit",
+        "viz turn without a viz-audit is withheld",
+        "viz-audit ISSUES withholds the viz turn"
+      ]
+    },
+    {
+      "id": "G-viz-audit-binds-spec-and-prose",
+      "severity": "hard",
+      "statement": "A viz-audit receipt binds only when its canonical `spec` equals the emitted fenced spec AND its `rendered_content` covers the emitted text; a different spec, or a present-but-wrong-shape envelope missing the spec or rendered_content, authorizes no emission.",
+      "tests": [
+        "viz-audit with a different spec does not bind",
+        "wrong-shape viz receipt does not bind a viz turn"
+      ]
+    },
+    {
+      "id": "G-viz-standalone-turn",
+      "severity": "hard",
+      "statement": "A ```viz fence may only appear in a [[TURN:viz]] message; a viz block inside a claims or transition turn is withheld (VIZ_REQUIRES_OWN_TURN), so a figure is always gated as its own turn.",
+      "tests": [
+        "viz block in a claims turn is withheld",
+        "viz block in a none turn is withheld"
+      ]
+    },
+    {
+      "id": "G-viz-spec-valid",
+      "severity": "hard",
+      "statement": "A [[TURN:viz]] message with no parseable ```viz JSON spec block is withheld VIZ_SPEC_INVALID.",
+      "tests": ["unparseable viz spec is withheld"]
+    },
+    {
+      "id": "G-viz-infer-from-bound",
+      "severity": "hard",
+      "statement": "A dropped viz tag is recovered from a bound viz-audit receipt (canonical spec match + prose coverage).",
+      "tests": ["dropped viz tag recovered from a bound viz-audit"]
     }
   ]
 }
