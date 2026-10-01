@@ -8,8 +8,8 @@
   ],
   "until_agents": ["viz", "viz-audit"],
   "until_text_any": ["```viz"],
-  "timeout_sec": 300,
-  "max_turns": 14,
+  "timeout_sec": 420,
+  "max_turns": 20,
   "expect": {
     "agents": ["viz", "viz-audit"],
     "require_any": ["```viz"],

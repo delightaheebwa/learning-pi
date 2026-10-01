@@ -184,6 +184,8 @@ lpi update            # stage pi + packages, gate, promote (or stay + diagnosis)
 lpi update --dry-run  # gate without changing anything
 lpi test              # the test suite (gate behavior, golden, resources, load probe)
 lpi e2e               # replay short learner journeys in a sandbox (real models)
+lpi e2e --tier full   # run each journey to its natural settle (slower)
+lpi e2e --diff        # only the flows touched by the git diff
 lpi e2e --list        # list the journey scenarios
 lpi doctor            # re-run the suite against the current pins
 lpi rollback          # rollback the last promotion (pi + packages)  (alias: `lpi rb`)

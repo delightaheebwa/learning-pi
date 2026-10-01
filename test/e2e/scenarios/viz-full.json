@@ -1,0 +1,17 @@
+{
+  "id": "viz-full",
+  "tier": "full",
+  "flow": "resume",
+  "description": "/show run to completion: viz + viz-audit, and the emitted [[TURN:viz]] spec reaches the learner",
+  "steps": [
+    { "prompt": "/show Fixture Linear Algebra" }
+  ],
+  "timeout_sec": 720,
+  "max_turns": 30,
+  "expect": {
+    "agents": ["viz", "viz-audit"],
+    "require_any": ["```viz"],
+    "forbid": ["⛔ WITHHELD", "⛔ UNVERIFIED", "VIZ_REQUIRES_OWN_TURN", "VIZ_AUDIT_STALE", "VIZ_SPEC_INVALID"],
+    "max_recover": 2
+  }
+}

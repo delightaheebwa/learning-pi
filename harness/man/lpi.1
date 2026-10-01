@@ -43,9 +43,10 @@ is read-only.
 Run only the named scenario (repeatable, or a comma list).
 .TP
 .B \-\-tier smoke|full
-Run only scenarios of that tier. The default smoke tier stops at the first
-meaningful signal (the flow's key subagent plus a first clean turn) so it stays
-fast.
+Run only scenarios of that tier. The smoke tier stops at the first meaningful
+signal (the flow's key subagent plus a first clean turn) so it stays fast; the
+full tier runs each flow to its natural settle (for example the ingest closing
+summary) and is much slower.
 .TP
 .B \-\-flows a,b
 Run only scenarios for those flows.
@@ -58,6 +59,22 @@ Run N scenarios concurrently, each in its own sandbox. Ignored when a fixed
 .B \-\-sandbox
 is supplied. Default 1. Higher values raise model-provider contention and make
 the journeys flakier, so raise it only once the scenarios are hardened.
+.TP
+.B \-\-retries N
+Retry a failed scenario in a fresh sandbox up to N times (default 1). Model
+turn-hygiene is nondeterministic; a retry absorbs a one-off withhold without
+masking a repeatable break.
+.TP
+.B \-\-diff-ls DIR
+With
+.BR \-\-diff ,
+also diff this learning-system checkout (default
+.IR $LEARNING_SYSTEM_ROOT " or " ~/learning-system ).
+.TP
+.B \-\-no-diff-ls
+With
+.BR \-\-diff ,
+diff only the learning-pi layer.
 .TP
 .B \-\-keep
 Keep the sandbox for inspection (otherwise it is removed).

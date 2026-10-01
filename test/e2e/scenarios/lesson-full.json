@@ -1,0 +1,16 @@
+{
+  "id": "lesson-full",
+  "tier": "full",
+  "flow": "teach",
+  "description": "/teach run to the first pause: scout runs and the opening teaching turn is verified end to end",
+  "steps": [
+    { "prompt": "/teach Fixture Linear Algebra" }
+  ],
+  "timeout_sec": 900,
+  "max_turns": 40,
+  "expect": {
+    "agents": ["scout"],
+    "forbid": ["⛔ WITHHELD", "⛔ UNVERIFIED", "NO_GRADE_AUDIT_PASS", "NO_SCOUT_CONTEXT"],
+    "max_recover": 2
+  }
+}

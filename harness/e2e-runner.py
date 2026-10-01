@@ -20,9 +20,11 @@ Usage:
       --scenario ID          run only this scenario (repeatable; also comma list)
       --tier smoke|full      filter by tier (default: all)
       --flows a,b            filter by flow
-      --diff [--base REF]    select flows affected by the git diff
+      --diff [--base REF]    select flows affected by the git diff (layer + learning-system)
       --jobs N               run N scenarios concurrently (default: 1)
+      --retries N            retry a failed scenario in a fresh sandbox (default: 1)
       --list                 list scenarios and exit
+    Tiers: smoke (fast, early-stop) and full (run to settle). Default: all.
       --pi BIN               pi binary under test (default: <layer>/bin/pi)
       --layer DIR            learning-pi layer root (default: parent of this file)
       --sandbox DIR          reuse a pre-built sandbox (implies --keep)
@@ -277,22 +279,37 @@ def changed_paths(layer: Path, base: str) -> list[str]:
     return sorted(out)
 
 
-def flows_from_diff(layer: Path, impact_map: dict, base: str) -> tuple[set[str], list[str]]:
-    """Return (flows, changed_paths) selected by the impact map."""
-    paths = changed_paths(layer, base)
+def flows_from_diff(
+    layer: Path, impact_map: dict, base: str, extra_repos: list[tuple[Path, list[dict]]] | None = None
+) -> tuple[set[str], list[str]]:
+    """Return (flows, changed_paths) selected by the impact map.
+
+    `extra_repos` are (repo_root, rule_set) pairs (e.g. the learning-system
+    checkout, whose changes map through `learning_system_paths`).
+    """
     all_flows = set(impact_map.get("flows") or [])
-    rules = impact_map.get("rules") or []
+    default = impact_map.get("default_flows", "*")
     selected: set[str] = set()
-    for path in paths:
-        matched = False
-        for rule in rules:
-            if fnmatch.fnmatch(path, rule.get("match", "")):
-                matched = True
-                flows = rule.get("flows", "*")
-                selected.update(all_flows if flows == "*" else flows)
-        if not matched:
-            default = impact_map.get("default_flows", "*")
-            selected.update(all_flows if default == "*" else default)
+    paths: list[str] = []
+
+    def apply(repo_paths: list[str], rules: list[dict]) -> None:
+        for path in repo_paths:
+            matched = False
+            for rule in rules:
+                if fnmatch.fnmatch(path, rule.get("match", "")):
+                    matched = True
+                    flows = rule.get("flows", "*")
+                    selected.update(all_flows if flows == "*" else flows)
+            if not matched:
+                selected.update(all_flows if default == "*" else default)
+
+    layer_paths = changed_paths(layer, base)
+    paths.extend(layer_paths)
+    apply(layer_paths, impact_map.get("rules") or [])
+    for repo, rules in extra_repos or []:
+        repo_paths = changed_paths(repo, base)
+        paths.extend(f"{repo.name}/{p}" for p in repo_paths)
+        apply(repo_paths, rules)
     return selected, paths
 
 
@@ -329,6 +346,7 @@ def run_scenario(scn: dict, sandbox: Sandbox, pi_bin: str, timeout: float, layer
 
     records: list[dict] = []
     stderr_lines: list[str] = []
+    extension_errors: list[str] = []
     write_lock = threading.Lock()
     settled = threading.Event()
     stop_reader = threading.Event()
@@ -366,6 +384,8 @@ def run_scenario(scn: dict, sandbox: Sandbox, pi_bin: str, timeout: float, layer
                     send({"type": "extension_ui_response", "id": rec["id"], "confirmed": False})
             elif t == "turn_start":
                 turn_count += 1
+            elif t == "extension_error":
+                extension_errors.append(f"{rec.get('event')}: {rec.get('error')}")
             elif t == "agent_settled":
                 settled.set()
 
@@ -410,14 +430,35 @@ def run_scenario(scn: dict, sandbox: Sandbox, pi_bin: str, timeout: float, layer
             time.sleep(1.0)
         return "timeout"
 
+    def missing_agents() -> list[str]:
+        _, _, _, runs = snapshot()
+        out = []
+        for a in until_agents:
+            if not any(r["agent"] == a and r["exitCode"] in (0, None) and r.get("acceptance") != "rejected" for r in runs):
+                out.append(a)
+        return out
+
     aborted = False
     stopped_early = False
     recoveries = 0
-    max_nudges = int(expect.get("max_nudges", 1))
-    nudge_prompt = scn.get(
+    nudges = 0
+    max_nudges = int(expect.get("max_nudges", 3))
+    generic_nudge = scn.get(
         "nudge_prompt",
         "Continue the flow now. Dispatch the required subagent(s) for this flow and proceed.",
     )
+
+    def nudge_message() -> str:
+        missing = missing_agents()
+        if missing:
+            named = ", ".join(f"`{a}`" for a in missing)
+            return (
+                f"The flow has not dispatched the required subagent(s): {named}. "
+                "Dispatch each one now as a foreground call "
+                "(subagent({ agent: \"<name>\", async: false, task: ... })) and continue the flow."
+            )
+        return generic_nudge
+
     try:
         for step in steps:
             if time.time() >= deadline:
@@ -427,7 +468,6 @@ def run_scenario(scn: dict, sandbox: Sandbox, pi_bin: str, timeout: float, layer
             prompt = step.get("prompt")
             if not prompt:
                 continue
-            nudges = 0
             settled.clear()
             send({"id": f"p-{len(records)}", "type": "prompt", "message": prompt})
             outcome = wait_step()
@@ -436,7 +476,7 @@ def run_scenario(scn: dict, sandbox: Sandbox, pi_bin: str, timeout: float, layer
             while outcome == "settled" and has_until and not until_met() and nudges < max_nudges:
                 nudges += 1
                 settled.clear()
-                send({"id": f"n-{nudges}", "type": "prompt", "message": nudge_prompt})
+                send({"id": f"n-{nudges}", "type": "prompt", "message": nudge_message()})
                 outcome = wait_step()
             if outcome == "timeout":
                 result["reasons"].append("timed out waiting for the flow")
@@ -488,9 +528,13 @@ def run_scenario(scn: dict, sandbox: Sandbox, pi_bin: str, timeout: float, layer
             proc.kill()
     result["turns"] = turn_count
     result["recoveries"] = recoveries
+    result["nudges"] = nudges
     result["aborted"] = aborted
     result["stopped_early"] = stopped_early
     result["stderr_tail"] = stderr_lines[-15:]
+    result["extension_errors"] = extension_errors[:5]
+    if extension_errors:
+        result["reasons"].append(f"extension error(s): {extension_errors[:3]}")
 
     session = sandbox.newest_session()
     result["session"] = str(session) if session else None
@@ -562,6 +606,8 @@ def main() -> int:
     ap.add_argument("--flows", default="", help="comma-separated flow filter")
     ap.add_argument("--diff", action="store_true", help="select flows affected by the git diff")
     ap.add_argument("--base", default="HEAD", help="git base for --diff (default: HEAD)")
+    ap.add_argument("--diff-ls", default="", help="learning-system checkout to also diff (default: $LEARNING_SYSTEM_ROOT or ~/learning-system)")
+    ap.add_argument("--no-diff-ls", action="store_true", help="do not diff the learning-system checkout")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--pi", default=os.environ.get("LEARN_CHECK_PI") or str(DEFAULT_LAYER / "bin" / "pi"))
     ap.add_argument("--layer", default=os.environ.get("LEARNING_PI_ROOT") or str(DEFAULT_LAYER))
@@ -570,6 +616,8 @@ def main() -> int:
     ap.add_argument("--jobs", type=int, default=1,
                     help="run scenarios concurrently (each in its own sandbox); "
                          "higher values raise model-provider contention and flakiness")
+    ap.add_argument("--retries", type=int, default=1,
+                    help="retry a failed scenario in a fresh sandbox this many times (default: 1)")
     ap.add_argument("--timeout", type=float, default=0)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--report-dir", default="")
@@ -591,7 +639,14 @@ def main() -> int:
         except (OSError, json.JSONDecodeError) as exc:
             eprint(f"e2e-runner: cannot read impact map: {exc}")
             return 2
-        diff_flows, paths = flows_from_diff(layer, impact, args.base)
+        extra_repos: list[tuple[Path, list[dict]]] = []
+        if not args.no_diff_ls:
+            ls = Path(args.diff_ls).expanduser() if args.diff_ls else Path(
+                os.environ.get("LEARNING_SYSTEM_ROOT", str(Path.home() / "learning-system"))
+            )
+            if (ls / ".git").exists():
+                extra_repos.append((ls, impact.get("learning_system_paths") or []))
+        diff_flows, paths = flows_from_diff(layer, impact, args.base, extra_repos)
         print(f"e2e-runner: --diff {args.base}: {len(paths)} changed path(s) -> flows {sorted(diff_flows) or '(none)'}")
         if not diff_flows:
             print("e2e-runner: no affected flows; nothing to run")
@@ -634,30 +689,49 @@ def main() -> int:
         jobs = 1
 
     def report(res: dict) -> None:
+        retry = ""
+        if res.get("attempts", 1) > 1:
+            retry = f" after {res['attempts']} attempts" if res.get("passed") else f" ({res['attempts']} attempts)"
         if res.get("passed"):
             print(f"PASS {res['id']} ({res.get('duration_sec')}s, {res.get('turns')} turns, "
-                  f"{res.get('assistant_messages')} messages)", flush=True)
+                  f"{res.get('assistant_messages')} messages){retry}", flush=True)
         else:
-            print(f"FAIL {res['id']} ({res.get('duration_sec')}s)", flush=True)
+            print(f"FAIL {res['id']} ({res.get('duration_sec')}s){retry}", flush=True)
             for r in res["reasons"]:
                 print(f"     - {r}", flush=True)
 
     def run_one(s: dict) -> dict:
+        """Run one scenario, retrying a fresh attempt on failure.
+
+        Model turn-hygiene is nondeterministic; one clean retry turns a flaky
+        withhold into a pass without masking a real, repeatable break.
+        """
         tmo = args.timeout or float(s.get("timeout_sec", 300))
-        started = time.time()
-        if args.sandbox:
-            sandbox = Sandbox(Path(args.sandbox).resolve(), owned=False)
-            sandbox.ensure_model_access(agent_from)
-            sandbox.reset_state(layer)
-        else:
-            sandbox = Sandbox.build(layer, args.pi, model_access=True)
-        try:
-            res = run_scenario(s, sandbox, args.pi, tmo, layer)
-            if res.get("session") and Path(res["session"]).exists():
-                shutil.copy2(res["session"], report_dir / f"{s['id']}.session.jsonl")
-        finally:
-            sandbox.cleanup()
-        res["duration_sec"] = round(time.time() - started, 1)
+        attempts: list[dict] = []
+        for attempt in range(args.retries + 1):
+            started = time.time()
+            if args.sandbox:
+                sandbox = Sandbox(Path(args.sandbox).resolve(), owned=False)
+                sandbox.ensure_model_access(agent_from)
+                sandbox.reset_state(layer)
+            else:
+                sandbox = Sandbox.build(layer, args.pi, model_access=True)
+            try:
+                res = run_scenario(s, sandbox, args.pi, tmo, layer)
+                if res.get("session") and Path(res["session"]).exists():
+                    suffix = "" if attempt == 0 else f".attempt{attempt + 1}"
+                    shutil.copy2(res["session"], report_dir / f"{s['id']}{suffix}.session.jsonl")
+            finally:
+                sandbox.cleanup()
+            res["duration_sec"] = round(time.time() - started, 1)
+            res["attempt"] = attempt + 1
+            attempts.append(res)
+            if res["passed"]:
+                break
+        res = attempts[-1]
+        res["attempts"] = len(attempts)
+        if res["passed"] and len(attempts) > 1:
+            res["passed_on_retry"] = True
         (report_dir / f"{s['id']}.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
         return res
 

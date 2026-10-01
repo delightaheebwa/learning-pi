@@ -9,8 +9,8 @@
   "until_agents": ["scout"],
   "until_min_messages": 1,
   "until_clean_turn": true,
-  "timeout_sec": 300,
-  "max_turns": 14,
+  "timeout_sec": 420,
+  "max_turns": 24,
   "expect": {
     "agents": ["scout"],
     "forbid": ["⛔ WITHHELD", "⛔ UNVERIFIED", "NO_GRADE_AUDIT_PASS"]

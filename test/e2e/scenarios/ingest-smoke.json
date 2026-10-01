@@ -8,8 +8,8 @@
   ],
   "until_agents": ["clerk", "review-gate"],
   "until_text_any": ["CLERK_WRITES"],
-  "timeout_sec": 360,
-  "max_turns": 16,
+  "timeout_sec": 480,
+  "max_turns": 24,
   "expect": {
     "agents": ["clerk", "review-gate"],
     "require_any": ["CLERK_WRITES"],

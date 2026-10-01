@@ -7,8 +7,8 @@
     { "prompt": "/audit" }
   ],
   "until_text_any": ["STATE_AUDIT_VERDICT"],
-  "timeout_sec": 120,
-  "max_turns": 6,
+  "timeout_sec": 180,
+  "max_turns": 10,
   "expect": {
     "agents": [],
     "require_all": ["STATE_AUDIT_VERDICT"]

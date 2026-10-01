@@ -1,0 +1,17 @@
+{
+  "id": "ingest-full",
+  "tier": "full",
+  "flow": "ingest",
+  "description": "/ingest run to the closing summary: clerk writes, review-gate folds, the summary renders clean",
+  "steps": [
+    { "prompt": "/ingest Fixture note: Fixture Linear Algebra covers vectors and matrices." }
+  ],
+  "timeout_sec": 720,
+  "max_turns": 30,
+  "expect": {
+    "agents": ["clerk", "review-gate"],
+    "require_any": ["CLERK_WRITES"],
+    "forbid": ["⛔ WITHHELD", "⛔ UNVERIFIED", "INGEST GATE"],
+    "max_recover": 2
+  }
+}

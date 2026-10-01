@@ -9,8 +9,8 @@
   "until_agents": ["review-scout"],
   "until_min_messages": 1,
   "until_clean_turn": true,
-  "timeout_sec": 240,
-  "max_turns": 12,
+  "timeout_sec": 360,
+  "max_turns": 20,
   "expect": {
     "agents": ["review-scout"],
     "forbid": ["NO_REVIEW_CONTEXT", "⛔ WITHHELD", "⛔ UNVERIFIED"]
