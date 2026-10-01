@@ -1,0 +1,18 @@
+{
+  "id": "ingest-smoke",
+  "tier": "smoke",
+  "flow": "ingest",
+  "description": "/ingest entry: clerk writes and an independent review-gate runs (early-stop at CLERK_WRITES)",
+  "steps": [
+    { "prompt": "/ingest Fixture note: Fixture Linear Algebra covers vectors and matrices." }
+  ],
+  "until_agents": ["clerk", "review-gate"],
+  "until_text_any": ["CLERK_WRITES"],
+  "timeout_sec": 360,
+  "max_turns": 16,
+  "expect": {
+    "agents": ["clerk", "review-gate"],
+    "require_any": ["CLERK_WRITES"],
+    "forbid": ["⛔ WITHHELD", "⛔ UNVERIFIED", "INGEST GATE"]
+  }
+}

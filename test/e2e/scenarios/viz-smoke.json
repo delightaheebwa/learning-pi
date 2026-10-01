@@ -1,0 +1,18 @@
+{
+  "id": "viz-smoke",
+  "tier": "smoke",
+  "flow": "resume",
+  "description": "/show entry: viz authors a spec and viz-audit verifies it (early-stop at the audited spec)",
+  "steps": [
+    { "prompt": "/show Fixture Linear Algebra" }
+  ],
+  "until_agents": ["viz", "viz-audit"],
+  "until_text_any": ["```viz"],
+  "timeout_sec": 300,
+  "max_turns": 14,
+  "expect": {
+    "agents": ["viz", "viz-audit"],
+    "require_any": ["```viz"],
+    "forbid": ["⛔ WITHHELD", "⛔ UNVERIFIED", "VIZ_REQUIRES_OWN_TURN"]
+  }
+}

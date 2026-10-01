@@ -12,6 +12,11 @@ Turn a rejected `lpi update` into a green `lpi test` on the current or candidate
 - Newest report: `ls -t ~/.cache/learning-pi/diagnosis-*.md | head -1` — read it in full.
 - The contract: `~/learning-pi/CONTRACT.md` and `~/learning-pi/contracts/learning-core.json`.
 - Reproduce: `lpi test` (`~/learning-pi/bin/lpi test`). Keep the `FAIL` lines; each names an invariant.
+- If the report shows a failed `e2e` journey, read that run's artifacts:
+  `ls -t ~/.cache/learning-pi/e2e-*/summary.json | head -1`, then the failing
+  scenario's `<id>.json` and `<id>.session.jsonl`. The result JSON lists the
+  dispatched subagent runs, the terminal turn, and the failure reasons; the
+  transcript shows exactly which turn was withheld and why.
 
 ## 2. Classify
 

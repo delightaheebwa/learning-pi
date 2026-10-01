@@ -116,6 +116,13 @@ its tagged test, change the implementation, all in one reviewed commit.
   with `pi-safe-update rollback`.
 - **S-4** the launcher (`bin/pi`) never updates anything; `pi-safe-update` is
   the only path that changes versions.
+- **S-5** the end-to-end learner journeys (`harness/e2e-runner.py`, `test/e2e/`)
+  replay real flows against a sandbox and read model access from the real agent
+  dir read-only (credentials and model catalog copied into a throwaway 0700
+  sandbox; packages never installed into the real agent). They are an **opt-in**
+  gate step (`lpi e2e`, `learn-check --e2e`, `pi-safe-update update --e2e`), not
+  a default. A failed journey never promotes and never patches code; it leaves a
+  transcript and result JSON under `~/.cache/learning-pi/e2e-*`.
 
 ### Sidecars (existing suites)
 

@@ -8,12 +8,14 @@
 #   4. py_compile of the learning-pi sidecars
 #   5. optionally (--with-sidecars) the learning-system ops unittest suite,
 #      read-only, against the real checkout
+#   6. optionally (--e2e) short learner journeys with real models in a sandbox
 #
 # Exit 0 only if every step passes. Used by harness/pi-safe-update to decide
 # whether a candidate may be promoted.
 #
 # Usage:
-#   scripts/learn-check [--with-sidecars] [--no-load] [--sandbox DIR] [--keep]
+#   scripts/learn-check [--with-sidecars] [--no-load] [--sandbox DIR]
+#                       [--e2e] [--e2e-tier smoke|full] [--e2e-flows a,b] [--keep]
 # Env:
 #   LEARN_CHECK_PI     pi binary under test (default: <layer>/bin/pi)
 #   LEARNING_PI_ROOT   layer root (default: parent of this script)
@@ -26,12 +28,20 @@ WITH_SIDECARS=0
 KEEP=0
 NO_LOAD=0
 SANDBOX_OVERRIDE=""
+E2E=0
+E2E_TIER="smoke"
+E2E_FLOWS=""
+E2E_JOBS=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --with-sidecars) WITH_SIDECARS=1; shift ;;
     --no-load) NO_LOAD=1; shift ;;
     --sandbox) SANDBOX_OVERRIDE="$2"; shift 2 ;;
+    --e2e) E2E=1; shift ;;
+    --e2e-tier) E2E_TIER="$2"; shift 2 ;;
+    --e2e-flows) E2E_FLOWS="$2"; shift 2 ;;
+    --e2e-jobs) E2E_JOBS="$2"; shift 2 ;;
     --keep) KEEP=1; shift ;;
     -h|--help)
       sed -n '2,20p' "$0"
@@ -88,9 +98,11 @@ else
 fi
 
 # 3. load probe -----------------------------------------------------------
+SANDBOX_DIR=""
 if [ "$NO_LOAD" = 1 ]; then
   echo "SKIP load-probe (--no-load)"
 elif [ -n "$SANDBOX_OVERRIDE" ]; then
+  SANDBOX_DIR="$SANDBOX_OVERRIDE"
   if python3 "$LAYER/test/contract/load_probe.py" --sandbox "$SANDBOX_OVERRIDE" --pi "$PI_BIN"; then
     :
   else
@@ -98,6 +110,7 @@ elif [ -n "$SANDBOX_OVERRIDE" ]; then
   fi
 elif SANDBOX="$(bash "$LAYER/harness/mk-sandbox.sh" --pi "$PI_BIN" --layer "$LAYER" 2>"$TMP/sandbox.err")"; then
   SANDBOX="$(printf '%s\n' "$SANDBOX" | tail -1)"
+  SANDBOX_DIR="$SANDBOX"
   if python3 "$LAYER/test/contract/load_probe.py" --sandbox "$SANDBOX" --pi "$PI_BIN"; then
     :
   else
@@ -136,6 +149,21 @@ if [ "$WITH_SIDECARS" = 1 ]; then
     fi
   else
     echo "SKIP ops_test: no checkout at $LS"
+  fi
+fi
+
+# 6. optional end-to-end learner journeys (real models, sandboxed) --------
+if [ "$E2E" = 1 ]; then
+  echo "running e2e ($E2E_TIER tier) ..."
+  E2E_ARGS=(--pi "$PI_BIN" --layer "$LAYER" --tier "$E2E_TIER")
+  [ -n "$SANDBOX_DIR" ] && E2E_ARGS+=(--sandbox "$SANDBOX_DIR")
+  [ -n "$E2E_FLOWS" ] && E2E_ARGS+=(--flows "$E2E_FLOWS")
+  [ -n "$E2E_JOBS" ] && E2E_ARGS+=(--jobs "$E2E_JOBS")
+  if python3 "$LAYER/harness/e2e-runner.py" "${E2E_ARGS[@]}"; then
+    echo "PASS e2e ($E2E_TIER)"
+  else
+    echo "FAIL e2e:"
+    FAILED=1
   fi
 fi
 

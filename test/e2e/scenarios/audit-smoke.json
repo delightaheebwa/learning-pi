@@ -1,0 +1,16 @@
+{
+  "id": "audit-smoke",
+  "tier": "smoke",
+  "flow": "audit",
+  "description": "/audit: the read-only state audit runs and reports its verdict line",
+  "steps": [
+    { "prompt": "/audit" }
+  ],
+  "until_text_any": ["STATE_AUDIT_VERDICT"],
+  "timeout_sec": 120,
+  "max_turns": 6,
+  "expect": {
+    "agents": [],
+    "require_all": ["STATE_AUDIT_VERDICT"]
+  }
+}

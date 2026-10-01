@@ -10,6 +10,7 @@
 # Usage (normally via the `lpi` command; `pi-safe-update` is the backing script):
 #   pi-safe-update check|c              report newer pi/packages + changelog risk
 #   pi-safe-update update|up [--to V] [--dry-run] [--pi-only]
+#                              [--e2e] [--e2e-flows a,b] [--e2e-jobs N]
 #   pi-safe-update doctor|dr            run learn-check against the current pins
 #   pi-safe-update rollback|rb          restore the previous promoted set
 #   pi-safe-update                      same as check
@@ -128,12 +129,15 @@ do_doctor() {
 
 # --- update --------------------------------------------------------------
 do_update() {
-  local to="" dry=0 pi_only=0
+  local to="" dry=0 pi_only=0 e2e=0 e2e_flows="" e2e_jobs=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --to) to="$2"; shift 2 ;;
       --dry-run) dry=1; shift ;;
       --pi-only) pi_only=1; shift ;;
+      --e2e) e2e=1; shift ;;
+      --e2e-flows) e2e_flows="$2"; shift 2 ;;
+      --e2e-jobs) e2e_jobs="$2"; shift 2 ;;
       *) die "unknown update option: $1" 2 ;;
     esac
   done
@@ -205,9 +209,15 @@ for s in json.loads(sys.argv[1]): print(s)' "$all_specs")
   stamp="$(date +%Y%m%d-%H%M%S)"
   report="$CACHE/diagnosis-$stamp.md"
 
+  local check_args=(--sandbox "$sandbox")
+  if [ "$e2e" = 1 ]; then
+    check_args+=(--e2e)
+    [ -n "$e2e_flows" ] && check_args+=(--e2e-flows "$e2e_flows")
+    [ -n "$e2e_jobs" ] && check_args+=(--e2e-jobs "$e2e_jobs")
+  fi
   echo "running learn-check against the candidate set ..."
   if LEARN_CHECK_PI="$cand_bin" LEARNING_PI_ROOT="$LAYER" \
-       bash "$LAYER/scripts/learn-check" --sandbox "$sandbox" >"$report" 2>&1; then
+       bash "$LAYER/scripts/learn-check" "${check_args[@]}" >"$report" 2>&1; then
     {
       echo "# Candidate set — learn-check"
       echo
@@ -262,6 +272,8 @@ print(json.dumps(out))')"
       echo "## Diagnosis"
       echo
       echo "- Failing step(s) are the FAIL lines below (invariant IDs map to CONTRACT.md)."
+      echo "- If an e2e journey failed, its transcript and result JSON are under"
+      echo "  ~/.cache/learning-pi/e2e-*/ (read them with the pi-e2e skill)."
       echo "- If it is an adapter/load shape issue, patch pi-adapter; if it is behavior,"
       echo "  it is the revise door (edit CONTRACT.md + tagged test + implementation)."
       echo

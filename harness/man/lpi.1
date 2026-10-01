@@ -25,6 +25,44 @@ and
 .IR ~/learning-pi/scripts/learn-check " (tests)."
 .SH COMMANDS
 .TP
+.BR e2e " [" \-\-scenario " " ID "] [" \-\-tier " smoke|full] [" \-\-flows " " a,b "] [" \-\-list "] [" \-\-keep "]"
+Replay short learner journeys against a sandboxed pi with the real models.
+Each scenario sends a real flow command
+.RB ( /teach ", " /review ", " /ingest ", " /show ", " /audit )
+to an isolated copy of the layer, then checks the session transcript: the
+expected worker/verifier subagents must have run and finished clean, required
+receipts must appear, and the final turn must not be withheld. The real
+.B ~/learning-system
+and
+.B ~/.pi/agent
+are never written. Model access (credentials, model catalog, pinned packages)
+is read-only.
+.RS
+.TP
+.B \-\-scenario ID
+Run only the named scenario (repeatable, or a comma list).
+.TP
+.B \-\-tier smoke|full
+Run only scenarios of that tier. The default smoke tier stops at the first
+meaningful signal (the flow's key subagent plus a first clean turn) so it stays
+fast.
+.TP
+.B \-\-flows a,b
+Run only scenarios for those flows.
+.TP
+.B \-\-list
+List the scenarios and exit.
+.TP
+.B \-\-jobs N
+Run N scenarios concurrently, each in its own sandbox. Ignored when a fixed
+.B \-\-sandbox
+is supplied. Default 1. Higher values raise model-provider contention and make
+the journeys flakier, so raise it only once the scenarios are hardened.
+.TP
+.B \-\-keep
+Keep the sandbox for inspection (otherwise it is removed).
+.RE
+.TP
 .BR check ", " c " (default)"
 Read-only. Reports the pinned and newest pi version and extension-package
 versions, and scans the candidate pi changelog for changes to surfaces the
@@ -44,6 +82,20 @@ Stage and test, but change nothing.
 .TP
 .B \-\-pi-only
 Ignore extension-package updates and consider pi only.
+.TP
+.B \-\-e2e
+Also run the end-to-end learner journeys against the candidate set before
+promotion. Slow (real models); off by default.
+.TP
+.B \-\-e2e-flows a,b
+With
+.BR \-\-e2e ,
+limit the journeys to those flows.
+.TP
+.B \-\-e2e-jobs N
+With
+.BR \-\-e2e ,
+run N journeys concurrently (default 1).
 .RE
 .TP
 .BR test ", " t " [\-\-with-sidecars] [\-\-no-load] [\-\-sandbox DIR]"
@@ -64,6 +116,12 @@ Skip the load probe (used in CI, where no pi binary is present).
 .TP
 .B \-\-sandbox DIR
 Run the load probe against a pre-built sandbox instead of building one.
+.TP
+.B \-\-e2e
+Also run the end-to-end learner journeys (real models, sandboxed). Slow; off by
+default. See the
+.B e2e
+command for the journey options.
 .RE
 .TP
 .BR doctor ", " dr
@@ -99,8 +157,9 @@ Success, or no update was available.
 .B 1
 A candidate failed
 .BR "lpi test" ,
-or the test suite failed. The current pins were kept and a diagnosis was
-written.
+the test suite failed, or an
+.B lpi e2e
+journey failed. The current pins were kept and a diagnosis was written.
 .TP
 .B 2
 Usage error.
@@ -119,6 +178,14 @@ opencode skill.
 .TP
 .I ~/.cache/learning-pi/audit-recent.log
 Weekly read-only gate-provenance audit output.
+.TP
+.I ~/.cache/learning-pi/e2e-*/
+Per-run e2e artifacts: a result JSON and the session transcript per scenario,
+plus a summary. The
+.B pi-e2e
+and
+.B pi-diagnosis-fix
+opencode skills read these for triage.
 .SH ENVIRONMENT
 .TP
 .B LEARNING_PI_ROOT

@@ -20,6 +20,7 @@ promoting it into `versions.lock.json`.
 lpi                 # what's newer (read-only)
 lpi update          # stage + gate + promote pi and extensions; diagnose on failure
 lpi test            # run the learning-layer test suite
+lpi e2e             # replay short learner journeys in a sandbox (real models)
 lpi doctor          # re-test the current pins
 lpi rollback        # undo the last promotion
 ```

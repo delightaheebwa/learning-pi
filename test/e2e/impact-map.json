@@ -1,0 +1,41 @@
+{
+  "_comment": "Maps a changed path to the learner flows its change can affect. Used by `lpi e2e --diff` to run only the affected smoke journeys. A `*` (or the default) means every flow. Paths are relative to the learning-pi layer root unless listed under learning_system_paths.",
+  "version": 1,
+  "flows": ["audit", "ingest", "resume", "review", "teach"],
+  "default_flows": "*",
+  "rules": [
+    { "match": ".pi/APPEND_SYSTEM.md", "flows": "*" },
+    { "match": ".pi/settings.json", "flows": "*" },
+    { "match": ".pi/extensions/**", "flows": "*" },
+    { "match": ".pi/skills/**", "flows": "*" },
+    { "match": "pi/**", "flows": "*" },
+    { "match": "harness/**", "flows": "*" },
+    { "match": "test/fixtures/**", "flows": "*" },
+    { "match": "versions.lock.json", "flows": "*" },
+    { "match": ".pi/prompts/lesson.md", "flows": ["teach"] },
+    { "match": ".pi/prompts/teach.md", "flows": ["teach"] },
+    { "match": ".pi/prompts/continue.md", "flows": ["resume"] },
+    { "match": ".pi/prompts/pause.md", "flows": ["resume"] },
+    { "match": ".pi/prompts/show.md", "flows": ["resume"] },
+    { "match": ".pi/prompts/review.md", "flows": ["review"] },
+    { "match": ".pi/prompts/ingest.md", "flows": ["ingest"] },
+    { "match": ".pi/prompts/audit.md", "flows": ["audit"] },
+    { "match": ".pi/agents/scout.md", "flows": ["teach"] },
+    { "match": ".pi/agents/fact-check.md", "flows": ["teach"] },
+    { "match": ".pi/agents/quiz-audit.md", "flows": ["teach", "review"] },
+    { "match": ".pi/agents/grade-audit.md", "flows": ["teach", "review"] },
+    { "match": ".pi/agents/tutor-audit.md", "flows": ["teach", "resume"] },
+    { "match": ".pi/agents/clerk.md", "flows": ["ingest"] },
+    { "match": ".pi/agents/review-gate.md", "flows": ["ingest"] },
+    { "match": ".pi/agents/review-scout.md", "flows": ["review"] },
+    { "match": ".pi/agents/review-clerk.md", "flows": ["review"] },
+    { "match": ".pi/agents/review-session-audit.md", "flows": ["review"] },
+    { "match": ".pi/agents/viz.md", "flows": ["resume"] },
+    { "match": ".pi/agents/viz-audit.md", "flows": ["resume"] }
+  ],
+  "learning_system_paths": [
+    { "match": "scripts/ops.py", "flows": ["ingest", "review", "teach"] },
+    { "match": "Skills/**", "flows": "*" },
+    { "match": "Learning System/Core/**", "flows": ["ingest", "review", "teach"] }
+  ]
+}

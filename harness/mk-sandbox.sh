@@ -19,6 +19,8 @@ LAYER="${LEARNING_PI_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PI_BIN="${LEARN_CHECK_PI:-$LAYER/bin/pi}"
 DEST=""
 PACKAGES_JSON=""
+MODEL_ACCESS=0
+AGENT_FROM="${PI_AGENT_SRC:-$HOME/.pi/agent}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -26,6 +28,8 @@ while [ $# -gt 0 ]; do
     --layer) LAYER="$2"; shift 2 ;;
     --packages) PACKAGES_JSON="$2"; shift 2 ;;
     --dest) DEST="$2"; shift 2 ;;
+    --model-access) MODEL_ACCESS=1; shift ;;
+    --agent-from) AGENT_FROM="$2"; shift 2 ;;
     *) echo "mk-sandbox: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -72,6 +76,43 @@ open(f"{dest}/agent/settings.json", "w").write(json.dumps(settings))
 PY
 else
   printf '{"extensions": ["%s/probe/lp-load-probe.ts"]}\n' "$DEST" > "$DEST/agent/settings.json"
+fi
+
+# Model access (e2e only): reach the real provider credentials and model
+# catalog without writing to the real agent dir. auth.json and models-store.json
+# are copied, not symlinked, because pi rewrites both on startup (a symlink
+# would clobber the real credentials); the sandbox is 0700 and throwaway. npm is
+# symlinked so the pinned packages resolve without reinstalling. The real agent
+# dir is read from, never written to.
+if [ "$MODEL_ACCESS" = 1 ]; then
+  if [ -f "$AGENT_FROM/auth.json" ]; then
+    cp "$AGENT_FROM/auth.json" "$DEST/agent/auth.json"
+    chmod 600 "$DEST/agent/auth.json"
+  else
+    echo "mk-sandbox: warning: no auth.json under $AGENT_FROM (model calls may fail)" >&2
+  fi
+  [ -f "$AGENT_FROM/models-store.json" ] && cp "$AGENT_FROM/models-store.json" "$DEST/agent/models-store.json"
+  [ -f "$AGENT_FROM/models.json" ] && cp "$AGENT_FROM/models.json" "$DEST/agent/models.json"
+  [ -d "$AGENT_FROM/npm" ] && ln -sfn "$AGENT_FROM/npm" "$DEST/agent/npm"
+  python3 - "$DEST/agent/settings.json" "$AGENT_FROM/settings.json" "$PACKAGES_JSON" <<'PY'
+import json, sys
+sandbox_settings_path, real_settings_path, packages_json = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    s = json.load(open(sandbox_settings_path))
+except Exception:
+    s = {}
+try:
+    real = json.load(open(real_settings_path))
+except Exception:
+    real = {}
+if real.get("defaultProvider"):
+    s["defaultProvider"] = real["defaultProvider"]
+# Only inherit the real agent's packages when the caller did not stage its own
+# candidate set (pi-safe-update passes --packages for the candidate versions).
+if not packages_json and isinstance(real.get("packages"), list):
+    s["packages"] = real["packages"]
+open(sandbox_settings_path, "w").write(json.dumps(s))
+PY
 fi
 
 # Load probe: importing the real entry modules validates the module graph

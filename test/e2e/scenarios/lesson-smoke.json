@@ -1,0 +1,18 @@
+{
+  "id": "lesson-smoke",
+  "tier": "smoke",
+  "flow": "teach",
+  "description": "/teach entry: scout runs and a first verified turn renders (early-stop, no full lesson)",
+  "steps": [
+    { "prompt": "/teach Fixture Linear Algebra" }
+  ],
+  "until_agents": ["scout"],
+  "until_min_messages": 1,
+  "until_clean_turn": true,
+  "timeout_sec": 300,
+  "max_turns": 14,
+  "expect": {
+    "agents": ["scout"],
+    "forbid": ["⛔ WITHHELD", "⛔ UNVERIFIED", "NO_GRADE_AUDIT_PASS"]
+  }
+}
