@@ -1,10 +1,10 @@
 {
   "_comment": "Single source of truth for pinned pi + extension-package versions. Managed by harness/pi-safe-update. Do not hand-edit except during a deliberate revise (see CONTRACT.md).",
-  "pi": "0.99.1",
+  "pi": "1.0.0",
   "packages": {
-    "pi-subagents": "0.73.1",
-    "pi-web-access": "0.34.0",
-    "@monotykamary/pi-math": "0.5.7"
+    "pi-subagents": "0.74.0",
+    "pi-web-access": "0.35.0",
+    "@monotykamary/pi-math": "0.5.8"
   },
   "journal": [
     {
@@ -74,6 +74,22 @@
         "pi-subagents": "0.73.1",
         "pi-web-access": "0.34.0",
         "@monotykamary/pi-math": "0.5.7"
+      }
+    },
+    {
+      "at": "2026-10-02T19:14:11Z",
+      "action": "promote",
+      "piFrom": "0.99.1",
+      "piTo": "1.0.0",
+      "packagesFrom": {
+        "pi-subagents": "0.73.1",
+        "pi-web-access": "0.34.0",
+        "@monotykamary/pi-math": "0.5.7"
+      },
+      "packagesTo": {
+        "pi-subagents": "0.74.0",
+        "pi-web-access": "0.35.0",
+        "@monotykamary/pi-math": "0.5.8"
       }
     }
   ]
