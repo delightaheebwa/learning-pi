@@ -54,7 +54,25 @@ if [[ "$DO_SHELL" == "1" ]]; then
   command -v omarchy-shell >/dev/null 2>&1 && omarchy-shell shell rescanPlugins >/dev/null 2>&1 || true
   command -v omarchy-plugin-enable >/dev/null 2>&1 && omarchy-plugin-enable "$PLUGIN_ID" >/dev/null 2>&1 || true
   command -v omarchy-bar >/dev/null 2>&1 && omarchy-bar put "$PLUGIN_ID" --after omarchy.tray >/dev/null 2>&1 || true
-  command -v omarchy-restart-shell >/dev/null 2>&1 && omarchy-restart-shell >/dev/null 2>&1 || true
+
+  # A newly added bar widget is only registered on a full shell restart, and a
+  # concurrent restart (e.g. another plugin's hotreload) can race it. Restart,
+  # then confirm the widget answers its IPC; retry once if it doesn't.
+  if command -v omarchy-shell >/dev/null 2>&1; then
+    verified=0
+    for _ in 1 2; do
+      command -v omarchy-restart-shell >/dev/null 2>&1 && omarchy-restart-shell >/dev/null 2>&1 || true
+      for _ in $(seq 1 20); do
+        if omarchy-shell "$PLUGIN_ID" status >/dev/null 2>&1; then verified=1; break 2; fi
+        sleep 0.5
+      done
+    done
+    if [[ "$verified" == 1 ]]; then
+      echo "verified $PLUGIN_ID is live"
+    else
+      echo "warning: $PLUGIN_ID is not answering yet; run: omarchy-restart-shell" >&2
+    fi
+  fi
   echo "enabled $PLUGIN_ID (move it with: omarchy bar put $PLUGIN_ID --after <widget>)"
 fi
 

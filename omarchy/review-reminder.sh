@@ -2,18 +2,17 @@
 #
 # review-reminder.sh — nudge when the day's spaced-repetition /review was missed.
 #
-# Two windows, both meaning "the evening after the day's review was due":
+# Two windows, both meaning "a day has gone by without its review":
 #   23:00-23:59  -> target = today
-#   00:00-03:59  -> target = yesterday   (4am cutoff, so a review done at 1am
-#                                         still counts for the day it was due)
+#   00:00-03:59  -> target = yesterday   (catch-up for the day that just ended)
 # Outside those windows it does nothing, so the systemd timer and the shell
 # prompt hook can both call it freely.
 #
 # A successful /review always writes one Session note named
 #   Session — ...Review — YYYY-MM-DD.md
-# so that filename is the detection signal (not mtime / "last 24h": a 1am write
-# carries yesterday's logical date but today's mtime). Detection is delegated
-# to `pi-review-status --check` so the bar widget and this reminder can never
+# using the calendar date the session ran (so a review finished at 1am is the
+# new day's review, not the previous day's). Detection is delegated to
+# `pi-review-status --check` so the bar widget and this reminder can never
 # disagree.
 #
 # This is a notification only — the persistent status lives in the

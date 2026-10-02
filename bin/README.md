@@ -15,14 +15,19 @@ Updates happen **only** through `lpi update` (backed by
 promoting it into `versions.lock.json`.
 
 `pi-review-status` reports whether the day's spaced-repetition `/review` is
-done, with a 4am logical-day cutoff (00:00–03:59 counts for yesterday). It is
-the single detection source shared by the `local.pi-review` Omarchy bar widget
-and the desktop reminder:
+done. It matches the calendar date review-clerk stamps on the session note (a
+review finished at 1am is that day's, not the previous day's). It is the single
+detection source shared by the `local.pi-review` Omarchy bar widget and the
+desktop reminder:
 
 ```bash
-pi-review-status --json          # {"date":"YYYY-MM-DD","done":true|false,"phase":"day|evening|catchup"}
+pi-review-status --json          # {"date":"YYYY-MM-DD","done":bool,"visible":bool,"missed":bool}
 pi-review-status --check DATE    # exit 0 if a review exists for DATE
 ```
+
+`visible` is the evening window (18:00–03:59) when the bar indicator shows;
+`missed` is true when today's review is not done and it is already late
+(hour ≥ 23).
 
 `lpi` is the umbrella control command:
 

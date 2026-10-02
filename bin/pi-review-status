@@ -2,10 +2,10 @@
 #
 # pi-review-status — report whether the day's spaced-repetition /review is done.
 #
-# The logical review day uses a 4am cutoff: 00:00-03:59 belongs to yesterday,
-# so a review finished at 1am still counts for the day it was due. This is the
-# single source of truth for both the bar widget (omarchy/plugin) and the
-# desktop reminder (omarchy/review-reminder.sh).
+# The review day is the calendar date. review-clerk names the session note with
+# the date the session ran, so a review finished at 1am counts as *that* day's
+# review (not the previous day's). This helper therefore reports on today's
+# calendar date; there is no "logical day" shift.
 #
 # A successful /review writes one Session note named
 #   Session — ...Review — YYYY-MM-DD.md
@@ -13,13 +13,11 @@
 #
 # Usage:
 #   pi-review-status --json          (default) one JSON object on stdout:
-#     {"date":"YYYY-MM-DD","done":true|false,"phase":"day|evening|catchup"}
+#     {"date":"YYYY-MM-DD","done":true|false,"visible":true|false,"missed":true|false}
 #   pi-review-status --check DATE    exit 0 if a review exists for DATE, else 1
 #
-# Phases (time-of-day of "now"):
-#   day      04:00-17:59
-#   evening  18:00-22:59
-#   catchup  23:00-03:59
+#   visible: the evening window (18:00-03:59) when the bar indicator shows.
+#   missed:  today's review is not done and it is already late (hour >= 23).
 #
 # Test hooks:
 #   LEARNING_SYSTEM_ROOT=/path     override checkout location
@@ -77,21 +75,13 @@ if [[ "${1:-}" == "--check" ]]; then
 fi
 
 # --- default: JSON status ----------------------------------------------------
-if (( hour < 4 )); then
-  phase="catchup"
-  target="$(date -d "$today -1 day" +%F)"
-elif (( hour < 18 )); then
-  phase="day"
-  target="$today"
-elif (( hour < 23 )); then
-  phase="evening"
-  target="$today"
-else
-  phase="catchup"
-  target="$today"
-fi
-
 done=false
-if review_done "$target"; then done=true; fi
+if review_done "$today"; then done=true; fi
 
-printf '{"date":"%s","done":%s,"phase":"%s"}\n' "$target" "$done" "$phase"
+visible=false
+if (( hour >= 18 || hour < 4 )); then visible=true; fi
+
+missed=false
+if [[ "$done" == false ]] && (( hour >= 23 )); then missed=true; fi
+
+printf '{"date":"%s","done":%s,"visible":%s,"missed":%s}\n' "$today" "$done" "$visible" "$missed"

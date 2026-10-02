@@ -87,12 +87,14 @@ The review flow mirrors the teaching flow: `review-scout` → Reviewer (this ses
 ### Daily reminder and the bar indicator
 
 Reviews are meant to happen daily. Two things track that, both driven by
-`bin/pi-review-status` (a `Session…Review…<date>.md` filename match, with a 4am
-logical-day cutoff so a 1am review still counts for the day it was due):
+`bin/pi-review-status` (a `Session…Review…<date>.md` filename match on the
+calendar date the session ran — so a review finished at 1am is that day's, not
+the previous day's):
 
 - the **`local.pi-review` Omarchy bar widget** shows `R` (pending), `R✓` (done),
-  or `R✗` (missed, urgent color) — but only in the evening window 18:00–04:00,
-  so the daytime bar stays clean. Left-click launches `pi` in the checkout.
+  or `R✗` (missed, urgent color once it is late) — but only in the evening
+  window 18:00–03:59, so the daytime bar stays clean. Left-click launches `pi`
+  in the checkout.
 - the **desktop reminder** (systemd timer at 23:00 and 00:30) sends one
   notification per missed day. The old floating terminal popup was removed.
 

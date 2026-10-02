@@ -177,10 +177,11 @@ systemctl --user daemon-reload && systemctl --user enable --now learning-pi-audi
 ```
 
 The `local.pi-review` bar widget shows `R` (pending), `R✓` (done), or `R✗`
-(missed) only in the evening window (18:00–04:00); left-click launches `pi` in
+(missed) only in the evening window (18:00–03:59); left-click launches `pi` in
 the checkout. The 23:00/00:30 desktop reminder stays, but its old floating
-terminal popup is gone. Both read the same `bin/pi-review-status` helper, so
-they cannot disagree.
+terminal popup is gone. Both read the same `bin/pi-review-status` helper, which
+matches the calendar date review-clerk stamps on the note, so they cannot
+disagree.
 
 The `pi-diagnosis-fix` opencode skill is registered by `skills.paths` in
 `~/.config/opencode/opencode.json` pointing at `~/learning-pi/opencode`.

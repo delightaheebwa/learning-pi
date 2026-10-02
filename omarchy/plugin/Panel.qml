@@ -7,10 +7,10 @@ import qs.Ui
 // Pi review status bar widget.
 //
 // Reads `pi-review-status --json` and shows, only in the evening window
-// (phase != "day"):
-//   evening, pending  -> dim  "R"
-//   evening/catchup, done -> "R✓"  (normal foreground)
-//   catchup, missed   -> "R✗"  (urgent color)
+// (18:00-03:59):
+//   done               -> "R✓"  (normal foreground)
+//   not done, late     -> "R✗"  (urgent color, hour >= 23)
+//   not done, earlier  -> dim "R"
 //
 // Left click launches pi in the learning-system checkout; right/middle click
 // refreshes. State comes from a session-note filename match, so no sentinel
@@ -21,16 +21,14 @@ BarWidget {
 
   property string reviewDate: ""
   property bool reviewDone: false
-  property string phase: "day"
+  property bool reviewVisible: false
+  property bool reviewMissed: false
   property string lastError: ""
 
-  readonly property bool inWindow: phase !== "day"
-  readonly property bool missed: phase === "catchup" && !reviewDone
-  readonly property string glyph: reviewDone ? "R✓" : (missed ? "R✗" : "R")
+  readonly property string glyph: reviewDone ? "R✓" : (reviewMissed ? "R✗" : "R")
   readonly property string tooltip: {
-    if (!inWindow) return ""
     if (reviewDone) return "Review done — " + reviewDate
-    if (missed) return "No review for " + reviewDate + " — click to start"
+    if (reviewMissed) return "No review for " + reviewDate + " — click to start"
     return "Review pending — click to start"
   }
 
@@ -43,7 +41,7 @@ BarWidget {
     return Math.max(30, Math.min(600, value))
   }
 
-  visible: inWindow
+  visible: reviewVisible
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
@@ -56,7 +54,8 @@ BarWidget {
       var data = JSON.parse(String(raw || "").trim())
       reviewDate = String(data.date || "")
       reviewDone = data.done === true
-      phase = String(data.phase || "day")
+      reviewVisible = data.visible === true
+      reviewMissed = data.missed === true
       lastError = ""
     } catch (error) {
       lastError = "could not parse pi-review-status output"
@@ -67,6 +66,25 @@ BarWidget {
     if (!root.bar) return
     var inner = "cd " + root.bar.shellQuote(root.learningRoot) + " && exec pi"
     root.bar.run("omarchy-launch-tui --app-id=org.learning-pi.review bash -lc " + root.bar.shellQuote(inner))
+  }
+
+  // Manual control for scripts/tests: `omarchy-shell local.pi-review refresh`.
+  IpcHandler {
+    target: "local.pi-review"
+
+    function refresh(): void {
+      root.broadcast("refresh")
+    }
+
+    function status(): string {
+      return JSON.stringify({
+        date: root.reviewDate,
+        done: root.reviewDone,
+        visible: root.reviewVisible,
+        missed: root.reviewMissed,
+        error: root.lastError
+      })
+    }
   }
 
   Timer {
@@ -80,6 +98,9 @@ BarWidget {
   Process {
     id: statusProc
     command: [root.statusBin, "--json"]
+    onExited: function(exitCode) {
+      if (exitCode !== 0) lastError = "pi-review-status exited " + exitCode
+    }
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.update(text)
@@ -92,8 +113,8 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     text: root.glyph
-    active: root.missed
-    dimmed: !root.reviewDone && !root.missed
+    active: root.reviewMissed
+    dimmed: !root.reviewDone && !root.reviewMissed
     tooltipText: root.tooltip
     fontSize: Style.font.caption
     horizontalMargin: 5

@@ -15,8 +15,8 @@ SESSIONS="$TMP/Learning System/Sessions"
 mkdir -p "$SESSIONS"
 export LEARNING_SYSTEM_ROOT="$TMP"
 
-TODAY="2026-10-02"
-YESTERDAY="2026-10-01"
+DONE_DATE="2026-10-02"
+MISS_DATE="2026-09-29"
 
 FAILED=0
 pass() { echo "PASS $1"; }
@@ -36,10 +36,6 @@ json_field() { # json key -> value
   printf '%s' "$1" | sed -E 's/.*"'"$2"'":"?([^",}]+)"?.*/\1/'
 }
 
-json_done() { # json -> true/false
-  printf '%s' "$1" | grep -q '"done":true' && echo true || echo false
-}
-
 assert_json() { # name json field expected
   local got
   got="$(json_field "$2" "$3")"
@@ -50,57 +46,50 @@ assert_json() { # name json field expected
   fi
 }
 
-assert_done() { # name json expected
-  local got
-  got="$(json_done "$2")"
-  if [[ "$got" == "$3" ]]; then
-    pass "$1"
-  else
-    fail "$1: done expected '$3', got '$got' (json: $2)"
-  fi
+at() { # date hour:min -> json
+  REVIEW_STATUS_DATE="$1" REVIEW_STATUS_NOW="$2" "$BIN"
 }
 
 # --- --check ----------------------------------------------------------------
-check_status 1 "$TODAY" "no note"
-touch "$SESSIONS/Session — Review — $TODAY.md"
-check_status 0 "$TODAY" "plain review note"
-check_status 1 "$YESTERDAY" "unrelated date"
+check_status 1 "$DONE_DATE" "no note"
+touch "$SESSIONS/Session — Review — $DONE_DATE.md"
+check_status 0 "$DONE_DATE" "plain review note"
+check_status 1 "$MISS_DATE" "no note on another date"
 
-touch "$SESSIONS/Session — Review (5-concept) — $YESTERDAY.md"
-check_status 0 "$YESTERDAY" "5-concept review note"
+touch "$SESSIONS/Session — Review (5-concept) — $MISS_DATE.md"
+check_status 0 "$MISS_DATE" "5-concept review note"
 
 mkdir "$SESSIONS/Session — Review — 2026-09-30.md"
 check_status 1 "2026-09-30" "directory does not count"
 
-# --- JSON phases ------------------------------------------------------------
-j="$(REVIEW_STATUS_DATE="$TODAY" REVIEW_STATUS_NOW=10:00 "$BIN")"
-assert_json "day phase" "$j" phase day
-assert_json "day target" "$j" date "$TODAY"
-assert_done "day done" "$j" true
+# --- JSON: date is the calendar date (never shifted) ------------------------
+j="$(at "$DONE_DATE" 10:00)"
+assert_json "day date is today" "$j" date "$DONE_DATE"
+j="$(at "$DONE_DATE" 01:00)"
+assert_json "1am date is still today" "$j" date "$DONE_DATE"
 
-j="$(REVIEW_STATUS_DATE="$TODAY" REVIEW_STATUS_NOW=18:30 "$BIN")"
-assert_json "evening phase" "$j" phase evening
-assert_json "evening target" "$j" date "$TODAY"
+# --- JSON: done -------------------------------------------------------------
+j="$(at "$DONE_DATE" 10:00)"
+assert_json "done when note exists" "$j" done true
+j="$(at "$MISS_DATE" 10:00)"
+assert_json "done when 5-concept note exists" "$j" done true
+j="$(at 2026-09-28 10:00)"
+assert_json "not done without a note" "$j" done false
 
-j="$(REVIEW_STATUS_DATE="$TODAY" REVIEW_STATUS_NOW=22:59 "$BIN")"
-assert_json "late evening phase" "$j" phase evening
+# --- JSON: visible (evening window 18:00-03:59) -----------------------------
+assert_json "hidden at 17:59" "$(at "$DONE_DATE" 17:59)" visible false
+assert_json "visible at 18:00" "$(at "$DONE_DATE" 18:00)" visible true
+assert_json "visible at 22:59" "$(at "$DONE_DATE" 22:59)" visible true
+assert_json "visible at 23:00" "$(at "$DONE_DATE" 23:00)" visible true
+assert_json "visible at 01:00" "$(at "$DONE_DATE" 01:00)" visible true
+assert_json "visible at 03:59" "$(at "$DONE_DATE" 03:59)" visible true
+assert_json "hidden at 04:00" "$(at "$DONE_DATE" 04:00)" visible false
 
-j="$(REVIEW_STATUS_DATE="$TODAY" REVIEW_STATUS_NOW=23:00 "$BIN")"
-assert_json "23:00 catchup" "$j" phase catchup
-assert_json "23:00 target today" "$j" date "$TODAY"
-
-j="$(REVIEW_STATUS_DATE="$TODAY" REVIEW_STATUS_NOW=01:00 "$BIN")"
-assert_json "01:00 catchup" "$j" phase catchup
-assert_json "01:00 target yesterday" "$j" date "$YESTERDAY"
-assert_done "01:00 yesterday done" "$j" true
-
-j="$(REVIEW_STATUS_DATE="$TODAY" REVIEW_STATUS_NOW=03:59 "$BIN")"
-assert_json "03:59 catchup" "$j" phase catchup
-assert_json "03:59 target yesterday" "$j" date "$YESTERDAY"
-
-j="$(REVIEW_STATUS_DATE="$TODAY" REVIEW_STATUS_NOW=04:00 "$BIN")"
-assert_json "04:00 day" "$j" phase day
-assert_json "04:00 target today" "$j" date "$TODAY"
+# --- JSON: missed (not done and hour >= 23) ---------------------------------
+assert_json "not missed at 22:59" "$(at 2026-09-28 22:59)" missed false
+assert_json "missed at 23:00" "$(at 2026-09-28 23:00)" missed true
+assert_json "not missed at 01:00 (new day)" "$(at 2026-09-28 01:00)" missed false
+assert_json "done is never missed" "$(at "$DONE_DATE" 23:00)" missed false
 
 # --- invalid input ----------------------------------------------------------
 "$BIN" --check "not-a-date" >/dev/null 2>&1
