@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "local.pi-review",
+  "name": "Pi Review",
+  "version": "1.0.0",
+  "author": "learning-pi",
+  "license": "MIT",
+  "description": "Shows whether the day's pi spaced-repetition review is done. Only visible in the evening window (18:00-04:00).",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Pi Review",
+    "description": "Daily review status for the pi learning system.",
+    "category": "Learning",
+    "aliases": ["pi-review", "review", "spaced-repetition"],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 60
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 30,
+        "max": 600,
+        "step": 30,
+        "defaultValue": 60
+      }
+    ]
+  }
+}

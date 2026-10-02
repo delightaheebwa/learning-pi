@@ -171,7 +171,16 @@ ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 install -m644 ~/learning-pi/harness/man/lpi.1 ~/.local/share/man/man1/
 install -m644 ~/learning-pi/harness/systemd/learning-pi-audit.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload && systemctl --user enable --now learning-pi-audit.timer
+
+# Omarchy review integration: `local.pi-review` bar widget + desktop reminder
+~/learning-pi/omarchy/install.sh
 ```
+
+The `local.pi-review` bar widget shows `R` (pending), `R✓` (done), or `R✗`
+(missed) only in the evening window (18:00–04:00); left-click launches `pi` in
+the checkout. The 23:00/00:30 desktop reminder stays, but its old floating
+terminal popup is gone. Both read the same `bin/pi-review-status` helper, so
+they cannot disagree.
 
 The `pi-diagnosis-fix` opencode skill is registered by `skills.paths` in
 `~/.config/opencode/opencode.json` pointing at `~/learning-pi/opencode`.
@@ -215,6 +224,7 @@ CONTRACT.md                  declared behavior (the thing updates must not break
 contracts/learning-core.json machine-readable invariants -> test names
 bin/pi                       pinned launcher (never updates)
 bin/notify-if-outdated       debounced availability check (never updates)
+bin/pi-review-status         daily /review status helper (JSON; shared by widget + reminder)
 bin/lpi                      the umbrella control command (update / test / doctor / rollback)
 harness/pi-safe-update       update conductor (backing `lpi update`)
 harness/locktool.py          versions.lock.json / journal helper
@@ -231,6 +241,9 @@ opencode/skills/pi-diagnosis-fix/  opencode skill to repair a failed update
 .pi/extensions/learning-gate/gate-core/   pure, pi-independent decision logic
 .pi/extensions/learning-gate/pi-adapter/  the ONLY pi-version-aware file
 .pi/extensions/viz-mode/     spec/render/explorer (display + interaction; no gating)
+omarchy/                     Omarchy review integration: local.pi-review bar widget,
+                             desktop reminder + systemd timer, installer
+test/pi_review_status_test.sh  status-helper boundary tests (standalone)
 ```
 
 ## Uninstall

@@ -1,0 +1,6 @@
+[Unit]
+Description=Review reminder (missing daily spaced-repetition review)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/review-reminder.sh

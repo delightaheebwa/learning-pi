@@ -14,6 +14,16 @@ Updates happen **only** through `lpi update` (backed by
 `../harness/pi-safe-update`), which tests a candidate against `lpi test` before
 promoting it into `versions.lock.json`.
 
+`pi-review-status` reports whether the day's spaced-repetition `/review` is
+done, with a 4am logical-day cutoff (00:00–03:59 counts for yesterday). It is
+the single detection source shared by the `local.pi-review` Omarchy bar widget
+and the desktop reminder:
+
+```bash
+pi-review-status --json          # {"date":"YYYY-MM-DD","done":true|false,"phase":"day|evening|catchup"}
+pi-review-status --check DATE    # exit 0 if a review exists for DATE
+```
+
 `lpi` is the umbrella control command:
 
 ```bash

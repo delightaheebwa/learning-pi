@@ -1,0 +1,15 @@
+[Unit]
+Description=Check for a missed review at 23:00 and in the 00:00-04:00 catch-up window
+
+[Timer]
+# 23:00 = tonight's review is due; 00:30 = catch-up for yesterday if the
+# machine was asleep or away at 23:00. Persistent=true replays a missed run
+# on the next boot/resume (the script itself stays silent outside the window).
+OnCalendar=*-*-* 23:00:00
+OnCalendar=*-*-* 00:30:00
+Persistent=true
+AccuracySec=1min
+Unit=review-reminder.service
+
+[Install]
+WantedBy=timers.target

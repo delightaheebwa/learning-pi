@@ -84,6 +84,20 @@ or tmux, where pi-math can't draw, the Tutor falls back to plain Unicode.
 
 The review flow mirrors the teaching flow: `review-scout` → Reviewer (this session) → `review-clerk`, with the close checked by `review-session-audit` — exactly like `scout` → Tutor → `clerk` with `tutor-audit`.
 
+### Daily reminder and the bar indicator
+
+Reviews are meant to happen daily. Two things track that, both driven by
+`bin/pi-review-status` (a `Session…Review…<date>.md` filename match, with a 4am
+logical-day cutoff so a 1am review still counts for the day it was due):
+
+- the **`local.pi-review` Omarchy bar widget** shows `R` (pending), `R✓` (done),
+  or `R✗` (missed, urgent color) — but only in the evening window 18:00–04:00,
+  so the daytime bar stays clean. Left-click launches `pi` in the checkout.
+- the **desktop reminder** (systemd timer at 23:00 and 00:30) sends one
+  notification per missed day. The old floating terminal popup was removed.
+
+Install/repair both with `~/learning-pi/omarchy/install.sh`.
+
 ---
 
 ## Visualizations (opt-in)
