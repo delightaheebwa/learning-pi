@@ -97,19 +97,21 @@ with…", or `/show <concept>`).
   diagrams), the `viz-audit` subagent verifies the spec *and* the words around it, and the figure is
   emitted as its own `[[TURN:viz]]` message.
 - **There are two surfaces, both in the same terminal — no separate window or process:**
-  1. the **inline figure** — static Unicode/braille art rendered in the message, part of the
-     transcript you scroll back through; and
-  2. the **explorer** — when the spec is interactive, a live panel `viz-mode` draws *over* the chat
-     (right-anchored), already running, no command to type, with arrow-key parameter sliders and
-     frame stepping. `Esc` closes it and returns you to the prompt; `/viz` reopens it. The transcript
-     is read-only rendered text and cannot host a live slider, so the overlay is the only place true
-     interactivity can live.
+  1. the **inline figure** — on an image-capable terminal (Ghostty/Kitty/WezTerm/iTerm2; the
+     `SUPER+SHIFT+L` launcher uses Ghostty) it is a **real image** rendered in the message, part of the
+     transcript you scroll back through. On foot/tmux it falls back to Unicode/braille art; and
+  2. the **explorer** — when the spec is interactive, a live panel `viz-mode` draws *centered over*
+     the chat, already running, no command to type. Drive it with the keyboard *or the mouse*: drag a
+     parameter slider, click the frame arrows, or click the plot to read a data point. `Esc` closes it
+     and returns you to the prompt; `/viz` reopens it. (Mouse events reach the panel in fullscreen TUI
+     mode, which the learning settings enable; every action also has a keyboard path.)
 - A `viz` spec can carry `params` + a `formula` (an arithmetic expression in `x` and the params) for
-  a relationship you can vary, or `frames` for an algorithm stepped one stage at a time. A spec with
-  neither is static and only ever shows the inline figure.
+  a relationship you can vary, `frames` for an algorithm stepped one stage at a time, and `arrows`
+  for vectors (e.g. eigenvectors). A spec with neither `params`+`formula` nor `frames` is static and
+  only shows the inline figure.
 - The spec travels as a ` ```viz ` JSON block in the message; the raw JSON is what gets stored, the
-  rendered figure is what you see. `/viz svg` exports the last figure as an SVG file if you want to
-  open it outside the terminal.
+  rendered figure is what you see. `/viz svg` exports the last figure as SVG and `/viz png` as PNG
+  under `Learning System/.tmp/viz/`; `/viz open` also opens the PNG in the desktop viewer.
 - In a `/review`, a visualization request is parked until the review's grading is done.
 
 ## 5. What the model emits (and why you won't see it)

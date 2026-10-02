@@ -1,5 +1,6 @@
 {
   "defaultModel": "glm-5.3-flash",
+  "tuiMode": "fullscreen",
   "subagents": {
     "defaultModel": "deepseek-v4.1-flash",
     "agentOverrides": {

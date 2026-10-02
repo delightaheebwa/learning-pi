@@ -17,9 +17,14 @@ You receive ONLY data via a `GATE:viz_audit` envelope — never freeform prompts
 Verify against the sources (read any `file`/`url` given; do not verify from memory alone when sources
 are supplied) and the `instructed` intent:
 
-- **Spec correctness:** every value, label, axis name, unit, and annotation is correct and consistent
-  (axes not swapped, ranges monotone, `params`/`formula` mathematically right, diagram edges sane,
-  table rows sum/agree where claimed). Flag a misleading axis/scale, a missing unit, or a wrong sign.
+- **Spec correctness:** every value, label, axis name, unit, annotation, and `arrows` vector is correct
+  and consistent (axes not swapped, ranges monotone, `params`/`formula` mathematically right, diagram
+  edges sane, table rows sum/agree where claimed). An `arrows` entry must point the stated way: check
+  `(x1,y1)->(x2,y2)` against the claimed direction/slope. Flag a misleading axis/scale, a missing unit,
+  or a wrong sign.
+- **Renderer caveats:** a supporting-words sentence about what the renderer cannot draw is allowed, but
+  it must be TRUE for the current renderer. After the image renderer shipped, "arrows cannot be drawn"
+  is false on an image-capable terminal — flag a stale caveat as a prose issue.
 - **Illustrates the concept:** the figure genuinely shows the `instructed` idea, not merely a related one.
 - **Prose ↔ figure:** the supporting words describe what is actually shown (numbers, shape, direction,
   ordering). Flag any sentence the figure does not support, or a claim that contradicts it.

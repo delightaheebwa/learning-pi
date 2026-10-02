@@ -26,6 +26,11 @@ Rules:
   - `table`: `"columns":["..."],"rows":[["...",N],...]`.
   - `diagram`: `"nodes":[{"id","label"}],"edges":[{"from","to","label"}]` (edges must reference known ids).
   - Optional everywhere: `"title"`, `"annotations":[{"text","x?","y?"}]`, `"caption"`.
+  - `line`/`scatter`: optional `"arrows":[{"x1","y1","x2","y2","label?"}]` draws real vectors
+    (e.g. eigenvector arrows). Put the tip at `(x2,y2)` in data coordinates.
+  - On an image-capable terminal (Ghostty/Kitty) the figure is a real image: multiple `series`
+    overlay in one plot, annotations with `x`/`y` are placed at their point, and `arrows` are drawn.
+    On foot/tmux the Unicode fallback stacks series and lists annotations/arrows as notes.
   - **Interactive** (when the envelope asks or the intent needs "what if"): set
     `"params":[{"name","min","max","step","value"}]` and `"formula":{"expr":"f(x)","xMin","xMax","samples"}`;
     `expr` is arithmetic in `x` and the declared param names only — `+ - * / ^`, parentheses,
@@ -37,5 +42,10 @@ Rules:
   empirical figures.
 - `what_to_look_at` (2–3 short items) tells the Tutor what the learner should notice; `supporting_points`
   gives accurate one-line statements the Tutor can use. Prefer an interactive `params`+`formula` spec
-  when the concept is a relationship the learner can vary.
+  when the concept is a relationship the learner can vary, or when the request is "let me play with…"
+  — sliders only exist when `params`+`formula` are present. Use `frames` for an algorithm stepped one
+  stage at a time.
+- A renderer caveat in the supporting words is allowed when the learner's surface cannot show
+  something, but keep it to ONE short line, put the content first ("v2 points perpendicular, tip at
+  (-0.54, 1.40)"), and only claim a limit that is actually true for the current renderer.
 - Do not render, do not write files, do not teach. Return the JSON object as your final message.

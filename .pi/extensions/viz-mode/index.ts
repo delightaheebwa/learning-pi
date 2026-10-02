@@ -1,28 +1,26 @@
 /**
- * viz-mode — render learning visualizations inline and open the explorer.
+ * viz-mode — render learning visualizations and open the interactive explorer.
  *
  * A learning message may carry a ` ```viz ` fenced JSON spec authored by the
- * `viz` subagent and verified by `viz-audit`. This extension:
- *   - replaces each viz fence with ASCII/Unicode art at DISPLAY time via Pi's
- *     markdown transformer (the stored message keeps the JSON, exactly like
- *     pi-math keeps LaTeX), and
- *   - when the spec is interactive (`params`/`formula` or `frames`), draws a
- *     focused explorer panel OVER the chat in the same terminal — not a
- *     separate window or process — already running, so the learner can poke at
- *     it. The read-only transcript cannot host a live control, so the overlay
- *     is where interactivity lives.
+ * `viz` subagent and verified by `viz-audit`. On an image-capable terminal
+ * (Ghostty/Kitty/WezTerm/iTerm2) this extension draws the figure as a real
+ * terminal image; otherwise it falls back to Unicode/braille art. When the spec
+ * is interactive (`params`/`formula` or `frames`) it draws a focused explorer
+ * panel OVER the chat in the same terminal, driven by keyboard and mouse.
  *
  * It is display + interaction only: no gating (the learning-gate owns receipts)
  * and no state writes. `/viz` reopens the last figure, toggles auto-open, shows
- * status, or exports the spec's SVG.
+ * status, or exports the spec's SVG/PNG.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { getCapabilities } from "@earendil-works/pi-tui";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { openVizExplorer } from "./explorer.ts";
+import { installVizImagePatch, uninstallVizImagePatch, vizImagePatchInstalled } from "./image-patch.ts";
+import { rasterizeSpec } from "./raster.ts";
 import { renderSvg } from "./render-svg.ts";
-import { type VizSpec } from "./spec.ts";
+import { type VizSpec, canonicalJson } from "./spec.ts";
 import { firstVizSpec, replaceVizFences } from "./wire.ts";
 
 function textOfMessage(message: any): string {
@@ -33,9 +31,20 @@ function textOfMessage(message: any): string {
 }
 
 function isInteractive(spec: VizSpec): boolean {
-  // Params only do something when a formula consumes them.
   const paramDriven = !!spec.formula && !!spec.params && spec.params.length > 0;
   return paramDriven || (!!spec.frames && spec.frames.length > 0);
+}
+
+function exportDir(): string {
+  return join(process.cwd(), "Learning System", ".tmp", "viz");
+}
+
+function imageProtocol(): string {
+  try {
+    return getCapabilities().images || "none";
+  } catch {
+    return "none";
+  }
 }
 
 export default function vizMode(pi: ExtensionAPI): void {
@@ -43,15 +52,13 @@ export default function vizMode(pi: ExtensionAPI): void {
   let lastSpec: VizSpec | undefined;
   let lastOpened = "";
 
-  // --- display transform: viz fence -> ASCII art ---------------------------
-  // Pi applies this to assistant Markdown before rendering it in the
-  // transcript; the stored message keeps the JSON spec. Unlike a
-  // Markdown.prototype.render wrapper, this uses the supported API, so it
-  // composes cleanly with other render-patching extensions (e.g. pi-math)
-  // and can never recurse into them.
+  // --- display fallback: viz fence -> Unicode/braille art -------------------
+  // Runs at the markdown text stage. When an image protocol is available the
+  // image patch owns the fence instead, so this is a no-op there.
   const renderCache = new Map<string, string>();
   pi.registerMarkdownTransformer((markdown, context) => {
     if (context.messageType !== "assistant" || !markdown.includes("```viz")) return markdown;
+    if (getCapabilities().images) return markdown;
     const width = Math.max(24, Math.floor(context.availableWidth) - 2);
     const key = `${width}\u0000${markdown}`;
     const cached = renderCache.get(key);
@@ -60,6 +67,15 @@ export default function vizMode(pi: ExtensionAPI): void {
     if (renderCache.size >= 128) renderCache.clear();
     renderCache.set(key, replaced);
     return replaced;
+  });
+
+  // --- inline images: install the Markdown patch once, after pi-math --------
+  pi.on("session_start", (_event: any, ctx: any) => {
+    if (ctx?.mode !== "tui") return;
+    setImmediate(() => installVizImagePatch());
+  });
+  pi.on("session_shutdown", () => {
+    uninstallVizImagePatch();
   });
 
   // --- auto-open the explorer for an interactive viz turn -------------------
@@ -74,7 +90,7 @@ export default function vizMode(pi: ExtensionAPI): void {
       if (!spec) return;
       lastSpec = spec;
       if (!autoOpen || !isInteractive(spec)) return;
-      const key = JSON.stringify(spec).slice(0, 400);
+      const key = canonicalJson(spec);
       if (key === lastOpened) return; // don't reopen for a streamed duplicate
       lastOpened = key;
       setTimeout(() => openVizExplorer(ctx, spec), 0);
@@ -87,7 +103,7 @@ export default function vizMode(pi: ExtensionAPI): void {
   // --- /viz command ---------------------------------------------------------
   try {
     pi.registerCommand("viz", {
-      description: "Visualizations: open the last explorer, toggle auto-open, show status, or export SVG",
+      description: "Visualizations: open the last explorer, toggle auto-open, show status, or export SVG/PNG",
       handler: async (args: string, ctx: any) => {
         const action = (args || "").trim().toLowerCase();
         if (action === "auto on") {
@@ -101,18 +117,43 @@ export default function vizMode(pi: ExtensionAPI): void {
           return;
         }
         if (action === "status") {
-          ctx.ui.notify(`viz auto-open ${autoOpen ? "on" : "off"}; last spec ${lastSpec ? lastSpec.kind : "none"}`, "info");
+          ctx.ui.notify(
+            `viz auto-open ${autoOpen ? "on" : "off"}; images ${imageProtocol()}` +
+              `${vizImagePatchInstalled() ? "" : " (patch idle)"}; last spec ${lastSpec ? lastSpec.kind : "none"}`,
+            "info",
+          );
           return;
         }
-        if (action === "svg" || action === "export") {
+        if (action === "svg" || action === "export" || action === "png" || action === "open") {
           if (!lastSpec) {
             ctx.ui.notify("viz: no figure to export yet", "warning");
             return;
           }
           try {
-            const path = join(tmpdir(), `viz-${Date.now()}.svg`);
-            writeFileSync(path, renderSvg(lastSpec), "utf8");
-            ctx.ui.notify(`viz SVG written: ${path}`, "info");
+            mkdirSync(exportDir(), { recursive: true });
+            const stamp = Date.now();
+            if (action === "svg" || action === "export") {
+              const path = join(exportDir(), `viz-${stamp}.svg`);
+              writeFileSync(path, renderSvg(lastSpec), "utf8");
+              ctx.ui.notify(`viz SVG written: ${path}`, "info");
+              return;
+            }
+            const raster = rasterizeSpec(lastSpec);
+            if (!raster) {
+              ctx.ui.notify("viz: PNG export needs a working image renderer (rsvg-convert)", "warning");
+              return;
+            }
+            const path = join(exportDir(), `viz-${stamp}.png`);
+            writeFileSync(path, Buffer.from(raster.base64Data, "base64"));
+            ctx.ui.notify(`viz PNG written: ${path}`, "info");
+            if (action === "open") {
+              try {
+                const { spawn } = await import("node:child_process");
+                spawn("xdg-open", [path], { detached: true, stdio: "ignore" }).unref();
+              } catch {
+                /* opening is optional */
+              }
+            }
           } catch (e) {
             ctx.ui.notify(`viz export failed: ${e instanceof Error ? e.message : String(e)}`, "error");
           }

@@ -14,7 +14,7 @@ import {
 } from '../.pi/extensions/viz-mode/spec.ts';
 import { evalExpr, validateExpr } from '../.pi/extensions/viz-mode/expr.ts';
 import { renderAscii } from '../.pi/extensions/viz-mode/render-ascii.ts';
-import { renderSvg } from '../.pi/extensions/viz-mode/render-svg.ts';
+import { plotFrame, renderSvg } from '../.pi/extensions/viz-mode/render-svg.ts';
 import { firstVizSpec, replaceVizFences } from '../.pi/extensions/viz-mode/wire.ts';
 
 const assert = (n, c) => console.log((c ? 'PASS ' : 'FAIL ') + n);
@@ -83,12 +83,34 @@ assert('hand-tuned ascii override is used verbatim', asciiOverride.length === 1 
 const frameLines = renderAscii({ viz: '1', kind: 'bar', frames: [{ caption: 'one', spec: { viz: '1', kind: 'bar', bars: [{ label: 'a', value: 1 }] } }, { caption: 'two', spec: { viz: '1', kind: 'bar', bars: [{ label: 'a', value: 2 }] } }] });
 assert('frames render with captions and an index', frameLines.some((l) => l.includes('[1/2] one')) && frameLines.some((l) => l.includes('[2/2] two')));
 
+// --- arrows schema ----------------------------------------------------------
+const arrowSpec = validateSpec({
+  viz: '1',
+  kind: 'scatter',
+  series: [{ points: [[0, 0], [1, 1]] }],
+  arrows: [{ x1: 0, y1: 0, x2: 1, y2: 1, label: 'v1' }],
+});
+assert('arrows accepted and normalized', arrowSpec.ok === true && arrowSpec.spec.arrows?.[0].label === 'v1');
+assert('non-finite arrow rejected', validateSpec({ viz: '1', kind: 'line', series: [{ points: [[0, 0]] }], arrows: [{ x1: 0, y1: 0, x2: 'x', y2: 1 }] }).ok === false);
+
 // --- SVG generation ---------------------------------------------------------
 const svg = renderSvg({ viz: '1', kind: 'line', title: 'Loss', series: [{ points: [[0, 5], [1, 3]] }] });
 assert('svg is well-formed and escapes labels', svg.startsWith('<svg') && svg.trimEnd().endsWith('</svg>'));
 assert('svg includes a polyline path', svg.includes('<path d="M'));
 const barSvg = renderSvg({ viz: '1', kind: 'bar', bars: [{ label: '<x>', value: 2 }] });
 assert('svg escapes special characters', barSvg.includes('&lt;x&gt;') && !barSvg.includes('<x>'));
+const multiSvg = renderSvg({ viz: '1', kind: 'line', series: [{ name: 'a', points: [[0, 0], [1, 1]] }, { name: 'b', points: [[0, 1], [1, 0]] }] });
+assert('svg overlays multiple series', (multiSvg.match(/<path d="M/g) || []).length === 2 && multiSvg.includes('stroke="#5aa9ff"') && multiSvg.includes('stroke="#ff9f43"'));
+const arrowSvg = renderSvg(validateSpec({ viz: '1', kind: 'scatter', series: [{ points: [[0, 0], [1, 1]] }], arrows: [{ x1: 0, y1: 0, x2: 1, y2: 1, label: 'v1' }] }).spec);
+assert('svg draws an arrow with a head', arrowSvg.includes('<polygon points=') && arrowSvg.includes('>v1</text>'));
+const frame = plotFrame(validateSpec({ viz: '1', kind: 'scatter', series: [{ points: [[0, 0], [10, 10]] }] }).spec, 960, 520);
+assert('plotFrame exposes invertible ranges', !!frame && frame.xMax > 10 && frame.yMax > 10 && frame.x0 < frame.x1);
+
+// --- ASCII arrows and override semantics ------------------------------------
+const arrowAscii = renderAscii(validateSpec({ viz: '1', kind: 'scatter', series: [{ points: [[0, 0], [1, 1]] }], arrows: [{ x1: 0, y1: 0, x2: 1, y2: 1, label: 'v1' }] }).spec);
+assert('ascii render lists arrows as notes', arrowAscii.some((l) => l.includes('v1') && l.includes('to')));
+const overrideIgnored = renderAscii(validateSpec({ viz: '1', kind: 'scatter', series: [{ points: [[0, 0], [1, 1]] }], ascii: 'CUSTOM' }).spec, { ignoreAscii: true });
+assert('interactive render ignores the hand-tuned ascii override', !overrideIgnored.includes('CUSTOM') && overrideIgnored.some((l) => /[\u2800-\u28ff]/.test(l)));
 
 // --- wire: display-time fence replacement -----------------------------------
 const wireSrc = 'Intro.\n```viz\n{"viz":"1","kind":"bar","title":"T","bars":[{"label":"a","value":3}]}\n```\nOutro.';

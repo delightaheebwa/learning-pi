@@ -7,14 +7,14 @@
  * PURE: safe to unit-test and to call from the interactive overlay on every
  * keystroke.
  */
-import { type VizAnnotation, type VizSeries, type VizSpec, sampleSpec } from "./spec.ts";
+import { type VizAnnotation, type VizArrow, type VizSeries, type VizSpec, sampleSpec } from "./spec.ts";
 
 export interface RenderOptions {
   width?: number;
   height?: number;
-  /** Which frame to render when `spec.frames` is present (default 0 = all). */
+  /** Which frame to render when `spec.frames` is present (undefined = all frames). */
   frame?: number;
-  /** Ignore a hand-tuned `spec.ascii` override. */
+  /** Ignore a hand-tuned `spec.ascii` override (interactive/explorer renders). */
   ignoreAscii?: boolean;
 }
 
@@ -214,6 +214,17 @@ function annotationsBlock(annotations?: VizAnnotation[]): string[] {
   return out;
 }
 
+/** Arrows cannot be drawn on the braille canvas; list them as vector notes. */
+function arrowsBlock(arrows?: VizArrow[]): string[] {
+  if (!arrows || arrows.length === 0) return [];
+  const out: string[] = [""];
+  for (const a of arrows) {
+    const label = a.label ? `${a.label}: ` : "";
+    out.push(`→ ${label}(${fmt(a.x1)}, ${fmt(a.y1)}) to (${fmt(a.x2)}, ${fmt(a.y2)})`);
+  }
+  return out;
+}
+
 /** Render a single spec (no frames) to lines. */
 function renderOne(spec: VizSpec, width: number, height: number): string[] {
   const lines: string[] = [];
@@ -236,6 +247,7 @@ function renderOne(spec: VizSpec, width: number, height: number): string[] {
       break;
   }
   lines.push(...annotationsBlock(spec.annotations));
+  lines.push(...arrowsBlock(spec.arrows));
   return lines;
 }
 

@@ -43,6 +43,14 @@ export interface VizAnnotation {
   y?: number;
 }
 
+export interface VizArrow {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  label?: string;
+}
+
 export interface VizParam {
   name: string;
   min: number;
@@ -76,11 +84,17 @@ export interface VizSpec {
   nodes?: VizNode[];
   edges?: VizEdge[];
   annotations?: VizAnnotation[];
+  /** Directed vectors drawn on line/scatter plots ([x1,y1] -> [x2,y2]). */
+  arrows?: VizArrow[];
   params?: VizParam[];
   formula?: VizFormula;
   frames?: VizFrame[];
   caption?: string;
-  /** Optional hand-tuned Unicode fallback; used verbatim when render fails. */
+  /**
+   * Optional hand-tuned Unicode fallback. Used only on the ASCII surface (no
+   * terminal image protocol); the image renderer and the explorer always draw
+   * the data live, so an `ascii` spec with `params`/`frames` stays interactive.
+   */
   ascii?: string;
 }
 
@@ -96,6 +110,7 @@ export const LIMITS = {
   nodes: 40,
   edges: 80,
   annotations: 20,
+  arrows: 20,
   params: 8,
   frames: 64,
   samples: 400,
@@ -333,6 +348,28 @@ export function validateSpec(input: unknown): ValidateResult {
       }
   }
 
+  const arrows: VizArrow[] = [];
+  if (input.arrows !== undefined) {
+    if (!Array.isArray(input.arrows)) errors.push("spec.arrows must be an array");
+    else if (input.arrows.length > LIMITS.arrows) errors.push(`spec.arrows too long (>${LIMITS.arrows})`);
+    else
+      for (let i = 0; i < input.arrows.length; i++) {
+        const a = input.arrows[i] as any;
+        if (!isObj(a) || !finite(a.x1) || !finite(a.y1) || !finite(a.x2) || !finite(a.y2)) {
+          errors.push(`spec.arrows[${i}] must be {x1,y1,x2,y2:number,label?:string}`);
+          continue;
+        }
+        if (a.label !== undefined && !str(a.label)) errors.push(`spec.arrows[${i}].label must be a string`);
+        arrows.push({
+          x1: a.x1,
+          y1: a.y1,
+          x2: a.x2,
+          y2: a.y2,
+          label: str(a.label) ? a.label : undefined,
+        });
+      }
+  }
+
   let frames: VizFrame[] | undefined;
   if (input.frames !== undefined) {
     if (!Array.isArray(input.frames) || input.frames.length === 0) errors.push("spec.frames must be a non-empty array");
@@ -374,6 +411,7 @@ export function validateSpec(input: unknown): ValidateResult {
     nodes,
     edges,
     annotations,
+    arrows: arrows.length > 0 ? arrows : undefined,
     params,
     formula,
     frames,
@@ -467,7 +505,14 @@ export function sampleSpec(spec: VizSpec | undefined, overrides?: Record<string,
       .join(", ");
     return [{ name: name || undefined, points: pts }];
   }
-  return spec.series || [];
+  // Be tolerant of un-validated specs: accept [x,y] pairs as well as {x,y}.
+  return (spec.series || []).map((s) => ({
+    name: s.name,
+    points: (s.points || []).map((p) => {
+      const anyP = p as unknown as { x?: number; y?: number } | [number, number];
+      return Array.isArray(anyP) ? { x: anyP[0], y: anyP[1] } : { x: anyP.x as number, y: anyP.y as number };
+    }),
+  }));
 }
 
 function round3(v: number): string {
