@@ -42,6 +42,7 @@ import fnmatch
 import glob
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -55,9 +56,35 @@ DEFAULT_CACHE = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"
 # Terminal banners that mean a gated turn did not reach the learner.
 WITHHOLD_MARKERS = ["⛔ WITHHELD", "⛔ UNVERIFIED", "NO_REVIEW_CONTEXT", "NO_GRADE_AUDIT_PASS"]
 
+# pi-subagents' `async` input defaults on, so even a "foreground" leaf can be
+# detached as a background run. Its completion arrives as a `subagent-notify`
+# custom message, not as synchronous `tool_result.details.results`, so the
+# runner must read the notice or it goes blind and nudges forever.
+ASYNC_NOTICE_RE = re.compile(
+    r"(?:Background task|Detached foreground task)\s+(completed|failed):\s*\*\*([\w.-]+)\*\*", re.I
+)
+ASYNC_RUNID_RE = re.compile(r"async-subagent-(?:runs|results)(?:/output-archives)?/([0-9a-fA-F-]{36})")
+
 
 def eprint(*a) -> None:
     print(*a, file=sys.stderr)
+
+
+def async_notice_run(content, custom_type=None) -> dict | None:
+    """A completed/failed background subagent, parsed from a `subagent-notify`."""
+    if custom_type and custom_type != "subagent-notify":
+        return None
+    text = text_of_content(content)
+    m = ASYNC_NOTICE_RE.search(text)
+    if not m:
+        return None
+    run_id = ASYNC_RUNID_RE.search(text)
+    return {
+        "agent": m.group(2),
+        "runId": run_id.group(1) if run_id else None,
+        "exitCode": 1 if m.group(1).lower() == "failed" else 0,
+        "acceptance": None,
+    }
 
 
 def text_of_content(content) -> str:
@@ -78,11 +105,14 @@ def subagent_runs(path: Path) -> list[dict]:
     """Dispatched subagent runs from the session, independent of audit_gates.
 
     Covers every agent (including viz/viz-audit, which audit_gates' fixed set
-    omits). Each entry: {agent, runId, exitCode, isError}. Tool-call validation
-    failures (e.g. a non-string `task`) are ignored: they never launched a run.
+    omits), whether it finished synchronously (in `tool_result.details.results`)
+    or asynchronously (in a `subagent-notify` completion message). Each entry:
+    {agent, runId, exitCode, acceptance}. Tool-call validation failures (e.g. a
+    non-string `task`) are ignored: they never launched a run.
     """
     calls: dict[str, dict] = {}
     results: list[dict] = []
+    notices: list[dict] = []
     try:
         fh = path.open(encoding="utf-8", errors="ignore")
     except OSError:
@@ -96,7 +126,13 @@ def subagent_runs(path: Path) -> list[dict]:
                 rec = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if rec.get("type") != "message":
+            rtype = rec.get("type")
+            if rtype == "custom_message":
+                notice = async_notice_run(rec.get("content"), rec.get("customType"))
+                if notice:
+                    notices.append(notice)
+                continue
+            if rtype != "message":
                 continue
             m = rec.get("message") or {}
             if m.get("role") == "assistant":
@@ -105,6 +141,10 @@ def subagent_runs(path: Path) -> list[dict]:
                         calls[b["id"]] = b.get("name")
             elif m.get("role") == "toolResult" and m.get("toolName") == "subagent":
                 results.append(m)
+            elif m.get("role") == "custom":
+                notice = async_notice_run(m.get("content"), m.get("customType"))
+                if notice:
+                    notices.append(notice)
     runs: list[dict] = []
     for m in results:
         if m.get("isError"):
@@ -118,6 +158,16 @@ def subagent_runs(path: Path) -> list[dict]:
                     "exitCode": r.get("exitCode"),
                     "acceptance": (r.get("acceptance") or {}).get("status") if isinstance(r.get("acceptance"), dict) else r.get("acceptance"),
                 })
+    # A foreground run that pi detached still notifies; merge the completions in,
+    # deduping against any synchronous result that shares a runId.
+    seen = {r.get("runId") for r in runs if r.get("runId")}
+    for notice in notices:
+        rid = notice.get("runId")
+        if rid and rid in seen:
+            continue
+        if rid:
+            seen.add(rid)
+        runs.append(notice)
     return runs
 
 

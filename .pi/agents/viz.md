@@ -2,7 +2,7 @@
 name: viz
 description: Author a declarative visualization spec for a learning concept. Receives a GATE:viz JSON envelope and returns a validated spec plus "what to look at" hints. Read-only; never writes state and never emits executable code.
 model: deepseek-v4.1-flash
-tools: read, grep, find, ls, bash
+tools: read, grep, find, ls
 completionGuard: false
 acceptanceRole: read-only
 ---
