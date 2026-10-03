@@ -6,8 +6,9 @@
  * `Markdown.prototype.render` the same way pi-math does: a `viz` fence becomes
  * a private-use marker line, the delegate lays the markdown out, then the
  * marker rows are swapped for the Kitty/iTerm2 image sequence. The wrapper is
- * installed once and delegates into whatever render is current, so pi-math's
- * own wrapper (which re-arms on turn start) stays in the chain.
+ * installed once and delegates into the render that was current at install
+ * time (pi-math's own wrapper, when present), so the chain beneath it stays
+ * intact even when pi-math re-arms on turn start.
  *
  * Everything is best-effort: without an image protocol or a working rasteriser
  * it returns the delegate's plain output and the ASCII transformer takes over.
@@ -114,25 +115,39 @@ export function installVizImagePatch(): void {
   const proto = Markdown.prototype as unknown as { render: (this: unknown, width: number) => string[] };
   if (typeof proto.render !== "function") return;
   installed = true;
-  baseRender = proto.render;
+  // Capture the delegate per install. The wrapper must never read the mutable
+  // module-level `baseRender`: pi-math re-arms its own wrapper on turn start, so
+  // `uninstall` (which clears `baseRender`) can leave this wrapper live in
+  // pi-math's chain. Reading `baseRender` there crashed the whole TUI with
+  // `undefined is not an object (evaluating 'baseRender.call')` on reload.
+  const delegate = proto.render;
+  baseRender = delegate;
 
   wrapper = function (this: unknown, width: number): string[] {
     const md = this as { text?: string; paddingX?: number };
     const source = md.text;
     if (rendering.has(this as object) || !shouldHandle(source)) {
-      return baseRender!.call(this, width);
+      return delegate.call(this, width);
     }
     rendering.add(this as object);
     let built: { text: string; placements: Placement[] } | undefined;
     try {
       const contentWidth = Math.max(20, width - (md.paddingX ?? 0) * 2);
       built = buildMarkers(source as string, 0);
-      if (!built) return baseRender!.call(this, width);
+      if (!built) return delegate.call(this, width);
       md.text = built.text;
-      const lines = baseRender!.call(this, width);
+      const lines = delegate.call(this, width);
       return injectImages(lines, built.placements, contentWidth);
     } catch {
-      return baseRender!.call(this, width);
+      // Never let a render-hook failure escape to the TUI. Render the unchanged
+      // source, and if even that throws, return an empty frame rather than
+      // crashing the whole session (the original reload crash).
+      try {
+        md.text = source;
+        return delegate.call(this, width);
+      } catch {
+        return [];
+      }
     } finally {
       if (built) md.text = source;
       rendering.delete(this as object);
