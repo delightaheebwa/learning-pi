@@ -275,7 +275,7 @@ print(json.dumps(out))')"
       echo
       echo "- Failing step(s) are the FAIL lines below (invariant IDs map to CONTRACT.md)."
       echo "- If an e2e journey failed, its transcript and result JSON are under"
-      echo "  ~/.cache/learning-pi/e2e-*/ (read them with the pi-e2e skill)."
+      echo "  ~/.cache/learning-pi/e2e-*/ (read them with the lpi skill)."
       echo "- If it is an adapter/load shape issue, patch pi-adapter; if it is behavior,"
       echo "  it is the revise door (edit CONTRACT.md + tagged test + implementation)."
       echo

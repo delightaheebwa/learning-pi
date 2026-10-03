@@ -190,7 +190,7 @@ The pinned pi version, package versions, and the promotion journal.
 .TP
 .I ~/.cache/learning-pi/diagnosis-*.md
 Failure diagnosis reports. Repair them with the
-.B pi-diagnosis-fix
+.B lpi
 opencode skill.
 .TP
 .I ~/.cache/learning-pi/audit-recent.log
@@ -199,10 +199,8 @@ Weekly read-only gate-provenance audit output.
 .I ~/.cache/learning-pi/e2e-*/
 Per-run e2e artifacts: a result JSON and the session transcript per scenario,
 plus a summary. The
-.B pi-e2e
-and
-.B pi-diagnosis-fix
-opencode skills read these for triage.
+.B lpi
+opencode skill reads these for triage.
 .SH ENVIRONMENT
 .TP
 .B LEARNING_PI_ROOT

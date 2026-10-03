@@ -214,7 +214,7 @@ terminal popup is gone. Both read the same `bin/pi-review-status` helper, which
 matches the calendar date review-clerk stamps on the note, so they cannot
 disagree.
 
-The `pi-diagnosis-fix` opencode skill is registered by `skills.paths` in
+The `lpi` opencode skill is registered by `skills.paths` in
 `~/.config/opencode/opencode.json` pointing at `~/learning-pi/opencode`.
 
 Commands (one umbrella):
@@ -240,9 +240,10 @@ anything, or `--pi-only` to ignore package updates.
 
 On a failed update the conductor **does not patch code**. It stays pinned and writes a diagnosis
 report (failing invariant IDs, the relevant changelog watchlist hits) to
-`~/.cache/learning-pi/diagnosis-*.md`. Then run the **`pi-diagnosis-fix`** opencode skill: it reads
-the report, classifies the break (adapter drift vs behavior drift vs package breakage), fixes it
-under the contract, and re-runs `lpi test`. Changing expected behavior is the *revise door* — the
+`~/.cache/learning-pi/diagnosis-*.md`. Then run the **`lpi`** opencode skill: it drives
+`lpi update --e2e`, reads the report, classifies the break (adapter drift vs behavior drift vs
+package breakage), fixes it under the contract, and re-runs `lpi test`. It also covers read-only
+e2e testing of a change that is not an update. Changing expected behavior is the *revise door* — the
 skill gets your explicit agreement before editing `CONTRACT.md`/tests/implementation together (see
 `CONTRACT.md`).
 
@@ -269,7 +270,7 @@ test/golden/golden_test.mjs  write-gate / scout / review-delegation / retry / de
 test/viz_test.mjs            viz-mode pure units (spec validation, expression eval, ASCII render)
 test/contract/               resource checks, load probe
 test/fixtures/               synthetic learning-system state (never real data)
-opencode/skills/pi-diagnosis-fix/  opencode skill to repair a failed update
+opencode/skills/lpi/         opencode skill: gated update, diagnosis/repair, and e2e
 .pi/extensions/learning-gate/gate-core/   pure, pi-independent decision logic
 .pi/extensions/learning-gate/pi-adapter/  the ONLY pi-version-aware file
 .pi/extensions/viz-mode/     spec/render/explorer (display + interaction; no gating)
