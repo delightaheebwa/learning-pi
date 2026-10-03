@@ -180,3 +180,20 @@ const mintFC = (engine, output = FC_PASS) =>
   const res = await engine.onMessageEnd({ message: msg('[[TURN:claims]]\nThe definition of X is the thing.') });
   assert('judge failure falls back to legacy checks', allowed(res));
 }
+
+// --- S8: a bare ISSUES verdict with no concrete issue text never disputes ---
+{
+  let disputeCalls = 0;
+  const j = stubJudge({
+    evaluate: () => ({ turnType: 'claims' }),
+    dispute: () => {
+      disputeCalls++;
+      return { applies: false, reason: 'no details', source: 'replay' };
+    },
+  });
+  const engine = createGate({ judge: j.judge });
+  drive(engine);
+  mintFC(engine, JSON.stringify({ verdict: 'ISSUES', issues: [] }));
+  for (let i = 0; i < 4; i++) await engine.onMessageEnd({ message: msg('The definition of X is the thing.') });
+  assert('issue with no concrete text never triggers a dispute', disputeCalls === 0);
+}

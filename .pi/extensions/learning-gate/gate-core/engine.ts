@@ -1170,11 +1170,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
 
     // Dispute safeguard: the same concrete issue blocking three times can be
     // adjudicated by the judge. The judge only answers; the engine releases.
-    // Only receipts with a parseable issue text participate — an empty issue
-    // would otherwise accumulate a bogus fingerprint and release on nothing.
-    const issueIdx = R.findIndex((r) => r.issues && issuesOf(r).length > 0);
+    // Only receipts with a concrete issue text participate — a bare
+    // `verdict:ISSUES` with an empty/ill-formed `issues[]` would otherwise
+    // accumulate a bogus fingerprint and release on nothing.
+    const concreteIssues = (r: P.Receipt) => issuesOf(r).filter((i) => i.issue || i.location || i.correction);
+    const issueIdx = R.findIndex((r) => r.issues && concreteIssues(r).length > 0);
     if (issueIdx >= 0) {
-      const ip = issuesOf(R[issueIdx]);
+      const ip = concreteIssues(R[issueIdx]);
       const fp = `${R[issueIdx].gate}|${ip.map((i) => `${i.issue || ""}@${i.location || ""}`).join(";").slice(0, 200)}`;
       run.issueBlocks[fp] = (run.issueBlocks[fp] || 0) + 1;
       if (run.issueBlocks[fp] >= 3) {
