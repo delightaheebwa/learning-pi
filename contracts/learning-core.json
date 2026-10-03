@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
-  "version": 1,
-  "updated": "2026-09-26",
+  "version": 2,
+  "updated": "2026-10-03",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -206,6 +206,58 @@
       "severity": "hard",
       "statement": "A dropped viz tag is recovered from a bound viz-audit receipt (canonical spec match + prose coverage).",
       "tests": ["dropped viz tag recovered from a bound viz-audit"]
+    },
+    {
+      "id": "G-turn-type-inferred",
+      "severity": "hard",
+      "statement": "When a judge is configured, a turn tag is a hint: the judge reads the turn type from the content, so an untagged claims turn whose fact-check covers it renders instead of withholding NO_TURN_TAG. Verifier/notification channels are never gated.",
+      "tests": ["untagged claims turn allowed via judge classification"]
+    },
+    {
+      "id": "G-full-coverage-binding",
+      "severity": "hard",
+      "statement": "When a judge is configured, a turn renders only when 100% of the emitted text is covered by the verifier's verified draft; any uncovered span blocks and the remedy names the span.",
+      "tests": ["uncovered span blocks", "remedy names the uncovered span"]
+    },
+    {
+      "id": "G-pass-substantive",
+      "severity": "hard",
+      "statement": "A verifier PASS that the judge scores as unsubstantiated (thin or none, missing items, no evidence) does not verify the turn.",
+      "tests": ["hollow PASS blocked as unsubstantiated"]
+    },
+    {
+      "id": "G-issues-no-cap",
+      "severity": "hard",
+      "statement": "While a high or medium verifier issue remains, the gate keeps blocking and never dumps the turn as UNVERIFIED; the retry cap applies only to every other block reason.",
+      "tests": ["high/medium issue never dumps as UNVERIFIED"]
+    },
+    {
+      "id": "G-verifier-dispute",
+      "severity": "policy",
+      "statement": "When the same issue blocks the same turn three times, the judge is asked whether the issue still applies; if it does not, the engine releases the turn with a VERIFIER DISPUTED banner. The judge only answers; the engine acts.",
+      "tests": ["dispute releases the turn with VERIFIER DISPUTED"]
+    },
+    {
+      "id": "G-receipt-source-is-verifier",
+      "severity": "hard",
+      "statement": "A receipt is the verifier's own statement: the judge receives the verifier's parsed receipt and verified draft, and never authors or rewrites receipt fields.",
+      "tests": ["judge package carries the verified draft"]
+    },
+    {
+      "id": "G-judge-degraded-fallback",
+      "severity": "policy",
+      "statement": "When the judge is unavailable, rate-limited, or returns invalid output, the gate falls back to the legacy deterministic checks for that turn; a learning turn never dead-ends on a judge fault.",
+      "tests": ["judge failure falls back to legacy checks"]
+    },
+    {
+      "id": "G-judge-escalation",
+      "severity": "policy",
+      "statement": "A hard case (a valid receipt that does not fully cover, no best receipt with receipts present, or thin substantiveness) escalates from the primary judge (gemini-3.5-flash-lite) to the escalation model (gemini-3.5-flash). Escalation is budget-capped per day, and a primary outage escalates before falling back to the legacy path.",
+      "tests": [
+        "hard case escalates to the secondary judge",
+        "escalation is capped per day",
+        "primary outage falls through to the escalation judge"
+      ]
     }
   ]
 }

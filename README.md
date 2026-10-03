@@ -68,7 +68,7 @@ assistant turn unless the matching, **passing** receipt is present:
 
 | Turn contains | Required receipt |
 | --- | --- |
-| Teaching claims (Tutor) | `fact-check` whose `rendered_content` matches the emitted text (≥85% token coverage) and has no `ISSUES` |
+| Teaching claims (Tutor) | `fact-check` whose `rendered_content` covers the emitted text and has no `ISSUES`. With a judge configured the rule is **100% span coverage** (the judge checks every sentence); the legacy path approximates it with ≥85% token coverage + a length guard |
 | A question batch | `quiz-audit` returning `PASS` (or `PASS_WITH_FLAGS` for lows-only, accepted silently with no banner to the learner, max 2 cycles) |
 | A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced. One batched `items[]` envelope grades every answer from a single learner reply (never one subagent per answer) |
 | A visualization (`[[TURN:viz]]` — a ` ```viz ` spec + supporting words) | `viz-audit` whose canonical `spec` matches the emitted fenced spec and whose `rendered_content` covers the turn (missing → `NO_VIZ_AUDIT`, `ISSUES` → `VIZ_AUDIT_ISSUES`, unbound/stale → `VIZ_AUDIT_STALE`). A ` ```viz ` block in any other turn is withheld (`VIZ_REQUIRES_OWN_TURN`); a missing parseable spec is withheld (`VIZ_SPEC_INVALID`). Figures are opt-in and teach/resume-only; `viz-mode` renders them inline and opens an interactive explorer overlay |
@@ -96,14 +96,45 @@ content-matched verification (generation-to-emission — "verify A, emit B" is b
   - `[[TURN:quiz]]` → requires a PASS (or flagged PASS_WITH_FLAGS) `quiz-audit`
   - `[[TURN:grade]]` → requires an agreeing `grade-audit`
   - `[[TURN:none]]` → no verifier required
-- A missing tag is withheld (`NO_TURN_TAG`) — **except** a grade/quiz turn, which the gate infers
-  from a `grade-audit`/`quiz-audit` receipt (a bound match, or the single valid pending receipt when
-  an async verifier's completion notification carries no draft) so a dropped tag cannot dead-end the
-  session. `claims`/`none` are never inferred. A `none` tag over text that matches an unused
+- A missing tag is withheld (`NO_TURN_TAG`) on the legacy path — **except** a grade/quiz turn, which
+  the gate infers from a `grade-audit`/`quiz-audit` receipt (a bound match, or the single valid
+  pending receipt when an async verifier's completion notification carries no draft). With a judge
+  configured, a tag is a **hint** and the judge classifies the turn from the content, so an untagged
+  claims turn whose fact-check covers it renders. A `none` tag over text that matches an unused
   verification draft is withheld too (`TURN_TAG_MISMATCH`).
 
 Behavior: up to 2 withheld retries per turn (counter resets on each clean pass), then the turn is surfaced with an `⛔ UNVERIFIED`
 banner; internal errors fail open. Non-learning sessions are never gated.
+
+### The judge (model-based semantics)
+
+The gate can run a **judge** — a model that answers the semantic questions the deterministic code
+cannot: what type of turn this is, whether a verifier's verified draft covers **100%** of the emitted
+text, whether a `PASS` is substantive, and what exact remedy is needed. The judge only **sees and
+writes text**: it runs no tool, writes no file, changes no state. The engine performs every action.
+Receipts are still the verifier's own statement; the judge never authors them.
+
+- **Model:** Gemini `gemini-3.5-flash-lite` (free tier ≈15 RPM / 500 RPD), configured under the
+  `gemini` provider in `~/.pi/agent/models.json` (Google's OpenAI-compatible endpoint). Set
+  `GEMINI_API_KEY` in the environment. Override the model with `LEARNING_GATE_JUDGE_MODEL`.
+- **Escalation:** a hard case — a valid receipt that does not fully cover, no best receipt, or thin
+  substantiveness — escalates to `gemini-3.5-flash` (`LEARNING_GATE_JUDGE_ESCALATION_MODEL`,
+  `LEARNING_GATE_JUDGE_ESCALATION_MAX_PER_DAY`, default 20). A primary outage also escalates before
+  falling back to the legacy path.
+- **Turn tags become hints:** the judge reads the turn type from the content, so an untagged claims
+  turn whose fact-check covers it renders. Verifier/notification channels are never gated.
+- **Full-draft rule (100%):** the Tutor must put *all* text it will emit into the verifier envelope
+  and emit that draft unchanged; any uncovered span blocks, and the remedy names the span.
+- **PASS-real:** a `PASS` the judge scores unsubstantiated (no evidence, items unchecked) verifies
+  nothing — the receipt is treated as absent.
+- **No cap while a high/medium issue remains:** the gate keeps blocking and never dumps the turn as
+  `⛔ UNVERIFIED`; the cap applies to every other reason.
+- **Dispute:** the same issue blocking three times is adjudicated by the judge; if it no longer
+  applies the engine releases the turn with `⚠️ VERIFIER DISPUTED`.
+- **Ledger:** every decision and receipt is appended to `~/.pi/agent/learning-gate/`
+  (`receipts.ndjson`, `decisions.ndjson`) for provenance and review.
+- **Degraded fallback:** with no judge configured, no auth, a rate-limit, or invalid output, the gate
+  runs the deterministic legacy path unchanged. A learning turn never dead-ends on a judge fault.
 
 ## Skills
 

@@ -10,6 +10,8 @@
  * change gate semantics here without going through the revise door (CONTRACT.md).
  */
 import * as P from "./primitives.ts";
+import type { GateOptions, Judge, JudgeReceipt, Ledger, TurnAssessment, TurnPackage } from "./judge/types.ts";
+import { NOOP_LEDGER } from "./ledger.ts";
 
 export interface ToolCallInput {
   tool: string;
@@ -55,11 +57,13 @@ export interface GateEngine {
   onToolCall(input: ToolCallInput): BlockResult | undefined;
   onToolResult(input: ToolResultInput): void;
   onCustomMessage(input: NotificationInput): void;
-  onMessageEnd(input: MessageEndInput): MessageEndResult | undefined;
+  onMessageEnd(input: MessageEndInput): Promise<MessageEndResult | undefined>;
   getRun(): P.RunState;
 }
 
-export function createGate(): GateEngine {
+export function createGate(options: GateOptions = {}): GateEngine {
+  const judge: Judge | undefined = options.judge;
+  const ledger: Ledger = options.ledger ?? NOOP_LEDGER;
   let run: P.RunState = P.newRun("other");
 
   // Async subagent runs: runId -> the child calls captured at dispatch. The
@@ -79,7 +83,20 @@ export function createGate(): GateEngine {
     pendingAsync.clear();
   };
 
-  const addReceipt = (r: P.Receipt) => run.receipts.push(r);
+  const addReceipt = (r: P.Receipt, agent?: string) => {
+    run.receipts.push(r);
+    try {
+      ledger.receipt({
+        at: new Date().toISOString(),
+        agent: agent || (r as any).agent || "",
+        gate: r.gate,
+        verdict: r.issues ? "ISSUES" : r.valid ? (r.flags ? "PASS_WITH_FLAGS" : "PASS") : "UNVERIFIED",
+        artifact: r.auditFiles && r.auditFiles[0],
+      });
+    } catch {
+      /* best effort */
+    }
+  };
   const consume = (r: P.Receipt) => {
     const i = run.receipts.indexOf(r);
     if (i >= 0) run.receipts.splice(i, 1);
@@ -232,7 +249,7 @@ export function createGate(): GateEngine {
             const expected = P.EXPECTED_ENVELOPE_GATE[call.agent];
             if (call.envelope && call.gate && expected && call.gate !== expected) continue;
             const r = P.parseResult(output, gate, call.envelope);
-            addReceipt(r);
+            addReceipt(r, call.agent);
             if (r.valid) run.agentFailures[call.agent] = 0;
           }
           if (call.agent === "clerk") {
@@ -464,7 +481,7 @@ export function createGate(): GateEngine {
     );
   };
 
-  const onMessageEnd = (input: MessageEndInput): MessageEndResult | undefined => {
+  const legacyMessageEnd = (input: MessageEndInput): MessageEndResult | undefined => {
     try {
       const message = input.message;
       if (!message || message.role !== "assistant") return;
@@ -838,6 +855,454 @@ export function createGate(): GateEngine {
       const pendingNote = pendingVerifierNote();
       const banner = `⛔ WITHHELD (${codes.join(", ")})\n${scoutNote}${reviewScoutNote}${agentNote}${pendingNote}${fallbackNote}${note}${fix}\n`;
       return { message: P.replaceText(message, banner), notify: `learning-gate blocked: ${codes.join(", ")}` };
+    } catch {
+      return; // fail open
+    }
+  };
+
+  // ==========================================================================
+  // Judge-driven path (the redesign). Used only when a judge is configured; on
+  // any judge fault the engine falls back to `legacyMessageEnd`, which is also
+  // the path when no judge is present (byte-identical to the original gate).
+  // The judge only sees and writes text. Every action below is the engine's.
+  // ==========================================================================
+
+  const verdictOf = (r: P.Receipt): JudgeReceipt["verdict"] => {
+    if (r.issues) return "ISSUES";
+    if (!r.valid) return "UNVERIFIED";
+    return r.flags ? "PASS_WITH_FLAGS" : "PASS";
+  };
+
+  const boundTextOf = (r: P.Receipt): string | undefined => {
+    if (r.gate === "fact_check" || r.gate === "viz_audit") return r.renderedContent;
+    if (r.gate === "quiz_audit") return r.questionsText;
+    if (r.gate === "grade_audit") return r.gradeText;
+    if (r.auditFiles && r.auditFiles.length > 0) return r.auditFiles.join("\n");
+    return undefined;
+  };
+
+  const issuesOf = (r: P.Receipt): { severity?: string; location?: string; issue?: string; correction?: string }[] => {
+    const obj = P.parseVerdictObject(r.raw);
+    if (obj && Array.isArray(obj.issues)) {
+      return obj.issues
+        .filter((it: any) => it && typeof it === "object")
+        .map((it: any) => ({
+          severity: typeof it.severity === "string" ? it.severity.toLowerCase() : undefined,
+          location: typeof it.location === "string" ? it.location : undefined,
+          issue: typeof it.issue === "string" ? it.issue : undefined,
+          correction: typeof it.correction === "string" ? it.correction : undefined,
+        }));
+    }
+    if (r.gate === "grade_audit" && r.gradeItems) {
+      return r.gradeItems
+        .filter((it) => it.agrees === false)
+        .map((it) => ({ issue: `answer ${it.id ?? "?"}`, correction: it.correctVerdict }));
+    }
+    return [];
+  };
+
+  const evidenceOf = (r: P.Receipt): string[] | undefined => {
+    const obj = P.parseVerdictObject(r.raw);
+    const ev = obj?.evidence;
+    if (Array.isArray(ev)) return ev.filter((x: any) => typeof x === "string");
+    if (typeof ev === "string" && ev.trim().length > 0) return [ev];
+    return undefined;
+  };
+
+  const buildTurnPackage = (text: string, explicitTag: string | undefined, hasVizFence: boolean): TurnPackage => {
+    const receipts: JudgeReceipt[] = run.receipts.map((r, index) => ({
+      index,
+      gate: r.gate,
+      verdict: verdictOf(r),
+      boundText: boundTextOf(r),
+      issues: issuesOf(r),
+      severityMax: r.severity,
+      evidence: evidenceOf(r),
+      hasEnvelope: r.hasEnvelope,
+      vizSpec: r.vizSpec,
+      auditFiles: r.auditFiles,
+      outOfScopeOnly: r.gate === "review" && !!r.flags && !r.issues,
+      raw: r.raw,
+    }));
+    prunePendingAsync();
+    const pendingDrafts: string[] = [];
+    for (const { calls } of pendingAsync.values()) {
+      for (const c of calls) {
+        if (c.agent !== "fact-check" && c.agent !== "viz-audit") continue;
+        const rc = c.envelope && typeof c.envelope.rendered_content === "string" ? c.envelope.rendered_content : undefined;
+        if (rc) pendingDrafts.push(rc);
+      }
+    }
+    return {
+      flow: run.flow,
+      explicitTag: explicitTag as TurnPackage["explicitTag"],
+      text,
+      hasVizFence,
+      receipts,
+      pendingDrafts,
+      hasIngestSummaryHint: P.looksLikeIngestSummary(text),
+      hasReviewSummaryHint: P.looksLikeReviewSummary(text),
+      tutorWrote: run.tutorWrote,
+      reviewSessionWrote: run.reviewSessionWrote,
+      scoutCalled: run.scoutCalled,
+      reviewScoutCalled: run.reviewScoutCalled,
+      writtenPaths: run.writtenPaths,
+    };
+  };
+
+  const applyAssessment = async (
+    message: any,
+    text: string,
+    explicitTag: string | undefined,
+    vizzes: string[],
+    hasVizFence: boolean,
+    assessment: TurnAssessment
+  ): Promise<MessageEndResult | undefined> => {
+    const R = run.receipts;
+    const blocks: string[] = [];
+    let surface = "";
+    let verdictNote = "";
+    let scoutNeeded = false;
+    let reviewScoutNeeded = false;
+    const toConsume: P.Receipt[] = [];
+    const turnType = (explicitTag || assessment.turnType) as string;
+    const summaryKind = assessment.summaryKind;
+
+    const bindingFor = (gate: string): number => {
+      for (const b of assessment.bindings) {
+        if (R[b.index]?.gate === gate && b.covers) return b.index;
+      }
+      return -1;
+    };
+    const bindingVerdictFor = (gate: string) => assessment.bindings.find((b) => R[b.index]?.gate === gate);
+    const substantive = (idx: number) => (idx >= 0 ? assessment.substantiveness[idx] ?? "none" : "none");
+
+    if (run.flow === "ingest" && run.clerkCalled && (summaryKind === "ingest" || P.looksLikeIngestSummary(text))) {
+      const reviews = R.filter((r) => r.gate === "review" && P.receiptAuditsArtifacts(r));
+      const any = reviews.find((r) => r.provenance === "dispatch") || reviews[0];
+      if (any && any.valid) {
+        toConsume.push(any);
+        if (any.flags || any.issues) {
+          surface += "⚠️ REVIEW FLAGS SURFACED — the reviewer returned flags on the ingest output; the content below is shown with those flags outstanding.\n\n";
+        }
+        if (any.provenance === "clerk") {
+          surface += "⚠️ INGEST GATE — the review verdict was relayed by the Clerk, not produced by an independent review-gate run. Dispatch a `review-gate` on the Clerk's wiki writes to verify it independently.\n\n";
+        }
+        if (any.evidenceMissing) {
+          surface += "⚠️ REVIEW GATE — the review verdict carries no `evidence` list (what it read/checked); treat the pass as unsubstantiated.\n\n";
+        }
+      } else if (any) {
+        toConsume.push(any);
+        surface += "⚠️ REVIEW FLAGS SURFACED — high/medium review issues were reported on the ingest output; the content below is shown with those flags outstanding.\n\n";
+      } else {
+        blocks.push("NO_REVIEW_GATE_PASS");
+      }
+    } else if (turnType === "claims") {
+      if (run.flow === "teach" && !run.scoutCalled) scoutNeeded = true;
+      if (run.flow === "teach" && run.scoutCalled) {
+        if (run.scoutReceiptSeen && run.scoutFailedRefs.length > 0) {
+          surface += `⚠️ SOURCES INCOMPLETE — Scout could not fetch ${run.scoutFailedRefs.length} source(s); teaching proceeds around the gaps.\n\n`;
+          run.scoutFailedRefs = [];
+        } else if (run.scoutFinished && !run.scoutReceiptSeen) {
+          surface += `⚠️ SCOUT DIGEST UNVERIFIED — Scout finished without a parseable \`SCOUT_DIGEST:\` receipt; teaching from whatever context it produced.\n\n`;
+          run.scoutFinished = false;
+        }
+      }
+      const idx = bindingFor("fact_check");
+      const usable = idx >= 0 && R[idx].valid && substantive(idx) !== "none";
+      if (usable) {
+        toConsume.push(R[idx]);
+      } else if (idx >= 0 && R[idx].valid && substantive(idx) === "none") {
+        blocks.push("FACT_CHECK_UNSUBSTANTIATED");
+        verdictNote = "The fact-check returned PASS without checking the draft (no evidence). Re-dispatch it with the full draft.";
+      } else {
+        const anyIssues = R.some((r) => r.gate === "fact_check" && r.issues);
+        const anyUnverified = R.some((r) => r.gate === "fact_check" && !r.valid && !r.issues && /UNVERIFIED/i.test(r.raw));
+        const validNoDraft = R.find((r) => r.gate === "fact_check" && r.valid && !r.renderedContent);
+        const validDraft = R.find((r) => r.gate === "fact_check" && r.valid && r.renderedContent);
+        if (anyIssues) blocks.push("FACT_CHECK_ISSUES");
+        else if (anyUnverified) blocks.push("FACT_CHECK_UNVERIFIED");
+        else if (validNoDraft) {
+          blocks.push("FACT_CHECK_MISSING_DRAFT");
+          verdictNote = "The fact-check passed but its envelope had no `rendered_content`. Re-send the full draft in `rendered_content`, then emit that text unchanged.";
+        } else if (validDraft) {
+          const bv = bindingVerdictFor("fact_check");
+          const uncovered = bv?.uncovered ?? [];
+          blocks.push("FACT_CHECK_MISMATCH");
+          verdictNote = uncovered.length
+            ? `These spans were not verified: ${uncovered.slice(0, 4).map((s) => JSON.stringify(s)).join(", ")}. Put the full draft in the fact-check envelope, or remove the spans.`
+            : "The fact-check does not cover the full emitted text. Verify the full draft, or emit only verified text.";
+        } else blocks.push("NO_FACT_CHECK_MATCH");
+      }
+    } else if (turnType === "quiz") {
+      const idx = bindingFor("quiz_audit");
+      if (idx >= 0 && R[idx].valid && substantive(idx) !== "none") toConsume.push(R[idx]);
+      else {
+        const anyBound = R.some((r) => r.gate === "quiz_audit" && r.valid);
+        const issuesReceipt = R.some((r) => r.gate === "quiz_audit" && r.issues);
+        blocks.push(anyBound ? "QUIZ_AUDIT_STALE" : issuesReceipt ? "QUIZ_AUDIT_ISSUES" : "NO_QUIZ_AUDIT_PASS");
+      }
+    } else if (turnType === "grade") {
+      const idx = bindingFor("grade_audit");
+      if (idx >= 0 && R[idx].valid) toConsume.push(R[idx]);
+      else {
+        const bad = R.find((r) => r.gate === "grade_audit" && r.agrees === false);
+        if (bad) {
+          blocks.push("GRADE_MISMATCH");
+          const corrections = (bad.gradeItems || []).filter((it) => it.agrees === false && it.correctVerdict);
+          if (corrections.length > 0) {
+            const listed = corrections.map((it) => `#${it.id ?? "?"} → ${it.correctVerdict}`).join("; ");
+            verdictNote = `The verifier corrected ${corrections.length} answer(s): ${listed}. Re-dispatch the corrected batch once, then present those verdicts.`;
+          } else if (bad.correctVerdict) {
+            verdictNote = `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.`;
+          }
+        } else if (R.some((r) => r.gate === "grade_audit" && r.valid)) blocks.push("GRADE_AUDIT_STALE");
+        else blocks.push("NO_GRADE_AUDIT_PASS");
+      }
+    } else if (turnType === "viz") {
+      const parseable = vizzes.some((raw) => {
+        try {
+          JSON.parse(raw);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      if (!hasVizFence || !parseable) {
+        blocks.push("VIZ_SPEC_INVALID");
+        verdictNote = "A [[TURN:viz]] message must contain one ```viz fenced JSON spec. Re-emit the exact spec the verifier audited.";
+      } else {
+        const idx = bindingFor("viz_audit");
+        if (idx >= 0 && R[idx].valid && substantive(idx) !== "none") toConsume.push(R[idx]);
+        else {
+          const anyValid = R.some((r) => r.gate === "viz_audit" && r.valid);
+          const issuesReceipt = R.some((r) => r.gate === "viz_audit" && r.issues);
+          blocks.push(anyValid ? "VIZ_AUDIT_STALE" : issuesReceipt ? "VIZ_AUDIT_ISSUES" : "NO_VIZ_AUDIT");
+        }
+      }
+    } else {
+      const match = bindingFor("fact_check");
+      const vizMatch = bindingFor("viz_audit");
+      if (match >= 0 || vizMatch >= 0) blocks.push("TURN_TAG_MISMATCH");
+      else if (pkgHasPendingDraftMatch(text)) blocks.push("FACT_CHECK_PENDING");
+    }
+
+    // Review-context gate (deterministic flags).
+    if (run.flow === "review" && (turnType === "claims" || turnType === "quiz")) {
+      if (!run.reviewScoutCalled) reviewScoutNeeded = true;
+      else if (run.reviewScoutReceiptSeen && run.reviewScoutFailedRefs.length > 0) {
+        surface += `⚠️ REVIEW CONTEXT INCOMPLETE — review-scout could not read ${run.reviewScoutFailedRefs.length} item(s); the review proceeds around the gaps.\n\n`;
+        run.reviewScoutFailedRefs = [];
+      } else if (run.reviewScoutFinished && !run.reviewScoutReceiptSeen) {
+        surface += `⚠️ REVIEW SCOUT DIGEST UNVERIFIED — review-scout finished without a parseable \`REVIEW_SCOUT_DIGEST:\` receipt; reviewing from whatever context it produced.\n\n`;
+        run.reviewScoutFinished = false;
+      }
+    }
+
+    const reviewSummaryish = summaryKind === "review" || P.looksLikeReviewSummary(text);
+    const reviewSessionGateApplies =
+      run.reviewSessionWrote && run.flow === "review" && turnType !== "quiz" && turnType !== "grade" && turnType !== "viz" && reviewSummaryish;
+    if (reviewSessionGateApplies) {
+      const audit = R.find((r) => r.gate === "review_session" && P.receiptAuditsArtifacts(r));
+      if (audit) {
+        toConsume.push(audit);
+        run.reviewSessionWrote = false;
+        run.reviewSessionPaths = [];
+        if (audit.issues) {
+          surface += "⚠️ REVIEW FLAGS SURFACED — the end-of-review audit returned flags on the session writes. Fix them next session; do not re-run the audit (hard cap 2 cycles).\n\n";
+        }
+        if (audit.evidenceMissing) {
+          surface += "⚠️ REVIEW SESSION GATE — the audit verdict carries no `evidence` list; treat the pass as unsubstantiated.\n\n";
+        }
+      } else {
+        blocks.push("NO_REVIEW_SESSION_AUDIT");
+      }
+    }
+
+    const tutorGateApplies =
+      run.tutorWrote && (run.flow === "teach" || run.flow === "resume") && turnType !== "quiz" && turnType !== "grade" && turnType !== "viz";
+    if (tutorGateApplies) {
+      const candidates = R.filter((r) => {
+        if (r.gate !== "tutor_audit" || !r.valid) return false;
+        if (!P.receiptAuditsArtifacts(r)) return false;
+        if (!r.auditFiles || r.auditFiles.length === 0) return true;
+        if (run.writtenPaths.length === 0) return true;
+        return r.auditFiles.some((f) => run.writtenPaths.includes(P.normPath(f)));
+      });
+      const audit = candidates[0];
+      if (audit) {
+        toConsume.push(audit);
+        run.tutorWrote = false;
+        run.writtenPaths = [];
+      } else {
+        blocks.push(R.some((r) => r.gate === "tutor_audit" && !r.valid) ? "TUTOR_AUDIT_ISSUES" : "NO_TUTOR_AUDIT");
+      }
+    }
+
+    if (run.stateAudit && (run.stateAudit.errors > 0 || run.stateAudit.warnings > 0) && (run.flow === "ingest" || run.flow === "review")) {
+      surface += `⚠️ STATE AUDIT — ${run.stateAudit.errors} error(s), ${run.stateAudit.warnings} warning(s). Run /audit for details.\n\n`;
+      run.stateAudit = undefined;
+    }
+
+    const codes = [...blocks];
+    if (scoutNeeded) codes.push("NO_SCOUT_CONTEXT");
+    if (reviewScoutNeeded) codes.push("NO_REVIEW_CONTEXT");
+
+    if (blocks.length === 0 && !scoutNeeded && !reviewScoutNeeded) {
+      for (const r of toConsume) consume(r);
+      run.retries = 0;
+      run.agentlessDispatch = false;
+      run.issueBlocks = {};
+      let out = P.stripTag(message);
+      if (surface) out = P.prependBanner(out, surface);
+      ledger.decision({
+        at: new Date().toISOString(),
+        flow: run.flow,
+        turnType: turnType as any,
+        outcome: "pass",
+        codes: [],
+        source: assessment.source,
+        escalated: assessment.escalated,
+        reason: assessment.reason,
+      });
+      return { message: out };
+    }
+
+    // Dispute safeguard: the same concrete issue blocking three times can be
+    // adjudicated by the judge. The judge only answers; the engine releases.
+    // Only receipts with a parseable issue text participate — an empty issue
+    // would otherwise accumulate a bogus fingerprint and release on nothing.
+    const issueIdx = R.findIndex((r) => r.issues && issuesOf(r).length > 0);
+    if (issueIdx >= 0) {
+      const ip = issuesOf(R[issueIdx]);
+      const fp = `${R[issueIdx].gate}|${ip.map((i) => `${i.issue || ""}@${i.location || ""}`).join(";").slice(0, 200)}`;
+      run.issueBlocks[fp] = (run.issueBlocks[fp] || 0) + 1;
+      if (run.issueBlocks[fp] >= 3) {
+        try {
+          const dispute = await judge!.assessDispute({
+            text,
+            issue: ip[0] || { issue: "unspecified" },
+            verifierEvidence: evidenceOf(R[issueIdx]),
+            changes: ["(unchanged)"],
+          });
+          if (!dispute.applies) {
+            run.issueBlocks[fp] = 0;
+            let out = P.stripTag(message);
+            out = P.prependBanner(
+              out,
+              `⚠️ VERIFIER DISPUTED — the audit flagged an issue the judge found does not apply to this draft. ${dispute.reason}\n\n`
+            );
+            ledger.decision({
+              at: new Date().toISOString(),
+              flow: run.flow,
+              turnType: turnType as any,
+              outcome: "dispute-release",
+              codes,
+              source: "model",
+              reason: dispute.reason,
+            });
+            return { message: out };
+          }
+        } catch {
+          /* judge unavailable: keep blocking */
+        }
+      }
+    }
+
+    run.retries += 1;
+    const remainingHighMedium = R.some((r) => r.issues && P.isHighOrMedium(r.severity));
+
+    const fallbackLines: string[] = [];
+    for (const [agent, count] of Object.entries(run.agentFailures)) {
+      if (count >= P.FALLBACK_AFTER_FAILURES && !run.agentFallbackUsed[agent]) {
+        const isScout = agent === "scout" || agent === "review-scout";
+        const fb = isScout ? P.SCOUT_FALLBACK_MODEL : P.VERIFIER_AGENTS[agent] ? P.VERIFIER_FALLBACK_MODEL : undefined;
+        if (fb) {
+          fallbackLines.push(`\`${agent}\` failed ${count}× in a row — re-dispatch it once with \`model: "${fb}"\` before giving up.`);
+          run.agentFallbackUsed[agent] = true;
+        }
+      }
+    }
+    const fallbackNote = fallbackLines.length ? fallbackLines.join("\n") + "\n" : "";
+    const note = verdictNote ? verdictNote + "\n" : "";
+    const remedy = assessment.remedy && assessment.remedy.trim().length > 0 ? assessment.remedy.trim() + "\n" : "";
+    const pendingNote = pendingVerifierNote();
+    const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";
+    const reviewScoutNote = reviewScoutNeeded ? "Run the `review-scout` subagent first to build the due queue.\n" : "";
+
+    // No-cap rule: while a high/medium issue remains, keep blocking and never
+    // dump the content as UNVERIFIED. The cap applies to every other reason.
+    if (run.retries > P.MAX_RETRIES && !remainingHighMedium) {
+      run.retries = 0;
+      const banner = `⛔ UNVERIFIED — gate retries exhausted (${codes.join(", ")}). The content below was not verified.\n${fallbackNote}\n`;
+      ledger.decision({ at: new Date().toISOString(), flow: run.flow, turnType: turnType as any, outcome: "unverified", codes, source: assessment.source,
+        escalated: assessment.escalated, reason: assessment.reason });
+      return { message: P.prependBanner(P.replaceText(message, text), banner) };
+    }
+
+    const banner =
+      `⛔ WITHHELD (${codes.join(", ")})\n${scoutNote}${reviewScoutNote}${pendingNote}${fallbackNote}${remedy}${note}\n`;
+    ledger.decision({
+      at: new Date().toISOString(),
+      flow: run.flow,
+      turnType: turnType as any,
+      outcome: "block",
+      codes,
+      source: assessment.source,
+        escalated: assessment.escalated,
+      reason: assessment.reason,
+      remedy: remedy.trim() || undefined,
+    });
+    return { message: P.replaceText(message, banner), notify: `learning-gate blocked: ${codes.join(", ")}` };
+  };
+
+  /** Deterministic evasion guard for an in-flight draft (model path). */
+  const pkgHasPendingDraftMatch = (text: string): boolean => {
+    prunePendingAsync();
+    for (const { calls } of pendingAsync.values()) {
+      for (const c of calls) {
+        if (c.agent !== "fact-check" && c.agent !== "viz-audit") continue;
+        const rc = c.envelope && typeof c.envelope.rendered_content === "string" ? c.envelope.rendered_content : undefined;
+        if (rc && P.contentMatches(rc, text)) return true;
+      }
+    }
+    return false;
+  };
+
+  const onMessageEnd = async (input: MessageEndInput): Promise<MessageEndResult | undefined> => {
+    if (!judge) return legacyMessageEnd(input);
+    try {
+      const message = input?.message;
+      if (!message || message.role !== "assistant") return;
+      if (P.hasToolCall(message)) return;
+      if (run.flow === "other") return;
+      if (message.stopReason === "error" || message.stopReason === "aborted" || message.stopReason === "length") {
+        return { message: P.stripTag(message) };
+      }
+      const rawText = P.textOf(message);
+      if (!rawText || rawText.trim().length === 0) return;
+      const tagMatch = rawText.match(P.TURN_TAG_RE);
+      const text = (tagMatch ? rawText.replace(P.TURN_TAG_RE, "") : rawText).trim();
+      const explicitTag = tagMatch ? tagMatch[1].toLowerCase() : undefined;
+      const vizzes = P.extractVizFences(text);
+      const hasVizFence = vizzes.length > 0;
+      const pkg = buildTurnPackage(text, explicitTag, hasVizFence);
+      let assessment: TurnAssessment;
+      try {
+        assessment = await judge.assessTurn(pkg);
+      } catch (err) {
+        ledger.decision({
+          at: new Date().toISOString(),
+          flow: run.flow,
+          turnType: (explicitTag as any) || "none",
+          outcome: "pass",
+          codes: ["JUDGE_DEGRADED"],
+          source: "heuristic",
+          reason: `judge unavailable: ${err instanceof Error ? err.message : String(err)}`,
+        });
+        return legacyMessageEnd(input);
+      }
+      return await applyAssessment(message, text, explicitTag, vizzes, hasVizFence, assessment);
     } catch {
       return; // fail open
     }

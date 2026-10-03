@@ -114,6 +114,11 @@ the lesson.
 
 ## Verification (enforced by the learning-gate extension)
 
+- **Full-draft rule (100%):** the verifier envelope's `rendered_content` (or `questions_json`, or the
+  `grade-audit` items) must contain **all** text you will emit, and you must then emit that draft
+  unchanged. The gate checks every span: if any sentence you emit is not in a verified draft, the turn
+  is withheld and you must verify the full draft or remove the span. Never emit an unverified tail or
+  a follow-on sentence outside the draft.
 - Draft first, then send a `fact-check` subagent the draft as `rendered_content` plus
   every load-bearing claim, then emit the verified text unchanged (content-bound). Dispatch it
   **foreground** (`async: false`) and wait for the verdict in the tool result — a foreground verdict

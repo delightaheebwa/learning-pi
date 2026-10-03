@@ -2,9 +2,10 @@
  * pi-adapter — the ONLY version-aware file of the learning gate.
  *
  * It translates pi and pi-subagents wire shapes into the normalized inputs the
- * pure engine (../gate-core/engine.ts) consumes. When pi renames an event, a
- * field, or changes how a subagent result is reported, this file is the only
- * one that should need to change. Everything else is version-agnostic.
+ * pure engine (../gate-core/engine.ts) consumes, and it builds the model judge
+ * and the on-disk ledger from the live pi context. When no judge model is
+ * configured (or authentication is missing) the engine runs its legacy
+ * deterministic path unchanged.
  *
  * Sources of coupled knowledge:
  *   - the pi ExtensionAPI and its event names
@@ -12,10 +13,22 @@
  *   - pi-subagents' `subagent` tool input shapes (single / chain / workflow)
  *   - pi-subagents' `tool_result.details.results` shape (agent/finalOutput/task)
  *   - pi-subagents' async completion notification text and run-id URLs
+ *   - ctx.modelRegistry (the judge model) and the agent dir (the ledger)
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createGate, type BlockResult, type MessageEndResult } from "../gate-core/engine.ts";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { createGate, type BlockResult, type GateEngine, type MessageEndResult } from "../gate-core/engine.ts";
 import { parseTask, type CallRef } from "../gate-core/primitives.ts";
+import {
+  createModelJudge,
+  createRouterJudge,
+  type CompleteFn,
+  type Judge,
+} from "../gate-core/judge/index.ts";
+import { createLedger, type AppendFn } from "../gate-core/ledger.ts";
+import type { Ledger } from "../gate-core/judge/types.ts";
 
 /** Source inside the balanced `(`…`)` pair whose opening paren sits at `openIdx`. */
 function sliceBalanced(text: string, openIdx: number): string | undefined {
@@ -121,8 +134,6 @@ export function resultCalls(event: any, text: string, pending: CallRef[]): CallR
       if (!r || typeof r.agent !== "string") continue;
       const finalOutput = typeof r.finalOutput === "string" ? r.finalOutput : undefined;
       if (!finalOutput) continue; // async/pending child — the notify fallback mints it
-      // Consume the queued call for this agent even when `r.task` parsed, so the
-      // per-agent queues stay aligned across a multi-result fan-out.
       const queued = pendingByAgent.get(r.agent)?.shift();
       const env = parseTask(r.task) ?? queued?.envelope;
       out.push({
@@ -165,30 +176,153 @@ export function extractAsyncRunId(text: string): string | undefined {
 const NOTIFY_HEADER_RE = /(?:Background task|Detached foreground task) completed:\s*\*\*([\w-]+)\*\*/i;
 const NOTIFY_FAIL_RE = /(?:Background task|Detached foreground task) failed:\s*\*\*([\w-]+)\*\*/i;
 
+const DEFAULT_JUDGE_MODEL = "gemini/gemini-3.5-flash-lite";
+const DEFAULT_JUDGE_ESCALATION_MODEL = "gemini/gemini-3.5-flash";
+
+/** Text parts of a modelRegistry.complete response, tolerating shape drift. */
+function responseText(response: any): string {
+  if (typeof response === "string") return response;
+  const content = response?.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const parts = content
+      .map((c: any) => (c && typeof c.text === "string" ? c.text : typeof c === "string" ? c : ""))
+      .filter((s: string) => s.length > 0);
+    if (parts.length > 0) return parts.join("\n");
+  }
+  if (typeof response?.text === "string") return response.text;
+  return "";
+}
+
+/** Best-effort on-disk ledger under the pi agent dir. Returns NOOP on failure. */
+function makeFileLedger(): Ledger {
+  try {
+    const dir = process.env.LEARNING_GATE_LEDGER_DIR || join(homedir(), ".pi", "agent", "learning-gate");
+    mkdirSync(dir, { recursive: true });
+    const append: AppendFn = (stream, line) => {
+      try {
+        appendFileSync(join(dir, `${stream}.ndjson`), line);
+      } catch {
+        /* best effort */
+      }
+    };
+    return createLedger(append);
+  } catch {
+    return createLedger(() => {});
+  }
+}
+
+/** Split a "provider/model" id and resolve it against the live model registry. */
+function resolveModel(registry: any, configured: string): any | undefined {
+  if (!registry?.find) return undefined;
+  const slash = configured.indexOf("/");
+  const provider = slash > 0 ? configured.slice(0, slash) : "google";
+  const modelId = slash > 0 ? configured.slice(slash + 1) : configured;
+  const model = registry.find(provider, modelId);
+  if (!model) return undefined;
+  if (typeof registry.hasConfiguredAuth === "function" && !registry.hasConfiguredAuth(model)) return undefined;
+  return model;
+}
+
+/** A `complete` function that calls one resolved model through pi. */
+function makeComplete(registry: any, model: any): CompleteFn {
+  return async ({ system, user, maxTokens }) => {
+    const sessionId =
+      (globalThis as any).crypto?.randomUUID?.() ?? `gate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const response = await registry.complete(
+      model,
+      {
+        messages: [
+          {
+            role: "user",
+            content: [{ type: "text", text: `${system}\n\n${user}` }],
+            timestamp: Date.now(),
+          },
+        ],
+      },
+      { maxTokens: maxTokens ?? 4096, cacheRetention: "none", sessionId }
+    );
+    const text = responseText(response);
+    if (!text.trim()) {
+      throw new Error(`judge returned no text (raw=${JSON.stringify(response).slice(0, 900)})`);
+    }
+    return text;
+  };
+}
+
 export default function learningGate(pi: ExtensionAPI): void {
-  const engine = createGate();
+  let engine: GateEngine | undefined;
+  let judgeUnavailableNotified = false;
   // toolCallId -> child calls captured at dispatch. Needed to recover the
   // dispatch envelope when pi-subagents redacts `task` on the result.
   const pendingCalls = new Map<string, CallRef[]>();
 
-  pi.on("before_agent_start", async (event: any) => {
-    engine.onBeforeAgentStart(event?.prompt);
+  const buildJudge = (ctx: any): Judge | undefined => {
+    try {
+      const registry = ctx?.modelRegistry;
+      const primaryModel = resolveModel(registry, process.env.LEARNING_GATE_JUDGE_MODEL || DEFAULT_JUDGE_MODEL);
+      if (!primaryModel) return undefined;
+      const primary = createModelJudge(makeComplete(registry, primaryModel));
+
+      // Escalation model (hard cases + primary outage). Optional: if it is not
+      // configured, the router runs primary-only.
+      let escalate: Judge | undefined;
+      try {
+        const escModel = resolveModel(
+          registry,
+          process.env.LEARNING_GATE_JUDGE_ESCALATION_MODEL || DEFAULT_JUDGE_ESCALATION_MODEL
+        );
+        if (escModel) escalate = createModelJudge(makeComplete(registry, escModel));
+      } catch {
+        escalate = undefined;
+      }
+
+      const maxPerDay = Number(process.env.LEARNING_GATE_JUDGE_MAX_PER_DAY || 450);
+      const maxEscalations = Number(process.env.LEARNING_GATE_JUDGE_ESCALATION_MAX_PER_DAY || 20);
+      return createRouterJudge(primary, { maxCallsPerDay: maxPerDay, escalate, maxEscalationsPerDay: maxEscalations });
+    } catch {
+      return undefined;
+    }
+  };
+
+  const ensureEngine = (ctx: any): GateEngine => {
+    if (engine) return engine;
+    const judge = buildJudge(ctx);
+    engine = createGate({ judge, ledger: judge ? makeFileLedger() : undefined });
+    if (!judge && ctx?.hasUI && !judgeUnavailableNotified) {
+      judgeUnavailableNotified = true;
+      try {
+        ctx.ui?.notify?.(
+          "learning-gate: no judge model configured; running legacy deterministic checks.",
+          "info"
+        );
+      } catch {
+        /* ignore */
+      }
+    }
+    return engine;
+  };
+
+  pi.on("before_agent_start", async (event: any, ctx: any) => {
+    ensureEngine(ctx).onBeforeAgentStart(event?.prompt);
   });
 
-  pi.on("tool_call", async (event: any): Promise<BlockResult | undefined> => {
+  pi.on("tool_call", async (event: any, ctx: any): Promise<BlockResult | undefined> => {
+    const g = ensureEngine(ctx);
     const tool = typeof event?.toolName === "string" ? event.toolName : "";
     if (tool.toLowerCase() === "subagent") {
       const input = event?.input;
       const calls = subagentCalls(input);
       const agentless = !!(input && typeof input === "object" && ("task" in input || "prompt" in input));
-      const res = engine.onToolCall({ tool, input, calls, agentless, toolCallId: event?.toolCallId });
+      const res = g.onToolCall({ tool, input, calls, agentless, toolCallId: event?.toolCallId });
       if (!res?.block && event?.toolCallId) pendingCalls.set(event.toolCallId, calls);
       return res;
     }
-    return engine.onToolCall({ tool, input: event?.input, calls: [], agentless: false, toolCallId: event?.toolCallId });
+    return g.onToolCall({ tool, input: event?.input, calls: [], agentless: false, toolCallId: event?.toolCallId });
   });
 
-  pi.on("tool_result", async (event: any) => {
+  pi.on("tool_result", async (event: any, ctx: any) => {
+    const g = ensureEngine(ctx);
     const tool = typeof event?.toolName === "string" ? event.toolName : "";
     const text = resultText(event);
     let dispatchCalls: CallRef[] = [];
@@ -200,15 +334,16 @@ export default function learningGate(pi: ExtensionAPI): void {
       asyncId = typeof event?.details?.asyncId === "string" ? event.details.asyncId : undefined;
       mintCalls = resultCalls(event, text, dispatchCalls);
     }
-    engine.onToolResult({ tool, toolCallId: event?.toolCallId, isError: event?.isError === true, text, asyncId, dispatchCalls, mintCalls });
+    g.onToolResult({ tool, toolCallId: event?.toolCallId, isError: event?.isError === true, text, asyncId, dispatchCalls, mintCalls });
   });
 
   pi.on("message_end", async (event: any, ctx: any): Promise<MessageEndResult | undefined> => {
+    const g = ensureEngine(ctx);
     const message = event?.message;
     if (message?.role === "custom") {
       try {
         const text = resultText(message);
-        engine.onCustomMessage({
+        g.onCustomMessage({
           text,
           agent: text.match(NOTIFY_HEADER_RE)?.[1]?.toLowerCase(),
           failedAgent: text.match(NOTIFY_FAIL_RE)?.[1]?.toLowerCase(),
@@ -219,7 +354,7 @@ export default function learningGate(pi: ExtensionAPI): void {
       }
       return;
     }
-    const res = engine.onMessageEnd({ message });
+    const res = await g.onMessageEnd({ message });
     if (res?.notify) {
       try {
         ctx?.ui?.notify?.(res.notify, "warning");

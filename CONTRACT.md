@@ -52,7 +52,8 @@ its tagged test, change the implementation, all in one reviewed commit.
 - **G-async-notify-mints** *(hard)* — async completion notifications mint
   content-bound receipts from the dispatch envelope; failures clear pending.
 - **G-infer-claims-from-bound** *(hard)* — a dropped `claims` tag is recovered
-  only from a content-bound passing fact-check (≥85% coverage).
+  only from a content-bound passing fact-check (100% coverage with a judge, ≥85%
+  on the legacy path).
 - **G-infer-grade-quiz** *(hard)* — a dropped `grade`/`quiz` tag is inferred
   from a bound receipt or the single valid pending receipt; ambiguity withholds.
 - **G-claims-requires-factcheck** *(hard)* — claims render only with a
@@ -106,6 +107,41 @@ its tagged test, change the implementation, all in one reviewed commit.
 - **G-viz-infer-from-bound** *(hard)* — a dropped viz tag is recovered from a
   bound `viz-audit` receipt (canonical spec match + prose coverage).
 
+### The judge (model-based semantic decisions)
+
+The gate can run a **judge**: a model (Gemini `gemini-3.5-flash-lite`, with
+`gemini-3.5-flash` as an escalation) that answers the semantic questions the
+deterministic code cannot. The judge only **sees and writes text** — it runs no
+tool, writes no file, changes no state. The engine performs every action. When
+no judge is configured, or the judge faults, the gate runs the legacy
+deterministic path unchanged (G-judge-degraded-fallback).
+
+- **G-turn-type-inferred** *(hard)* — turn tags are hints; the judge reads the
+  turn type from the content. Verifier/notification channels are never gated.
+- **G-full-coverage-binding** *(hard)* — a turn renders only when 100% of the
+  emitted text is covered by the verifier's verified draft; any uncovered span
+  blocks, and the remedy names the span.
+- **G-pass-substantive** *(hard)* — a PASS the judge scores unsubstantiated
+  (thin/none, missing items, no evidence) does not verify the turn.
+- **G-issues-no-cap** *(hard)* — while a high/medium issue remains the gate
+  keeps blocking and never dumps the turn as `⛔ UNVERIFIED`; the cap applies to
+  every other reason.
+- **G-verifier-dispute** *(policy)* — the same issue blocking three times is
+  adjudicated by the judge (does it still apply?); if not, the engine releases
+  the turn with `⚠️ VERIFIER DISPUTED`. The judge only answers.
+- **G-receipt-source-is-verifier** *(hard)* — a receipt is the verifier's own
+  statement; the judge never authors or rewrites receipt fields.
+- **G-judge-degraded-fallback** *(policy)* — a judge fault falls back to the
+  legacy checks; a learning turn never dead-ends on a judge fault.
+- **G-judge-escalation** *(policy)* — a hard case (valid receipt not fully
+  covering, no best receipt, or thin substantiveness) escalates from
+  `gemini-3.5-flash-lite` to `gemini-3.5-flash`, budget-capped per day; a
+  primary outage escalates before falling back to the legacy path.
+
+The judge also writes the **ledger** (`~/.pi/agent/learning-gate/`: 
+`receipts.ndjson`, `decisions.ndjson`) — receipt provenance for the weekly
+audit and the accountability record for every decision.
+
 ### Launcher & update gate
 
 - **S-1** behavior lives here and in the tagged tests; it changes only through
@@ -147,4 +183,7 @@ and let `pi-adapter/` (or a new adapter file) absorb the wire format.
 Model-side drift — the server-side behavior of a model changing with no version
 bump — cannot be pinned. It is caught by the fail-loud design (withhold +
 banner, never corrupt state), the optional live smoke, and the weekly
-`audit_gates` pass over real sessions. See `README.md`.
+`audit_gates` pass over real sessions. See `README.md`. The judge adds a second
+model to this surface; it is bounded by the ledger, the legacy fallback, and the
+free-tier budget (the gate degrades to the deterministic path when the budget is
+spent).

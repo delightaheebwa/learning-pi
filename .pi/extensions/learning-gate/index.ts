@@ -10,8 +10,13 @@
  *   - Prompt templates carry a flow marker (`[[FLOW:teach|resume|review|ingest]]`).
  *   - Every assistant message in a learning flow must start with a turn tag
  *     `[[TURN:claims|quiz|grade|viz|none]]`. The gate strips the tag before the learner sees it.
- *   - claims -> a fact-check receipt whose `rendered_content` matches the emitted text
- *     (>=85% token coverage, with a length-ratio guard against unverified tails) with no ISSUES.
+ *   - claims -> a fact-check receipt whose `rendered_content` covers the emitted text
+ *     (the judge checks 100% span coverage; the legacy path approximates it with
+ *     >=85% token coverage and a length-ratio guard) with no ISSUES.
+ *   - When a judge model is configured (Gemini, see gate-core/judge/), it answers
+ *     the semantic questions: turn type, full coverage, PASS substance, remedy,
+ *     and a dispute. The judge only sees and writes text; the engine acts. On a
+ *     judge fault the gate runs this legacy deterministic path unchanged.
  *   - quiz  -> a quiz-audit receipt returning PASS, or PASS_WITH_FLAGS (lows only)
  *     which is accepted silently (flags are not surfaced to the learner).
  *   - grade -> a grade-audit receipt that agrees (a conflicting correct_verdict is surfaced).

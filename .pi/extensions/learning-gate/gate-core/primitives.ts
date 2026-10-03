@@ -85,7 +85,32 @@ export interface Receipt {
   provenance?: "dispatch" | "clerk";
   // Review-family verdicts must carry an `evidence` list (what was read/checked).
   evidenceMissing?: boolean;
+  // Highest issue severity the verifier reported (high/medium/low). Used by the
+  // retry-cap rule: while a high/medium issue remains, the gate keeps blocking
+  // and never dumps the turn as UNVERIFIED.
+  severity?: "high" | "medium" | "low";
   raw: string;
+}
+
+const SEVERITY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
+
+/** Highest severity among a verdict object's `issues[]`, or undefined. */
+export function maxSeverity(issues: any[]): "high" | "medium" | "low" | undefined {
+  let best: "high" | "medium" | "low" | undefined;
+  let rank = 0;
+  for (const it of issues) {
+    const s = typeof it?.severity === "string" ? it.severity.toLowerCase() : "";
+    const r = SEVERITY_RANK[s];
+    if (r && r > rank) {
+      rank = r;
+      best = s as "high" | "medium" | "low";
+    }
+  }
+  return best;
+}
+
+export function isHighOrMedium(severity: string | undefined): boolean {
+  return severity === "high" || severity === "medium";
 }
 
 export interface StateAudit {
@@ -135,6 +160,10 @@ export interface RunState {
   reviewSessionAudits: number;
   stateAudit?: StateAudit;
   agentlessDispatch: boolean;
+  // Same-issue repeat count per turn, keyed by a fingerprint of (gate + issue
+  // text). After three repeats the judge is asked whether the issue still
+  // applies (the dispute safeguard); the engine performs the release.
+  issueBlocks: Record<string, number>;
 }
 
 export interface CallRef {
@@ -170,6 +199,7 @@ export function newRun(flow: Flow): RunState {
     reviewSessionPaths: [],
     reviewSessionAudits: 0,
     agentlessDispatch: false,
+    issueBlocks: {},
   };
 }
 
@@ -716,7 +746,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
           correctVerdict: typeof it.correct_verdict === "string" ? it.correct_verdict.toLowerCase() : undefined,
           explanation: typeof it.explanation === "string" ? it.explanation : undefined,
         }));
-      if (gradeItems.length === 0) gradeItems = undefined;
+      if (gradeItems && gradeItems.length === 0) gradeItems = undefined;
     }
   }
   const r: Receipt = {
@@ -739,6 +769,10 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     hasEnvelope: !!envelope && typeof envelope === "object",
     provenance: "dispatch",
     evidenceMissing,
+    severity: (() => {
+      const vo = parseVerdictObject(text);
+      return vo && Array.isArray(vo.issues) ? maxSeverity(vo.issues) : undefined;
+    })(),
     raw: text,
   };
   // UNVERIFIED never counts as verified — it must block, not pass.
