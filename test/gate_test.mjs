@@ -339,6 +339,23 @@ await fgRedacted('rfc2', 'fact-check', FC_PASS);
 const redactedUntagged = await msg(vDraft, 'stop');
 assert('redacted foreground task binds a dropped-tag claims turn', allowed(redactedUntagged));
 
+// --- 2026-10-03: a double-encoded `task` must still bind its receipt ---
+// Some models pass the envelope as a JSON string literal (the task value
+// literally begins with a quote and carries escaped inner quotes), sometimes
+// leaving the object's final `}` outside the quotes. The gate must unwrap it so
+// the passing fact-check binds instead of dead-ending with
+// FACT_CHECK_MISSING_DRAFT.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('fact-check', JSON.stringify(fcEnvelope(vDraft)), 'rfc3');
+await fgRedacted('rfc3', 'fact-check', FC_PASS);
+const quotedTask = await msg(`[[TURN:claims]]\n${vDraft}`, 'stop');
+assert('double-encoded (quoted) task binds a tagged claims turn', allowed(quotedTask));
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('fact-check', JSON.stringify(fcEnvelope(vDraft)) + '}', 'rfc4');
+await fgRedacted('rfc4', 'fact-check', FC_PASS);
+const quotedTrailingBrace = await msg(`[[TURN:claims]]\n${vDraft}`, 'stop');
+assert('double-encoded task with a stray trailing brace binds', allowed(quotedTrailingBrace));
+
 // --- 2026-09-26: a receipt from a wrong-shape envelope must not bind ---
 // A quiz-audit sent with `items[]` (no `questions_json`) mints a valid receipt
 // with no bound text. It must NOT authorize an unrelated quiz turn (the empty

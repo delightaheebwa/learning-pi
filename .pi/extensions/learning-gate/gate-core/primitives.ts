@@ -287,42 +287,82 @@ export function detectFlow(prompt: any): Flow {
   return "other";
 }
 
+/**
+ * Decode a JSON string literal whose value is itself JSON text, tolerating a
+ * non-string suffix after the closing quote (a model occasionally leaves the
+ * envelope's final `}` outside the quotes). Returns the decoded inner string,
+ * or undefined when `s` is not a JSON string literal.
+ */
+function unwrapJsonStringLiteral(s: string): string | undefined {
+  if (s[0] !== '"') return undefined;
+  let esc = false;
+  for (let i = 1; i < s.length; i++) {
+    const ch = s[i];
+    if (esc) esc = false;
+    else if (ch === "\\") esc = true;
+    else if (ch === '"') {
+      try {
+        const v = JSON.parse(s.slice(0, i + 1));
+        return typeof v === "string" ? v : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+  }
+  return undefined;
+}
+
 /** Try parsing a JSON envelope out of freeform task text (prose + JSON). */
 export function parseTask(task: any): any | undefined {
   if (task && typeof task === "object") return task;
   if (typeof task !== "string") return undefined;
   const trimmed = task.trim();
   try {
-    return JSON.parse(trimmed);
-  } catch {
-    // Walk candidate `{` positions from last to first; the envelope is
-    // usually the trailing JSON block, not the first brace in prose.
-    const starts: number[] = [];
-    for (let i = 0; i < trimmed.length; i++) if (trimmed[i] === "{") starts.push(i);
-    for (let s = starts.length - 1; s >= 0; s--) {
-      const candidate = trimmed
-        .slice(starts[s])
-        .replace(/```+\s*$/g, "")
-        .trim();
-      // Try progressively shorter tails (handles trailing prose after JSON).
-      for (let end = candidate.length; end > 0; end--) {
-        const ch = candidate[end - 1];
-        if (ch !== "}" && ch !== "]") {
-          continue;
-        }
-        const slice = candidate.slice(0, end);
-        try {
-          const parsed = JSON.parse(slice);
-          if (parsed && typeof parsed === "object") return parsed;
-        } catch {
-          // keep shrinking
-        }
-        // Only try plausible JSON ends to bound cost.
-        if (end < candidate.length - 2000) break;
-      }
+    const v = JSON.parse(trimmed);
+    if (v && typeof v === "object") return v;
+    // A JSON string literal whose value is the envelope: some models
+    // double-encode the dispatch (the `task` argument literally begins with a
+    // quote and carries escaped inner quotes). Unwrap and retry so the
+    // receipt still binds its `rendered_content` / `questions_json` instead of
+    // dead-ending with FACT_CHECK_MISSING_DRAFT (2026-10-03 session).
+    if (typeof v === "string") {
+      const inner = parseTask(v);
+      if (inner) return inner;
     }
-    return undefined;
+  } catch {
+    const unwrapped = unwrapJsonStringLiteral(trimmed);
+    if (typeof unwrapped === "string") {
+      const inner = parseTask(unwrapped);
+      if (inner) return inner;
+    }
   }
+  // Walk candidate `{` positions from last to first; the envelope is
+  // usually the trailing JSON block, not the first brace in prose.
+  const starts: number[] = [];
+  for (let i = 0; i < trimmed.length; i++) if (trimmed[i] === "{") starts.push(i);
+  for (let s = starts.length - 1; s >= 0; s--) {
+    const candidate = trimmed
+      .slice(starts[s])
+      .replace(/```+\s*$/g, "")
+      .trim();
+    // Try progressively shorter tails (handles trailing prose after JSON).
+    for (let end = candidate.length; end > 0; end--) {
+      const ch = candidate[end - 1];
+      if (ch !== "}" && ch !== "]") {
+        continue;
+      }
+      const slice = candidate.slice(0, end);
+      try {
+        const parsed = JSON.parse(slice);
+        if (parsed && typeof parsed === "object") return parsed;
+      } catch {
+        // keep shrinking
+      }
+      // Only try plausible JSON ends to bound cost.
+      if (end < candidate.length - 2000) break;
+    }
+  }
+  return undefined;
 }
 
 export function tokens(s: string): string[] {
