@@ -27,7 +27,7 @@ Teaching verification runs as **foreground** subagent tasks with **envelope sche
 > | Your turn does… | Dispatch (ONE foreground subagent each) |
 > | --- | --- |
 > | Teach claims (definitions, formulas, mechanisms, code assertions) | `fact-check` with `claims[] + rendered_content` = this turn's draft |
-> | Ask assessment questions (probe, checkpoint practice, end-of-lesson quiz) | `quiz-audit` with `questions_json` = this turn's exact batch |
+> | Ask assessment questions (probe, checkpoint practice, end-of-lesson quiz) | `quiz-audit` with `questions_json` = this turn's items AND `rendered_content` = the exact full batch text |
 > | Elicit before a mini-checkpoint's idea (prediction / "what do you think?", **ungraded**) | `quiz-audit` with free-recall prompt(s), `purpose: "probe"` — never assigned a pass/fail, never `ops.py attempt`-logged |
 > | Socratic guiding question or hint (a nudge/step toward the idea, not a graded item) | `fact-check` with `claims[] + rendered_content` = the question/hint draft |
 > | Grade learner answers (pass/fail) | `grade-audit` — **only** `grade-audit`; batch every answer from one learner reply into ONE `items[]` envelope |
@@ -71,12 +71,15 @@ Generation-to-emission (not plan-to-generation): draft the step internally first
 {
   "gate": "quiz_audit",
   "questions_json": [{"id":"q1","type":"mcq|free_recall","question":"...","options":[...],"correct_index":0,"target_bloom":"Apply"}],
+  "rendered_content": "the exact full batch text the learner will see (intro/instructions + every question + its options)",
   "purpose": "probe | end-of-lesson quiz",
   "concept": "Concept",
   "bloom_levels": ["Remember","Apply"],
   "source_excerpt": "text items are drawn from"
 }
 ```
+
+`questions_json` is the structured item list the auditor checks; `rendered_content` is the **verbatim full batch** the gate binds the receipt to. The gate requires 100% of the emitted quiz text — including the intro/instructions and every option — so send the complete batch in `rendered_content` and then emit that text unchanged, or the turn is withheld as `QUIZ_AUDIT_STALE`.
 
 The subagent returns `{"issues":[...],"verdict":"PASS|PASS_WITH_FLAGS|ISSUES"}`. Mechanical pre-checks (done BEFORE dispatch): each MCQ has 4 options; `correct_index` in range; correct positions not all in one slot.
 

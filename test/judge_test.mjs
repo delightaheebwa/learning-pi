@@ -197,3 +197,62 @@ const mintFC = (engine, output = FC_PASS) =>
   for (let i = 0; i < 4; i++) await engine.onMessageEnd({ message: msg('The definition of X is the thing.') });
   assert('issue with no concrete text never triggers a dispute', disputeCalls === 0);
 }
+
+// --- S9: a quiz receipt binds on the full batch `rendered_content` ---
+// The judge enforces 100% coverage of the emitted turn; a questions-only
+// envelope strands every quiz as QUIZ_AUDIT_STALE. The full batch must reach
+// the judge as boundText.
+{
+  const batch = 'Review — 1 due item. Reply with the letter.\n1. What is entropy? A) surprise B) certainty';
+  const env = {
+    gate: 'quiz_audit',
+    rendered_content: batch,
+    questions_json: [{ id: 1, type: 'mcq', question: 'What is entropy?', options: ['A) surprise', 'B) certainty'] }],
+  };
+  const j = stubJudge({
+    evaluate: (pkg) => ({
+      turnType: 'quiz',
+      bindings: pkg.receipts.map((r) => ({ index: r.index, covers: true, uncovered: [] })),
+      bestReceipt: 0,
+    }),
+  });
+  const engine = createGate({ judge: j.judge });
+  drive(engine);
+  engine.onToolResult({
+    tool: 'subagent',
+    isError: false,
+    text: JSON.stringify({ verdict: 'PASS', issues: [] }),
+    dispatchCalls: [],
+    mintCalls: [{ agent: 'quiz-audit', envelope: env, output: JSON.stringify({ verdict: 'PASS', issues: [] }) }],
+  });
+  const res = await engine.onMessageEnd({ message: msg('[[TURN:quiz]]\n' + batch) });
+  assert('quiz turn with full rendered_content binds', allowed(res));
+  assert('judge package carries the full quiz batch as boundText', j.getPkg().receipts[0].boundText === batch);
+}
+
+// --- S10: without rendered_content the derived bound text still includes options ---
+{
+  const env = {
+    gate: 'quiz_audit',
+    questions_json: [{ id: 1, type: 'mcq', question: 'What is entropy?', options: ['A) surprise', 'B) certainty'] }],
+  };
+  const j = stubJudge({
+    evaluate: (pkg) => ({
+      turnType: 'quiz',
+      bindings: pkg.receipts.map((r) => ({ index: r.index, covers: true, uncovered: [] })),
+      bestReceipt: 0,
+    }),
+  });
+  const engine = createGate({ judge: j.judge });
+  drive(engine);
+  engine.onToolResult({
+    tool: 'subagent',
+    isError: false,
+    text: JSON.stringify({ verdict: 'PASS', issues: [] }),
+    dispatchCalls: [],
+    mintCalls: [{ agent: 'quiz-audit', envelope: env, output: JSON.stringify({ verdict: 'PASS', issues: [] }) }],
+  });
+  await engine.onMessageEnd({ message: msg('[[TURN:quiz]]\nWhat is entropy? A) surprise B) certainty') });
+  const pkg = j.getPkg();
+  assert('derived quiz boundText includes the options', pkg.receipts[0].boundText.includes('A) surprise'));
+}

@@ -829,7 +829,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const fix = [
         "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, `[[TURN:viz]]`, or `[[TURN:none]]`.",
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged. A `[[TURN:claims]]` tag is also inferred automatically when your text matches an already-verified `rendered_content`, so if a message is withheld here, just re-emit the verified draft with its tag.",
-        "quiz: send the exact batch as `questions_json` (not `items[]`) so the receipt binds; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
+        "quiz: send the exact batch as `questions_json` (not `items[]`) AND the full learner-facing batch text as `rendered_content` (intro/instructions + every question + its options) so the receipt covers the whole emitted turn; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
         "grade: when one learner reply answers several questions, send ONE `grade-audit` envelope with an `items[]` entry per answer (`{id,concept,question,learner_answer,claimed_verdict,source_excerpt}`); a single answer may use the flat object. Use the verifier's per-item `correct_verdict`.",
         "grade mismatch: on GRADE_MISMATCH, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict`, then emit those verdicts — do not emit a disputed grade.",
         "do not re-verify: if a fact-check receipt already covers your draft, emit that draft unchanged — re-dispatching the same claims is blocked and only for a materially corrected draft after an ISSUES verdict.",

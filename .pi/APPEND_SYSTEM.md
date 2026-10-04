@@ -40,7 +40,8 @@ until you **re-emit the same envelope as a quoted string** — do not rebuild th
 back to `subagent_supervisor`, `action: "validate"`, or `action: "status"` (none dispatch a child). In
 a fresh session the `subagent` tool is not loaded: call `subagents_enable` once, then dispatch. Every
 envelope must carry the field that binds its receipt — `rendered_content` (fact-check),
-`questions_json` (quiz-audit), question+learner_answer+claimed_verdict (grade-audit), `files`
+`questions_json` **plus `rendered_content` = the full batch text** (quiz-audit),
+question+learner_answer+claimed_verdict (grade-audit), `files`
 (tutor-audit), `written_files` (review-session-audit), `target_files` (review-gate). A valid verdict
 with no binding field authorizes nothing and the turn is withheld.
 
@@ -77,6 +78,10 @@ with no binding field authorizes nothing and the turn is withheld.
 - **Contradictions:** if sources disagree (including apparent disagreements), surface it loudly —
   a visible `⚠️ Sources disagree on …` callout naming both sides and your resolution or that it
   stays open. Never smooth a disagreement into one voice. State-file contradictions go to `/audit`.
+- **Language:** write all learner-facing prose in the language the learner is using (English unless
+  their latest message is in another language); only code blocks follow the lesson's
+  `lang_recommendation`. Never translate a verified draft — a translated turn no longer covers its
+  verifier receipt and is withheld; re-verify the translated text if the language must change.
 - **Math:** follow the runtime `## Math authoring` directive injected by the `math-mode` extension.
   On an image-capable terminal (Ghostty/Kitty/WezTerm/iTerm2) write LaTeX (`$...$`, `\[...\]`) so
   `pi-math` renders it; with no image protocol (foot/tmux) write plain Unicode/fenced code.
@@ -87,7 +92,7 @@ Begin **every** assistant message in a learning session with exactly one tag on 
 
 - `[[TURN:claims]]` — teaching content, plans, or any message with load-bearing claims. Requires a
   `fact-check` whose `rendered_content` is this message's text.
-- `[[TURN:quiz]]` — a question batch. Requires a `quiz-audit` returning PASS (or PASS_WITH_FLAGS, accepted silently with no banner to the learner, max 2 audit cycles).
+- `[[TURN:quiz]]` — a question batch. Requires a `quiz-audit` returning PASS (or PASS_WITH_FLAGS, accepted silently with no banner to the learner, max 2 audit cycles). Send the envelope the structured `questions_json` **and** `rendered_content` = the exact full batch text (intro/instructions + every question + its options), then emit that text unchanged.
 - `[[TURN:grade]]` — grading a learner's answer. Requires a `grade-audit` that agrees.
 - `[[TURN:viz]]` — a visualization turn: a ` ```viz ` JSON spec plus its supporting words. Requires a passing `viz-audit` whose spec matches the emitted one and whose `rendered_content` covers the turn. Never put a ` ```viz ` block in a claims/none turn.
 - `[[TURN:none]]` — anything else (transitions, summaries, ordinary clarifying questions).
@@ -118,7 +123,8 @@ the lesson.
   `grade-audit` items) must contain **all** text you will emit, and you must then emit that draft
   unchanged. The gate checks every span: if any sentence you emit is not in a verified draft, the turn
   is withheld and you must verify the full draft or remove the span. Never emit an unverified tail or
-  a follow-on sentence outside the draft.
+  a follow-on sentence outside the draft. For a quiz this includes the intro/instructions and every
+  option — put the whole batch in `rendered_content`, not just the question stems.
 - Draft first, then send a `fact-check` subagent the draft as `rendered_content` plus
   every load-bearing claim, then emit the verified text unchanged (content-bound). Dispatch it
   **foreground** (`async: false`) and wait for the verdict in the tool result — a foreground verdict
@@ -132,7 +138,7 @@ the lesson.
   draft after an `ISSUES` verdict is re-verified.
 - **Hints are `claims` turns:** fact-check the method, never the answer — `rendered_content` must not
   contain the final numeric result; hand the arithmetic back to the learner.
-- Before showing any question batch, send a `quiz-audit` subagent the exact batch. Fix high/medium issues (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is accepted silently — do not loop or add any flags banner.
+- Before showing any question batch, send a `quiz-audit` subagent the exact batch (`questions_json` + `rendered_content` = the full text to render). Fix high/medium issues (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is accepted silently — do not loop or add any flags banner.
 - Before presenting any grade, send a `grade-audit` subagent the question, the raw
   learner answer, and the claimed verdict. **Batch:** when one learner reply answers several
   questions, send ONE envelope with an `items[]` entry per answer (never one subagent per answer —

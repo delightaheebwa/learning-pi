@@ -603,7 +603,14 @@ export function envelopeText(value: any): string {
     return value
       .map((v: any) => {
         if (typeof v === "string") return v;
-        if (v && typeof v === "object") return [v.question, v.text, v.claim, v.q, v.prompt].filter((x) => typeof x === "string").join(" ");
+        if (v && typeof v === "object") {
+          // Quiz items carry their choices in `options`; include them so the
+          // bound text covers the emitted batch (the judge requires 100%
+          // coverage of the emitted quiz text, options included).
+          const parts = [v.question, v.text, v.claim, v.q, v.prompt].filter((x) => typeof x === "string");
+          if (Array.isArray(v.options)) parts.push(...v.options.filter((x: any) => typeof x === "string"));
+          return parts.join(" ");
+        }
         return "";
       })
       .join("\n");
@@ -718,7 +725,15 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     (gate === "fact_check" && /"verdicts"\s*:\s*\[[\s\S]*?"UNVERIFIED"/i.test(text));
   const cm = text.match(/"correct_verdict"\s*:\s*"(pass|fail)"/i);
   const am = text.match(/"agrees"\s*:\s*(true|false)/i);
-  const questionsText = envelope ? envelopeText(envelope.questions_json || envelope.questions) : undefined;
+  // Quiz binding: prefer the exact full batch text (`rendered_content`, mirroring
+  // the fact-check/viz full-draft rule) so the intro/instructions and options the
+  // learner sees are covered too. Fall back to the structured `questions_json`
+  // for envelopes that omit it.
+  const quizRendered =
+    envelope && typeof envelope.rendered_content === "string" && envelope.rendered_content.trim().length > 0
+      ? envelope.rendered_content
+      : undefined;
+  const questionsText = quizRendered || (envelope ? envelopeText(envelope.questions_json || envelope.questions) : undefined);
   // Grade envelope: flat single-answer object, or the batched `items:[{…}]`
   // shape. Both bind so a dropped tag is still recovered from the receipt.
   const gradeText = gradeTextOf(envelope);

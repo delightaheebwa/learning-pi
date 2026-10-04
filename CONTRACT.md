@@ -90,6 +90,11 @@ its tagged test, change the implementation, all in one reviewed commit.
   `target_files`) releases no summary. Only an envelope-less async completion
   notification falls back to unbound. One wrong-shape receipt must not bind every
   later turn.
+- **G-quiz-binds-full-batch** *(hard)* — a `quiz-audit` receipt binds the whole
+  emitted batch: the envelope's `rendered_content` (the full batch text) is the
+  bound text the judge sees, and without it the derived bound text includes each
+  item's `options`. A questions-only binding cannot strand a valid quiz turn as
+  `QUIZ_AUDIT_STALE`.
 - **G-viz-turn-requires-audit** *(hard)* — a `[[TURN:viz]]` message renders only
   with a passing, bound `viz-audit` receipt: missing → `NO_VIZ_AUDIT`, an
   `ISSUES` verdict → `VIZ_AUDIT_ISSUES`, a valid-but-unbound receipt →

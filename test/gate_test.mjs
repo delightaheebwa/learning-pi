@@ -375,6 +375,20 @@ await fg('sq2', 'quiz-audit', qEnv, JSON.stringify({ verdict: 'PASS', issues: []
 const boundQuiz = await msg('[[TURN:quiz]]\nState the KL divergence identity.', 'stop');
 assert('questions_json quiz receipt binds its own batch', allowed(boundQuiz));
 
+// A quiz envelope with the full batch as `rendered_content` binds the whole
+// emitted turn (intro + options), not just the question stems.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const fullBatch = 'Review — 1 due item. Reply with the letter.\n1. What is entropy? A) surprise B) certainty';
+const fullEnv = JSON.stringify({
+  gate: 'quiz_audit',
+  rendered_content: fullBatch,
+  questions_json: [{ id: 1, type: 'mcq', question: 'What is entropy?', options: ['A) surprise', 'B) certainty'] }],
+});
+await dispatch('quiz-audit', fullEnv, 'sq3');
+await fg('sq3', 'quiz-audit', fullEnv, JSON.stringify({ verdict: 'PASS', issues: [] }));
+const fullQuiz = await msg('[[TURN:quiz]]\n' + fullBatch, 'stop');
+assert('rendered_content quiz receipt binds the full batch', allowed(fullQuiz));
+
 // An envelope-less async notification still mints an unbound receipt that binds
 // (its dispatch could not be correlated, so there is nothing to bind against).
 await setPrompt('[[FLOW:resume]] continue the lesson');

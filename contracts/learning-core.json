@@ -168,6 +168,17 @@
       ]
     },
     {
+      "id": "G-quiz-binds-full-batch",
+      "severity": "hard",
+      "statement": "A quiz-audit receipt binds the whole emitted batch: the envelope's `rendered_content` (the full batch text) is the bound text the judge sees, and without it the derived bound text includes each item's `options`, so a questions-only binding cannot strand a valid turn as QUIZ_AUDIT_STALE.",
+      "tests": [
+        "rendered_content quiz receipt binds the full batch",
+        "quiz turn with full rendered_content binds",
+        "judge package carries the full quiz batch as boundText",
+        "derived quiz boundText includes the options"
+      ]
+    },
+    {
       "id": "G-viz-turn-requires-audit",
       "severity": "hard",
       "statement": "A [[TURN:viz]] message renders only with a passing, bound viz-audit receipt: a missing receipt is withheld NO_VIZ_AUDIT, an ISSUES verdict withholds VIZ_AUDIT_ISSUES, and a valid-but-unbound receipt withholds VIZ_AUDIT_STALE.",
