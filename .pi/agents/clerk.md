@@ -3,7 +3,7 @@ name: clerk
 description: Ingest learning-system content — read Pending Ingest.json, write wiki pages and Active Concepts rows, reconcile position/state pointers, run the state audit, apply touched error/warning fixes, clean up the digest/marker, and commit. Returns a CLERK_WRITES receipt for the parent's independent review gate. Use for lesson handoffs and standalone ingests.
 model: deepseek-v4.1-flash
 tools: read, grep, find, ls, bash, write, edit, subagent
-extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
+extensions: /home/delightaheebwa/.pi/agent/npm/node_modules/pi-web-access/index.ts
 skills: learning-system, llm-wiki
 allowNestedSubagents: true
 ---

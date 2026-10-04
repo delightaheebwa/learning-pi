@@ -3,7 +3,7 @@ name: review-scout
 description: Gather context for a standalone review session — run the deterministic queue command and write the review digest to Learning System/.tmp/. Use at the start of every /review session.
 model: deepseek-v4.1-flash
 tools: read, grep, find, ls, bash, write
-extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
+extensions: /home/delightaheebwa/.pi/agent/npm/node_modules/pi-web-access/index.ts
 skills: learning-system
 completionGuard: false
 acceptanceRole: read-only

@@ -3,7 +3,7 @@ name: scout
 description: Gather live context for the next learning-system lesson (curriculum docs + Further Reading) and write the Scout digest to Learning System/.tmp/. Use before teaching a new, non-resumed lesson.
 model: deepseek-v4.1-flash
 tools: read, grep, find, ls, bash, write
-extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
+extensions: /home/delightaheebwa/.pi/agent/npm/node_modules/pi-web-access/index.ts
 skills: learning-system
 completionGuard: false
 acceptanceRole: read-only

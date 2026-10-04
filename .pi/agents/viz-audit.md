@@ -3,7 +3,7 @@ name: viz-audit
 description: Independent verifier for a learning visualization spec AND its supporting words. Receives a GATE:viz_audit JSON envelope and outputs only verdict JSON. Read-only.
 model: muse-spark-1.3-contributor
 tools: read, grep, find, ls, bash
-extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
+extensions: /home/delightaheebwa/.pi/agent/npm/node_modules/pi-web-access/index.ts
 completionGuard: false
 acceptanceRole: read-only
 ---

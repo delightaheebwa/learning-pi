@@ -3,7 +3,7 @@ name: review-clerk
 description: Persist a finished standalone review session — write the Review note(s) and session note, update the touched Active Concepts / Mistakes rows, sync Attempts.json, run the state audit, and commit state. Returns a REVIEW_CLERK_WRITES receipt for the parent's independent review-session audit. Use only at the close of a /review session.
 model: deepseek-v4.1-flash
 tools: read, grep, find, ls, bash, write, edit
-extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
+extensions: /home/delightaheebwa/.pi/agent/npm/node_modules/pi-web-access/index.ts
 skills: learning-system
 ---
 

@@ -3,7 +3,7 @@ name: review-gate
 description: Independent reviewer for a learning-system ingest's own output (the wiki page(s) and Active Concepts row(s) it wrote). Receives a GATE:review JSON envelope and outputs only verdict JSON. Read-only critic, never rewrites.
 model: muse-spark-1.3-contributor
 tools: read, grep, find, ls
-extensions: /home/delight/.pi/agent/npm/node_modules/pi-web-access/index.ts
+extensions: /home/delightaheebwa/.pi/agent/npm/node_modules/pi-web-access/index.ts
 completionGuard: false
 acceptanceRole: read-only
 ---
