@@ -149,7 +149,23 @@ def dispatched_runs(tool_calls: dict, tool_results: list) -> list[dict]:
     """Correlate subagent tool calls with their results to enumerate dispatched runs."""
     out: list[dict] = []
     for res in tool_results:
-        if res.get("toolName") != "subagent":
+        name = res.get("toolName")
+        if name == "dispatch":
+            # The `dispatch` helper runs one child through pi-subagents'
+            # structured delegation bridge; the result `details` carry the
+            # agent/runId/status directly.
+            details = res.get("details") if isinstance(res.get("details"), dict) else {}
+            agent = details.get("agent")
+            out.append({
+                "toolCallId": res.get("toolCallId"),
+                "mode": details.get("mode"),
+                "agents": [agent] if isinstance(agent, str) else [],
+                "runId": details.get("runId"),
+                "isError": bool(res.get("isError")),
+                "isLaunch": True,
+            })
+            continue
+        if name != "subagent":
             continue
         cid = res.get("toolCallId")
         call = tool_calls.get(cid, {})

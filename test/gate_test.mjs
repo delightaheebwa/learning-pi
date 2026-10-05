@@ -7,7 +7,30 @@
 // through ungated without consuming a verifier receipt, so the retried or
 // continued message can still bind to it.
 const handlers = {};
-const pi = { on: (ev, h) => { (handlers[ev] ||= []).push(h); } };
+const tools = {};
+const listeners = {};
+const eventBus = {
+  on: (ev, h) => {
+    (listeners[ev] ||= []).push(h);
+    return () => {
+      const a = listeners[ev] || [];
+      const i = a.indexOf(h);
+      if (i >= 0) a.splice(i, 1);
+    };
+  },
+  emit: (ev, payload) => {
+    for (const h of [...(listeners[ev] || [])]) h(payload);
+  },
+};
+const pi = {
+  on: (ev, h) => {
+    (handlers[ev] ||= []).push(h);
+  },
+  registerTool: (t) => {
+    tools[t.name] = t;
+  },
+  events: eventBus,
+};
 const mod = await import('../.pi/extensions/learning-gate/index.ts');
 mod.default(pi);
 const fire = async (ev, e) => { let r; for (const h of handlers[ev] || []) r = await h(e, { ui: { notify() {} } }); return r; };
@@ -429,5 +452,60 @@ await asyncResult('n2', uuid6);
 await notify(`Background task failed: **fact-check**\n\nfact-check:\nOpenAI API error (429): rate_limit_exceeded\n\nRetention-managed async directory: /tmp/x/async-subagent-runs/${uuid6}`);
 const afterFail = await msg(`[[TURN:claims]]\n${vDraft}`, 'stop');
 assert('failed verifier is not reported as in-flight', blocked(afterFail, 'NO_FACT_CHECK_MATCH') && !outText(afterFail).includes('still in flight'));
+
+// --- 2026-10-05: the `dispatch` helper accepts the envelope as an OBJECT ---
+// The `subagent` tool requires `task` to be a JSON string; a flash model emits
+// it as an object and dead-ends (`task: must be string`, 2026-10-05 resume).
+// `dispatch` takes the envelope object, runs the child through pi-subagents'
+// structured delegation bridge, and mints the gate receipt itself.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+assert('dispatch helper is registered', !!tools.dispatch && typeof tools.dispatch.execute === 'function');
+
+// Simulate the pi-subagents structured delegation bridge.
+const bridgeOutput = '[[TURN:none]]\n{"verdict":"PASS","issues":[]}';
+const reqListeners = (listeners['prompt-template:subagent:request'] ||= []);
+reqListeners.push((payload) => {
+  eventBus.emit('prompt-template:subagent:started', {
+    requestId: payload.requestId,
+    ownerRunId: payload.ownerRunId,
+    nodeId: payload.nodeId,
+  });
+  eventBus.emit('prompt-template:subagent:response', {
+    requestId: payload.requestId,
+    ownerRunId: payload.ownerRunId,
+    nodeId: payload.nodeId,
+    status: 'completed',
+    agent: payload.agent,
+    result: { kind: 'text', text: bridgeOutput },
+  });
+});
+
+const dispatchBatch = 'Recall — reply with the letter.\n1. What is entropy? A) surprise B) certainty';
+const dispatchRes = await tools.dispatch.execute(
+  'd1',
+  {
+    agent: 'quiz-audit',
+    task: {
+      gate: 'quiz_audit',
+      rendered_content: dispatchBatch,
+      questions_json: [{ id: 1, type: 'mcq', question: 'What is entropy?', options: ['A) surprise', 'B) certainty'] }],
+      purpose: 'probe',
+    },
+  },
+  undefined,
+  undefined,
+  { cwd: '/tmp', ui: { notify() {} } }
+);
+assert('dispatch accepts an object task and returns the child output', !!dispatchRes?.content?.[0]?.text?.includes('PASS'));
+const dispatchQuiz = await msg('[[TURN:quiz]]\n' + dispatchBatch, 'stop');
+assert('dispatch-minted quiz receipt binds the emitted batch', allowed(dispatchQuiz));
+
+// The legacy `subagent` workflow/args forms are blocked toward `dispatch`.
+const malformedSubagent = await fire('tool_call', {
+  toolName: 'subagent',
+  toolCallId: 'mw1',
+  input: { workflow: 'true' },
+});
+assert('malformed subagent workflow is blocked toward dispatch', !!(malformedSubagent?.block && /dispatch/.test(malformedSubagent.reason || '')));
 
 

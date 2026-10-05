@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
   "version": 2,
-  "updated": "2026-10-03",
+  "updated": "2026-10-05",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -268,6 +268,17 @@
         "hard case escalates to the secondary judge",
         "escalation is capped per day",
         "primary outage falls through to the escalation judge"
+      ]
+    },
+    {
+      "id": "G-dispatch-object-task",
+      "severity": "hard",
+      "statement": "Verifier/worker dispatches go through the `dispatch` helper, which accepts the JSON envelope as an OBJECT (never a JSON-encoded string) and runs the child through pi-subagents' structured delegation bridge. `dispatch` mints the gate receipt itself, so a model that emits an object `task` (the shape that dead-ends the `subagent` tool) still gets a bound receipt; the legacy `subagent` workflow/args forms are blocked and redirected to `dispatch`.",
+      "tests": [
+        "dispatch helper is registered",
+        "dispatch accepts an object task and returns the child output",
+        "dispatch-minted quiz receipt binds the emitted batch",
+        "malformed subagent workflow is blocked toward dispatch"
       ]
     }
   ]

@@ -30,6 +30,45 @@ import {
 import { createLedger, type AppendFn } from "../gate-core/ledger.ts";
 import type { Ledger } from "../gate-core/judge/types.ts";
 
+/**
+ * pi-subagents' structured delegation events. Another extension asks
+ * pi-subagents to run one configured foreground leaf agent by emitting the
+ * request event and awaiting the response event (docs/extension-api.md
+ * "Structured delegation API" in pi-subagents 0.74). The names are stable
+ * public API but are pinned here, in the adapter, so a package rename is a
+ * one-file fix. The `subagent` tool is `exposure: "model-only"`, so this event
+ * bridge is the only way another extension may launch a child.
+ */
+const DELEGATION_REQUEST_EVENT = "prompt-template:subagent:request";
+const DELEGATION_STARTED_EVENT = "prompt-template:subagent:started";
+const DELEGATION_RESPONSE_EVENT = "prompt-template:subagent:response";
+const DELEGATION_CANCEL_EVENT = "prompt-template:subagent:cancel";
+const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+
+/**
+ * JSON-Schema params for the `dispatch` tool. Kept as a plain schema (not a
+ * `typebox` `Type.Object`) so the extension module graph loads under the
+ * offline `deno` gate tests, which cannot resolve pi's bundled `typebox`.
+ * pi validates plain JSON schemas through its ajv path.
+ */
+const DISPATCH_PARAMS = {
+  type: "object",
+  properties: {
+    agent: {
+      type: "string",
+      description:
+        "verifier/worker agent name: fact-check, quiz-audit, grade-audit, tutor-audit, viz, viz-audit, scout, clerk, review-scout, review-clerk, review-gate, review-session-audit",
+    },
+    task: {
+      description: "the JSON envelope object (or a plain string task). NOT a JSON-encoded string.",
+    },
+    model: { type: "string", description: "override the child model (provider/id)" },
+    thinking: { type: "string", description: "override the child thinking level" },
+  },
+  required: ["agent", "task"],
+  additionalProperties: false,
+};
+
 /** Source inside the balanced `(`…`)` pair whose opening paren sits at `openIdx`. */
 function sliceBalanced(text: string, openIdx: number): string | undefined {
   const open = text[openIdx];
@@ -303,6 +342,199 @@ export default function learningGate(pi: ExtensionAPI): void {
     return engine;
   };
 
+  // --- dispatch helper ------------------------------------------------------
+  // pi-subagents declares `subagent` as `exposure: "model-only"` (no
+  // `ctx.executeTool`), so the structured delegation event bridge is the only
+  // way another extension may launch a child. The `subagent` tool also requires
+  // `task` to be a JSON *string*; flash models emit it as an object and then
+  // dead-end retrying (2026-10-05 resume session). `dispatch` takes the envelope
+  // as an object, stringifies it once here (no escaping by the model), and
+  // mints the gate receipt itself.
+  const ownerRunId =
+    (globalThis as any).crypto?.randomUUID?.() ?? `dispatch-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const delegationWaiters = new Map<string, { resolve: (payload: any) => void; onStarted: () => void }>();
+  try {
+    pi.events?.on?.(DELEGATION_STARTED_EVENT, (payload: any) => {
+      delegationWaiters.get(payload?.requestId)?.onStarted();
+    });
+    pi.events?.on?.(DELEGATION_RESPONSE_EVENT, (payload: any) => {
+      delegationWaiters.get(payload?.requestId)?.resolve(payload);
+    });
+  } catch {
+    /* events unavailable — dispatch will time out with a clear message */
+  }
+
+  const runDelegation = (request: any, signal: any): Promise<any> =>
+    new Promise((resolve, reject) => {
+      let settled = false;
+      let startTimer: any;
+      let overallTimer: any;
+      const cleanup = () => {
+        clearTimeout(startTimer);
+        clearTimeout(overallTimer);
+        delegationWaiters.delete(request.requestId);
+        try {
+          signal?.removeEventListener?.("abort", onAbort);
+        } catch {
+          /* ignore */
+        }
+      };
+      const finish = (fn: (v: any) => void, value: any) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn(value);
+      };
+      const cancel = () => {
+        try {
+          pi.events?.emit?.(DELEGATION_CANCEL_EVENT, {
+            requestId: request.requestId,
+            ownerRunId: request.ownerRunId,
+            nodeId: request.nodeId,
+          });
+        } catch {
+          /* ignore */
+        }
+      };
+      const onAbort = () => {
+        cancel();
+        finish(reject, new Error(`dispatch of ${request.agent} was cancelled`));
+      };
+      delegationWaiters.set(request.requestId, {
+        resolve: (payload) => finish(resolve, payload),
+        onStarted: () => clearTimeout(startTimer),
+      });
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      try {
+        signal?.addEventListener?.("abort", onAbort, { once: true });
+      } catch {
+        /* ignore */
+      }
+      // pi-subagents emits `started` synchronously once the bridge owns the
+      // request; no start means the package is not loaded or not active.
+      startTimer = setTimeout(() => {
+        finish(
+          reject,
+          new Error("dispatch: pi-subagents structured delegation did not start — is pi-subagents loaded?")
+        );
+      }, 20_000);
+      overallTimer = setTimeout(() => {
+        cancel();
+        finish(reject, new Error(`dispatch of ${request.agent} timed out after 30 minutes`));
+      }, 30 * 60 * 1000);
+      try {
+        pi.events?.emit?.(DELEGATION_REQUEST_EVENT, request);
+      } catch (err) {
+        finish(reject, err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+
+  const dispatchResult = (text: string, isError = false) => ({
+    content: [{ type: "text" as const, text }],
+    details: {},
+    isError,
+  });
+
+  try {
+    pi.registerTool({
+      name: "dispatch",
+      label: "Dispatch",
+      description:
+        "Run ONE learning-system subagent (verifier or worker) on a JSON envelope, foreground, and return its output. Use this instead of `subagent`: pass `task` as the envelope OBJECT, never a JSON-encoded string.",
+      promptSnippet:
+        "dispatch({ agent, task }) — run a learning-system verifier/worker with its JSON envelope object.",
+      promptGuidelines: [
+        "Use dispatch (not subagent) for every learning-system verifier or worker; `task` is the envelope object, not a stringified JSON.",
+      ],
+      parameters: DISPATCH_PARAMS,
+      async execute(toolCallId: string, params: any, signal: any, _onUpdate: any, ctx: any) {
+        const agent = typeof params?.agent === "string" ? params.agent.trim() : "";
+        if (!agent) return dispatchResult("dispatch requires a non-empty `agent`.", true);
+        const raw = params?.task;
+        let taskString: string;
+        if (typeof raw === "string") taskString = raw;
+        else if (raw === undefined || raw === null) taskString = "";
+        else {
+          try {
+            taskString = JSON.stringify(raw);
+          } catch {
+            return dispatchResult("dispatch `task` is not JSON-serializable.", true);
+          }
+        }
+        if (!taskString.trim()) return dispatchResult("dispatch requires a non-empty `task` (the JSON envelope).", true);
+
+        const calls = subagentCalls({ agent, task: taskString });
+        const g = ensureEngine(ctx);
+        // Run the engine's subagent bookkeeping (dispatch caps, the duplicate
+        // fact-check guard) before launching the child.
+        const guard = g.onToolCall({
+          tool: "subagent",
+          input: { agent, task: taskString },
+          calls,
+          agentless: false,
+          toolCallId,
+        });
+        if (guard?.block) return dispatchResult(guard.reason, true);
+
+        const uuid = () =>
+          (globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const request: any = {
+          requestId: uuid(),
+          ownerRunId,
+          nodeId: uuid(),
+          agent,
+          task: taskString,
+          context: "fresh",
+          cwd: typeof ctx?.cwd === "string" && ctx.cwd ? ctx.cwd : process.cwd(),
+          result: { kind: "text" },
+        };
+        if (typeof params?.model === "string" && params.model.trim()) request.model = params.model.trim();
+        if (typeof params?.thinking === "string" && THINKING_LEVELS.has(params.thinking)) request.thinking = params.thinking;
+
+        let output = "";
+        let isError = false;
+        let status = "failed";
+        let runId: string | undefined;
+        let exitCode: number | undefined;
+        try {
+          const resp = await runDelegation(request, signal);
+          runId = typeof resp?.runId === "string" ? resp.runId : undefined;
+          status = typeof resp?.status === "string" ? resp.status : "failed";
+          if (typeof resp?.exitCode === "number") exitCode = resp.exitCode;
+          if (status === "completed" && resp?.result?.kind === "text") {
+            output = resp.result.text;
+          } else {
+            isError = true;
+            output = resp?.error || `dispatch ${agent}: ${status}`;
+          }
+        } catch (err) {
+          isError = true;
+          output = err instanceof Error ? err.message : String(err);
+        }
+        // The child ran through the delegation bridge (no model-issued
+        // `subagent` call), so mint the gate receipt here.
+        g.onToolResult({
+          tool: "subagent",
+          toolCallId,
+          isError,
+          text: output,
+          dispatchCalls: calls,
+          mintCalls: calls.map((c) => ({ ...c, output })),
+        });
+        return {
+          content: [{ type: "text" as const, text: output }],
+          details: { agent, mode: "single", runId, status, ...(exitCode !== undefined ? { exitCode } : {}) },
+          isError,
+        };
+      },
+    });
+  } catch {
+    /* tool registration failure must not take down the gate */
+  }
+
   pi.on("before_agent_start", async (event: any, ctx: any) => {
     ensureEngine(ctx).onBeforeAgentStart(event?.prompt);
   });
@@ -313,6 +545,21 @@ export default function learningGate(pi: ExtensionAPI): void {
     if (tool.toLowerCase() === "subagent") {
       const input = event?.input;
       const calls = subagentCalls(input);
+      // A verifier/worker dispatch belongs on `dispatch`, which takes the
+      // envelope as an object. The legacy workflow/args forms launch no child
+      // and the 2026-10-05 resume session dead-ended flailing through them.
+      if (
+        calls.length === 0 &&
+        input &&
+        typeof input === "object" &&
+        (input.workflow !== undefined || input.args !== undefined)
+      ) {
+        return {
+          block: true,
+          reason:
+            'To dispatch a learning-system verifier/worker, use `dispatch({ agent: "quiz-audit", task: { "gate": "quiz_audit", ... } })` with the envelope as an OBJECT. Do not use `subagent`, `workflow`, or `args`.',
+        };
+      }
       const agentless = !!(input && typeof input === "object" && ("task" in input || "prompt" in input));
       const res = g.onToolCall({ tool, input, calls, agentless, toolCallId: event?.toolCallId });
       if (!res?.block && event?.toolCallId) pendingCalls.set(event.toolCallId, calls);

@@ -95,6 +95,15 @@ its tagged test, change the implementation, all in one reviewed commit.
   bound text the judge sees, and without it the derived bound text includes each
   item's `options`. A questions-only binding cannot strand a valid quiz turn as
   `QUIZ_AUDIT_STALE`.
+- **G-dispatch-object-task** *(hard)* — verifier/worker dispatches go through the
+  `dispatch` helper, which takes the JSON envelope as an **object** and runs the
+  child through pi-subagents' structured delegation bridge (`subagent` is
+  `exposure: "model-only"`, so the bridge is the only extension path). `dispatch`
+  serializes the envelope and mints the gate receipt itself, so a model that emits
+  an object `task` — the shape that dead-ends the `subagent` tool with
+  `task: must be string` — still gets a bound receipt. The legacy `subagent`
+  `workflow`/`args` forms are blocked and redirected to `dispatch`. Nothing in
+  the prompt resources may spell a `subagent(` dispatch call.
 - **G-viz-turn-requires-audit** *(hard)* — a `[[TURN:viz]]` message renders only
   with a passing, bound `viz-audit` receipt: missing → `NO_VIZ_AUDIT`, an
   `ISSUES` verdict → `VIZ_AUDIT_ISSUES`, a valid-but-unbound receipt →

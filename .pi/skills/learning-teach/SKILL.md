@@ -24,7 +24,7 @@ Teaching verification runs as **foreground** subagent tasks with **envelope sche
 
 > **Which envelope for THIS turn — decide before you dispatch. No substitutions.**
 >
-> | Your turn does… | Dispatch (ONE foreground subagent each) |
+> | Your turn does… | Dispatch (ONE foreground `dispatch` each) |
 > | --- | --- |
 > | Teach claims (definitions, formulas, mechanisms, code assertions) | `fact-check` with `claims[] + rendered_content` = this turn's draft |
 > | Ask assessment questions (probe, checkpoint practice, end-of-lesson quiz) | `quiz-audit` with `questions_json` = this turn's items AND `rendered_content` = the exact full batch text |
@@ -36,7 +36,7 @@ Teaching verification runs as **foreground** subagent tasks with **envelope sche
 >
 > The gate checks the envelope type against the turn content. A right envelope for the wrong turn type is still a block. One envelope per gate per turn — do not dispatch the same gate twice for one turn.
 
-All gates dispatch as ONE `subagent` call per gate with a JSON envelope: `subagent({ agent: "<verifier>", task: '<envelope JSON>', async: false })` (direct child), or the same child inside `subagent({ workflowScript: "runs.run('k', { agent: '<verifier>', task: ... })" })`. **`task` must be a JSON string** — a quoted string literal holding the envelope with escaped inner quotes (`task: "{\"gate\":\"...\"}"`), never a nested `{...}` object; pi-subagents rejects an object with `task: must be string`, launching no child and minting no receipt, so re-emit the *same* envelope as a quoted string (do not rebuild it, and do not fall back to `subagent_supervisor`). In a fresh session the `subagent` tool is not loaded: call `subagents_enable` once, then dispatch. Use `async: false` (foreground) when you want the verdict in the tool result; an async dispatch returns a fan-out notice and the verdict arrives as a completion notification. The gate mints the receipt from either path, so either works — but in a checkpoint loop use `async: false` and wait: a foreground verdict is available in the same turn, whereas async forces you to yield and wait for the notification before you can emit. Never use `subagent_supervisor`, `action: "validate"`, or `action: "status"` to launch a verifier — those do **not** dispatch a child. The verifier runs on its own configured model, independent of the Tutor, so treat its verdict as stronger evidence than a self-check — but the deterministic gate checks (claim ⊆ rendered ⊆ emitted, quiz option parity, file grounding) are the real enforcement.
+All gates dispatch as ONE `dispatch` call per gate: `dispatch({ agent: "<verifier>", task: { ...envelope... } })`. **`task` is the envelope OBJECT**, a plain `{...}` value — `dispatch` stringifies it for you, so you never escape JSON by hand. Do **not** use the `subagent` tool (its `task` must be a JSON string, and an object dead-ends with `task: must be string`), and never fall back to `workflow: true`, `args`, `subagent_supervisor`, `action: "validate"`, or `action: "status"` — none dispatch a verifier child. `dispatch` is always foreground: the verdict is in the tool result, so wait for it before emitting. The verifier runs on its own configured model, independent of the Tutor, so treat its verdict as stronger evidence than a self-check — but the deterministic gate checks (claim ⊆ rendered ⊆ emitted, quiz option parity, file grounding) are the real enforcement.
 
 Rules:
 
@@ -108,7 +108,7 @@ A single-answer turn (a checkpoint's one practice question) may use the flat sin
 
 Dispatch it **before** emitting the grade, then present the verifier's per-item `correct_verdict` (not your own). The verifier returns `{"verdict":"PASS|ISSUES","agrees":true|false,"correct_verdict":"pass|fail","items":[{"id":1,"agrees":true,"correct_verdict":"pass","explanation":"..."}]}` — `agrees` is true only when it endorses every claimed verdict. **On `agrees:false`** (GRADE_MISMATCH): re-dispatch the corrected batch once with each disputed item's `claimed_verdict` set to the verifier's `correct_verdict` (a materially corrected batch — the one legitimate second grade dispatch), then emit the corrected grades. Never emit a disputed verdict without the correction.
 
-> **Dispatch shape (all gates):** ONE `subagent({ agent: "<verifier>", task: '<envelope JSON>', async: false })` per gate, and **wait for the verdict in the tool result before emitting** (`async: false` is required — a default async dispatch returns a fan-out notice and forces a second round-trip). `task` is a **JSON string** (a quoted literal with escaped inner quotes), not a nested object (`task: must be string` otherwise — re-emit the same envelope as a quoted string). Call `subagents_enable` once in a fresh session before the first dispatch. Do not use `subagent_supervisor` or `action: "validate"/"status"` to dispatch. Do not launch the same gate twice — the one exception is a materially corrected `grade-audit` batch after `agrees:false`.
+> **Dispatch shape (all gates):** ONE `dispatch({ agent: "<verifier>", task: { ...envelope... } })` per gate, and **wait for the verdict in the tool result before emitting**. `task` is the **envelope object**, not a JSON string — `dispatch` serializes it for you. Do **not** use `subagent`, `workflow`, `args`, `subagent_supervisor`, or `action: "validate"/"status"`. Do not launch the same gate twice — the one exception is a materially corrected `grade-audit` batch after `agrees:false`.
 
 ### Hint protocol (never leak the answer)
 
@@ -124,7 +124,7 @@ The Tutor never edits MISSION.md, CURRICULUM.md, 💡 Learning Profile.md, 📚 
 
 ### Tutor-write audit envelope (once per handoff)
 
-The `learning-gate` extension **withholds** a teach/resume summary that follows a write to `Learning System/` unless a passing `tutor-audit` receipt is present. After writing the handoff batch (lesson file, session note, learning record, and/or `Pending Ingest.json`), dispatch ONE **foreground** `tutor-audit` subagent:
+The `learning-gate` extension **withholds** a teach/resume summary that follows a write to `Learning System/` unless a passing `tutor-audit` receipt is present. After writing the handoff batch (lesson file, session note, learning record, and/or `Pending Ingest.json`), `dispatch` ONE `tutor-audit`:
 
 ```json
 {
@@ -167,7 +167,7 @@ These rules stop the correct answer from being guessable by presentation or dist
 
 1. Write the full batch first: for an assessment batch, all MCQs plus one free-recall item per strand; an **elicitation** batch (the ladder's first rung) is free-recall prompt(s) only.
 2. Run the mechanical pre-checks yourself — fix before dispatch.
-3. Dispatch ONE quiz-audit subagent with the envelope above.
+3. `dispatch` ONE `quiz-audit` with the envelope above.
    4. On `ISSUES`: fix every high/medium item per `suggested_fix`, then re-run. Max 2 cycles; on the second cycle a `PASS_WITH_FLAGS` (lows only) is sufficient — present it silently (no flags banner), never run a third cycle.
 5. Never present a batch without a PASS/PASS_WITH_FLAGS receipt. The auditor never sees learner answers.
 
@@ -249,7 +249,7 @@ The Tutor knows the material; the learner does not. These rules keep a lesson at
 
 - A verifier (or Scout) can fail at the **provider** level (503 / 429 / "overloaded" / timeout) rather than on content. On the first provider failure, retry the **same** dispatch once.
 - If it fails **twice in a row**, re-dispatch that agent once with an explicit alternate model — verifiers → `opencode-go/deepseek-v4.1-flash`, Scout → `opencode-go/muse-spark-1.3-contributor`:
-  `subagent({ agent: "fact-check", model: "opencode-go/deepseek-v4.1-flash", task: '<JSON envelope string>', async: false })`.
+  `dispatch({ agent: "fact-check", model: "opencode-go/deepseek-v4.1-flash", task: { ...envelope... } })`.
   The `learning-gate` extension counts consecutive provider failures and surfaces this exact directive in its withheld banner once it sees two.
 - If the fallback also fails, proceed and say plainly what remains unverified (the gate shows an `⛔ UNVERIFIED` banner after retries). Never present a grade/quiz/claims turn as verified when its verifier never returned.
 - Model separation between caller and verifier is a **preference, not a guarantee**: a verifier may run on the same model as the Tutor when the pinned model is unavailable, and that is acceptable — the gate does not enforce model identity.

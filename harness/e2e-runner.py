@@ -139,7 +139,7 @@ def subagent_runs(path: Path) -> list[dict]:
                 for b in m.get("content") or []:
                     if isinstance(b, dict) and b.get("type") in ("toolCall", "tool_use") and b.get("id"):
                         calls[b["id"]] = b.get("name")
-            elif m.get("role") == "toolResult" and m.get("toolName") == "subagent":
+            elif m.get("role") == "toolResult" and m.get("toolName") in ("subagent", "dispatch"):
                 results.append(m)
             elif m.get("role") == "custom":
                 notice = async_notice_run(m.get("content"), m.get("customType"))
@@ -150,6 +150,18 @@ def subagent_runs(path: Path) -> list[dict]:
         if m.get("isError"):
             continue
         details = m.get("details") if isinstance(m.get("details"), dict) else {}
+        if m.get("toolName") == "dispatch":
+            # The `dispatch` helper runs the child through pi-subagents'
+            # structured delegation bridge and reports a single-run summary in
+            # `details` ({agent, mode, runId, status}).
+            if isinstance(details.get("agent"), str):
+                runs.append({
+                    "agent": details["agent"],
+                    "runId": details.get("runId"),
+                    "exitCode": details.get("exitCode"),
+                    "acceptance": details.get("acceptance"),
+                })
+            continue
         for r in details.get("results") or []:
             if isinstance(r, dict) and isinstance(r.get("agent"), str):
                 runs.append({
@@ -504,8 +516,8 @@ def run_scenario(scn: dict, sandbox: Sandbox, pi_bin: str, timeout: float, layer
             named = ", ".join(f"`{a}`" for a in missing)
             return (
                 f"The flow has not dispatched the required subagent(s): {named}. "
-                "Dispatch each one now as a foreground call "
-                "(subagent({ agent: \"<name>\", async: false, task: ... })) and continue the flow."
+                "Dispatch each one now as a foreground `dispatch` call "
+                "(dispatch({ agent: \"<name>\", task: { ...envelope... } })) and continue the flow."
             )
         return generic_nudge
 

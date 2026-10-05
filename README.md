@@ -78,6 +78,12 @@ assistant turn unless the matching, **passing** receipt is present:
 | A new lesson | a `scout` run before teaching; a partial/missing `SCOUT_DIGEST` receipt surfaces as a `⚠️ SOURCES INCOMPLETE` / `⚠️ SCOUT DIGEST UNVERIFIED` banner (never a withhold) |
 | A `/review` session | a `review-scout` run before the first claims/quiz turn (`NO_REVIEW_CONTEXT` until then); a partial/missing `REVIEW_SCOUT_DIGEST` receipt surfaces as a `⚠️ REVIEW CONTEXT INCOMPLETE` / `⚠️ REVIEW SCOUT DIGEST UNVERIFIED` banner (never a withhold) |
 
+Verifier and worker dispatches use the `dispatch` helper tool:
+`dispatch({ agent, task: { ...envelope... } })`. It takes the envelope as an **object** (the model never
+escapes JSON by hand), runs the child through pi-subagents' structured delegation bridge, and mints the
+gate receipt itself. pi-subagents' `subagent` tool requires a JSON-*string* `task` and is
+`exposure: "model-only"`; its `workflow`/`args` forms are blocked and redirected to `dispatch`.
+
 The reviewer's scope is the ingest's own output only (its wiki page(s) + Active Concepts row(s)).
 State drift is reported separately by `audit_state.py`, which runs automatically at ingest and
 review close (and on demand via `/audit`). The automatic runs fix the error **or warning** findings

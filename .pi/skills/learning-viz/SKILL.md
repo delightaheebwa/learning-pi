@@ -23,16 +23,16 @@ about what they saw.
 
 ## Flow
 
-1. **Author the spec.** Dispatch ONE foreground `viz` subagent with a `GATE:viz` envelope. It
+1. **Author the spec.** `dispatch` ONE `viz` agent with a `GATE:viz` envelope. It
    returns a declarative spec (data + labels only — no code) plus what to look at:
    `{"gate":"viz","concept":"...","intent":"what the figure must make obvious","interactive":true|false,"lang":"...","sources":"source excerpts for the values shown","learner_words":"the learner's phrasing"}`.
-   `subagent({ agent: "viz", task: '<envelope JSON string>', async: false })` — `task` is a JSON
-   **string**, never an object.
+   `dispatch({ agent: "viz", task: { ...envelope... } })` — `task` is the envelope **object**,
+   never a JSON-encoded string.
 2. **Assemble the turn.** Write the supporting words (1–3 sentences up front, then what to notice)
    around the spec: the message is `[[TURN:viz]]` + prose + a single ` ```viz ` fenced JSON spec
    (copy the spec **verbatim** from the viz agent) + prose. Supporting words are the Tutor's own
    voice and must be accurate — `viz-audit` checks them.
-3. **Verify.** Dispatch ONE foreground `viz-audit` with the spec AND the full turn draft:
+3. **Verify.** `dispatch` ONE `viz-audit` with the spec AND the full turn draft:
    `{"gate":"viz_audit","concept":"...","instructed":"...","spec":{...},"rendered_content":"the full turn draft (supporting words + fenced spec)","sources":[...]}`.
    On `ISSUES`: apply fixes and re-dispatch the **materially corrected** draft once (max 2 cycles).
    A `PASS_WITH_FLAGS` (lows only) is accepted silently. Never emit the turn without a passing,

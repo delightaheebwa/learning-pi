@@ -31,19 +31,18 @@ contradiction to the user** — do not guess, merge, or trust any status written
   Review note(s) / session note, syncs the touched rows + `Attempts.json`, runs the state audit, and commits.
 - Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate`, `review-session-audit` (read-only; separate runs on preferred models — model separation is a default, not a guarantee).
 
-**Subagent dispatch shape:** every dispatch is `subagent({ agent: "<name>", task: "<JSON envelope>", async: false })`.
-The `task` argument is a **string literal containing the JSON envelope**, never a JSON object: pass the
-envelope as text inside quotes with its inner quotes escaped (`task: "{\"gate\":\"quiz_audit\", ...}"`),
-not as a nested `{...}` value. pi-subagents rejects an object with `Validation failed for tool
-"subagent": task: must be string`; that launches no child and mints no receipt, so the turn dead-ends
-until you **re-emit the same envelope as a quoted string** — do not rebuild the content, and never fall
-back to `subagent_supervisor`, `action: "validate"`, or `action: "status"` (none dispatch a child). In
-a fresh session the `subagent` tool is not loaded: call `subagents_enable` once, then dispatch. Every
-envelope must carry the field that binds its receipt — `rendered_content` (fact-check),
-`questions_json` **plus `rendered_content` = the full batch text** (quiz-audit),
-question+learner_answer+claimed_verdict (grade-audit), `files`
-(tutor-audit), `written_files` (review-session-audit), `target_files` (review-gate). A valid verdict
-with no binding field authorizes nothing and the turn is withheld.
+**Subagent dispatch shape:** every dispatch is `dispatch({ agent: "<name>", task: { ...envelope... } })`.
+The `task` argument is the **JSON envelope as an object**, never a JSON-encoded string: pass the
+envelope as a plain `{...}` value (or, for a plain-prose task like `scout`, a normal string). `dispatch`
+runs the child foreground and returns its output; it stringifies the envelope for you, so you never
+escape JSON by hand. Do **not** use the `subagent` tool for verifier/worker dispatches, and never fall
+back to `workflow: true`, `args`, `subagent_supervisor`, `action: "validate"`, or `action: "status"`
+(none dispatch a verifier child). A dispatch returns exactly one child; wait for its result in the tool
+result before emitting. Every envelope must carry the field that binds its receipt —
+`rendered_content` (fact-check), `questions_json` **plus `rendered_content` = the full batch text**
+(quiz-audit), question+learner_answer+claimed_verdict (grade-audit), `files` (tutor-audit),
+`written_files` (review-session-audit), `target_files` (review-gate). A valid verdict with no binding
+field authorizes nothing and the turn is withheld.
 
 ## Teaching behavior
 
@@ -125,11 +124,9 @@ the lesson.
   is withheld and you must verify the full draft or remove the span. Never emit an unverified tail or
   a follow-on sentence outside the draft. For a quiz this includes the intro/instructions and every
   option — put the whole batch in `rendered_content`, not just the question stems.
-- Draft first, then send a `fact-check` subagent the draft as `rendered_content` plus
-  every load-bearing claim, then emit the verified text unchanged (content-bound). Dispatch it
-  **foreground** (`async: false`) and wait for the verdict in the tool result — a foreground verdict
-  is available in the same turn; an async launch forces a yield-and-wait for the completion
-  notification. Both now mint a receipt, but foreground avoids the extra round-trip.
+- Draft first, then `dispatch` a `fact-check` with the draft as `rendered_content` plus
+  every load-bearing claim, then emit the verified text unchanged (content-bound). `dispatch`
+  is always foreground: wait for the verdict in the tool result before emitting.
 - **One dispatch per gate per turn, and never re-verify the same draft.** If a message is withheld
   with a match/binding code (`NO_FACT_CHECK_MATCH`, `FACT_CHECK_MISMATCH`, `FACT_CHECK_MISSING_DRAFT`,
   `QUIZ_AUDIT_STALE`, `GRADE_AUDIT_STALE`, `NO_TURN_TAG`), the receipt already exists: re-emit the
@@ -138,33 +135,32 @@ the lesson.
   draft after an `ISSUES` verdict is re-verified.
 - **Hints are `claims` turns:** fact-check the method, never the answer — `rendered_content` must not
   contain the final numeric result; hand the arithmetic back to the learner.
-- Before showing any question batch, send a `quiz-audit` subagent the exact batch (`questions_json` + `rendered_content` = the full text to render). Fix high/medium issues (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is accepted silently — do not loop or add any flags banner.
-- Before presenting any grade, send a `grade-audit` subagent the question, the raw
+- Before showing any question batch, `dispatch` a `quiz-audit` with the exact batch (`questions_json` + `rendered_content` = the full text to render). Fix high/medium issues (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is accepted silently — do not loop or add any flags banner.
+- Before presenting any grade, `dispatch` a `grade-audit` with the question, the raw
   learner answer, and the claimed verdict. **Batch:** when one learner reply answers several
-  questions, send ONE envelope with an `items[]` entry per answer (never one subagent per answer —
-  the harness rejects more than one subagent call per turn). Grade turns use `grade-audit` only; a
-  disagreement is withheld and the verifier's per-item `correct_verdict` must be used — re-dispatch
-  the corrected batch once, then emit.
-- **For a visualization (`learning-viz`, opt-in):** dispatch ONE foreground `viz` subagent with a
-  `GATE:viz` envelope to author the spec, then ONE foreground `viz-audit` with the spec AND
+  questions, dispatch ONE envelope with an `items[]` entry per answer (never one `dispatch` per
+  answer). Grade turns use `grade-audit` only; a disagreement is withheld and the verifier's
+  per-item `correct_verdict` must be used — dispatch the corrected batch once, then emit.
+- **For a visualization (`learning-viz`, opt-in):** `dispatch` ONE `viz` agent with a
+  `GATE:viz` envelope to author the spec, then ONE `viz-audit` with the spec AND
   `rendered_content` = the full `[[TURN:viz]]` draft (supporting words + the fenced spec). Emit the
   audited draft unchanged, copying the spec verbatim (the gate binds on the spec's canonical JSON).
   A figure is always its own turn — a ` ```viz ` block in a claims/none turn is withheld.
 - After writing any `Learning System/` files (lesson file, session note, learning record,
-  `Pending Ingest.json`), send a `tutor-audit` subagent the written file paths; a teach/resume
+  `Pending Ingest.json`), `dispatch` a `tutor-audit` with the written file paths; a teach/resume
   summary is withheld (`NO_TUTOR_AUDIT`) until it passes. Write these four artifacts **only** at a
   pause or lesson-end handoff, in one batch — never mid-lesson. The audit envelope carries no
   `expected` block and only those four files.
 - In a **review**, run `review-scout` first — a review's first claims/quiz turn is withheld
   (`NO_REVIEW_CONTEXT`) until it runs; a partial `REVIEW_SCOUT_DIGEST` banners (`⚠️ REVIEW CONTEXT
   INCOMPLETE`), never withholds. You write **no** state files: at the close, hand the writes to ONE
-  foreground `review-clerk` (`REVIEW_WRITES` envelope), then send ONE foreground `review-session-audit`
+  `review-clerk` (`REVIEW_WRITES` envelope), then `dispatch` ONE `review-session-audit` with
   the exact writes (`concepts/transcript/grade_verdicts/written_files`); the closing summary is withheld
   (`NO_REVIEW_SESSION_AUDIT`) until a receipt exists. `ISSUES` renders with a `⚠️ REVIEW FLAGS
   SURFACED` banner — never a withhold, never a re-run (cap 2 passes). Scope is fenced: state drift
   the review did not write is `context_notes`, never a blocking issue.
 - The plan message is a `claims` turn: send the plan text itself as `rendered_content`.
-- For a new lesson, run the `scout` subagent first. Send **data only** (the JSON envelope).
+- For a new lesson, run `scout` first via `dispatch` (a plain-string `task` is fine).
 - Ingest turns are never hard-blocked by review flags: a `PASS` renders clean; `ISSUES` /
   `PASS_WITH_FLAGS` render with a visible `⚠️ REVIEW FLAGS SURFACED` banner. Reviewer flags are
   surfaced, not re-run in a loop (hard cap 2 cycles).

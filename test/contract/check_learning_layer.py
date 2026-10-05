@@ -110,13 +110,13 @@ def check_resources(root: Path) -> None:
     else:
         ok(f"resources: {len(EXPECTED_SKILLS)} skills present")
 
-    # Regression guard: pi-subagents >= 0.71 requires the `subagent` tool's
-    # `task` argument to be a JSON *string* (an object fails validation with
-    # `task: must be string`, launches no child, and mints no receipt — the
-    # 2026-09-26 review session dead-ended on exactly this). A dispatch example
-    # showing an object primes the model to emit that invalid call, so the
-    # prompt resources must never spell `task: {` (or its quoted-key form
-    # `"task": {`).
+    # Regression guard: verifier/worker dispatches go through the `dispatch`
+    # helper, whose `task` is the envelope OBJECT. pi-subagents' own `subagent`
+    # tool requires `task` to be a JSON *string*; an object fails validation
+    # with `task: must be string`, launches no child, and mints no receipt (the
+    # 2026-09-26 and 2026-10-05 sessions dead-ended on exactly this). No
+    # prompt/skill/APPEND_SYSTEM resource may spell a `subagent(` call — that
+    # primes the model to emit the invalid string-escaped shape.
     import re
 
     dispatch_docs = [
@@ -124,19 +124,19 @@ def check_resources(root: Path) -> None:
         *sorted((root / ".pi" / "skills").glob("*/SKILL.md")),
         *sorted((root / ".pi" / "prompts").glob("*.md")),
     ]
-    object_task_re = re.compile(r"[\"']?\btask[\"']?\s*:\s*\{")
+    subagent_call_re = re.compile(r"\bsubagent\s*\(\s*\{")
     offenders = [
         p.relative_to(root).as_posix()
         for p in dispatch_docs
-        if p.is_file() and object_task_re.search(p.read_text(encoding="utf-8", errors="replace"))
+        if p.is_file() and subagent_call_re.search(p.read_text(encoding="utf-8", errors="replace"))
     ]
     if offenders:
         fail(
-            "resources: subagent dispatch examples pass `task` as an object "
-            "(must be a JSON-string literal, never a nested `{...}`): " + ", ".join(offenders)
+            "resources: dispatch examples must use the `dispatch` helper (object `task`), "
+            "never a `subagent(` call: " + ", ".join(offenders)
         )
     else:
-        ok("resources: subagent dispatch examples use a JSON-string `task`")
+        ok("resources: dispatch examples use the `dispatch` helper with an object `task`")
 
 
 def check_contract(root: Path, gate_output: Path) -> None:

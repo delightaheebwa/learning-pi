@@ -204,12 +204,12 @@ cap mid-message) passes through ungated and **does not consume a receipt**, so t
 still binds to it — this is why an interrupted grade turn no longer dead-ends on
 `NO_GRADE_AUDIT_PASS`.
 
-A verifier/clerk dispatch runs **foreground** (`async: false`) or **async** (the default). Foreground
-returns the verdict in the tool result; async returns only a fan-out notice and the verdict arrives
-later as a `subagent-notify` custom message. The gate mints receipts from either path — the
-dispatch result (`details.results`) and the completion notification (`Background task completed:` /
-`Detached foreground task completed:`) — so a completed `tutor-audit`/`review-gate`/`clerk` run is
-never lost. Either way, wait for the verdict before emitting the summary.
+A verifier/worker dispatch runs through the **`dispatch` helper**:
+`dispatch({ agent, task: { ...envelope... } })` — foreground, with the envelope as an **object**. It
+runs the child through pi-subagents' structured delegation bridge and returns the verdict in the tool
+result, so the receipt is minted before you emit; wait for it before emitting the summary. (The
+gate still mints legacy `subagent` receipts from a `subagent-notify` completion notification, but the
+learning layer no longer dispatches that way.)
 
 ---
 
@@ -272,17 +272,15 @@ prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flo
   frontmatter; verify `~/.pi/agent/npm/node_modules/pi-web-access/index.ts` exists.
 - **Verifier can't read the repo** → the Tutor's cwd must be `~/learning-system`.
 - **Model keeps forgetting turn tags** → consider a stronger Tutor model in `.pi/settings.json`.
-- **Withheld banner says a `subagent` call omitted the `agent` field** → that dispatch minted no
-  receipt; the model must name the verifier (e.g. `tutor-audit`) as the subagent's `agent` field, or
-  as the `agent` inside `runs.run(...)` when using a workflow script.
-- **Tool result is `Validation failed for tool "subagent": - task: must be string`** → the model
-  passed the envelope as a JSON object. pi-subagents >= 0.71 requires `task` to be a JSON **string
-  literal** — the envelope as text inside quotes with its inner quotes escaped
-  (`task: "{\"gate\":\"quiz_audit\", ...}"`), never a nested `{...}` value. The dispatch launches no
-  child and mints no receipt, so the turn dead-ends until the *same* envelope is re-emitted as a
-  quoted string (do not rebuild the content, and do not fall back to `subagent_supervisor` /
-  `action: "validate"`). The prompt resources show the string form; a fresh session also needs
-  `subagents_enable` before `subagent` is available.
+- **Withheld banner says a dispatch omitted the `agent` field** → that dispatch minted no receipt;
+  the model must name the verifier (e.g. `tutor-audit`) as `dispatch({ agent: "tutor-audit", ... })`.
+- **Tool result is `Validation failed for tool "subagent": - task: must be string`, or a
+  `subagent` `workflow`/`args` error** → the model used the raw `subagent` tool instead of
+  `dispatch`. pi-subagents requires `subagent.task` to be a JSON **string** (an object fails), which
+  is exactly why the learning layer dispatches through `dispatch({ agent, task: { ...envelope... } })`
+  — it takes the envelope as an object and serializes it. `dispatch` runs the child through the
+  structured delegation bridge and mints the receipt; the raw `subagent` `workflow`/`args` forms are
+  blocked and redirected to `dispatch`. No `subagents_enable` step is needed for `dispatch`.
 - **State looks stale after Open WebUI use** → `git pull` in `~/learning-system`.
 
 ---
