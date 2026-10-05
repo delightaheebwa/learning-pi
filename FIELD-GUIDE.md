@@ -281,6 +281,15 @@ prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flo
   — it takes the envelope as an object and serializes it. `dispatch` runs the child through the
   structured delegation bridge and mints the receipt; the raw `subagent` `workflow`/`args` forms are
   blocked and redirected to `dispatch`. No `subagents_enable` step is needed for `dispatch`.
+- **`GRADE_AUDIT_STALE` loops on a grade + repair turn** → the grade-audit binds only the graded
+  question/answer/verdict, so it cannot cover the repair prose. Dispatch a `fact-check` with
+  `rendered_content` = the full emitted turn (the gate accepts the turn when the grade-audit covers
+  the verdicts AND the fact-check covers the prose), or split it into a verdict-only `[[TURN:grade]]`
+  and a separate `[[TURN:claims]]` repair. Never re-dispatch the grade-audit to cover repair prose.
+- **`QUIZ_AUDIT_STALE` on a clean PASS** (or a write-gate PASS judged unsubstantiated) → the judge
+  scored the PASS unsubstantiated because the verifier emitted no evidence. The verifier's verdict
+  JSON must carry a non-empty `evidence` list naming what it checked (the `quiz-audit` and
+  `tutor-audit` agents require this); re-dispatch it.
 - **State looks stale after Open WebUI use** → `git pull` in `~/learning-system`.
 
 ---

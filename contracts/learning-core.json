@@ -233,7 +233,7 @@
     {
       "id": "G-pass-substantive",
       "severity": "hard",
-      "statement": "A verifier PASS that the judge scores as unsubstantiated (thin or none, missing items, no evidence) does not verify the turn.",
+      "statement": "A verifier PASS that the judge scores as unsubstantiated (thin or none, missing items, no evidence) does not verify the turn. Verifiers whose clean verdict is an empty `issues:[]` (quiz-audit, tutor-audit, viz-audit, review-gate, review-session-audit) must emit a mandatory non-empty `evidence` list, or every clean PASS dead-ends as `*_STALE` (the 2026-10-05 session looped on the empty quiz PASS).",
       "tests": ["hollow PASS blocked as unsubstantiated"]
     },
     {
@@ -279,6 +279,15 @@
         "dispatch accepts an object task and returns the child output",
         "dispatch-minted quiz receipt binds the emitted batch",
         "malformed subagent workflow is blocked toward dispatch"
+      ]
+    },
+    {
+      "id": "G-grade-repair-dual-verify",
+      "severity": "hard",
+      "statement": "A grade turn that also teaches (the diagnose-first repair) is covered by two receipts: the `grade-audit` covers the graded question/answer/verdict and the `fact-check` covers the repair prose (`rendered_content` = the full emitted turn). When the grade-audit does not cover the whole emitted text and no fact-check covers it, the turn is withheld (GRADE_AUDIT_STALE) with a remedy to fact-check the prose or split the turn — the gate never loops re-dispatching the grade-audit.",
+      "tests": [
+        "grade+repair turn allowed when grade-audit and fact-check both cover it",
+        "grade+repair without a fact-check is GRADE_AUDIT_STALE"
       ]
     }
   ]

@@ -32,6 +32,15 @@ its tagged test, change the implementation, all in one reviewed commit.
   `correct_verdict` is surfaced (`GRADE_MISMATCH`). One batched `items[]`
   envelope may carry several learner answers from a single reply (one entry per
   answer); a mismatch surfaces the per-item corrections.
+- **G-grade-repair-dual-verify** *(hard)* — a grade turn that also teaches (the
+  diagnose-first repair) is covered by two receipts: the `grade-audit` covers the
+  graded question/answer/verdict and the `fact-check` covers the repair prose
+  (`rendered_content` = the full emitted turn). When the grade-audit does not
+  cover the whole emitted text and no fact-check covers it, the turn is withheld
+  (`GRADE_AUDIT_STALE`) with a remedy to fact-check the prose or split the turn —
+  the gate never loops re-dispatching the grade-audit (the 2026-10-05 session
+  looped on exactly that).
+
 - **G-receipts-consumed-per-message** *(hard)* — a receipt is consumed by the
   message it verified; the same receipt cannot authorize a later turn.
 - **G-partial-ungated** *(hard)* — an unfinished generation

@@ -51,6 +51,30 @@ const pkg = {
   assert('system prompt states the 100 percent rule', /100 percent|100%/.test(sawSystem));
 }
 
+// --- index-keyed substantiveness survives out-of-order judge output ---
+// A weak judge can emit the scores in a different order than the receipts; the
+// index key keeps them aligned (the 2026-10-05 session scored a strong
+// fact-check as "none" and blocked a valid claims turn).
+{
+  const judge = createModelJudge(async () =>
+    JSON.stringify({
+      turnType: 'claims',
+      bindings: [
+        { index: 0, covers: true, uncovered: [] },
+        { index: 1, covers: true, uncovered: [] },
+      ],
+      substantiveness: [
+        { index: 1, score: 'none' },
+        { index: 0, score: 'strong' },
+      ],
+      bestReceipt: 0,
+      reason: 'out of order',
+    })
+  );
+  const a = await judge.assessTurn(pkg);
+  assert('index-keyed substantiveness aligns by receipt index', a.substantiveness[0] === 'strong' && a.substantiveness[1] === 'none');
+}
+
 // --- an explicit tag wins over the model's classification ---
 {
   const judge = createModelJudge(async () => JSON.stringify({ turnType: 'claims', bindings: [], substantiveness: [], bestReceipt: -1, reason: '' }));

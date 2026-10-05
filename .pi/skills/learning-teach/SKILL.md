@@ -81,7 +81,7 @@ Generation-to-emission (not plan-to-generation): draft the step internally first
 
 `questions_json` is the structured item list the auditor checks; `rendered_content` is the **verbatim full batch** the gate binds the receipt to. The gate requires 100% of the emitted quiz text — including the intro/instructions and every option — so send the complete batch in `rendered_content` and then emit that text unchanged, or the turn is withheld as `QUIZ_AUDIT_STALE`.
 
-The subagent returns `{"issues":[...],"verdict":"PASS|PASS_WITH_FLAGS|ISSUES"}`. Mechanical pre-checks (done BEFORE dispatch): each MCQ has 4 options; `correct_index` in range; correct positions not all in one slot.
+The subagent returns `{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","evidence":[...],"issues":[...]}` — `evidence` is mandatory and names the per-item + batch checks, so a clean `PASS` is substantive (the gate treats an evidence-less PASS as unsubstantiated). Mechanical pre-checks (done BEFORE dispatch): each MCQ has 4 options; `correct_index` in range; correct positions not all in one slot.
 
 ### Grade-audit envelope (one envelope per learner reply — batched)
 
@@ -107,6 +107,8 @@ Batched (the normal case when a probe or quiz batch is answered in one reply):
 A single-answer turn (a checkpoint's one practice question) may use the flat single-object shape — `{gate, concept, question, learner_answer, claimed_verdict, source_excerpt, feynman_transcript}` — which is exactly the batch above with one item. **Never mix the two:** a batched envelope has `items` and no top-level `question`/`learner_answer`/`claimed_verdict`, because the top-level fields are what bind the receipt to an emitted grade.
 
 Dispatch it **before** emitting the grade, then present the verifier's per-item `correct_verdict` (not your own). The verifier returns `{"verdict":"PASS|ISSUES","agrees":true|false,"correct_verdict":"pass|fail","items":[{"id":1,"agrees":true,"correct_verdict":"pass","explanation":"..."}]}` — `agrees` is true only when it endorses every claimed verdict. **On `agrees:false`** (GRADE_MISMATCH): re-dispatch the corrected batch once with each disputed item's `claimed_verdict` set to the verifier's `correct_verdict` (a materially corrected batch — the one legitimate second grade dispatch), then emit the corrected grades. Never emit a disputed verdict without the correction.
+
+**Grade + repair turns.** A `[[TURN:grade]]` binds on the graded question/answer/verdict, so a verdict-only grade turn binds directly. If the turn also teaches (the diagnose-first repair: learner path beside correct path, named slip, detector, micro-check), that prose is teaching and needs its own verification — dispatch a `fact-check` with `rendered_content` = the **full emitted turn** as well as the grade-audit. The gate accepts the turn when the grade-audit covers the verdicts AND the fact-check covers the prose. Alternatively, keep them as two turns: a verdict-only `[[TURN:grade]]`, then the repair as `[[TURN:claims]]`. Never re-dispatch the grade-audit trying to make it cover the repair prose — that loops (`GRADE_AUDIT_STALE`).
 
 > **Dispatch shape (all gates):** ONE `dispatch({ agent: "<verifier>", task: { ...envelope... } })` per gate, and **wait for the verdict in the tool result before emitting**. `task` is the **envelope object**, not a JSON string — `dispatch` serializes it for you. Do **not** use `subagent`, `workflow`, `args`, `subagent_supervisor`, or `action: "validate"/"status"`. Do not launch the same gate twice — the one exception is a materially corrected `grade-audit` batch after `agrees:false`.
 
@@ -134,7 +136,7 @@ The `learning-gate` extension **withholds** a teach/resume summary that follows 
 }
 ```
 
-There is no `expected` block — the auditor derives the truth from the files and checks them against each other. It returns `{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","issues":[...],"context_notes":[...]}`. Fix any high/medium issue, re-dispatch (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is sufficient to proceed. Keep `bash` out of this check — it verifies content, not history.
+There is no `expected` block — the auditor derives the truth from the files and checks them against each other. It returns `{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","evidence":[...],"issues":[...],"context_notes":[...]}` — `evidence` is mandatory (each file read + cross-check), so a clean `PASS` is substantive. Fix any high/medium issue, re-dispatch (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is sufficient to proceed. Keep `bash` out of this check — it verifies content, not history.
 
 ## Scope & state
 

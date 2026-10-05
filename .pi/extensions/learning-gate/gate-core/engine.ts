@@ -649,6 +649,14 @@ export function createGate(options: GateOptions = {}): GateEngine {
         if (g) toConsume.push(g);
         else {
           const bad = run.receipts.find((r) => r.gate === "grade_audit" && r.agrees === false);
+          const validGrade = run.receipts.find((r) => r.gate === "grade_audit" && r.valid);
+          // A grade turn may also carry a repair/teaching tail: the verdict is
+          // grade-audited and the prose is fact-checked, so the two receipts
+          // together cover the emitted text (the 2026-10-05 session looped
+          // here because only the grade receipt was considered).
+          const fc = run.receipts.find(
+            (r) => r.gate === "fact_check" && r.valid && r.renderedContent && P.contentMatches(r.renderedContent, text)
+          );
           if (bad) {
             blockers.push("GRADE_MISMATCH");
             const corrections = (bad.gradeItems || []).filter((it) => it.agrees === false && it.correctVerdict);
@@ -662,8 +670,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
             } else if (bad.correctVerdict) {
               verdictNote = `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.`;
             }
-          } else if (run.receipts.some((r) => r.gate === "grade_audit" && r.valid)) {
+          } else if (validGrade && fc) {
+            toConsume.push(validGrade);
+            toConsume.push(fc);
+          } else if (validGrade) {
             blockers.push("GRADE_AUDIT_STALE");
+            verdictNote =
+              "The grade-audit receipt does not cover the whole emitted text. If this turn also teaches/repairs, fact-check that prose with `rendered_content` = the full turn so both receipts cover it; or emit a verdict-only `[[TURN:grade]]` and put the repair in a separate `[[TURN:claims]]` turn.";
           } else blockers.push("NO_GRADE_AUDIT_PASS");
         }
       } else if (tag === "viz") {
@@ -1047,6 +1060,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
       if (idx >= 0 && R[idx].valid) toConsume.push(R[idx]);
       else {
         const bad = R.find((r) => r.gate === "grade_audit" && r.agrees === false);
+        const validGrade = R.find((r) => r.gate === "grade_audit" && r.valid);
+        // A grade turn may also carry a repair/teaching tail: the verdict is
+        // grade-audited and the prose is fact-checked, so the two receipts
+        // together cover the emitted text (the 2026-10-05 session looped here
+        // because only the grade receipt was considered).
+        const fcIdx = bindingFor("fact_check");
+        const fcCovers = fcIdx >= 0 && R[fcIdx].valid && substantive(fcIdx) !== "none";
         if (bad) {
           blocks.push("GRADE_MISMATCH");
           const corrections = (bad.gradeItems || []).filter((it) => it.agrees === false && it.correctVerdict);
@@ -1056,8 +1076,14 @@ export function createGate(options: GateOptions = {}): GateEngine {
           } else if (bad.correctVerdict) {
             verdictNote = `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.`;
           }
-        } else if (R.some((r) => r.gate === "grade_audit" && r.valid)) blocks.push("GRADE_AUDIT_STALE");
-        else blocks.push("NO_GRADE_AUDIT_PASS");
+        } else if (validGrade && fcCovers) {
+          toConsume.push(validGrade);
+          toConsume.push(R[fcIdx]);
+        } else if (validGrade) {
+          blocks.push("GRADE_AUDIT_STALE");
+          verdictNote =
+            "The grade-audit receipt does not cover the whole emitted text. If this turn also teaches/repairs, fact-check that prose with `rendered_content` = the full turn so both receipts cover it; or emit a verdict-only `[[TURN:grade]]` and put the repair in a separate `[[TURN:claims]]` turn.";
+        } else blocks.push("NO_GRADE_AUDIT_PASS");
       }
     } else if (turnType === "viz") {
       const parseable = vizzes.some((raw) => {

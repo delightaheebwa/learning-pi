@@ -138,6 +138,24 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: dispatch examples use the `dispatch` helper with an object `task`")
 
+    # Regression guard: the model judge scores a PASS "none" (unsubstantiated)
+    # when the verifier shows no evidence. Verifiers whose clean verdict is an
+    # empty `issues:[]` must therefore emit a mandatory `evidence` list, or every
+    # clean PASS dead-ends as *_STALE (the 2026-10-05 session looped on it).
+    evidence_agents = ["quiz-audit", "tutor-audit", "viz-audit", "review-gate", "review-session-audit"]
+    missing_evidence = [
+        name
+        for name in evidence_agents
+        if not re.search(r"\bevidence\b", (root / ".pi" / "agents" / f"{name}.md").read_text(encoding="utf-8", errors="replace"))
+    ]
+    if missing_evidence:
+        fail(
+            "resources: verifier agents with an empty-PASS contract must require an `evidence` "
+            "list: " + ", ".join(missing_evidence)
+        )
+    else:
+        ok(f"resources: {len(evidence_agents)} verifier agents require an `evidence` list")
+
 
 def check_contract(root: Path, gate_output: Path) -> None:
     contract_path = root / "contracts" / "learning-core.json"

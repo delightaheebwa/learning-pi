@@ -39,7 +39,7 @@ OUTPUT: Return ONLY one JSON object, no prose, matching exactly:
   "turnType": "claims" | "quiz" | "grade" | "viz" | "none",
   "summaryKind": "content" | "ingest" | "review" | "transition",
   "bindings": [ { "index": <receipt index>, "covers": <bool>, "uncovered": [<span>, ...] } ],
-  "substantiveness": [ <"strong"|"thin"|"none">, ... one per receipt in index order ],
+  "substantiveness": [ { "index": <receipt index>, "score": <"strong"|"thin"|"none"> }, ... ],
   "bestReceipt": <index of the best-binding receipt, or -1>,
   "remedy": "<short exact instruction, or empty>",
   "reason": "<one line>"

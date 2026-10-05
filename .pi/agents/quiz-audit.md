@@ -29,10 +29,12 @@ Audit the ACTUAL batch that will be rendered for quality ONLY. Fail any batch wi
 - mechanical: 4 options, `correct_index` in range.
 
 Begin your final message with `[[TURN:none]]` as its first line (the learning gate strips this tag when it is active), then output ONLY valid JSON, no prose:
-{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","issues":[{"id":"q1","severity":"high|medium|low","problem":"...","suggested_fix":"..."}]}
+{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","evidence":["what you actually checked per item, e.g. 'q1: one correct option, parallel grammar, no length outlier'","q2: ..."],"issues":[{"id":"q1","severity":"high|medium|low","problem":"...","suggested_fix":"..."}]}
 
 - `PASS` — zero high/medium issues.
 - `PASS_WITH_FLAGS` — no high issues and at most one medium, or lows only, after at least one fix cycle was applied (list the residual lows in `issues`). The Tutor accepts these silently (no banner to the learner) instead of re-running.
 - `ISSUES` — one or more high issues, or two+ mediums, or a repeat of an already-flagged medium after a fix cycle.
+
+`evidence` is mandatory and non-empty: name the checks you actually ran (per item, plus the batch-level checks: exactly-one-correct, length parity, position variety, parallel grammar, no answer leak). A verdict with no evidence is treated as unsubstantiated by the gate, even when it is a clean `PASS`.
 
 Do not re-flag a medium you already flagged once when the Tutor applied your `suggested_fix` — either PASS it or downgrade to low. Never demand a third rewrite for wording/parity alone.

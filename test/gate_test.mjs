@@ -113,6 +113,48 @@ const FC_PASS = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanatio
 const REVIEW_PASS = JSON.stringify({ verdict: 'PASS', evidence: ['read X.md'], issues: [], context_notes: [] });
 const CLERK_WRITES = '[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"commit":"abc"}';
 
+// --- 2026-10-05: a grade turn that also teaches/repairs ---
+// The grade-audit binds only the graded question/answer/verdict, so a repair
+// tail is not covered by it. When the repair prose is separately fact-checked
+// (rendered_content = the full turn), the two receipts together cover the turn
+// and it must render (the 2026-10-05 session looped as GRADE_AUDIT_STALE).
+const repairDraft =
+  'Close — your dot products are right, but you divided by 3. The recipe divides by n−1, and with 3 points that is 2, so C = [[4,2],[2,4]]. Name the slip: biased 1/n instead of unbiased 1/(n−1). Detector: with n points the denominator is n−1. Micro-check: recompute with 3 points and divide by 2.';
+const repairGradeEnv = JSON.stringify({
+  gate: 'grade_audit',
+  concept: 'PCA',
+  question:
+    'Compute entry (1,2) of the covariance matrix C as the dot product of the centered columns divided by (n−1), then the diagonal entries the same way — what is C?',
+  learner_answer: 'I believe the answer is the identity matrix because the two columns look independent to me',
+  claimed_verdict: 'fail',
+});
+const repairGradeResult = JSON.stringify({
+  verdict: 'PASS',
+  agrees: true,
+  correct_verdict: 'fail',
+  issues: [],
+  items: [{ id: 1, agrees: true, correct_verdict: 'fail', explanation: 'divisor slip' }],
+});
+const repairFcEnv = JSON.stringify({
+  gate: 'fact_check',
+  claims: [{ id: 1, claim: 'the recipe divides by n-1' }],
+  rendered_content: repairDraft,
+  source_urls: ['https://e.com'],
+});
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('grade-audit', repairGradeEnv, 'gr1');
+await fg('gr1', 'grade-audit', repairGradeEnv, repairGradeResult);
+await dispatch('fact-check', repairFcEnv, 'fc1');
+await fg('fc1', 'fact-check', repairFcEnv, JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok', corrected_claim: null }] }));
+const combined = await msg('[[TURN:grade]]\n' + repairDraft, 'stop');
+assert('grade+repair turn allowed when grade-audit and fact-check both cover it', allowed(combined));
+
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('grade-audit', repairGradeEnv, 'gr2');
+await fg('gr2', 'grade-audit', repairGradeEnv, repairGradeResult);
+const staleRepair = await msg('[[TURN:grade]]\n' + repairDraft, 'stop');
+assert('grade+repair without a fact-check is GRADE_AUDIT_STALE', blocked(staleRepair, 'GRADE_AUDIT_STALE'));
+
 // --- P1.2: a tagged follow-up after an ingest summary must not be held hostage ---
 await setPrompt('[[FLOW:ingest]] ingest this');
 await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'ing1');

@@ -83,10 +83,21 @@ function coerceAssessment(raw: any, pkg: TurnPackage): TurnAssessment {
       uncovered: b && Array.isArray(b.uncovered) ? b.uncovered.filter((s: any) => typeof s === "string") : [],
     };
   });
-  const substantiveness: Substantiveness[] = pkg.receipts.map((_, i) => {
-    const s = Array.isArray(raw.substantiveness) ? raw.substantiveness[i] : undefined;
-    return SUBSTANTIVENESS.has(s) ? s : "none";
-  });
+  // Substantiveness is keyed by receipt index when the judge returns
+  // `[{index, score}]`, so a model that emits the scores out of order (or omits
+  // some) cannot misalign them onto the wrong receipts. A bare string array is
+  // the legacy positional form, accepted for back-compat.
+  const subByIndex = new Map<number, Substantiveness>();
+  if (Array.isArray(raw.substantiveness)) {
+    raw.substantiveness.forEach((entry: any, i: number) => {
+      if (entry && typeof entry === "object" && typeof entry.index === "number") {
+        if (SUBSTANTIVENESS.has(entry.score)) subByIndex.set(entry.index, entry.score);
+      } else if (SUBSTANTIVENESS.has(entry)) {
+        subByIndex.set(i, entry);
+      }
+    });
+  }
+  const substantiveness: Substantiveness[] = pkg.receipts.map((r) => subByIndex.get(r.index) ?? "none");
   const bestReceipt = typeof raw.bestReceipt === "number" ? raw.bestReceipt : -1;
   return {
     turnType,
