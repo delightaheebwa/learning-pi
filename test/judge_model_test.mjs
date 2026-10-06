@@ -49,6 +49,7 @@ const pkg = {
   assert('remedy parsed', a.remedy === 'verify C is D');
   assert('source is model', a.source === 'model');
   assert('system prompt states the 100 percent rule', /100 percent|100%/.test(sawSystem));
+  assert('system prompt carves out verdict-only grade turns', /GRADE TURNS/.test(sawSystem) && /verdict/i.test(sawSystem));
 }
 
 // --- index-keyed substantiveness survives out-of-order judge output ---

@@ -155,6 +155,63 @@ await fg('gr2', 'grade-audit', repairGradeEnv, repairGradeResult);
 const staleRepair = await msg('[[TURN:grade]]\n' + repairDraft, 'stop');
 assert('grade+repair without a fact-check is GRADE_AUDIT_STALE', blocked(staleRepair, 'GRADE_AUDIT_STALE'));
 
+// --- 2026-10-06: a verdict-only grade turn ---
+// The grade-audit binds only the graded question/answer/verdict, so a terse
+// verdict presentation ("Correct on all three: W1 B, W2 C, W3 A") is not
+// literally covered by the full question text. A grade turn that only presents
+// the graded answers must still bind the receipt (the 2026-10-06 resume session
+// looped as GRADE_AUDIT_STALE on exactly this).
+const verdictOnlyEnv = JSON.stringify({
+  gate: 'grade_audit',
+  items: [
+    {
+      id: 1,
+      question:
+        'You centered a cloud of 3 points and summed the squared (co)deviations for every covariance entry — the sums came out as plain numbers. What do you divide those sums by to get the covariance matrix?',
+      learner_answer: 'B',
+      claimed_verdict: 'pass',
+    },
+    {
+      id: 2,
+      question:
+        'A 2-feature blob has eigenvalues λ1 = 6 and λ2 = 2. You keep only the first principal axis. What fraction of the total variance did you keep?',
+      learner_answer: 'C',
+      claimed_verdict: 'pass',
+    },
+    {
+      id: 3,
+      question:
+        'X is n×d and you keep k principal components, so V (the directions matrix) is d×k. What is the shape of the projected data Xp = Xc @ V — and what does its shape tell you?',
+      learner_answer: 'A',
+      claimed_verdict: 'pass',
+    },
+  ],
+});
+const verdictOnlyResult = JSON.stringify({
+  verdict: 'PASS',
+  agrees: true,
+  correct_verdict: 'pass',
+  issues: [],
+  items: [
+    { id: 1, agrees: true, correct_verdict: 'pass', explanation: 'divisor n-1' },
+    { id: 2, agrees: true, correct_verdict: 'pass', explanation: 'kept fraction 3/4' },
+    { id: 3, agrees: true, correct_verdict: 'pass', explanation: 'n×k shape' },
+  ],
+});
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('grade-audit', verdictOnlyEnv, 'gr3');
+await fg('gr3', 'grade-audit', verdictOnlyEnv, verdictOnlyResult);
+const verdictOnly = await msg('[[TURN:grade]]\nCorrect on all three: **W1 B, W2 C, W3 A** ✓.', 'stop');
+assert('verdict-only grade turn binds a full-sentence grade envelope', allowed(verdictOnly));
+
+// A teaching/repair tail behind the same full-sentence envelope is still stale
+// without its own fact-check (the dual-verify invariant is preserved).
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('grade-audit', verdictOnlyEnv, 'gr4');
+await fg('gr4', 'grade-audit', verdictOnlyEnv, verdictOnlyResult);
+const verdictOnlyRepair = await msg('[[TURN:grade]]\nCorrect on all three. ' + repairDraft, 'stop');
+assert('verdict-only envelope does not cover a repair tail', blocked(verdictOnlyRepair, 'GRADE_AUDIT_STALE'));
+
 // --- P1.2: a tagged follow-up after an ingest summary must not be held hostage ---
 await setPrompt('[[FLOW:ingest]] ingest this');
 await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'ing1');

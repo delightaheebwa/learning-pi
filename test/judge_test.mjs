@@ -256,3 +256,97 @@ const mintFC = (engine, output = FC_PASS) =>
   const pkg = j.getPkg();
   assert('derived quiz boundText includes the options', pkg.receipts[0].boundText.includes('A) surprise'));
 }
+
+// --- S11: a verdict-only grade turn binds even when the judge marks it uncovered ---
+// The grade-audit binds the graded question/answer/verdict; a terse verdict
+// presentation is not literally covered by the full question text. The engine
+// must not let the judge's 100% span coverage dead-end that turn (the
+// 2026-10-06 resume session looped as GRADE_AUDIT_STALE on exactly this).
+{
+  const gradeEnv = {
+    gate: 'grade_audit',
+    items: [
+      {
+        id: 1,
+        question:
+          'You centered a cloud of 3 points and summed the squared (co)deviations for every covariance entry — the sums came out as plain numbers. What do you divide those sums by to get the covariance matrix?',
+        learner_answer: 'B',
+        claimed_verdict: 'pass',
+      },
+      {
+        id: 2,
+        question: 'A 2-feature blob has eigenvalues λ1 = 6 and λ2 = 2. You keep only the first principal axis. What fraction of the total variance did you keep?',
+        learner_answer: 'C',
+        claimed_verdict: 'pass',
+      },
+      {
+        id: 3,
+        question:
+          'X is n×d and you keep k principal components, so V is d×k. What is the shape of the projected data Xp = Xc @ V?',
+        learner_answer: 'A',
+        claimed_verdict: 'pass',
+      },
+    ],
+  };
+  const gradeOut = JSON.stringify({
+    verdict: 'PASS',
+    agrees: true,
+    correct_verdict: 'pass',
+    issues: [],
+    items: [
+      { id: 1, agrees: true, correct_verdict: 'pass', explanation: 'divisor n-1' },
+      { id: 2, agrees: true, correct_verdict: 'pass', explanation: 'kept fraction 3/4' },
+      { id: 3, agrees: true, correct_verdict: 'pass', explanation: 'n×k shape' },
+    ],
+  });
+  const j = stubJudge({
+    evaluate: (pkg) => ({
+      turnType: 'grade',
+      bindings: pkg.receipts.map((r) => ({ index: r.index, covers: false, uncovered: ['the confirmation framing'] })),
+      bestReceipt: -1,
+    }),
+  });
+  const engine = createGate({ judge: j.judge });
+  drive(engine, { scout: false });
+  engine.onToolResult({
+    tool: 'subagent',
+    isError: false,
+    text: gradeOut,
+    dispatchCalls: [],
+    mintCalls: [{ agent: 'grade-audit', envelope: gradeEnv, output: gradeOut }],
+  });
+  const res = await engine.onMessageEnd({ message: msg('[[TURN:grade]]\nCorrect on all three: **W1 B, W2 C, W3 A** ✓.') });
+  assert('verdict-only grade turn binds despite uncovered judge verdict', allowed(res));
+}
+
+// --- S12: a grade+repair turn renders when the grade-audit and a fact-check cover it ---
+{
+  const prose = 'Name the slip: biased 1/n instead of unbiased 1/(n−1). Detector: with n points the denominator is n−1.';
+  const gradeEnv = JSON.stringify({
+    gate: 'grade_audit',
+    question: 'What do you divide the centered sums by?',
+    learner_answer: '3',
+    claimed_verdict: 'fail',
+  });
+  const gradeOut = JSON.stringify({ verdict: 'PASS', agrees: true, correct_verdict: 'fail', issues: [], items: [{ id: 1, agrees: true, correct_verdict: 'fail' }] });
+  const fcEnv = JSON.stringify({ gate: 'fact_check', rendered_content: prose, claims: [{ id: 1, claim: 'the denominator is n-1' }] });
+  const fcOut = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
+  const j = stubJudge({
+    evaluate: (pkg) => {
+      const bindings = pkg.receipts.map((r) =>
+        r.gate === 'fact_check'
+          ? { index: r.index, covers: true, uncovered: [] }
+          : { index: r.index, covers: false, uncovered: [prose] }
+      );
+      return { turnType: 'grade', bindings, bestReceipt: -1 };
+    },
+  });
+  const engine = createGate({ judge: j.judge });
+  drive(engine, { scout: false });
+  const mint = (agent, envelope, output) =>
+    engine.onToolResult({ tool: 'subagent', isError: false, text: output, dispatchCalls: [], mintCalls: [{ agent, envelope, output }] });
+  mint('grade-audit', JSON.parse(gradeEnv), gradeOut);
+  mint('fact-check', JSON.parse(fcEnv), fcOut);
+  const res = await engine.onMessageEnd({ message: msg('[[TURN:grade]]\nThat is wrong by a divisor slip. ' + prose) });
+  assert('grade+repair turn renders when grade-audit and fact-check both cover it (judge path)', allowed(res));
+}

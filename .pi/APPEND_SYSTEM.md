@@ -141,9 +141,11 @@ the lesson.
   questions, dispatch ONE envelope with an `items[]` entry per answer (never one `dispatch` per
   answer). Grade turns use `grade-audit` only; a disagreement is withheld and the verifier's
   per-item `correct_verdict` must be used — dispatch the corrected batch once, then emit.
-  **Grade + repair:** a `[[TURN:grade]]` binds on the graded question/answer/verdict. If the turn
-  also teaches (the diagnose-first repair), the repair prose is teaching — dispatch a `fact-check`
-  with `rendered_content` = the full emitted turn too; the gate accepts the turn when the grade-audit
+  **Grade + repair:** a `[[TURN:grade]]` binds on the graded question/answer/verdict. A
+  verdict-only turn that presents just the graded answers and their verdicts (e.g. "Correct on all
+  three: W1 B, W2 C, W3 A") needs no fact-check — emit it directly. If the turn also teaches (the
+  diagnose-first repair), the repair prose is teaching — dispatch a `fact-check` with
+  `rendered_content` = the full emitted turn too; the gate accepts the turn when the grade-audit
   covers the verdicts AND the fact-check covers the prose. Or split: a verdict-only `[[TURN:grade]]`,
   then the repair as `[[TURN:claims]]`. Never re-dispatch the grade-audit to make it cover repair
   prose — that loops (`GRADE_AUDIT_STALE`).

@@ -41,6 +41,12 @@ export const MATCH_THRESHOLD = 0.85;
 // minor edits) but must not carry a large unverified tail.
 export const MAX_LENGTH_RATIO = 1.4;
 export const LENGTH_SLACK_TOKENS = 30;
+// A verdict-only grade turn is short (answers + confirmation framing). These
+// bound how long it may be before it counts as teaching prose needing a
+// fact-check: at least `VERDICT_ONLY_MIN_TOKENS` tokens, and no more than
+// `VERDICT_ONLY_MAX_RATIO` of the graded question text.
+export const VERDICT_ONLY_MIN_TOKENS = 12;
+export const VERDICT_ONLY_MAX_RATIO = 0.5;
 export const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|viz|none)\]\]\s*/i;
 export const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest)\]\]/i;
 export const STATE_AUDIT_RE = /(\d+)\s+errors?\b[^\d]*(\d+)\s+warnings?/i;
@@ -73,6 +79,10 @@ export interface Receipt {
   // Content binding so an old PASS can't satisfy a new turn.
   questionsText?: string;
   gradeText?: string;
+  // The learner answers the grade-audit graded (one per item). A verdict-only
+  // grade turn binds by restating these even when it does not repeat the full
+  // question text. See `verdictOnlyGradeBinds`.
+  gradeAnswers?: string[];
   auditFiles?: string[];
   envelopeGate?: string;
   // Whether a dispatch envelope was present when this receipt was minted. A
@@ -447,9 +457,39 @@ export function bindingMatches(bound: string | undefined, emittedText: string): 
  *     authorize every later quiz/grade turn. Refuse to bind.
  */
 export function receiptBinds(r: Receipt, emittedText: string): boolean {
-  const bound = r.gate === "grade_audit" ? r.gradeText : r.questionsText;
+  if (r.gate === "grade_audit") {
+    const bound = r.gradeText;
+    if (bound && bound.trim().length > 0) {
+      if (coverage(bound, emittedText) >= 0.5) return true;
+      // A grade turn is a verdict presentation, so it rarely repeats the full
+      // question text. Bind it when it restates the graded answers and stays a
+      // verdict summary rather than teaching prose (the 2026-10-06 loop).
+      return verdictOnlyGradeBinds(r, emittedText);
+    }
+    return !r.hasEnvelope;
+  }
+  const bound = r.questionsText;
   if (bound && bound.trim().length > 0) return coverage(bound, emittedText) >= 0.5;
   return !r.hasEnvelope;
+}
+
+/**
+ * A verdict-only grade turn binds on the graded answers alone. Every audited
+ * learner answer must be restated (its final token — the letter/number the
+ * learner chose — must appear in the emission), and the turn must stay short
+ * relative to the graded content so teaching/repair prose does not slip through
+ * on an answer letter alone. The repair prose still needs its own fact-check.
+ */
+export function verdictOnlyGradeBinds(r: Receipt, emittedText: string): boolean {
+  const answers = (r.gradeAnswers || []).map((a) => tokens(a)).filter((t) => t.length > 0);
+  if (answers.length === 0) return false;
+  const hay = new Set(tokens(emittedText));
+  for (const a of answers) {
+    if (!hay.has(a[a.length - 1])) return false;
+  }
+  const emittedLen = tokens(emittedText).length;
+  const boundLen = tokens(r.gradeText || "").length;
+  return emittedLen <= Math.max(VERDICT_ONLY_MIN_TOKENS, boundLen * VERDICT_ONLY_MAX_RATIO);
 }
 
 /**
@@ -660,6 +700,21 @@ export function gradeTextOf(envelope: any): string | undefined {
   return undefined;
 }
 
+/** The learner answers a grade-audit envelope graded, one entry per item. */
+export function gradeAnswersOf(envelope: any): string[] | undefined {
+  if (!envelope || typeof envelope !== "object") return undefined;
+  if (typeof envelope.learner_answer === "string" && envelope.learner_answer.trim().length > 0) {
+    return [envelope.learner_answer];
+  }
+  if (Array.isArray(envelope.items)) {
+    const out = envelope.items
+      .map((it: any) => (it && typeof it.learner_answer === "string" ? it.learner_answer : ""))
+      .filter((s: string) => s.trim().length > 0);
+    if (out.length > 0) return out;
+  }
+  return undefined;
+}
+
 /**
  * Out-of-scope for a review-gate pass: state bookkeeping / provenance that
  * review-gate.md explicitly excludes (state files, lesson/session/review files,
@@ -737,6 +792,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
   // Grade envelope: flat single-answer object, or the batched `items:[{…}]`
   // shape. Both bind so a dropped tag is still recovered from the receipt.
   const gradeText = gradeTextOf(envelope);
+  const gradeAnswers = gradeAnswersOf(envelope);
   const auditFiles = artifactPaths(envelope);
   // Review-family verdicts: a PASS without an evidence list is unsubstantiated.
   let evidenceMissing = false;
@@ -779,6 +835,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
         : undefined,
     questionsText: questionsText || undefined,
     gradeText: gradeText || undefined,
+    gradeAnswers,
     auditFiles,
     envelopeGate: envelope && typeof envelope.gate === "string" ? envelope.gate : undefined,
     hasEnvelope: !!envelope && typeof envelope === "object",

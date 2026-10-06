@@ -40,6 +40,14 @@ its tagged test, change the implementation, all in one reviewed commit.
   (`GRADE_AUDIT_STALE`) with a remedy to fact-check the prose or split the turn —
   the gate never loops re-dispatching the grade-audit (the 2026-10-05 session
   looped on exactly that).
+- **G-grade-verdict-only-binds** *(hard)* — a verdict-only `[[TURN:grade]]`
+  (only the graded answers + their verdicts) renders with just the agreeing
+  `grade-audit` receipt. The receipt binds the graded question/answer/verdict,
+  which a terse confirmation does not repeat verbatim; the model judge has a
+  `GRADE TURNS` carve-out and the deterministic fallback accepts a turn that
+  restates every graded answer and stays short (the 2026-10-06 resume session
+  looped as `GRADE_AUDIT_STALE` because a verdict-only turn could not bind at
+  all). Teaching/repair prose is still uncovered and needs its own fact-check.
 
 - **G-receipts-consumed-per-message** *(hard)* — a receipt is consumed by the
   message it verified; the same receipt cannot authorize a later turn.

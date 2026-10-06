@@ -289,6 +289,16 @@
         "grade+repair turn allowed when grade-audit and fact-check both cover it",
         "grade+repair without a fact-check is GRADE_AUDIT_STALE"
       ]
+    },
+    {
+      "id": "G-grade-verdict-only-binds",
+      "severity": "hard",
+      "statement": "A verdict-only grade turn (`[[TURN:grade]]` presenting only the graded answers and their verdicts, e.g. \"Correct on all three: W1 B, W2 C, W3 A\") renders with just the agreeing `grade-audit` receipt. The grade-audit binds the graded question/answer/verdict, which a terse confirmation does not repeat verbatim, so both the model judge (a GRADE TURNS carve-out to the 100% rule) and the deterministic fallback (every graded answer restated, turn no longer than half the graded question text) accept it. A teaching/repair tail is still not covered by the grade receipt and needs its own fact-check — the 2026-10-06 resume session looped as GRADE_AUDIT_STALE because a verdict-only turn could not bind at all.",
+      "tests": [
+        "verdict-only grade turn binds a full-sentence grade envelope",
+        "verdict-only grade turn binds despite uncovered judge verdict",
+        "verdict-only envelope does not cover a repair tail"
+      ]
     }
   ]
 }

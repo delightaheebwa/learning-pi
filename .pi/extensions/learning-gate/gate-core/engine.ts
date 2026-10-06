@@ -676,7 +676,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
           } else if (validGrade) {
             blockers.push("GRADE_AUDIT_STALE");
             verdictNote =
-              "The grade-audit receipt does not cover the whole emitted text. If this turn also teaches/repairs, fact-check that prose with `rendered_content` = the full turn so both receipts cover it; or emit a verdict-only `[[TURN:grade]]` and put the repair in a separate `[[TURN:claims]]` turn.";
+              "The grade-audit does not cover this turn. A verdict-only grade turn (the graded answers + verdicts only) needs no fact-check; remove any teaching prose, or split the repair into a separate `[[TURN:claims]]` turn. If the turn teaches/repairs, fact-check that prose with `rendered_content` = the full turn so both receipts cover it. Do not re-dispatch the grade-audit.";
           } else blockers.push("NO_GRADE_AUDIT_PASS");
         }
       } else if (tag === "viz") {
@@ -1056,7 +1056,14 @@ export function createGate(options: GateOptions = {}): GateEngine {
         blocks.push(anyBound ? "QUIZ_AUDIT_STALE" : issuesReceipt ? "QUIZ_AUDIT_ISSUES" : "NO_QUIZ_AUDIT_PASS");
       }
     } else if (turnType === "grade") {
-      const idx = bindingFor("grade_audit");
+      let idx = bindingFor("grade_audit");
+      // A verdict-only grade turn binds on the graded answers even when the
+      // judge's 100% span coverage says the framing is uncovered — the receipt
+      // bound the verdicts, not the confirmation wording (the 2026-10-06 loop).
+      if (!(idx >= 0 && R[idx].valid)) {
+        const verdictOnly = R.findIndex((r) => r.gate === "grade_audit" && r.valid && P.verdictOnlyGradeBinds(r, text));
+        if (verdictOnly >= 0) idx = verdictOnly;
+      }
       if (idx >= 0 && R[idx].valid) toConsume.push(R[idx]);
       else {
         const bad = R.find((r) => r.gate === "grade_audit" && r.agrees === false);
@@ -1082,7 +1089,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         } else if (validGrade) {
           blocks.push("GRADE_AUDIT_STALE");
           verdictNote =
-            "The grade-audit receipt does not cover the whole emitted text. If this turn also teaches/repairs, fact-check that prose with `rendered_content` = the full turn so both receipts cover it; or emit a verdict-only `[[TURN:grade]]` and put the repair in a separate `[[TURN:claims]]` turn.";
+            "The grade-audit does not cover this turn. A verdict-only grade turn (the graded answers + verdicts only) needs no fact-check; remove any teaching prose, or split the repair into a separate `[[TURN:claims]]` turn. If the turn teaches/repairs, fact-check that prose with `rendered_content` = the full turn so both receipts cover it. Do not re-dispatch the grade-audit.";
         } else blocks.push("NO_GRADE_AUDIT_PASS");
       }
     } else if (turnType === "viz") {

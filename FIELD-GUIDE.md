@@ -286,6 +286,11 @@ prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flo
   `rendered_content` = the full emitted turn (the gate accepts the turn when the grade-audit covers
   the verdicts AND the fact-check covers the prose), or split it into a verdict-only `[[TURN:grade]]`
   and a separate `[[TURN:claims]]` repair. Never re-dispatch the grade-audit to cover repair prose.
+- **`GRADE_AUDIT_STALE` on a verdict-only grade turn** → the turn presents just the graded answers
+  and wants no fact-check. This is a binding bug if it persists: the grade-audit binds the graded
+  question/answer/verdict, and a terse confirmation ("Correct on all three: W1 B, W2 C, W3 A") does
+  not repeat the question text. Diagnostic: dispatch a `fact-check` with `rendered_content` = the
+  emitted verdict text and re-emit it (or remove any teaching prose so the turn is verdict-only).
 - **`QUIZ_AUDIT_STALE` on a clean PASS** (or a write-gate PASS judged unsubstantiated) → the judge
   scored the PASS unsubstantiated because the verifier emitted no evidence. The verifier's verdict
   JSON must carry a non-empty `evidence` list naming what it checked (the `quiz-audit` and
