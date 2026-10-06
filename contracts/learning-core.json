@@ -1,18 +1,19 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
   "version": 2,
-  "updated": "2026-10-05",
+  "updated": "2026-10-06",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
       "severity": "hard",
-      "statement": "A grade turn must not render unless an agreeing grade-audit receipt is present; a missing receipt is withheld with NO_GRADE_AUDIT_PASS. One batched `items[]` envelope may carry several learner answers, and a mismatch surfaces the per-item corrections.",
+      "statement": "A grade turn must not render unless an agreeing grade-audit receipt is present; a missing receipt is withheld with NO_GRADE_AUDIT_PASS. One batched `items[]` envelope may carry several learner answers, and a mismatch surfaces the per-item corrections. Only the newest grade verdict may block: a stale `agrees:false` receipt is superseded by a corrected agreeing re-dispatch, so it cannot poison every later grade turn.",
       "tests": [
         "normal grade turn allowed",
         "grade turn with no receipt withheld",
         "batched items[] grade envelope binds a multi-answer grade turn",
         "batched grade mismatch surfaces per-item corrections",
-        "corrected batched re-dispatch clears the mismatch"
+        "corrected batched re-dispatch clears the mismatch",
+        "newest grade verdict supersedes an older disagreement"
       ]
     },
     {
@@ -94,8 +95,13 @@
     {
       "id": "G-none-evasion-guard",
       "severity": "hard",
-      "statement": "Teaching content tagged [[TURN:none]] while its fact-check is still in flight or already verified is withheld (FACT_CHECK_PENDING / TURN_TAG_MISMATCH).",
-      "tests": ["none-tagged teaching draft withheld while fact-check in flight", "none tag over a verified draft is withheld"]
+      "statement": "Teaching content tagged [[TURN:none]] while its fact-check is still in flight or already verified is withheld (FACT_CHECK_PENDING / TURN_TAG_MISMATCH). Review-flow carve-out: closing review feedback/summaries legitimately reuse verified prose, so a none turn covered by a passing fact-check renders in the review flow.",
+      "tests": [
+        "none-tagged teaching draft withheld while fact-check in flight",
+        "none tag over a verified draft is withheld",
+        "review-flow none summary over a verified draft renders",
+        "none over a verified draft still withholds outside review"
+      ]
     },
     {
       "id": "G-non-learning-not-gated",

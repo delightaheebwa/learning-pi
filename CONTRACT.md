@@ -31,7 +31,10 @@ its tagged test, change the implementation, all in one reviewed commit.
   an agreeing `grade-audit` receipt; a verifier disagreement is rejected and its
   `correct_verdict` is surfaced (`GRADE_MISMATCH`). One batched `items[]`
   envelope may carry several learner answers from a single reply (one entry per
-  answer); a mismatch surfaces the per-item corrections.
+  answer); a mismatch surfaces the per-item corrections. Only the newest grade
+  verdict may block: a corrected agreeing re-dispatch supersedes an older
+  disagreement, so a stale `agrees:false` receipt cannot poison every later
+  grade turn in the flow (the 2026-10-06 review close looped on exactly that).
 - **G-grade-repair-dual-verify** *(hard)* — a grade turn that also teaches (the
   diagnose-first repair) is covered by two receipts: the `grade-audit` covers the
   graded question/answer/verdict and the `fact-check` covers the repair prose
@@ -77,7 +80,11 @@ its tagged test, change the implementation, all in one reviewed commit.
   content-matched passing fact-check; a pending one withholds with a wait hint.
 - **G-none-evasion-guard** *(hard)* — `[[TURN:none]]` over a verified or
   in-flight fact-check draft is withheld (`TURN_TAG_MISMATCH` /
-  `FACT_CHECK_PENDING`).
+  `FACT_CHECK_PENDING`). Review-flow carve-out: closing review feedback/summaries
+  legitimately reuse verified prose under a `none` tag, so a `none` turn covered
+  by a passing fact-check renders in the review flow (the content is verified);
+  the in-flight guard still withholds, and the carve-out does not apply outside
+  review.
 - **G-non-learning-not-gated** *(hard)* — a session with no `[[FLOW:...]]`
   marker is never gated; messages pass through untouched.
 - **G-tutor-audit-required** *(hard)* — after a Learning System write in

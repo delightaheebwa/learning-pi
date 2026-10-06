@@ -350,3 +350,96 @@ const mintFC = (engine, output = FC_PASS) =>
   const res = await engine.onMessageEnd({ message: msg('[[TURN:grade]]\nThat is wrong by a divisor slip. ' + prose) });
   assert('grade+repair turn renders when grade-audit and fact-check both cover it (judge path)', allowed(res));
 }
+
+// --- S13: a stale disagreeing grade receipt must not block a later grade+repair turn ---
+// The 2026-10-06 review close looped as GRADE_MISMATCH: an old `agrees:false`
+// receipt persisted after a corrected agreeing re-dispatch, so every later grade
+// turn blocked even though the newest verdict agreed and a fact-check covered
+// the prose. Only the newest grade verdict may block.
+{
+  const prose =
+    'Direction right, but the concrete X, Y, Z instantiation was skipped. Name the slip and give a detector for next time.';
+  const badEnv = JSON.stringify({
+    gate: 'grade_audit',
+    items: [{ id: 2, question: 'Q2 restate screening-off', learner_answer: 'abstract', claimed_verdict: 'fail' }],
+  });
+  const badOut = JSON.stringify({
+    verdict: 'ISSUES',
+    agrees: false,
+    correct_verdict: 'fail',
+    issues: [{ id: 2, correction: 'no instantiation' }],
+    items: [{ id: 2, agrees: false, correct_verdict: 'fail' }],
+  });
+  const goodEnv = JSON.stringify({
+    gate: 'grade_audit',
+    items: [{ id: 3, question: 'Q3 fill the blanks', learner_answer: 'spoilt', claimed_verdict: 'pass' }],
+  });
+  const goodOut = JSON.stringify({
+    verdict: 'PASS',
+    agrees: true,
+    correct_verdict: 'pass',
+    issues: [],
+    items: [{ id: 3, agrees: true, correct_verdict: 'pass' }],
+  });
+  const fcEnv = JSON.stringify({ gate: 'fact_check', rendered_content: prose, claims: [{ id: 1, claim: 'x' }] });
+  const fcOut = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
+  const j = stubJudge({
+    evaluate: (pkg) => ({
+      turnType: 'grade',
+      bindings: pkg.receipts.map((r) =>
+        r.gate === 'fact_check'
+          ? { index: r.index, covers: true, uncovered: [] }
+          : { index: r.index, covers: false, uncovered: [prose] }
+      ),
+      bestReceipt: -1,
+    }),
+  });
+  const engine = createGate({ judge: j.judge });
+  drive(engine, { scout: false });
+  const mint = (agent, envelope, output) =>
+    engine.onToolResult({ tool: 'subagent', isError: false, text: output, dispatchCalls: [], mintCalls: [{ agent, envelope, output }] });
+  mint('grade-audit', JSON.parse(badEnv), badOut);
+  mint('grade-audit', JSON.parse(goodEnv), goodOut);
+  mint('fact-check', JSON.parse(fcEnv), fcOut);
+  const res = await engine.onMessageEnd({ message: msg('[[TURN:grade]]\n' + prose) });
+  assert('newest grade verdict supersedes an older disagreement (judge path)', allowed(res));
+}
+
+// --- S14: a review-flow none summary over verified prose renders ---
+{
+  const closing = 'Review closed. Direction right; the spoilt-food fill-in passed. Any deeper dig before I close?';
+  const fcEnv = JSON.stringify({ gate: 'fact_check', rendered_content: closing, claims: [{ id: 1, claim: 'x' }] });
+  const fcOut = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
+  const j = stubJudge({
+    evaluate: (pkg) => ({
+      turnType: 'none',
+      summaryKind: 'review',
+      bindings: pkg.receipts.map((r) => ({ index: r.index, covers: r.gate === 'fact_check', uncovered: [] })),
+      bestReceipt: -1,
+    }),
+  });
+  const engine = createGate({ judge: j.judge });
+  engine.onBeforeAgentStart('[[FLOW:review]] review my due concepts');
+  engine.onToolResult({ tool: 'subagent', isError: false, text: fcOut, dispatchCalls: [], mintCalls: [{ agent: 'fact-check', envelope: JSON.parse(fcEnv), output: fcOut }] });
+  const res = await engine.onMessageEnd({ message: msg('[[TURN:none]]\n' + closing) });
+  assert('review-flow none summary over a verified draft renders (judge path)', allowed(res));
+}
+
+// --- S15: the same none tag outside review is still withheld as evasion ---
+{
+  const prose = 'Verified teaching prose that was then mis-tagged none, outside any review flow.';
+  const fcEnv = JSON.stringify({ gate: 'fact_check', rendered_content: prose, claims: [{ id: 1, claim: 'x' }] });
+  const fcOut = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
+  const j = stubJudge({
+    evaluate: (pkg) => ({
+      turnType: 'none',
+      bindings: pkg.receipts.map((r) => ({ index: r.index, covers: r.gate === 'fact_check', uncovered: [] })),
+      bestReceipt: -1,
+    }),
+  });
+  const engine = createGate({ judge: j.judge });
+  drive(engine, { scout: false });
+  engine.onToolResult({ tool: 'subagent', isError: false, text: fcOut, dispatchCalls: [], mintCalls: [{ agent: 'fact-check', envelope: JSON.parse(fcEnv), output: fcOut }] });
+  const res = await engine.onMessageEnd({ message: msg('[[TURN:none]]\n' + prose) });
+  assert('none over a verified draft still withholds outside review (judge path)', blocked(res, 'TURN_TAG_MISMATCH'));
+}

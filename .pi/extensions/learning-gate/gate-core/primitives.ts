@@ -174,6 +174,10 @@ export interface RunState {
   // text). After three repeats the judge is asked whether the issue still
   // applies (the dispute safeguard); the engine performs the release.
   issueBlocks: Record<string, number>;
+  // The newest `grade_audit` receipt, kept even after that receipt is consumed.
+  // A corrected (agreeing) re-dispatch must supersede an older disagreement, so
+  // a stale `agrees:false` cannot block every later grade turn in the flow.
+  lastGradeReceipt?: Receipt;
 }
 
 export interface CallRef {

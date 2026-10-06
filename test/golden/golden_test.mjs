@@ -118,6 +118,55 @@ const noneVerified = await msg(`[[TURN:none]]\n${DRAFT}`, 'stop');
 assert('none tag over a verified draft is withheld', blocked(noneVerified, 'TURN_TAG_MISMATCH'));
 
 // ============================================================================
+// review-flow carve-out: closing review feedback legitimately reuses verified
+// prose under a [[TURN:none]] tag, so a content-matching PASS renders there.
+// ============================================================================
+const REVIEW_DRAFT = 'Review closed: direction right, instantiation skipped; given food spoilt, time tells nothing about smell.';
+await setPrompt('[[FLOW:review]] review my due concepts');
+await dispatch('fact-check', fcEnvelope(REVIEW_DRAFT), 'fc4');
+await fg('fc4', 'fact-check', fcEnvelope(REVIEW_DRAFT), FC_PASS);
+const reviewNone = await msg(`[[TURN:none]]\n${REVIEW_DRAFT}`, 'stop');
+assert('review-flow none summary over a verified draft renders', allowed(reviewNone));
+
+// ============================================================================
+// grade verdict supersession: an older disagreeing receipt must not block a
+// later grade+repair turn when a corrected (agreeing) receipt and a covering
+// fact-check exist (the 2026-10-06 review close looped as GRADE_MISMATCH).
+// ============================================================================
+const staleProse = 'Name the slip: the direction is inverted. Detector: once Z is known, X tells you nothing about Y.';
+const staleBadEnv = JSON.stringify({
+  gate: 'grade_audit',
+  items: [{ id: 2, concept: 'CI', question: 'Q2 restate screening-off', learner_answer: 'abstract', claimed_verdict: 'fail' }],
+});
+const staleBadOut = JSON.stringify({
+  verdict: 'ISSUES',
+  agrees: false,
+  correct_verdict: 'fail',
+  issues: [{ id: 2, correction: 'no concrete instantiation' }],
+  items: [{ id: 2, agrees: false, correct_verdict: 'fail' }],
+});
+const staleGoodEnv = JSON.stringify({
+  gate: 'grade_audit',
+  items: [{ id: 3, concept: 'CI', question: 'Q3 fill the blanks', learner_answer: 'spoilt', claimed_verdict: 'pass' }],
+});
+const staleGoodOut = JSON.stringify({
+  verdict: 'PASS',
+  agrees: true,
+  correct_verdict: 'pass',
+  issues: [],
+  items: [{ id: 3, agrees: true, correct_verdict: 'pass' }],
+});
+await setPrompt('[[FLOW:review]] review my due concepts');
+await dispatch('grade-audit', staleBadEnv, 'gb1');
+await fg('gb1', 'grade-audit', staleBadEnv, staleBadOut);
+await dispatch('grade-audit', staleGoodEnv, 'gg1');
+await fg('gg1', 'grade-audit', staleGoodEnv, staleGoodOut);
+await dispatch('fact-check', fcEnvelope(staleProse), 'gfc1');
+await fg('gfc1', 'fact-check', fcEnvelope(staleProse), FC_PASS);
+const superseded = await msg(`[[TURN:grade]]\n${staleProse}`, 'stop');
+assert('newest grade verdict supersedes an older disagreement', allowed(superseded));
+
+// ============================================================================
 // out-of-scope review findings on an ingest render as flags, never a withhold.
 // ============================================================================
 await setPrompt('[[FLOW:ingest]] ingest this');

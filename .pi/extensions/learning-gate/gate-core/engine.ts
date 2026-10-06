@@ -85,6 +85,10 @@ export function createGate(options: GateOptions = {}): GateEngine {
 
   const addReceipt = (r: P.Receipt, agent?: string) => {
     run.receipts.push(r);
+    // Retain the newest grade verdict independently of consumption: a corrected
+    // agreeing re-dispatch supersedes an older disagreement (see fix note on
+    // RunState.lastGradeReceipt).
+    if (r.gate === "grade_audit") run.lastGradeReceipt = r;
     try {
       ledger.receipt({
         at: new Date().toISOString(),
@@ -648,7 +652,11 @@ export function createGate(options: GateOptions = {}): GateEngine {
         const g = candidates[0];
         if (g) toConsume.push(g);
         else {
-          const bad = run.receipts.find((r) => r.gate === "grade_audit" && r.agrees === false);
+          // Only the newest grade verdict can block: a corrected agreeing
+          // re-dispatch supersedes an older disagreement (a stale bad receipt
+          // must not poison every later grade turn in the flow).
+          const newestGrade = run.lastGradeReceipt;
+          const bad = newestGrade && newestGrade.agrees === false ? newestGrade : undefined;
           const validGrade = run.receipts.find((r) => r.gate === "grade_audit" && r.valid);
           // A grade turn may also carry a repair/teaching tail: the verdict is
           // grade-audited and the prose is fact-checked, so the two receipts
@@ -712,13 +720,17 @@ export function createGate(options: GateOptions = {}): GateEngine {
         const vizMatch = run.receipts.find(
           (r) => r.gate === "viz_audit" && r.valid && r.renderedContent && P.contentMatches(r.renderedContent, text)
         );
-        if (match || vizMatch) blockers.push("TURN_TAG_MISMATCH");
+        // Review-flow carve-out: closing review feedback/summaries legitimately
+        // reuse verified teaching prose under a `none` tag, so a content-matching
+        // PASS is accepted (the content is verified). Outside review, a `none`
+        // turn over a verified draft is still withheld as evasion.
+        if ((match || vizMatch) && run.flow !== "review") blockers.push("TURN_TAG_MISMATCH");
         // Evasion guard for the exact 2026-09-21 loop: teaching content tagged
         // `[[TURN:none]]` while its fact-check is still running (no receipt
         // yet). Matching the pending draft is decisive — a genuine transition
         // does not quote the teaching draft.
-        else if (pendingAsyncDraftMatches(text)) blockers.push("FACT_CHECK_PENDING");
-        else if (pendingAsyncVizDraftMatches(text)) blockers.push("VIZ_PENDING");
+        else if (!match && !vizMatch && pendingAsyncDraftMatches(text)) blockers.push("FACT_CHECK_PENDING");
+        else if (!match && !vizMatch && pendingAsyncVizDraftMatches(text)) blockers.push("VIZ_PENDING");
       }
 
       // Review-context gate: the review flow's first content turn (claims/quiz)
@@ -1066,7 +1078,10 @@ export function createGate(options: GateOptions = {}): GateEngine {
       }
       if (idx >= 0 && R[idx].valid) toConsume.push(R[idx]);
       else {
-        const bad = R.find((r) => r.gate === "grade_audit" && r.agrees === false);
+        // Only the newest grade verdict can block: a corrected agreeing
+        // re-dispatch supersedes an older disagreement (a stale bad receipt
+        // must not poison every later grade turn in the flow).
+        const bad = run.lastGradeReceipt && run.lastGradeReceipt.agrees === false ? run.lastGradeReceipt : undefined;
         const validGrade = R.find((r) => r.gate === "grade_audit" && r.valid);
         // A grade turn may also carry a repair/teaching tail: the verdict is
         // grade-audited and the prose is fact-checked, so the two receipts
@@ -1116,8 +1131,12 @@ export function createGate(options: GateOptions = {}): GateEngine {
     } else {
       const match = bindingFor("fact_check");
       const vizMatch = bindingFor("viz_audit");
-      if (match >= 0 || vizMatch >= 0) blocks.push("TURN_TAG_MISMATCH");
-      else if (pkgHasPendingDraftMatch(text)) blocks.push("FACT_CHECK_PENDING");
+      // Review-flow carve-out: closing review feedback/summaries legitimately
+      // reuse verified teaching prose under a `none` tag, so a content-matching
+      // PASS is accepted (the content is verified). Outside review, a `none`
+      // turn over a verified draft is still withheld as evasion.
+      if ((match >= 0 || vizMatch >= 0) && run.flow !== "review") blocks.push("TURN_TAG_MISMATCH");
+      else if (match < 0 && vizMatch < 0 && pkgHasPendingDraftMatch(text)) blocks.push("FACT_CHECK_PENDING");
     }
 
     // Review-context gate (deterministic flags).
