@@ -443,3 +443,26 @@ const mintFC = (engine, output = FC_PASS) =>
   const res = await engine.onMessageEnd({ message: msg('[[TURN:none]]\n' + prose) });
   assert('none over a verified draft still withholds outside review (judge path)', blocked(res, 'TURN_TAG_MISMATCH'));
 }
+
+// --- S16: a DROPPED tag read as `none` is recovered from the bound fact-check ---
+// The 2026-10-07 resume loop: the tutor emitted an untagged, 100%-fact-checked
+// pause, the judge read it as `none`, and the non-review evasion guard withheld
+// TURN_TAG_MISMATCH forever (retagging `none` could not fix it). A dropped tag
+// is recovered from the bound receipt (G-infer-claims-from-bound).
+{
+  const pause = 'Mini 4 sealed. Coming next: the round-cloud degenerate case, then the practice. Any questions before we move on?';
+  const fcEnv = JSON.stringify({ gate: 'fact_check', rendered_content: pause, claims: [{ id: 1, claim: 'x' }] });
+  const fcOut = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
+  const j = stubJudge({
+    evaluate: (pkg) => ({
+      turnType: 'none',
+      bindings: pkg.receipts.map((r) => ({ index: r.index, covers: r.gate === 'fact_check', uncovered: [] })),
+      bestReceipt: -1,
+    }),
+  });
+  const engine = createGate({ judge: j.judge });
+  engine.onBeforeAgentStart('[[FLOW:resume]] continue the lesson');
+  engine.onToolResult({ tool: 'subagent', isError: false, text: fcOut, dispatchCalls: [], mintCalls: [{ agent: 'fact-check', envelope: JSON.parse(fcEnv), output: fcOut }] });
+  const res = await engine.onMessageEnd({ message: msg(pause) });
+  assert('dropped tag recovered from bound fact-check when the judge reads it as none', allowed(res));
+}

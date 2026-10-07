@@ -724,7 +724,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
         // reuse verified teaching prose under a `none` tag, so a content-matching
         // PASS is accepted (the content is verified). Outside review, a `none`
         // turn over a verified draft is still withheld as evasion.
-        if ((match || vizMatch) && run.flow !== "review") blockers.push("TURN_TAG_MISMATCH");
+        if ((match || vizMatch) && run.flow !== "review") {
+          blockers.push("TURN_TAG_MISMATCH");
+          verdictNote =
+            "This message is fully covered by a passing verifier receipt, so a `[[TURN:none]]` tag withholds it " +
+            "as evasion. Emit the exact same verified text with `[[TURN:claims]]` (or drop the tag — a dropped tag " +
+            "is recovered from the receipt). Do not re-dispatch the verifier.";
+        }
         // Evasion guard for the exact 2026-09-21 loop: teaching content tagged
         // `[[TURN:none]]` while its fact-check is still running (no receipt
         // yet). Matching the pending draft is decisive — a genuine transition
@@ -990,7 +996,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
     let scoutNeeded = false;
     let reviewScoutNeeded = false;
     const toConsume: P.Receipt[] = [];
-    const turnType = (explicitTag || assessment.turnType) as string;
+    let turnType = (explicitTag || assessment.turnType) as string;
     const summaryKind = assessment.summaryKind;
 
     const bindingFor = (gate: string): number => {
@@ -1001,6 +1007,24 @@ export function createGate(options: GateOptions = {}): GateEngine {
     };
     const bindingVerdictFor = (gate: string) => assessment.bindings.find((b) => R[b.index]?.gate === gate);
     const substantive = (idx: number) => (idx >= 0 ? assessment.substantiveness[idx] ?? "none" : "none");
+
+    // G-infer-claims-from-bound / G-viz-infer-from-bound (judge path): a DROPPED
+    // turn tag is recovered from a valid, substantive, content-bound verifier
+    // receipt. The judge reads the content; when it calls a verified draft a
+    // `none` transition, recover the tag that authorizes the emission instead of
+    // withholding it as TURN_TAG_MISMATCH and dead-ending the turn (the
+    // 2026-10-07 resume loop: an untagged, 100%-fact-checked pause was read as
+    // `none`). An explicit `[[TURN:none]]` is NOT a dropped tag — it is the
+    // evasion G-none-evasion-guard targets — so recover only when no tag was
+    // supplied (mirrors the legacy inferClaimsTurn/inferVizTurn).
+    if (!explicitTag && turnType === "none") {
+      const vIdx = hasVizFence ? bindingFor("viz_audit") : -1;
+      if (vIdx >= 0 && R[vIdx].valid && substantive(vIdx) !== "none") turnType = "viz";
+      else {
+        const fcIdx = bindingFor("fact_check");
+        if (fcIdx >= 0 && R[fcIdx].valid && substantive(fcIdx) !== "none") turnType = "claims";
+      }
+    }
 
     if (run.flow === "ingest" && run.clerkCalled && (summaryKind === "ingest" || P.looksLikeIngestSummary(text))) {
       const reviews = R.filter((r) => r.gate === "review" && P.receiptAuditsArtifacts(r));
@@ -1135,8 +1159,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // reuse verified teaching prose under a `none` tag, so a content-matching
       // PASS is accepted (the content is verified). Outside review, a `none`
       // turn over a verified draft is still withheld as evasion.
-      if ((match >= 0 || vizMatch >= 0) && run.flow !== "review") blocks.push("TURN_TAG_MISMATCH");
-      else if (match < 0 && vizMatch < 0 && pkgHasPendingDraftMatch(text)) blocks.push("FACT_CHECK_PENDING");
+      if ((match >= 0 || vizMatch >= 0) && run.flow !== "review") {
+        blocks.push("TURN_TAG_MISMATCH");
+        verdictNote =
+          "This message is fully covered by a passing verifier receipt, so a `[[TURN:none]]` tag withholds it " +
+          "as evasion. Emit the exact same verified text with `[[TURN:claims]]` (or drop the tag — a dropped tag " +
+          "is recovered from the receipt). Do not re-dispatch the verifier.";
+      } else if (match < 0 && vizMatch < 0 && pkgHasPendingDraftMatch(text)) blocks.push("FACT_CHECK_PENDING");
     }
 
     // Review-context gate (deterministic flags).
