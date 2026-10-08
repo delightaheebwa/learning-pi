@@ -433,8 +433,9 @@ Each item lists **Goal · Where · Design · Verify**.
 
 ### P3 — Nice to have
 
-> **Deferred by user (2026-10-08).** No P3 work performed; resume later. The cascade's P3 stage is a
-> no-op forwarder to the review phase. P3.1–P3.4 below are not started.
+> **Deferred by user (2026-10-08).** No P3 work performed; resumed later.
+>
+> The cascade's P3 stage is a no-op forwarder to the review phase. P3.1–P3.4 below are not started.
 
 - P3.1 Repurpose the judge for disputed-claim escalation only.
 - P3.2 Instrument the `viz` subsystem's learning ROI, or demote it.
