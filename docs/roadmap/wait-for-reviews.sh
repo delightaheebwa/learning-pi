@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Poll until all four reviewer outputs exist and are non-empty. Re-runnable.
+# Poll until all reviewer outputs exist and are non-empty. Re-runnable.
 #
 #   wait-for-reviews.sh [timeout_seconds]   (default 300)
 #
-# Exit 0 when docs/roadmap/reviews/{P0,P1,P2,P3}.md all exist and are non-empty.
-# Exit 1 on timeout. If the calling agent's shell tool times out, just run it
-# again — it always re-checks from scratch.
+# Exit 0 when docs/roadmap/reviews/{P0,P1,P2}.md all exist and are non-empty
+# (P3 is deferred). Exit 1 on timeout. If the calling agent's shell tool times
+# out, just run it again — it always re-checks from scratch.
 set -uo pipefail
 
 ROOT="/home/delightaheebwa/learning-pi"
@@ -15,7 +15,7 @@ DEADLINE=$(( $(date +%s) + TIMEOUT ))
 
 while :; do
   missing=""
-  for cp in P0 P1 P2 P3; do
+  for cp in P0 P1 P2; do
     [ -s "$DIR/$cp.md" ] || missing="$missing $cp"
   done
   if [ -z "$missing" ]; then

@@ -1,38 +1,38 @@
 # Stage REVIEW — per-checkpoint review, aggregate, and fix
 
-You are the **review orchestrator** (default model). The cascade (P1 → P2 → P3) is done. Your job:
-run one Muse-Spark reviewer per checkpoint, collect their findings, aggregate them, **implement the
-fixes**, then spawn the final E2E stage.
+You are the **review orchestrator** (default model). The cascade (P1 → P2; P3 deferred) is done. Your
+job: run one Muse-Spark reviewer per checkpoint, collect their findings, aggregate them, **implement
+the fixes**, then spawn the final E2E stage.
 
 Read first:
 - `docs/AUDIT-2026-10-08.md` (the full audit — the standard you review against)
 - `AUDIT-ROADMAP.md` (what each checkpoint claims)
 - `docs/roadmap/reviews/README.md` (review format + rules)
-- `docs/roadmap/{P1,P2,P3}.md` (what each stage was asked to do)
+- `docs/roadmap/{P1,P2}.md` (what each stage was asked to do). **P3 is deferred** — do not review it.
 
 ## Steps
 
 ### 1. Spawn one reviewer per checkpoint
-Clear any stale outputs, then spawn the four reviewers (Muse Spark):
+Clear any stale outputs, then spawn the three reviewers (Muse Spark) — P0, P1, P2 only
+(P3 is deferred):
 ```bash
 rm -f ~/learning-pi/docs/roadmap/reviews/P0.md ~/learning-pi/docs/roadmap/reviews/P1.md \
-      ~/learning-pi/docs/roadmap/reviews/P2.md ~/learning-pi/docs/roadmap/reviews/P3.md
+      ~/learning-pi/docs/roadmap/reviews/P2.md
 bash ~/learning-pi/docs/roadmap/spawn-reviewer.sh P0
 bash ~/learning-pi/docs/roadmap/spawn-reviewer.sh P1
 bash ~/learning-pi/docs/roadmap/spawn-reviewer.sh P2
-bash ~/learning-pi/docs/roadmap/spawn-reviewer.sh P3
 ```
 
-### 2. Wait for all four
+### 2. Wait for all three
 ```bash
 bash ~/learning-pi/docs/roadmap/wait-for-reviews.sh 300
 ```
 If it prints a timeout (or your shell tool times out first), run it again until it prints
-`all reviews present`. Do not proceed until all four `docs/roadmap/reviews/P{0,1,2,3}.md` exist and
+`all reviews present`. Do not proceed until all three `docs/roadmap/reviews/P{0,1,2}.md` exist and
 are non-empty.
 
 ### 3. Aggregate
-Read all four review files and write `docs/roadmap/reviews/AGGREGATED.md`:
+Read all three review files and write `docs/roadmap/reviews/AGGREGATED.md`:
 - a deduplicated, severity-ranked master list of findings (merge duplicates across checkpoints);
 - for each: where, evidence, impact, recommended fix;
 - mark each as **accept / reject / defer**, with a one-line reason (reject only if the finding is

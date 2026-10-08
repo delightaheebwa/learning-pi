@@ -5,12 +5,12 @@ It is executed by a **cascade of Herdr agents**: each stage agent implements its
 commits and pushes, then spawns the next stage agent in a new Herdr tab.
 
 ```
-(this orchestrator) → P1 → P2 → P3 → REVIEW → E2E
-                                       ├── R-P0  (Muse Spark) review P0 changes
-                                       ├── R-P1  (Muse Spark) review P1 changes
-                                       ├── R-P2  (Muse Spark) review P2 changes
-                                       └── R-P3  (Muse Spark) review P3 changes
-                                          → aggregate → fix (default model) → E2E
+(this orchestrator) → P1 → P2 → P3* → REVIEW → E2E
+                               (*P3 deferred: no-op forwarder)
+                                        ├── R-P0  (Muse Spark) review P0 changes
+                                        ├── R-P1  (Muse Spark) review P1 changes
+                                        └── R-P2  (Muse Spark) review P2 changes
+                                           → aggregate → fix (default model) → E2E
 ```
 
 P0 is already complete (see `AUDIT-ROADMAP.md`). The cascade covers the remaining stages, then a
@@ -62,8 +62,9 @@ the cascade continues (the next agent or a human can pick up the remainder).
 | --- | --- | --- | --- |
 | P1 | `P1.md` | High-impact: Feynman gate, deterministic MCQ+q_type, prerequisites, confidence calibration, transfer, withhold unverified, learner-authored wiki, red-team harness, fading hints | P2 |
 | P2 | `P2.md` | Valuable: blocking state audit, remove out-of-scope demotion, Scout TTL, pi canonical, `ops.py amend`, prompt contradictions, interleaving, misconception links | P3 |
-| P3 | `P3.md` | Nice-to-have: judge-for-disputes, viz ROI, analytics, learner challenge | REVIEW |
-| REVIEW | `REVIEW.md` | Spawn R-P0..R-P3 (Muse Spark), aggregate, fix, then spawn E2E | E2E |
+| P3 | `P3.md` | **Deferred** — no implementation; forwards to REVIEW | REVIEW |
+| REVIEW | `REVIEW.md` | Spawn R-P0..R-P2 (Muse Spark), aggregate, fix, then spawn E2E | E2E |
 | E2E | `E2E.md` | Full end-to-end verification of everything built | — (final) |
 
-Reviewer briefs: `docs/roadmap/reviews/R-P{0,1,2,3}.md` (spawned by `spawn-reviewer.sh`).
+Reviewer briefs: `docs/roadmap/reviews/R-P{0,1,2}.md` (spawned by `spawn-reviewer.sh`; `R-P3` is kept
+but unused while P3 is deferred).

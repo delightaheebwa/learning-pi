@@ -28,17 +28,18 @@ This roadmap is executed by a **cascade of Herdr agents**, one per remaining sta
 phase, then final end-to-end testing:
 
 ```
-P1 → P2 → P3 → REVIEW → E2E
-               ├── R-P0..R-P3 (Muse Spark, one per checkpoint, parallel)
-               └── aggregate + implement fixes (default model)
+P1 → P2 → P3* → REVIEW → E2E
+                ├── R-P0..R-P2 (Muse Spark, one per checkpoint, parallel)
+                └── aggregate + implement fixes (default model)
 ```
+`*` P3 is deferred (no-op forwarder) — see the P3 section.
 
 - Full audit (canonical capture): [`docs/AUDIT-2026-10-08.md`](docs/AUDIT-2026-10-08.md).
 - Orchestration + per-stage briefs: [`docs/roadmap/`](docs/roadmap/README.md).
 - Each stage agent implements its stage, verifies (`learn-check --no-load --with-sidecars`), commits
   and pushes both repos, updates this file, then spawns the next stage with
   `bash docs/roadmap/spawn-stage.sh <next>`.
-- `REVIEW` spawns one **Muse Spark** reviewer per checkpoint (`R-P0`..`R-P3`, review-only), waits for
+- `REVIEW` spawns one **Muse Spark** reviewer per checkpoint (`R-P0`..`R-P2`, review-only), waits for
   them, aggregates findings, implements the fixes (default model), and only then spawns `E2E`.
   See [`docs/roadmap/reviews/`](docs/roadmap/reviews/README.md).
 - The final `E2E` agent runs full end-to-end verification and writes
@@ -342,6 +343,9 @@ Each item lists **Goal · Where · Design · Verify**.
 - P2.8 Misconception→prerequisite links in the Mistakes ledger.
 
 ### P3 — Nice to have
+
+> **Deferred by user (2026-10-08).** No P3 work performed; resume later. The cascade's P3 stage is a
+> no-op forwarder to the review phase. P3.1–P3.4 below are not started.
 
 - P3.1 Repurpose the judge for disputed-claim escalation only.
 - P3.2 Instrument the `viz` subsystem's learning ROI, or demote it.

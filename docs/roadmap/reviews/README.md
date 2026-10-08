@@ -1,13 +1,12 @@
 # Review phase — per-checkpoint review
 
-After the cascade finishes (P1 → P2 → P3), a **review phase** runs before end-to-end testing:
+After the cascade finishes (P1 → P2; P3 deferred), a **review phase** runs before end-to-end testing:
 
 ```
-P3 → REVIEW orchestrator (default model)
+P2 → REVIEW orchestrator (default model)      [P3 deferred]
         ├── R-P0  (Muse Spark)  review P0's changes only
         ├── R-P1  (Muse Spark)  review P1's changes only
-        ├── R-P2  (Muse Spark)  review P2's changes only
-        └── R-P3  (Muse Spark)  review P3's changes only
+        └── R-P2  (Muse Spark)  review P2's changes only
      → REVIEW aggregates all findings
      → REVIEW implements the fixes (default model)
      → E2E
@@ -15,7 +14,7 @@ P3 → REVIEW orchestrator (default model)
 
 Reviewers run on **`opencode-go/muse-spark-1.3-contributor`** (spawned by
 `spawn-reviewer.sh`). Each reviewer reviews **only its checkpoint's changes**, writes findings to
-`docs/roadmap/reviews/<CP>.md`, and stops. The orchestrator waits for all four, aggregates, fixes, and
+`docs/roadmap/reviews/<CP>.md`, and stops. The orchestrator waits for all of them (P0–P2), aggregates, fixes, and
 then spawns E2E.
 
 ## Reviewer rules

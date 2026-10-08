@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Spawn a per-checkpoint reviewer in a new Herdr tab, on the Muse Spark model.
 #
-#   spawn-reviewer.sh <P0|P1|P2|P3>
+#   spawn-reviewer.sh <P0|P1|P2>      (P3 is deferred)
 #
 # Reviewers are review-only: they inspect the changes for their checkpoint and
 # write findings to docs/roadmap/reviews/<CP>.md. They must not edit code or
 # spawn further agents.
 set -euo pipefail
 
-CP="${1:?usage: spawn-reviewer.sh <P0|P1|P2|P3>}"
+CP="${1:?usage: spawn-reviewer.sh <P0|P1|P2>}"
 ROOT="/home/delightaheebwa/learning-pi"
 BRIEF="$ROOT/docs/roadmap/reviews/R-${CP}.md"
 NAME="roadmap-r-$(printf '%s' "$CP" | tr '[:upper:]' '[:lower:]')"

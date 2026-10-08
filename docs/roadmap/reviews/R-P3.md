@@ -1,3 +1,5 @@
+> **NOT USED — P3 is deferred.** This brief is kept for when P3 is resumed. Do not spawn it now.
+
 # Reviewer R-P3 — review the P3 changes
 
 You are the **P3 reviewer** on `opencode-go/muse-spark-1.3-contributor`. Follow

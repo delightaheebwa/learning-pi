@@ -9,5 +9,5 @@ review to the right changes.
 | P0 baseline (before cascade) | `e344abc` | `64893fe` |
 | P1 | _pending_ | _pending_ |
 | P2 | _pending_ | _pending_ |
-| P3 | _pending_ | _pending_ |
+| P3 | _deferred (user, 2026-10-08)_ | _deferred_ |
 | REVIEW | _pending_ | _pending_ |
