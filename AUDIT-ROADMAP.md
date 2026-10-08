@@ -22,6 +22,24 @@
 
 ---
 
+## 0b. Cascade orchestration (Herdr)
+
+This roadmap is executed by a **cascade of Herdr agents**, one per remaining stage:
+
+```
+P1 → P2 → P3 → E2E
+```
+
+- Full audit (canonical capture): [`docs/AUDIT-2026-10-08.md`](docs/AUDIT-2026-10-08.md).
+- Orchestration + per-stage briefs: [`docs/roadmap/`](docs/roadmap/README.md).
+- Each stage agent implements its stage, verifies (`learn-check --no-load --with-sidecars`), commits
+  and pushes both repos, updates this file, then spawns the next stage with
+  `bash docs/roadmap/spawn-stage.sh <next>`.
+- The final `E2E` agent runs full end-to-end verification and writes
+  `docs/roadmap/E2E-REPORT.md`.
+
+See `docs/roadmap/README.md` for the ground rules every agent follows.
+
 ## 1. Verdict (condensed from the deep audit)
 
 The engineering is strong; the target was wrong. The system made excellent *conversations* but could
