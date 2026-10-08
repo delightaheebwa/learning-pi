@@ -330,17 +330,106 @@ Each item lists **Goal · Where · Design · Verify**.
 
 ### P2 — Valuable
 
-- P2.1 Promote `audit_state.py` to blocking on errors (split content gate vs state gate).
-- P2.2 Remove the out-of-scope ISSUES→PASS_WITH_FLAGS demotion regex (or whitelist only bookkeeping
-  paths).
-- P2.3 Enforce Scout TTL — re-scout required, not advisory.
-- P2.4 Declare pi canonical; freeze or remove the OpenWebUI pedagogy path to kill skill drift.
-  **(Currently open: `learning-system/Skills/learning-teach/SKILL.md` still holds the pre-P0.1 text.)**
-- P2.5 Replace `.tmp/gen_review_*.py` state surgery with a first-class `ops.py amend` + audit trail.
-- P2.6 Resolve prompt contradictions (Tutor-vs-Clerk Active Concepts writes; one-dispatch-per-turn;
-  claims inference) in one direction and delete the stale copies.
-- P2.7 Light procedural interleaving in practice sets.
-- P2.8 Misconception→prerequisite links in the Mistakes ledger.
+> **P2 complete (2026-10-08).** All eight items landed and were verified
+> (`learn-check --no-load --with-sidecars` → OK; `ops_test.py` 48 tests OK). No
+> P2 deferrals. One P1 deferral carried forward honestly: P1.5's full
+> `consolidated` graduation flow still has no flow to gate — `transfer_ok` /
+> `independence_ok` remain the gate it will use (unchanged by P2).
+
+#### [x] P2.1 — Make the state audit blocking on errors
+- **What:** the content gate (fact-check/quiz/grade/review) is unchanged; a new
+  **state gate** withholds the ingest/review close summary while `audit_state.py`
+  reports errors (`STATE_AUDIT_ERRORS`) and surfaces warnings as a non-blocking
+  `⚠️ STATE AUDIT` banner. State-audit verdicts are now parsed from async
+  clerk/review-clerk completions too (not only foreground tool results).
+- **Where:** `gate-core/engine.ts`, `contracts/learning-core.json` +
+  `CONTRACT.md` (new `G-state-audit-blocking`), `test/golden/golden_test.mjs`,
+  `FIELD-GUIDE.md`.
+- **Verified:** golden gate test: a state-audit **error** withholds the close
+  summary (`STATE_AUDIT_ERRORS`); a **warning** renders with the banner. The
+  retry cap still applies, so an unfixable error cannot dead-end forever.
+- **Commit:** `96dde7e` (learning-pi).
+
+#### [x] P2.2 — Remove the out-of-scope ISSUES→PASS_WITH_FLAGS demotion
+- **What:** demotion now requires **every** finding to cite an explicit
+  bookkeeping-path `location`; the issue-text fallback and the blanket
+  low-severity bypass are removed, so a content finding that merely mentions a
+  bookkeeping word can never be demoted.
+- **Where:** `gate-core/primitives.ts`, `contracts/learning-core.json` +
+  `CONTRACT.md` (tightened `G-out-of-scope-demoted`), `test/gate_test.mjs`,
+  `test/golden/golden_test.mjs`.
+- **Verified:** a bookkeeping-location finding demotes to flags; a
+  content-location finding (and a location-less finding) that mentions
+  `attempts.json`/`index.md` does **not** demote.
+- **Commit:** `96dde7e` (learning-pi).
+
+#### [x] P2.3 — Enforce Scout TTL
+- **What:** a digest older than its 7-day TTL is STALE — the flows now require a
+  re-scout before teaching new material and forbid treating stale excerpts as
+  authoritative. Kept as a hard behavioral rule (not an audit error): promoting
+  the TTL to an audit error would block the ingest close on a condition that
+  cannot be fixed retroactively.
+- **Where:** `.pi/skills/learning-teach/SKILL.md`,
+  `.pi/skills/learning-system/SKILL.md`, `FIELD-GUIDE.md`.
+- **Verified:** doc/behavior (no severity change, so no new state-audit test).
+- **Commit:** `125a672` (learning-pi).
+
+#### [x] P2.4 — Declare `learning-pi` canonical; freeze the OpenWebUI path
+- **What:** added a FROZEN/LEGACY banner to the four OpenWebUI `Skills/*/SKILL.md`
+  and `OPENWEBUI.md`, and a "canonical pedagogy lives here" banner to
+  `learning-pi/README.md`. Nothing deleted.
+- **Where:** `learning-system/Skills/{learning-teach,learning-system,learning-review,llm-wiki}/SKILL.md`,
+  `learning-system/OPENWEBUI.md`, `learning-pi/README.md`.
+- **Verified:** docs only.
+- **Commits:** `45d5434` (learning-pi), `dffb06e` (learning-system).
+
+#### [x] P2.5 — `ops.py amend` replaces `.tmp/gen_review_*.py` surgery
+- **What:** a first-class `ops.py amend "Concept" --date OLD [--new-date NEW]
+  [--field FIELD --value VALUE] --reason "..." [--occurrence N]` corrects one
+  recorded attempt (re-date and/or fix `date|q_type|confidence|hints|mode`),
+  appends a `meta.amendments` record with the reason, and recomputes
+  `last_reviewed`/`next_review`. Correctness (`result`/`is_correct`) is
+  deliberately not amendable (a re-grade is a new attempt). The docstring marks
+  the `.tmp` surgery scripts retired.
+- **Where:** `scripts/ops.py`, `scripts/ops_test.py`.
+- **Verified:** `ops_test.py` `TestAmend` (re-date persists + reason logged;
+  missing reason, unknown field, and missing attempt are rejected with exit 2);
+  CLI smoke-tested in a temp checkout.
+- **Commit:** `8bd7f73` (learning-system).
+
+#### [x] P2.6 — Resolve prompt contradictions
+- **What:** (1) the Tutor never writes an Active Concepts row — the Clerk does
+  (removed the stale "add a row to 📚 Active Concepts.md" instruction);
+  (2) removed the false "harness allows only one subagent call per turn" claim —
+  a turn may carry one `fact-check` AND one `quiz-audit`; (3) reconciled the
+  `none`-inference wording (the only implicit `none` is the ingest/review close
+  summary) and fixed the stale "claims/none are never inferred" comment in the
+  gate entrypoint.
+- **Where:** `.pi/skills/learning-teach/SKILL.md`,
+  `.pi/skills/learning-system/SKILL.md`, `.pi/APPEND_SYSTEM.md`,
+  `.pi/extensions/learning-gate/index.ts`.
+- **Verified:** grep for the contradictory phrases is clean; `learn-check` OK.
+- **Commit:** `125a672` (learning-pi).
+
+#### [x] P2.7 — Light procedural interleaving in practice
+- **What:** a checkpoint's practice may mix 1–2 closely-related procedures when
+  the contrast aids discrimination, without breaking the one-idea
+  mini-checkpoint rule. Kept conservative (practice only; probes and
+  end-of-lesson quizzes stay sequential).
+- **Where:** `.pi/skills/learning-teach/SKILL.md`.
+- **Verified:** doc/behavior.
+- **Commit:** `125a672` (learning-pi).
+
+#### [x] P2.8 — Misconception → prerequisite links
+- **What:** a handoff `mistakes[]` entry may carry `prereq` (the broken
+  prerequisite it exposes); the Clerk prefixes the row's Self-Attribution with
+  `[prereq: NAME]`; `ops.py` parses it (`_mistakes_rows`) and `ops.py queue`
+  surfaces it (`repair prereq: …`) so repair re-derives it first.
+- **Where:** `scripts/ops.py` (parse/emit), `scripts/ops_test.py`,
+  `.pi/agents/clerk.md`, `.pi/skills/learning-teach/SKILL.md`.
+- **Verified:** `ops_test.py` `TestMistakePrereqLink` (marker parsed and stripped;
+  absent marker is empty).
+- **Commits:** `8bd7f73` (learning-system), `125a672` (learning-pi).
 
 ### P3 — Nice to have
 
