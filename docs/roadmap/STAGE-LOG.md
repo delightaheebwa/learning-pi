@@ -10,4 +10,4 @@ review to the right changes.
 | P1 | _pending_ | _pending_ |
 | P2 | `96dde7e` `125a672` `45d5434` | `8bd7f73` `dffb06e` |
 | P3 | _deferred (user, 2026-10-08)_ | _deferred_ |
-| REVIEW | _pending_ | _pending_ |
+| REVIEW | `acf0b9f` (+ review docs commit) | `9a06820` |
