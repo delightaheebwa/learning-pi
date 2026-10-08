@@ -38,6 +38,27 @@ When asked to ingest, treat it as a source-processing job.
 
 If the source is mostly screenshots, make a source note that embeds the images and then build the wiki pages from the extracted ideas.
 
+## Provenance (required)
+
+Every page starts with a provenance marker on its first lines:
+
+```
+<!-- provenance: status=<verified|synthesis|learner-note|unverified> | source=<ref> | verified-by=<who> | date=YYYY-MM-DD -->
+```
+
+- New pages default to `status=synthesis` (AI synthesis from the source), with
+  `source=` the raw-source file (or the lesson/URL it came from) and
+  `verified-by=—`.
+- A page becomes `status=verified` only when a verifier (fact-check / review-gate)
+  has checked it against the cited source; record `verified-by=` and the date.
+- The learner's own understanding goes on as `status=learner-note`.
+- Never upgrade a status without the check. Lint with
+  `python3 scripts/wiki_provenance.py`; an unstamped page counts as `unverified`.
+
+Trust order: **raw source > verified claim > labelled synthesis > learner note**.
+A wiki page is never a source of truth for a claim it does not cite; the
+citation is the evidence, the page is the map.
+
 ## Wiki maintenance
 
 - Keep raw sources immutable.

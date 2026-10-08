@@ -78,6 +78,11 @@ Each item lists **Goal · Where · Design · Verify**.
 
 ### P0 — Critical
 
+> **P0 complete (2026-10-08).** All six critical items landed: learner-authored consolidation,
+> deterministic hard-fact completeness + tail-bound binding, always-on claim-level verdict ledger,
+> per-dimension mastery + independence gate, the `/solo` AI-free flow, and wiki provenance + trust
+> inversion. Each was verified (`learn-check`) and committed. P1 can begin.
+
 #### [x] P0.1 — Learner-authored consolidation + dependency-event logging
 - **Goal:** the learner states each idea in his own words; the Tutor checks it and adds only what is
   missing. "Just tell me" stays honored but is logged and still closes with one minimal generation.
@@ -181,17 +186,26 @@ Each item lists **Goal · Where · Design · Verify**.
   carries `[[FLOW:solo]]`.
 - **Commit:** _see git history_ (`gate: add the AI-free solo flow (P0.5)`).
 
-#### [ ] P0.6 — Knowledge-Wiki provenance + trust inversion
+#### [x] P0.6 — Knowledge-Wiki provenance + trust inversion
 - **Goal:** stop contamination compounding; trust flows from sources.
-- **Where:** `learning-system/Knowledge Wiki/*`, `Knowledge Wiki/AGENTS.md`,
-  `learning-pi/.pi/skills/llm-wiki/SKILL.md`, `learning-system/AGENTS.md:230-235`.
-- **Design:** every wiki claim/page carries `source`, `verification-status`
-  (`verified | synthesis | learner-note | unverified`), `verified-by`, `date`. Flip the trust order:
-  raw source > human-verified claim > AI synthesis (labeled) > learner note (labeled). Mark all
-  existing pages `unverified-synthesis` until re-checked. Add a retraction/correction note convention
-  and propagate to dependent pages.
-- **Verify:** a provenance linter (new) reports 100% of pages carry a status; a sampled re-check of
-  existing pages; wiki index consistent.
+- **Where (as landed):** `learning-system/scripts/wiki_provenance.py` (new),
+  `Knowledge Wiki/AGENTS.md`, `AGENTS.md`, `Skills/llm-wiki/SKILL.md`, all 220
+  `Knowledge Wiki/wiki/*.md`; `learning-pi/.pi/skills/llm-wiki/SKILL.md`.
+- **Design (as landed):** every page carries a marker
+  `<!-- provenance: status=<verified|synthesis|learner-note|unverified> | source=<ref> | verified-by=<who> | date=YYYY-MM-DD -->`.
+  An **unstamped page counts as `unverified`**. All 220 existing pages were stamped
+  `status=unverified` (source `legacy`) so nothing is silently trusted; a page is upgraded to
+  `verified` only when a verifier checks it against the cited source. The trust order in `AGENTS.md`
+  is flipped to **raw source > verified claim > labelled synthesis > learner note**; the
+  retraction/correction convention (mark dependents unverified, re-check) is documented in
+  `Knowledge Wiki/AGENTS.md`.
+- **Verify:** `python3 scripts/wiki_provenance.py --check` → exit 0 (220/220 carry a marker, 0
+  missing). Index/files unchanged (the marker is a comment line, no filename change).
+- **Note:** the OpenWebUI `Skills/llm-wiki` copy changed too, so `audit_openwebui.py` reports drift
+  until the installer re-runs. In-repo wiki pages are the durable artifact; the OpenWebUI path is
+  frozen per the earlier scope decision.
+- **Commit:** _see git history_ (`wiki: provenance markers + trust inversion (P0.6)` in
+  learning-system; `skills: require wiki provenance (P0.6)` in learning-pi).
 
 ### P1 — High impact (after P0)
 
