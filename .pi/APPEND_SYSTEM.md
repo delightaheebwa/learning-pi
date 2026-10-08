@@ -123,8 +123,9 @@ misplaced, or unsupported by a matching verified receipt. Never rely on it to gu
 A forgotten tag is not fatal when a verifier receipt binds the text: the gate infers `grade`/`quiz`
 from a `grade-audit`/`quiz-audit` bound match (or the single valid pending receipt when an async
 verifier reports with no draft), and infers `claims` from a `fact-check` whose `rendered_content`
-covers the emission. `none` is never inferred, and an unverified or ambiguous message is still
-withheld.
+covers the emission. `none` is not inferred for ordinary turns — the only implicit `none` is the
+ingest/review close summary after its writer/audit returns — and an unverified or ambiguous message
+is still withheld.
 
 **Never use `[[TURN:none]]` to slip teaching content past the gate.** `none` is for transitions and
 summaries only. If a message carries teaching claims, tag it `[[TURN:claims]]` and let its

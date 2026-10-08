@@ -12,7 +12,7 @@
  *     `[[TURN:claims|quiz|grade|viz|none]]`. The gate strips the tag before the learner sees it.
  *   - claims -> a fact-check receipt whose `rendered_content` covers the emitted text
  *     (the judge checks 100% span coverage; the legacy path approximates it with
- *     >=85% token coverage and a length-ratio guard) with no ISSUES.
+ *     >=95% token coverage plus a bounded unverified tail) with no ISSUES.
  *   - When a judge model is configured (Gemini, see gate-core/judge/), it answers
  *     the semantic questions: turn type, full coverage, PASS substance, remedy,
  *     and a dispute. The judge only sees and writes text; the engine acts. On a
@@ -25,10 +25,13 @@
  *     a viz fence in a claims/none turn is withheld (VIZ_REQUIRES_OWN_TURN).
  *   - none  -> allowed, unless an unused verification receipt matches the text
  *     (tag mismatch / would-be evasion).
- *   - A dropped tag on a grade/quiz turn is inferred from a bound verifier
- *     receipt, or from the single pending valid receipt when a bound draft is
- *     unavailable (async notify mints) — in teach/resume/review alike — so a
- *     forgotten tag never dead-ends the turn. claims/none are never inferred.
+ *   - A dropped tag is inferred from a bound verifier receipt, or from the
+ *     single pending valid receipt when a bound draft is unavailable (async
+ *     notify mints) — in teach/resume/review alike — so a forgotten tag never
+ *     dead-ends the turn: grade/quiz from a bound grade/quiz receipt, claims
+ *     from a fact-check whose `rendered_content` covers the emission. `none` is
+ *     not inferred for ordinary turns; the one implicit `none` is the
+ *     ingest/review close summary after its writer/audit returns.
  *   - teach/resume writes -> a passing tutor-audit receipt over the files written.
  *   - new lesson -> a `scout` run; its `SCOUT_DIGEST: {...}` receipt is parsed so a
  *     partial/missing digest surfaces `⚠️ SOURCES INCOMPLETE` / `⚠️ SCOUT DIGEST

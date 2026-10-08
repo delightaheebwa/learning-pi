@@ -48,18 +48,21 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
 1. **Start** — `cd ~/learning-system && pi`, then run `/lesson` (next in curriculum) or
    `/teach eigenvalue decomposition` (a topic).
 2. **Scout** runs first for a new lesson: fetches the live curriculum doc + its Further Reading,
-   hashes them, writes a digest to `Learning System/.tmp/`, and posts `SCOUT DIGEST:`.
+   hashes them, writes a digest to `Learning System/.tmp/`, and posts `SCOUT DIGEST:`. The digest
+   has a **7-day TTL** — if it is stale, Scout re-runs before teaching new material (a stale
+   digest's source excerpts are never authoritative).
 3. **Probe** — a small batch of questions, always with an "I don't know". Answer with a confidence
    tag (`sure` / `hunch` / `no idea`). Feedback is withheld until the batch ends.
 4. **Plan** — a Mermaid dependency graph + what to skip/expand/reframe. You can push back.
 5. **Teach** — a checkpoint is delivered as **mini-checkpoints**: one atomic idea per message,
    each followed by a pause that invites your questions and tangents. Each idea is delivered
-   through **elicit → attempt → consolidate** — it asks what you predict (grounded in your Learner
-   History and past learning records), nudges with at most two guiding questions if you're off,
-   then states the idea cleanly and ties it back to your own words. Say **"just tell me"** and it
-   skips straight to the explanation. After the last mini-checkpoint comes the checkpoint's single
-   practice, then another pause after grading. It won't chain ahead of you or dump a whole
-   checkpoint at once.
+   through **elicit → attempt → state → check-and-extend** — it asks what you predict (grounded in
+   your Learner History and past learning records), nudges with at most two guiding questions if
+   you're off, then asks *you* to state the idea in your own words and checks that before adding
+   only what you missed. Say **"just tell me"** and it gives the idea at once (logged as a
+   dependency event), still closing with one minimal one-line generation. After the last
+   mini-checkpoint comes the checkpoint's single practice, then another pause after grading. It
+   won't chain ahead of you or dump a whole checkpoint at once.
 6. **Pause anytime** with `/pause` (student-paced). It banks today's progress and keeps the lesson
    in-progress; `/continue` resumes at the next mini-checkpoint (the pause pointer records
    `Checkpoint N/M, mini K/L`).
@@ -196,7 +199,8 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked (or the receipt named no `files`) / verifier flagged high-or-medium issues | dispatch `tutor-audit` on the handoff batch with `files:[...]`; fix and re-audit (lows pass as `PASS_WITH_FLAGS`) |
 | `NO_REVIEW_SESSION_AUDIT` | review close (review-clerk writes) wasn't audited, or the receipt named no `written_files` | dispatch `review-session-audit` with `written_files:[{path},...]` on the exact writes, then summarize |
 | `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output **or** the review-session audit returned `ISSUES` | shown with a banner, **not** withheld or re-run (review close caps at 2 passes) |
-| `⚠️ STATE AUDIT` | `audit_state.py` found errors or warnings still outstanding (touched ones are fixed in-flow) | run `/audit` for details |
+| `⚠️ STATE AUDIT` | `audit_state.py` found **warnings** still outstanding (touched ones are fixed in-flow); warnings never block | run `/audit` for details |
+| `STATE_AUDIT_ERRORS` | at the ingest/review close, `audit_state.py` reported **errors** (state drift); the close summary is withheld until they are fixed | apply the `STATE_AUDIT_FIXES` hints (or `/audit` for the list), re-run the audit clean, then re-emit the summary |
 | `⛔ UNVERIFIED` | retries exhausted (2); content shown unverified | review it manually |
 
 The gate **fails open** on internal errors and **only acts in learning flows** — normal coding work
