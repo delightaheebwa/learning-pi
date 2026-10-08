@@ -227,16 +227,99 @@ Each item lists **Goal · Where · Design · Verify**.
 
 ### P1 — High impact (after P0)
 
-- P1.1 Feynman/teach-back mandatory for graduation; re-elicited in reviews (end the `feynman: none`
-  pattern).
-- P1.2 Deterministic MCQ grading in code; enforce a `q_type` enum (currently any string is accepted).
-- P1.3 Prerequisite edges in live state; refuse downstream teaching over a `fuzzy` prerequisite.
-- P1.4 Store per-attempt confidence; produce a calibration report.
-- P1.5 Transfer dimension with periodic far-transfer items.
-- P1.6 Withhold load-bearing unverified claims (stop rendering `⛔ UNVERIFIED` content as if fine).
-- P1.7 Learner-authored wiki "my understanding" sections; Clerk verifies/indexes, does not ghost-write.
-- P1.8 Seeded-error red-team harness (false-pass / false-block) as a standing e2e scenario.
-- P1.9 Fading hint budgets tied to independence level.
+> **P1 complete (2026-10-08).** All nine items landed and were verified
+> (`learn-check --no-load --with-sidecars` → OK). Two honest deferrals: the full
+> `consolidated` graduation (P1.5) still has no graduation flow to gate, so
+> `transfer_ok`/`independence_ok` are wired as the gate it will use; P1.9's
+> hint-fade is documented behavior (no deterministic check — the `--hints`
+> telemetry makes it measurable later).
+
+#### [x] P1.1 — Feynman/teach-back mandatory for graduation
+- **What:** `concept`/`design` items must pass a Feynman explain-back to be `solid`; reviews now
+  elicit it as a required graded beat and carry `feynman_pass`/`feynman_fail` in the close envelope;
+  `review-clerk` records it (`--qtype explain-back`). `memory`/`procedure` exempt.
+- **Where:** `learner_history.py` (already gated — confirmed), `ops_test.py`, `.pi/skills/learning-system/SKILL.md`,
+  `.pi/agents/review-clerk.md`, `.pi/prompts/review.md`, `.pi/skills/learning-teach/SKILL.md`.
+- **Verified:** `ops_test.py` new `TestLearnerHistoryFeynmanGate` (concept cannot be solid without a
+  Feynman pass; memory exempt); `learn-check` OK.
+- **Commits:** `829f5b9` (learning-system), `957d735` (learning-pi).
+
+#### [x] P1.2 — Deterministic MCQ grading + a `q_type` enum
+- **What:** `ops.py attempt --qtype` validates a canonical enum (legacy aliases normalize; unknown
+  rejected); `ops.py grade-mcq --key A,B,C --answers A,C,C` returns per-item pass/fail with no LLM.
+  The review flow grades MCQs mechanically where the key is known and sends only free-recall to
+  `grade-audit`.
+- **Where:** `ops.py`, `ops_test.py`, `.pi/skills/learning-system/SKILL.md`, `.pi/agents/review-clerk.md`,
+  `.pi/prompts/review.md`, `.pi/skills/learning-teach/SKILL.md`.
+- **Verified:** `ops_test.py` `TestQTypeEnum` (unknown rejected, aliases normalized) + `TestGradeMcq`
+  (mixed correct/incorrect letters, empty answer, length mismatch); `learn-check` OK.
+- **Commits:** `829f5b9`, `957d735`.
+
+#### [x] P1.3 — Prerequisite edges in live state
+- **What:** optional `prereqs:[names]` on `Attempts.json` entries; `ops.py attempt --prereq NAME`;
+  `ops.py prereqs "<concept>" [--set ...]` reports each direct prereq's live state with
+  `blocks=true` when a direct prereq is `fuzzy`/open-mistake. Teach/review flows refuse to advance
+  over a blocking prereq; missing evidence is `unknown` (never blocks). `learner_history.py` surfaces
+  the prereq state in its table.
+- **Where:** `ops.py`, `ops_test.py`, `learner_history.py`, `Learning System/Core/Learner History.md`,
+  `.pi/skills/learning-teach/SKILL.md`, `.pi/skills/learning-system/SKILL.md`, `.pi/APPEND_SYSTEM.md`.
+- **Verified:** `ops_test.py` `TestPrereqs` (fuzzy blocks, open mistake blocks, unknown does not
+  block, `--set` persists); `learn-check` OK.
+- **Commits:** `829f5b9`, `308cd48`, `957d735`.
+
+#### [x] P1.4 — Confidence calibration
+- **What:** flows record `--confidence` on every graded attempt; `ops.py calibration [TRACK]` reports
+  `sure` vs `hunch` accuracy and an over/under-confidence flag; per-concept `calibration` is surfaced
+  in `ops.py mastery --json`.
+- **Where:** `ops.py`, `ops_test.py`, `.pi/skills/learning-teach/SKILL.md`, `.pi/agents/review-clerk.md`,
+  `.pi/skills/learning-system/SKILL.md`, `.pi/APPEND_SYSTEM.md`.
+- **Verified:** `ops_test.py` `TestCalibration` with a synthetic overconfident history (flags
+  `overconfident`); `learn-check` OK.
+- **Commits:** `829f5b9`, `957d735`.
+
+#### [x] P1.5 — Transfer beyond near-isomorphic
+- **What:** `q_type` values `transfer-near`/`transfer-far` feed the transfer dimension; the review
+  flow includes a transfer item for `concept`/`design` on a cadence; `transfer_ok()` requires a passed
+  far-transfer for `consolidated` graduation (wired, pending a graduation flow). `ops.py mastery`
+  surfaces `transfer_ok`.
+- **Where:** `ops.py`, `ops_test.py`, `.pi/skills/learning-system/SKILL.md`, `.pi/skills/learning-teach/SKILL.md`.
+- **Verified:** `ops_test.py` `TestTransferDimension` (far-transfer pass → transfer 3 + `transfer_ok`;
+  fail → 0); `learn-check` OK.
+- **Deferred:** the graduation flow itself (consolidated + 90-day unaided check) still does not exist.
+- **Commits:** `829f5b9`, `957d735`.
+
+#### [x] P1.6 — Withhold unverified load-bearing claims
+- **What:** at the retry cap, a `claims` turn whose draft contains hard facts (`extractHardFacts`) is
+  **withheld outright** — banner only, no content — instead of delivered as `⛔ UNVERIFIED`.
+  Non-hard-fact prose still degrades gracefully; `G-retry-cap` semantics unchanged for other turns.
+- **Where:** `gate-core/engine.ts` (legacy + judge paths), `contracts/learning-core.json` + `CONTRACT.md`
+  (new invariant `G-hard-fact-withhold`), `test/gate_test.mjs`, `test/golden/golden_test.mjs`.
+- **Verified:** gate test `retry cap withholds a hard-fact claims turn` (banner, no content) and
+  `retry cap still delivers non-hard-fact prose`; `learn-check` OK.
+- **Commits:** `e297dd6`, `68a70ad`.
+
+#### [x] P1.7 — Learner-authored wiki ("my understanding")
+- **What:** concept pages carry a `## My understanding` section in the learner's own words, captured
+  at consolidate, preserved/appended (never rewritten) by the Clerk, and marked `status=learner-note`.
+- **Where:** `.pi/skills/llm-wiki/SKILL.md`, `.pi/agents/clerk.md`, `Knowledge Wiki/AGENTS.md`,
+  `.pi/skills/learning-teach/SKILL.md`, `.pi/APPEND_SYSTEM.md`.
+- **Verified:** doc/behavior; sample page shape in `llm-wiki`; `learn-check` OK.
+- **Commits:** `2ed8d8e` (learning-system), `957d735`.
+
+#### [x] P1.8 — Seeded-error red-team harness
+- **What:** an offline harness injects known-wrong load-bearing content into sandboxed gate flows and
+  asserts the gate catches it (`CLAIMS_INCOMPLETE` or `FACT_CHECK_ISSUES`), with clean controls for
+  false-blocks. Reports caught/total; wired into `learn-check`.
+- **Where:** `test/redteam/redteam_test.mjs` (new), `scripts/learn-check`.
+- **Verified:** harness runs and reports `caught 5/5 seeded errors; clean controls 2/2`; `learn-check` OK.
+- **Commit:** `c1eac94`.
+
+#### [x] P1.9 — Fading hint budgets
+- **What:** the teaching skill reads a concept's `independence`/`stability` dimensions and shrinks the
+  guiding-question budget 2 → 1 → 0 as they rise; `--hints N` records the effect.
+- **Where:** `.pi/skills/learning-teach/SKILL.md`, `.pi/APPEND_SYSTEM.md`.
+- **Verified:** doc/behavior (no deterministic check; `--hints` telemetry makes it measurable later).
+- **Commit:** `957d735`.
 
 ### P2 — Valuable
 
