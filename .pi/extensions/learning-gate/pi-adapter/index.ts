@@ -237,7 +237,7 @@ function responseText(response: any): string {
 function makeFileLedger(): Ledger {
   try {
     const dir = process.env.LEARNING_GATE_LEDGER_DIR || join(homedir(), ".pi", "agent", "learning-gate");
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
     const append: AppendFn = (stream, line) => {
       try {
         appendFileSync(join(dir, `${stream}.ndjson`), line);

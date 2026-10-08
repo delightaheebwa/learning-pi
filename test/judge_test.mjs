@@ -466,3 +466,38 @@ const mintFC = (engine, output = FC_PASS) =>
   const res = await engine.onMessageEnd({ message: msg(pause) });
   assert('dropped tag recovered from bound fact-check when the judge reads it as none', allowed(res));
 }
+
+// --- S17: the judge path cannot soften the deterministic solo guard (P0 H2) ---
+{
+  const j = stubJudge({
+    evaluate: (pkg) => ({
+      turnType: 'claims',
+      bindings: pkg.receipts.map((r) => ({ index: r.index, covers: true, uncovered: [] })),
+      bestReceipt: 0,
+    }),
+  });
+  const engine = createGate({ judge: j.judge });
+  engine.onBeforeAgentStart('[[FLOW:solo]] solo check');
+  const env = JSON.stringify({ gate: 'fact_check', rendered_content: 'The definition of X is the thing.', claims: [{ id: 1, claim: 'x' }] });
+  engine.onToolResult({ tool: 'subagent', isError: false, text: FC_PASS, dispatchCalls: [], mintCalls: [{ agent: 'fact-check', envelope: JSON.parse(env), output: FC_PASS }] });
+  const res = await engine.onMessageEnd({ message: msg('[[TURN:claims]]\nThe definition of X is the thing.') });
+  assert('judge path withholds a solo teaching claims turn', blocked(res, 'SOLO_NO_TEACHING'));
+}
+
+// --- S18: the judge path still enforces hard-fact completeness (P0 H2) ---
+{
+  const hard = 'The sample size is n=200.';
+  const j = stubJudge({
+    evaluate: (pkg) => ({
+      turnType: 'claims',
+      bindings: pkg.receipts.map((r) => ({ index: r.index, covers: true, uncovered: [] })),
+      bestReceipt: 0,
+    }),
+  });
+  const engine = createGate({ judge: j.judge });
+  engine.onBeforeAgentStart('[[FLOW:resume]] continue the lesson');
+  const env = JSON.stringify({ gate: 'fact_check', rendered_content: hard, claims: [{ id: 1, claim: 'small sample' }] });
+  engine.onToolResult({ tool: 'subagent', isError: false, text: FC_PASS, dispatchCalls: [], mintCalls: [{ agent: 'fact-check', envelope: JSON.parse(env), output: FC_PASS }] });
+  const res = await engine.onMessageEnd({ message: msg(`[[TURN:claims]]\n${hard}`) });
+  assert('judge path withholds claims with an unlisted hard fact', blocked(res, 'CLAIMS_INCOMPLETE'));
+}

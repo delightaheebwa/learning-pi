@@ -564,6 +564,25 @@ export function createGate(options: GateOptions = {}): GateEngine {
           "This is an AI-free solo check: no teaching, hints, or visualizations. " +
           "Ask the closed-book questions, grade the answers, or say this is a solo check — do not teach.";
       }
+      // Solo `none`/`grade` paths also cannot smuggle teaching in. A transition
+      // turn carrying hard facts (numbers, formulas, URLs), or a grade turn
+      // carrying a fact-checked repair/teaching tail, is teaching — block it.
+      // (A fact-free prose transition still passes; there is no deterministic
+      // "is-this-prose-teaching" detector — recorded as a known limitation.)
+      if (run.flow === "solo" && tag === "none" && P.extractHardFacts(text).length > 0) {
+        blockers.push("SOLO_NO_TEACHING");
+        verdictNote =
+          "This is an AI-free solo check: a transition turn may not carry teaching content (numbers, " +
+          "formulas, or URLs). Ask, grade, or simply say the check is done.";
+      }
+      if (run.flow === "solo" && tag === "grade" && run.receipts.some(
+        (r) => r.gate === "fact_check" && r.valid && r.renderedContent && P.contentMatches(r.renderedContent, text)
+      )) {
+        blockers.push("SOLO_NO_TEACHING");
+        verdictNote =
+          "This is an AI-free solo check: presenting the graded verdicts is allowed, but a teaching/repair " +
+          "tail is not. Show the verdicts only.";
+      }
 
       // Viz specs are their own turn: a ```viz block in a teaching or transition
       // turn is withheld so the figure is always gated as [[TURN:viz]] (and the
@@ -919,10 +938,19 @@ export function createGate(options: GateOptions = {}): GateEngine {
 
       if (run.retries > P.MAX_RETRIES) {
         run.retries = 0;
+        const soloBlocked = codes.some((c) => c === "SOLO_NO_TEACHING" || c === "SOLO_NO_AIDS");
+        // M11: withhold hard facts only when verification is implicated. A
+        // verified draft blocked on context alone (NO_SCOUT_CONTEXT /
+        // NO_REVIEW_CONTEXT) degrades gracefully instead of being suppressed.
+        const verificationBlocked = codes.some((c) => /^(FACT_CHECK|CLAIMS_INCOMPLETE|NO_FACT_CHECK_MATCH)/.test(c));
+        if (soloBlocked) {
+          const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This is an AI-free solo check: teaching content is withheld rather than delivered.\n${fallbackNote}\n`;
+          return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };
+        }
         // Hard-fact claims are withheld outright at the cap (P1.6): a number,
         // formula, or URL nobody verified must never be delivered, banner or
         // not. Non-hard-fact prose still degrades gracefully (G-retry-cap).
-        if (tag === "claims" && P.extractHardFacts(text).length > 0) {
+        if (tag === "claims" && P.extractHardFacts(text).length > 0 && verificationBlocked) {
           const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.\n${fallbackNote}\n`;
           return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };
         }
@@ -1102,6 +1130,30 @@ export function createGate(options: GateOptions = {}): GateEngine {
       else {
         const fcIdx = bindingFor("fact_check");
         if (fcIdx >= 0 && R[fcIdx].valid && substantive(fcIdx) !== "none") turnType = "claims";
+      }
+    }
+
+    // Deterministic pre-checks (mirror the legacy path) so the judge cannot
+    // soften P0.2/P0.5: solo teaching and unlisted hard facts are blocked by
+    // code before the judge verdict is applied. (P0 review H2.)
+    if (run.flow === "solo" && (turnType === "claims" || turnType === "viz")) {
+      blocks.push(turnType === "viz" ? "SOLO_NO_AIDS" : "SOLO_NO_TEACHING");
+      verdictNote =
+        "This is an AI-free solo check: no teaching, hints, or visualizations. Ask the closed-book questions, grade the answers, or say this is a solo check — do not teach.";
+    } else if (run.flow === "solo" && turnType === "none" && P.extractHardFacts(text).length > 0) {
+      blocks.push("SOLO_NO_TEACHING");
+      verdictNote = "This is an AI-free solo check: a transition turn may not carry teaching content.";
+    } else if (turnType === "claims") {
+      const fcIdx = bindingFor("fact_check");
+      if (fcIdx >= 0 && R[fcIdx].valid && R[fcIdx].renderedContent) {
+        const missing = P.missingHardFacts(R[fcIdx].renderedContent || "", R[fcIdx].claimsText);
+        if (missing.length > 0) {
+          blocks.push("CLAIMS_INCOMPLETE");
+          verdictNote =
+            `This draft states load-bearing facts that were not in claims[], so the verifier never checked them: ${missing.join(
+              ", "
+            )}. Re-dispatch the fact-check with every one added as a claim, then emit this draft unchanged.`;
+        }
       }
     }
 
@@ -1407,10 +1459,19 @@ export function createGate(options: GateOptions = {}): GateEngine {
     // dump the content as UNVERIFIED. The cap applies to every other reason.
     if (run.retries > P.MAX_RETRIES && !remainingHighMedium) {
       run.retries = 0;
+      const soloBlocked = codes.some((c) => c === "SOLO_NO_TEACHING" || c === "SOLO_NO_AIDS");
+      const verificationBlocked = codes.some((c) => /^(FACT_CHECK|CLAIMS_INCOMPLETE|NO_FACT_CHECK_MATCH)/.test(c));
+      if (soloBlocked) {
+        const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This is an AI-free solo check: teaching content is withheld rather than delivered.\n${fallbackNote}\n`;
+        ledger.decision({ at: new Date().toISOString(), flow: run.flow, turnType: turnType as any, outcome: "block", codes, source: assessment.source,
+          escalated: assessment.escalated, reason: assessment.reason });
+        return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };
+      }
       // Hard-fact claims are withheld outright at the cap (P1.6): a number,
       // formula, or URL nobody verified must never be delivered. Non-hard-fact
-      // prose still degrades gracefully (G-retry-cap).
-      if (turnType === "claims" && P.extractHardFacts(text).length > 0) {
+      // prose still degrades gracefully (G-retry-cap). M11: only when the block
+      // implicates verification (context-only blocks degrade).
+      if (turnType === "claims" && P.extractHardFacts(text).length > 0 && verificationBlocked) {
         const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.\n${fallbackNote}\n`;
         ledger.decision({ at: new Date().toISOString(), flow: run.flow, turnType: turnType as any, outcome: "block", codes, source: assessment.source,
           escalated: assessment.escalated, reason: assessment.reason });

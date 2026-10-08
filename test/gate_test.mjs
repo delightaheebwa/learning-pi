@@ -772,3 +772,115 @@ assert(
 );
 
 
+
+// ============================================================================
+// 2026-10-08 REVIEW fixes: solo enforcement, hard-fact correctness, context
+// degrade, and demotion path-anchoring.
+// ============================================================================
+
+// Exact containment: a longer number no longer subsumes a shorter hard fact.
+assert(
+  'hard fact is not subsumed by a longer number',
+  P.missingHardFacts('The sample size is n=200.', 'the sample was n=2000 here').length === 1
+);
+assert(
+  'comma-grouped thousands are not treated as a hard fact',
+  !P.extractHardFacts('The corpus has 3,000 sentences.').includes('000')
+);
+assert(
+  'four-digit years are not hard facts',
+  !P.extractHardFacts('This was known in 1800 already.').includes('1800')
+);
+
+// Allow side of the tail bound: a reordered/punctuated re-emission renders.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const tailDraft2 = 'Entropy is the average surprise of a distribution.';
+const envTail2 = JSON.stringify({
+  gate: 'fact_check',
+  claims: [{ id: 1, claim: 'entropy is the average surprise of a distribution' }],
+  rendered_content: tailDraft2,
+  source_urls: ['https://e.com'],
+});
+await dispatch('fact-check', envTail2, 'tb2');
+await fg('tb2', 'fact-check', envTail2, FC_PASS);
+const reordered = await msg(`[[TURN:claims]]\nIn short, the average surprise of a distribution is entropy.`, 'stop');
+assert('reordered verified draft still renders', allowed(reordered));
+
+// Solo retry cap: teaching is withheld outright, never UNVERIFIED-with-content.
+await setPrompt('[[FLOW:solo]] solo check');
+const soloProse = 'Entropy is the average surprise of a distribution.';
+await msg(`[[TURN:claims]]\n${soloProse}`, 'stop');
+await msg(`[[TURN:claims]]\n${soloProse}`, 'stop');
+const soloCap = await msg(`[[TURN:claims]]\n${soloProse}`, 'stop');
+assert(
+  'solo retry cap withholds teaching outright',
+  blocked(soloCap, 'WITHHELD') && !outText(soloCap).includes('average surprise')
+);
+
+// A solo `none` transition carrying hard facts is teaching.
+await setPrompt('[[FLOW:solo]] solo check');
+const soloNoneTeach = await msg(`[[TURN:none]]\nThe explained variance is 4.98 (n=200).`, 'stop');
+assert('solo none turn with hard facts is withheld', blocked(soloNoneTeach, 'SOLO_NO_TEACHING'));
+
+// A solo `grade` turn carrying a fact-checked repair tail is teaching.
+const soloRepairProse =
+  'Close — a point value has probability zero, so that reading is wrong. Detector: a point has zero probability.';
+const soloGradeEnv = JSON.stringify({
+  gate: 'grade_audit',
+  concept: 'X',
+  question: 'What is P(X=1.7)?',
+  learner_answer: '1.7',
+  claimed_verdict: 'fail',
+});
+await setPrompt('[[FLOW:solo]] solo check');
+await dispatch('grade-audit', soloGradeEnv, 'sg0');
+await fg('sg0', 'grade-audit', soloGradeEnv, GATE);
+const fcRepair = fcEnvelope(soloRepairProse);
+await dispatch('fact-check', fcRepair, 'sgf');
+await fg('sgf', 'fact-check', fcRepair, FC_PASS);
+const soloRepair = await msg(`[[TURN:grade]]\n${soloRepairProse}`, 'stop');
+assert('solo grade repair tail is withheld', blocked(soloRepair, 'SOLO_NO_TEACHING'));
+
+// M11: a verified hard-fact claims turn blocked only on review context degrades
+// to UNVERIFIED (not withheld) — no verification receipt is missing.
+const ctxDraft = 'The explained variance is 4.98 on both arms (n=200).';
+const ctxEnv = JSON.stringify({
+  gate: 'fact_check',
+  claims: [
+    { id: 1, claim: 'the explained variance is 4.98' },
+    { id: 2, claim: 'the sample size is n=200' },
+  ],
+  rendered_content: ctxDraft,
+  source_urls: ['https://e.com'],
+});
+await setPrompt('[[FLOW:review]] review the due items');
+await dispatch('fact-check', ctxEnv, 'cx1');
+await fg('cx1', 'fact-check', ctxEnv, FC_PASS);
+await msg(`[[TURN:claims]]\n${ctxDraft}`, 'stop');
+await msg(`[[TURN:claims]]\n${ctxDraft}`, 'stop');
+const ctxCap = await msg(`[[TURN:claims]]\n${ctxDraft}`, 'stop');
+assert(
+  'retry cap delivers verified hard-fact prose blocked only on context',
+  outText(ctxCap).includes('⛔ UNVERIFIED') && outText(ctxCap).includes('4.98')
+);
+
+// Demotion is path-anchored: a content path embedding a bookkeeping keyword is
+// NOT demoted, while a real bookkeeping path still is.
+assert(
+  'content path embedding a bookkeeping word is not demoted',
+  !P.reviewIssuesAllOutOfScope(
+    JSON.stringify({
+      verdict: 'ISSUES',
+      issues: [{ severity: 'high', location: 'Knowledge Wiki/wiki/Backprop.md provenance marker missing', issue: 'missing provenance' }],
+    })
+  )
+);
+assert(
+  'a real bookkeeping path still demotes',
+  P.reviewIssuesAllOutOfScope(
+    JSON.stringify({
+      verdict: 'ISSUES',
+      issues: [{ severity: 'low', location: 'Learning System/Reviews/Quality Gates/x.md', issue: 'bookkeeping' }],
+    })
+  )
+);

@@ -128,4 +128,20 @@ for (const c of controls) {
   if (ok) controlsOk++;
 }
 
+// ---------------------------------------------------------------------------
+// Known limitation (documented by assertion, not a clean pass): this harness
+// measures the deterministic catch paths + receipt plumbing, NOT verifier
+// judgment. A listed-but-false claim carrying a PASS verifier receipt renders —
+// the correlated generator/verifier error (audit F1/F4) that no in-process
+// check can see. Asserting it renders makes the limitation explicit.
+// ---------------------------------------------------------------------------
+{
+  const draft = 'The speed of light is 100 metres per second.';
+  const r = await claimsFlow(draft, ['the speed of light is 100 metres per second'], FC_PASS);
+  report(
+    'redteam: known limitation — listed-but-false claim with a PASS receipt renders (F1/F4 not detected)',
+    allowed(r)
+  );
+}
+
 console.log(`REDTEAM: caught ${caught}/${total} seeded errors; clean controls ${controlsOk}/${controls.length}`);

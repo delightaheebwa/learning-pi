@@ -20,49 +20,69 @@
       "id": "G-receipts-consumed-per-message",
       "severity": "hard",
       "statement": "A verifier receipt is consumed by the message it verifies, so the same receipt cannot authorize a second grading turn (verify A, emit B is blocked).",
-      "tests": ["second grade turn blocked once receipt consumed"]
+      "tests": [
+        "second grade turn blocked once receipt consumed"
+      ]
     },
     {
       "id": "G-partial-ungated",
       "severity": "hard",
       "statement": "A generation that did not finish (stopReason error/aborted/length) passes through ungated with its turn tag stripped, and does not consume a verifier receipt.",
-      "tests": ["errored partial is not withheld", "re-emitted grade turn allowed after errored partial"]
+      "tests": [
+        "errored partial is not withheld",
+        "re-emitted grade turn allowed after errored partial"
+      ]
     },
     {
       "id": "G-ingest-requires-review",
       "severity": "hard",
       "statement": "An ingest summary does not render without a valid review verdict (NO_REVIEW_GATE_PASS), and an ingest summary is not held hostage after the Clerk returns.",
-      "tests": ["ingest summary renders", "tagged ingest follow-up not held hostage"]
+      "tests": [
+        "ingest summary renders",
+        "tagged ingest follow-up not held hostage"
+      ]
     },
     {
       "id": "G-ingest-clerk-relay-flagged",
       "severity": "policy",
       "statement": "A review verdict relayed by the Clerk instead of an independent review-gate run is surfaced with an INGEST GATE banner (never silently trusted).",
-      "tests": ["clerk-relayed verdict triggers INGEST GATE banner"]
+      "tests": [
+        "clerk-relayed verdict triggers INGEST GATE banner"
+      ]
     },
     {
       "id": "G-review-evidence-required",
       "severity": "policy",
       "statement": "A review-family verdict with no evidence list is treated as unsubstantiated and surfaced with a banner.",
-      "tests": ["missing-evidence banner surfaced"]
+      "tests": [
+        "missing-evidence banner surfaced"
+      ]
     },
     {
       "id": "G-scout-banner-not-withhold",
       "severity": "policy",
       "statement": "A partial or missing Scout digest surfaces a banner but never withholds the teaching turn.",
-      "tests": ["scout-unverified banner surfaced", "sources-incomplete banner surfaced"]
+      "tests": [
+        "scout-unverified banner surfaced",
+        "sources-incomplete banner surfaced"
+      ]
     },
     {
       "id": "G-provider-fallback",
       "severity": "policy",
       "statement": "After two consecutive provider failures for a verifier/scout, the withheld banner offers a one-shot alternate-model fallback directive (never forces it).",
-      "tests": ["fallback directive after two provider failures"]
+      "tests": [
+        "fallback directive after two provider failures"
+      ]
     },
     {
       "id": "G-no-duplicate-factcheck",
       "severity": "hard",
       "statement": "Re-dispatching a fact-check for a draft that already has a valid receipt is blocked, while a materially corrected draft after an ISSUES verdict is allowed.",
-      "tests": ["duplicate fact-check of a verified draft is blocked", "corrected re-dispatch after ISSUES is allowed"]
+      "tests": [
+        "duplicate fact-check of a verified draft is blocked",
+        "corrected re-dispatch after ISSUES is allowed"
+      ]
     },
     {
       "id": "G-async-notify-mints",
@@ -77,32 +97,49 @@
     {
       "id": "G-infer-claims-from-bound",
       "severity": "hard",
-      "statement": "A dropped claims tag is recovered only from a content-bound passing fact-check receipt (≥85% coverage); unbound messages still withhold.",
-      "tests": ["dropped claims tag recovered from bound fact-check"]
+      "statement": "A dropped claims tag is recovered only from a content-bound passing fact-check receipt (≥95% coverage plus a bounded unverified tail of ≤12 tokens); unbound messages still withhold.",
+      "tests": [
+        "dropped claims tag recovered from bound fact-check"
+      ]
     },
     {
       "id": "G-infer-grade-quiz",
       "severity": "hard",
       "statement": "A dropped grade/quiz tag is inferred from a bound verifier receipt, or the single valid pending receipt; ambiguous or absent receipts withhold.",
-      "tests": ["items[] grade envelope binds a dropped-tag grade turn"]
+      "tests": [
+        "items[] grade envelope binds a dropped-tag grade turn"
+      ]
     },
     {
       "id": "G-claims-requires-factcheck",
       "severity": "hard",
       "statement": "A claims turn does not render without a content-matched, passing fact-check; a pending async fact-check withholds with a wait hint instead of dead-ending.",
-      "tests": ["unverified untagged message still withheld", "claims emit before notification is withheld with a wait hint"]
+      "tests": [
+        "unverified untagged message still withheld",
+        "claims emit before notification is withheld with a wait hint"
+      ]
     },
     {
       "id": "G-claims-complete",
       "severity": "hard",
       "statement": "The generator may not curate its own exam: every hard fact in a fact-check draft (decimal, percentage, scientific notation, 3+ digit integer, LaTeX/math expression, URL) must appear in the submitted claims[], or the turn is withheld as CLAIMS_INCOMPLETE so a number or formula nobody listed cannot pass unverified.",
-      "tests": ["draft with an unlisted hard fact is withheld", "hard fact listed in claims is allowed"]
+      "tests": [
+        "draft with an unlisted hard fact is withheld",
+        "hard fact listed in claims is allowed",
+        "hard fact is not subsumed by a longer number",
+        "comma-grouped thousands are not treated as a hard fact",
+        "four-digit years are not hard facts",
+        "judge path withholds claims with an unlisted hard fact"
+      ]
     },
     {
       "id": "G-draft-tail-bound",
       "severity": "hard",
       "statement": "An emission may reproduce a verified draft with reordering or punctuation edits but may not append unverified prose: at most 12 emitted tokens may be absent from the draft (previously a 1.4x length ratio allowed an unbounded unverified tail).",
-      "tests": ["unverified tail beyond the draft is withheld"]
+      "tests": [
+        "unverified tail beyond the draft is withheld",
+        "reordered verified draft still renders"
+      ]
     },
     {
       "id": "G-solo-no-teaching",
@@ -112,7 +149,11 @@
         "solo flow withholds a teaching claims turn",
         "solo flow withholds a visualization",
         "solo first quiz requires a review-scout run",
-        "solo flow allows the closed-book quiz batch"
+        "solo flow allows the closed-book quiz batch",
+        "solo retry cap withholds teaching outright",
+        "solo none turn with hard facts is withheld",
+        "solo grade repair tail is withheld",
+        "judge path withholds a solo teaching claims turn"
       ]
     },
     {
@@ -130,13 +171,18 @@
       "id": "G-non-learning-not-gated",
       "severity": "hard",
       "statement": "A session that never starts a learning flow (no [[FLOW:...]] marker) is never gated; messages pass through untouched.",
-      "tests": ["non-learning session is never gated"]
+      "tests": [
+        "non-learning session is never gated"
+      ]
     },
     {
       "id": "G-tutor-audit-required",
       "severity": "hard",
       "statement": "After a Learning System write in teach/resume, a summary turn requires a passing tutor-audit over the files written; a quiz/grade turn is not held hostage.",
-      "tests": ["tutor-audit required after a learning-system write", "tutor-audit pass releases the handoff summary"]
+      "tests": [
+        "tutor-audit required after a learning-system write",
+        "tutor-audit pass releases the handoff summary"
+      ]
     },
     {
       "id": "G-review-session-audit",
@@ -163,21 +209,28 @@
       "id": "G-scout-required",
       "severity": "hard",
       "statement": "A new lesson's teaching claims are withheld with NO_SCOUT_CONTEXT until a scout run has happened.",
-      "tests": ["new lesson without a scout run is withheld"]
+      "tests": [
+        "new lesson without a scout run is withheld"
+      ]
     },
     {
       "id": "G-retry-cap",
       "severity": "hard",
       "statement": "Repeated withheld turns are capped; after the cap the turn surfaces with ⛔ UNVERIFIED rather than looping forever.",
-      "tests": ["repeated withheld turns are blocked before the cap", "retry cap surfaces unverified after 2 withholdings"]
+      "tests": [
+        "repeated withheld turns are blocked before the cap",
+        "retry cap surfaces unverified after 2 withholdings",
+        "solo retry cap withholds teaching outright"
+      ]
     },
     {
       "id": "G-hard-fact-withhold",
       "severity": "hard",
-      "statement": "At the retry cap, a claims turn whose draft states hard facts (extractHardFacts: URL, LaTeX/math expression, scientific notation, decimal, percentage, or 3+ digit integer) is withheld entirely — only the banner renders, no content — rather than delivered as ⛔ UNVERIFIED. Non-hard-fact prose still degrades gracefully with the UNVERIFIED banner, and G-retry-cap semantics are unchanged for every other turn (grade/quiz/none). This deliberately inverts the anti-dead-end policy for load-bearing facts: a number or formula nobody verified is never shown.",
+      "statement": "At the retry cap, a claims turn whose draft states hard facts (extractHardFacts: URL, LaTeX/math expression, scientific notation, decimal, percentage, or 3+ digit integer) is withheld entirely — only the banner renders, no content — rather than delivered as `⛔ UNVERIFIED`, but only when the block implicates verification (`FACT_CHECK_*`, `CLAIMS_INCOMPLETE`, `NO_FACT_CHECK_MATCH`). A verified draft blocked only on context (`NO_SCOUT_CONTEXT`/`NO_REVIEW_CONTEXT`) degrades gracefully. Non-hard-fact prose still degrades with the UNVERIFIED banner, and G-retry-cap semantics are unchanged for every other turn (grade/quiz/none). This deliberately inverts the anti-dead-end policy for load-bearing facts: a number or formula nobody verified is never shown.",
       "tests": [
         "retry cap withholds a hard-fact claims turn",
-        "retry cap still delivers non-hard-fact prose"
+        "retry cap still delivers non-hard-fact prose",
+        "retry cap delivers verified hard-fact prose blocked only on context"
       ]
     },
     {
@@ -186,23 +239,28 @@
       "statement": "Review findings are demoted to flags only when EVERY finding CITES an explicit bookkeeping-path `location` (state/session/review/lesson notes, log/index bookkeeping, git metadata). A finding that cites a content location, or gives no location, is never demoted — a content defect that merely mentions a bookkeeping word in its `issue` text still blocks. The old issue-text fallback and the blanket low-severity demotion are removed.",
       "tests": [
         "out-of-scope review issues with a bookkeeping location render as flags",
-        "content review findings are not demoted by a bookkeeping word"
+        "content review findings are not demoted by a bookkeeping word",
+        "content path embedding a bookkeeping word is not demoted"
       ]
     },
     {
       "id": "G-state-audit-blocking",
       "severity": "hard",
-      "statement": "The content gate (fact-check/quiz/grade/review) and the state gate are split. At the ingest/review close, the deterministic state audit's errors block the summary (`STATE_AUDIT_ERRORS`) until the drift is fixed and the audit re-runs clean, while warnings remain a non-blocking `⚠️ STATE AUDIT` banner. Warnings never withhold, so a warning cannot dead-end the flow.",
+      "statement": "The content gate (fact-check/quiz/grade/review) and the state gate are split. At the ingest/review close, the deterministic state audit's errors block the summary (`STATE_AUDIT_ERRORS`) while the drift is fixed and the audit re-runs clean, while warnings remain a non-blocking `⚠️ STATE AUDIT` banner. Warnings never withhold, so a warning cannot dead-end the flow. The block is subject to the standard retry cap: a persistent, unfixable error withholds twice and then degrades to `⛔ UNVERIFIED` rather than dead-ending the close.",
       "tests": [
         "state-audit error withholds the close summary",
-        "state-audit warnings render a non-blocking banner"
+        "state-audit warnings render a non-blocking banner",
+        "review close with state audit errors is withheld"
       ]
     },
     {
       "id": "A-subagent-result-shape",
       "severity": "hard",
       "statement": "The dispatch envelope is recovered from tool_call when pi-subagents compacts a foreground result (task redacted), so receipts still bind.",
-      "tests": ["redacted foreground task binds a tagged claims turn", "redacted foreground task binds a dropped-tag claims turn"]
+      "tests": [
+        "redacted foreground task binds a tagged claims turn",
+        "redacted foreground task binds a dropped-tag claims turn"
+      ]
     },
     {
       "id": "G-receipt-shape-binds",
@@ -260,55 +318,74 @@
       "id": "G-viz-spec-valid",
       "severity": "hard",
       "statement": "A [[TURN:viz]] message with no parseable ```viz JSON spec block is withheld VIZ_SPEC_INVALID.",
-      "tests": ["unparseable viz spec is withheld"]
+      "tests": [
+        "unparseable viz spec is withheld"
+      ]
     },
     {
       "id": "G-viz-infer-from-bound",
       "severity": "hard",
       "statement": "A dropped viz tag is recovered from a bound viz-audit receipt (canonical spec match + prose coverage).",
-      "tests": ["dropped viz tag recovered from a bound viz-audit"]
+      "tests": [
+        "dropped viz tag recovered from a bound viz-audit"
+      ]
     },
     {
       "id": "G-turn-type-inferred",
       "severity": "hard",
       "statement": "When a judge is configured, a turn tag is a hint: the judge reads the turn type from the content, so an untagged claims turn whose fact-check covers it renders instead of withholding NO_TURN_TAG. Verifier/notification channels are never gated.",
-      "tests": ["untagged claims turn allowed via judge classification"]
+      "tests": [
+        "untagged claims turn allowed via judge classification"
+      ]
     },
     {
       "id": "G-full-coverage-binding",
       "severity": "hard",
       "statement": "When a judge is configured, a turn renders only when 100% of the emitted text is covered by the verifier's verified draft; any uncovered span blocks and the remedy names the span.",
-      "tests": ["uncovered span blocks", "remedy names the uncovered span"]
+      "tests": [
+        "uncovered span blocks",
+        "remedy names the uncovered span"
+      ]
     },
     {
       "id": "G-pass-substantive",
       "severity": "hard",
       "statement": "A verifier PASS that the judge scores as unsubstantiated (thin or none, missing items, no evidence) does not verify the turn. Verifiers whose clean verdict is an empty `issues:[]` (quiz-audit, tutor-audit, viz-audit, review-gate, review-session-audit) must emit a mandatory non-empty `evidence` list, or every clean PASS dead-ends as `*_STALE` (the 2026-10-05 session looped on the empty quiz PASS).",
-      "tests": ["hollow PASS blocked as unsubstantiated"]
+      "tests": [
+        "hollow PASS blocked as unsubstantiated"
+      ]
     },
     {
       "id": "G-issues-no-cap",
       "severity": "hard",
       "statement": "While a high or medium verifier issue remains, the gate keeps blocking and never dumps the turn as UNVERIFIED; the retry cap applies only to every other block reason.",
-      "tests": ["high/medium issue never dumps as UNVERIFIED"]
+      "tests": [
+        "high/medium issue never dumps as UNVERIFIED"
+      ]
     },
     {
       "id": "G-verifier-dispute",
       "severity": "policy",
       "statement": "When the same issue blocks the same turn three times, the judge is asked whether the issue still applies; if it does not, the engine releases the turn with a VERIFIER DISPUTED banner. The judge only answers; the engine acts.",
-      "tests": ["dispute releases the turn with VERIFIER DISPUTED"]
+      "tests": [
+        "dispute releases the turn with VERIFIER DISPUTED"
+      ]
     },
     {
       "id": "G-receipt-source-is-verifier",
       "severity": "hard",
       "statement": "A receipt is the verifier's own statement: the judge receives the verifier's parsed receipt and verified draft, and never authors or rewrites receipt fields.",
-      "tests": ["judge package carries the verified draft"]
+      "tests": [
+        "judge package carries the verified draft"
+      ]
     },
     {
       "id": "G-judge-degraded-fallback",
       "severity": "policy",
       "statement": "When the judge is unavailable, rate-limited, or returns invalid output, the gate falls back to the legacy deterministic checks for that turn; a learning turn never dead-ends on a judge fault.",
-      "tests": ["judge failure falls back to legacy checks"]
+      "tests": [
+        "judge failure falls back to legacy checks"
+      ]
     },
     {
       "id": "G-judge-escalation",

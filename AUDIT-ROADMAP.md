@@ -140,6 +140,12 @@ Each item lists **Goal · Where · Design · Verify**.
     still tolerated; appended never-verified prose is not.
   - `fact-check.md` now requires the verifier to independently enumerate the draft's load-bearing
     claims, not trust the submitted list.
+  - **Known limits (Review phase):** hard-fact extraction covers decimals, percentages,
+    scientific notation, 3+ digit integers, LaTeX/math expressions, and URLs. 1–2 digit integers
+    (`k=3`, `PPL 4`) are deliberately *not* extracted (they collide with list markers/enumerations),
+    which reduces false positives; the trade-off is that small integers are left to the verifier.
+    Comma-grouped thousands (`3,000`) are skipped as fragments rather than mis-extracted as `000`,
+    and 4-digit calendar years are excluded.
 - **Deviation from the draft plan (recorded):** kept a *tight fuzzy* bind rather than a byte hash.
   The gate's own history is a catalogue of re-emission deadlocks; a byte hash would withhold any
   tag-strip/punctuation drift and is high-risk in a multi-agent flow. The tail bound removes the
@@ -212,7 +218,10 @@ Each item lists **Goal · Where · Design · Verify**.
 - **Commit:** _see git history_ (`gate: add the AI-free solo flow (P0.5)`).
 
 #### [x] P0.6 — Knowledge-Wiki provenance + trust inversion
-- **Goal:** stop contamination compounding; trust flows from sources.
+- **Goal:** stop contamination compounding; trust flows from sources. **Reached as visibility, not
+  yet as a gate:** every page is labelled and the trust order is inverted, but no flow is yet
+  *required* to refuse an `unverified` page's claims (see the Review-phase note; enforcement is
+  future work).
 - **Where (as landed):** `learning-system/scripts/wiki_provenance.py` (new),
   `Knowledge Wiki/AGENTS.md`, `AGENTS.md`, `Skills/llm-wiki/SKILL.md`, all 220
   `Knowledge Wiki/wiki/*.md`; `learning-pi/.pi/skills/llm-wiki/SKILL.md`.
@@ -254,8 +263,9 @@ Each item lists **Goal · Where · Design · Verify**.
 #### [x] P1.2 — Deterministic MCQ grading + a `q_type` enum
 - **What:** `ops.py attempt --qtype` validates a canonical enum (legacy aliases normalize; unknown
   rejected); `ops.py grade-mcq --key A,B,C --answers A,C,C` returns per-item pass/fail with no LLM.
-  The review flow grades MCQs mechanically where the key is known and sends only free-recall to
-  `grade-audit`.
+  The review flow precomputes MCQ verdicts with `grade-mcq` where the key is known; `grade-audit`
+  verifies the whole batch (MCQ items ride along with their code-derived `claimed_verdict`s, so the
+  LLM still sees them — only free-recall *grading* is delegated to it).
 - **Where:** `ops.py`, `ops_test.py`, `.pi/skills/learning-system/SKILL.md`, `.pi/agents/review-clerk.md`,
   `.pi/prompts/review.md`, `.pi/skills/learning-teach/SKILL.md`.
 - **Verified:** `ops_test.py` `TestQTypeEnum` (unknown rejected, aliases normalized) + `TestGradeMcq`
@@ -316,7 +326,9 @@ Each item lists **Goal · Where · Design · Verify**.
 #### [x] P1.8 — Seeded-error red-team harness
 - **What:** an offline harness injects known-wrong load-bearing content into sandboxed gate flows and
   asserts the gate catches it (`CLAIMS_INCOMPLETE` or `FACT_CHECK_ISSUES`), with clean controls for
-  false-blocks. Reports caught/total; wired into `learn-check`.
+  false-blocks. Reports caught/total; wired into `learn-check`. It measures the deterministic catch
+  paths + receipt plumbing; it does **not** measure verifier judgment (a listed-but-false claim with
+  a PASS receipt renders — asserted as a documented known limitation).
 - **Where:** `test/redteam/redteam_test.mjs` (new), `scripts/learn-check`.
 - **Verified:** harness runs and reports `caught 5/5 seeded errors; clean controls 2/2`; `learn-check` OK.
 - **Commit:** `c1eac94`.
@@ -368,7 +380,9 @@ Each item lists **Goal · Where · Design · Verify**.
   re-scout before teaching new material and forbid treating stale excerpts as
   authoritative. Kept as a hard behavioral rule (not an audit error): promoting
   the TTL to an audit error would block the ingest close on a condition that
-  cannot be fixed retroactively.
+  cannot be fixed retroactively. **Known gap (Review phase):** this remains a
+  skill instruction with no teaching-time gate check; a stale digest is still only
+  a `warn` from `audit_state.py`. Enforcing it at teach time is future work.
 - **Where:** `.pi/skills/learning-teach/SKILL.md`,
   `.pi/skills/learning-system/SKILL.md`, `FIELD-GUIDE.md`.
 - **Verified:** doc/behavior (no severity change, so no new state-audit test).
@@ -424,7 +438,8 @@ Each item lists **Goal · Where · Design · Verify**.
 - **What:** a handoff `mistakes[]` entry may carry `prereq` (the broken
   prerequisite it exposes); the Clerk prefixes the row's Self-Attribution with
   `[prereq: NAME]`; `ops.py` parses it (`_mistakes_rows`) and `ops.py queue`
-  surfaces it (`repair prereq: …`) so repair re-derives it first.
+  surfaces it (`repair prereq: …`) for the Tutor to re-derive first. The link is
+  surfaced, not enforced in code (re-deriving is a skill instruction).
 - **Where:** `scripts/ops.py` (parse/emit), `scripts/ops_test.py`,
   `.pi/agents/clerk.md`, `.pi/skills/learning-teach/SKILL.md`.
 - **Verified:** `ops_test.py` `TestMistakePrereqLink` (marker parsed and stripped;
@@ -500,3 +515,51 @@ Each item lists **Goal · Where · Design · Verify**.
 Post-P0 directions not committed: independent (non-LLM) verification tier for high-stakes claims;
 spaced interleaving of related procedures in practice sets; a second, differently-trained model for
 adversarial verification (still not a truth oracle); a learner-facing uncertainty/provenance view.
+
+---
+
+## 8. Review phase (2026-10-08)
+
+Per-checkpoint review by `R-P0`/`R-P1`/`R-P2` (Muse Spark); full findings and decisions in
+[`docs/roadmap/reviews/AGGREGATED.md`](docs/roadmap/reviews/AGGREGATED.md).
+
+**Accepted and landed (Review phase):**
+
+- **Solo enforcement strengthened (P0.5):** `SOLO_NO_TEACHING`/`SOLO_NO_AIDS` are exempt from the
+  retry-cap dump (withheld outright); a solo `none` turn carrying hard facts and a solo `grade`
+  repair tail are withheld; the block is now deterministic on the **judge path** too, as is
+  `CLAIMS_INCOMPLETE` hard-fact completeness.
+- **Hard-fact correctness (P0.2):** containment is token-boundary–aware (`200` is no longer "found"
+  inside `2000`); comma-grouped thousands are not mis-extracted as `000`; 4-digit calendar years are
+  excluded. Small integers remain the verifier's job (documented in `fact-check.md`).
+- **Wiki provenance lint (P0.6):** `wiki_provenance.py --check` now fails on an unknown status, on a
+  `verified` claim with no source/verifier/date, and on a marker outside the first 5 lines. New tests:
+  `scripts/wiki_provenance_test.py`.
+- **`ops.py` hardening (P0.4/P1.3/P1.4/P2.5):** `--prereq` merges instead of replacing; `--mode` /
+  `--confidence` are validated; `stability` is `None` without attempts; `calibration` reports an
+  `untagged` count; `grade-mcq` rejects non-letter tokens; `amend` rejects negative hints and
+  future re-dates.
+- **Far-transfer scheduling (P1.5):** `ops.py queue` emits a deterministic `transfer-far` item every
+  third review for `concept`/`design` concepts with no transfer on record.
+- **Hard-fact withhold scoped (P1.6):** at the cap it fires only when the block implicates
+  verification; a verified draft blocked only on context degrades to `⛔ UNVERIFIED`.
+- **Demotion anchored (P2.2):** the out-of-scope whitelist is path-shaped; a content path embedding a
+  bookkeeping word (`provenance`) is never demoted.
+- **Tests:** red-team harness now asserts its own limitation (listed-but-false + PASS renders); the
+  review-close arm of the state gate is covered.
+
+**Deferred (recorded honestly, not silently dropped):**
+
+- **Wiki trust enforcement (P0.6 M4):** labelling landed; no flow is yet *required* to re-ground an
+  `unverified` page. Future work.
+- **"Just tell me" compensation (P0.1 M5):** still measured-only; no re-probe rule.
+- **Feynman elicitation beat (P1.1 M10):** the graduation outcome gate is hard; the *elicitation*
+  beat remains prompt-level.
+- **Scout TTL teach-time enforcement (P2.3 M17):** still an instruction + `warn`; no teach-time gate.
+- **Ledger rotation / write-failure counter (P0.3 M6):** dir mode is now `0700`; rotation deferred.
+- **Solo fact-free prose on a `none` turn (P0.5 H1 residual):** no deterministic prose-teaching
+  detector; hard-fact-bearing attempts are blocked.
+
+**Verify:** `scripts/learn-check --no-load --with-sidecars` → OK; `python3 -m unittest scripts.ops_test`
+→ OK; `python3 -m unittest scripts.wiki_provenance_test` → OK; `python3 scripts/wiki_provenance.py
+--check` → exit 0 (220 unverified / 0 missing / 0 malformed).

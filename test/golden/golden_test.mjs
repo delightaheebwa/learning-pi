@@ -274,6 +274,33 @@ await fg('rsa2', 'review-session-audit', rsaEnv, JSON.stringify({ verdict: 'PASS
 const rsaReleased = await msg('[[TURN:none]]\nReview — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
 assert('review-clerk close released by review-session pass', allowed(rsaReleased));
 
+// P2 review-close: the state gate's other arm. A state-audit ERROR returned by
+// the review-clerk blocks the review close summary too; a WARNING banners.
+// (The result must carry `text` for the engine to parse STATE_AUDIT_VERDICT.)
+const fgText = (id, agent, task, output) =>
+  fire('tool_result', {
+    toolName: 'subagent',
+    toolCallId: id,
+    isError: false,
+    content: [{ type: 'text', text: output }],
+    text: output,
+    details: { results: [{ agent, task, finalOutput: output, runId: `r-${id}` }] },
+  });
+await setPrompt('[[FLOW:review]] review my due concepts');
+await dispatch('review-clerk', RC_ENV, 'rcsg1');
+await fgText('rcsg1', 'review-clerk', RC_ENV, 'REVIEW_CLERK_WRITES: {"reviews":[],"session":"' + SESSION_PATH + '","state":[],"concepts":["X"],"commit":"abc","state_audit":{"errors":1,"warnings":0}}\nSTATE_AUDIT_VERDICT: {"errors":1,"warnings":0}');
+const reviewStateBlocked = await msg('[[TURN:none]]\nReview — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
+assert('review close with state audit errors is withheld', blocked(reviewStateBlocked, 'STATE_AUDIT_ERRORS'));
+
+await setPrompt('[[FLOW:review]] review my due concepts');
+await dispatch('review-clerk', RC_ENV, 'rcsg2');
+await fgText('rcsg2', 'review-clerk', RC_ENV, 'REVIEW_CLERK_WRITES: {"reviews":[],"session":"' + SESSION_PATH + '","state":[],"concepts":["X"],"commit":"abc","state_audit":{"errors":0,"warnings":2}}\nSTATE_AUDIT_VERDICT: {"errors":0,"warnings":2}');
+const rsaWarnEnv = JSON.stringify({ gate: 'review_session', written_files: [{ path: SESSION_PATH }] });
+await dispatch('review-session-audit', rsaWarnEnv, 'rsa3');
+await fg('rsa3', 'review-session-audit', rsaWarnEnv, JSON.stringify({ verdict: 'PASS', evidence: ['read the session note'], issues: [] }));
+const reviewStateWarned = await msg('[[TURN:none]]\nReview — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
+assert('review close with state audit warnings banners', allowed(reviewStateWarned) && outText(reviewStateWarned).includes('STATE AUDIT'));
+
 // ============================================================================
 // viz turns: a [[TURN:viz]] message carries a ```viz spec and requires a
 // passing viz-audit bound to that exact spec plus the supporting prose.

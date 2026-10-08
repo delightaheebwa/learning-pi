@@ -463,7 +463,7 @@ export function contentMatches(renderedContent: string, emittedText: string): bo
   return extraTokenCount(renderedContent, emittedText) <= LENGTH_SLACK_TOKENS;
 }
 
-const YEAR_RE = /^(19|20)\d{2}$/;
+const YEAR_RE = /^(1[0-9]\d{2}|20\d{2})$/;
 
 /** Normalise a hard fact for containment comparison. */
 export function normHardFact(s: string): string {
@@ -476,7 +476,8 @@ export function normHardFact(s: string): string {
  * percentages, and integers of 3+ digits (calendar years excluded). These are
  * exactly the load-bearing facts a `fact_check` envelope's `claims[]` must
  * place before the verifier — a number or formula nobody listed is a number or
- * formula nobody checked. Prose claims are left to the verifier.
+ * formula nobody checked. Prose claims, and 1–2 digit integers (list markers,
+ * small counts), are left to the verifier.
  */
 export function extractHardFacts(text: string): string[] {
   if (typeof text !== "string" || text.length === 0) return [];
@@ -494,9 +495,34 @@ export function extractHardFacts(text: string): string[] {
   for (const m of text.matchAll(/\b\d+\.\d+\b/g)) add(m[0]);
   for (const m of text.matchAll(/\b\d+(?:\.\d+)?%/g)) add(m[0]);
   for (const m of text.matchAll(/\b\d{3,}\b/g)) {
+    const i = m.index ?? 0;
+    const before = text[i - 1];
+    const after = text[i + m[0].length];
+    // Skip a fragment that is part of a comma-grouped number ("3,000" would
+    // otherwise contribute a bogus "000" hard fact).
+    if (before === "," && /\d/.test(text[i - 2] || "")) continue;
+    if (after === "," && /\d/.test(text[i + m[0].length + 1] || "")) continue;
     if (!YEAR_RE.test(m[0])) add(m[0]);
   }
   return [...out];
+}
+
+/**
+ * True when `fact` occurs in `hay` on its own token boundaries. A plain
+ * `includes` is unsafe: the fact "200" would be considered present inside
+ * "2000", letting a wrong number pass as verified.
+ */
+function factPresent(fact: string, hay: string): boolean {
+  const wordish = (c: string) => /[0-9a-z.]/.test(c);
+  let from = 0;
+  while (true) {
+    const idx = hay.indexOf(fact, from);
+    if (idx < 0) return false;
+    const before = idx > 0 ? hay[idx - 1] : "";
+    const after = idx + fact.length < hay.length ? hay[idx + fact.length] : "";
+    if (!wordish(before) && !wordish(after)) return true;
+    from = idx + 1;
+  }
 }
 
 /**
@@ -508,7 +534,7 @@ export function missingHardFacts(draft: string, claimsText: string | undefined):
   const facts = extractHardFacts(draft);
   if (facts.length === 0) return [];
   const hay = normHardFact(claimsText || "");
-  return facts.filter((f) => !hay.includes(f));
+  return facts.filter((f) => !factPresent(f, hay));
 }
 
 /** Quiz/grade binding: the receipt's audited content must overlap the emission. */
@@ -794,9 +820,14 @@ export function gradeAnswersOf(envelope: any): string[] | undefined {
  * session/review/lesson notes, log/index bookkeeping, git/commit metadata).
  * Used only to decide whether a finding that CITES such a location is
  * out-of-scope for the reviewed content.
+ *
+ * The patterns are path-shaped on purpose: a bare keyword (`provenance`) must
+ * NOT match, or a content finding like "Knowledge Wiki/wiki/Backprop.md
+ * provenance marker missing" would be silently demoted. Filenames are anchored
+ * with `\b` so "dialog.md" does not match `log.md`.
  */
 const BOOKKEEPING_PATH_RE =
-  /(mission\.md|curriculum\.md|learning profile|learner history|mistakes\.md|attempts\.json|pending ingest\.json|\bsessions\/|\breviews\/|\blessons\/|log\.md|index\.md|git history|commit message|provenance|staged files|worktree)/i;
+  /(mission\.md|curriculum\.md|learning profile|learner history|mistakes\.md|attempts\.json|pending ingest\.json|(^|\/)sessions\/|(^|\/)reviews\/|(^|\/)lessons\/|\blog\.md|\bindex\.md|\bgit history\b|commit message|\bstaged files\b|\bworktree\b)/i;
 
 /**
  * Out-of-scope review findings: a review that reports ONLY findings whose

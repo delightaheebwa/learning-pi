@@ -90,9 +90,13 @@ its tagged test, change the implementation, all in one reviewed commit.
 - **G-solo-no-teaching** *(hard)* — in an AI-free solo flow (`[[FLOW:solo]]`) the
   Tutor cannot teach or add aids: a claims turn is withheld (`SOLO_NO_TEACHING`)
   and a viz turn is withheld (`SOLO_NO_AIDS`), so the learner's answers are
-  unassisted. The closed-book quiz batch and grading render; the first content
-  turn requires a `review-scout` run (deterministic queue); the close uses the
-  same `review-session-audit` as a review.
+  unassisted. A `none` transition carrying hard facts and a `grade` turn carrying
+  a fact-checked teaching/repair tail are withheld too, and `SOLO_*` is exempt
+  from the retry-cap dump (withheld outright, never delivered as `UNVERIFIED`).
+  The block is enforced deterministically on both the legacy and judge paths. The
+  closed-book quiz batch and grading render; the first content turn requires a
+  `review-scout` run (deterministic queue); the close uses the same
+  `review-session-audit` as a review.
 - **G-none-evasion-guard** *(hard)* — `[[TURN:none]]` over a verified or
   in-flight fact-check draft is withheld (`TURN_TAG_MISMATCH` /
   `FACT_CHECK_PENDING`). Review-flow carve-out: closing review feedback/summaries
@@ -119,23 +123,29 @@ its tagged test, change the implementation, all in one reviewed commit.
   draft states hard facts (`extractHardFacts`: URL, LaTeX/math expression,
   scientific notation, decimal, percentage, or 3+ digit integer) is **withheld
   entirely** — only the banner renders, no content — rather than delivered as
-  `⛔ UNVERIFIED`. Non-hard-fact prose still degrades gracefully with the
-  UNVERIFIED banner, and `G-retry-cap` semantics are unchanged for grade/quiz/
-  none turns. A deliberate inversion of the anti-dead-end policy for
-  load-bearing facts: a number or formula nobody verified is never shown.
+  `⛔ UNVERIFIED`, **but only when the block implicates verification**
+  (`FACT_CHECK_*`, `CLAIMS_INCOMPLETE`, `NO_FACT_CHECK_MATCH`). A verified draft
+  blocked only on context (`NO_SCOUT_CONTEXT`/`NO_REVIEW_CONTEXT`) degrades
+  gracefully. Non-hard-fact prose still degrades with the UNVERIFIED banner, and
+  `G-retry-cap` semantics are unchanged for grade/quiz/none turns. A deliberate
+  inversion of the anti-dead-end policy for load-bearing facts: a number or
+  formula nobody verified is never shown.
 - **G-out-of-scope-demoted** *(policy)* — review findings are demoted to flags
   only when **every** finding cites an explicit bookkeeping-path `location`
   (state/session/review/lesson notes, log/index bookkeeping, git metadata). A
   finding that cites a content location, or gives no location, is never demoted:
   a content defect that merely mentions a bookkeeping word in its `issue` text
-  still blocks. The old issue-text fallback and the blanket low-severity
-  demotion are removed (they could swallow a real content finding).
+  still blocks. The whitelist is path-shaped (a bare keyword such as
+  `provenance` no longer matches). The old issue-text fallback and the blanket
+  low-severity demotion are removed (they could swallow a real content finding).
 - **G-state-audit-blocking** *(hard)* — the content gate
   (fact-check/quiz/grade/review) and the state gate are split. At the
   ingest/review close, the deterministic state audit's **errors** block the
   summary (`STATE_AUDIT_ERRORS`) until the drift is fixed and the audit re-runs
   clean; **warnings** remain a non-blocking `⚠️ STATE AUDIT` banner. A warning
-  can never dead-end the flow.
+  can never dead-end the flow. The block is subject to the standard retry cap: a
+  persistent, unfixable error withholds twice and then degrades to
+  `⛔ UNVERIFIED` rather than dead-ending the close.
 - **A-subagent-result-shape** *(hard)* — the dispatch envelope is recovered from
   `tool_call` when pi-subagents redacts `task` on a foreground result.
 - **G-receipt-shape-binds** *(hard)* — a receipt minted from a
