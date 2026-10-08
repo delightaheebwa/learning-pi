@@ -7,6 +7,10 @@ contains **no learning state**.
 State lives in the original repo, `delightaheebwa/learning-system`, which stays the single source
 of truth for `Learning System/` and `Knowledge Wiki/`. Open WebUI keeps using that repo unchanged.
 
+> **Community:** questions, ideas, show-and-tell, and the build log all live in
+> [`learning-system` Discussions](https://github.com/delightaheebwa/learning-system/discussions).
+> This project is built in public.
+
 > **Roadmap:** see [`AUDIT-ROADMAP.md`](AUDIT-ROADMAP.md) for the audit verdict and the staged
 > improvement plan (P0–P3). Read it before changing teaching behavior, the gate, learner state, or
 > the Knowledge Wiki, and update it when a stage lands.
