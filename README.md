@@ -154,6 +154,13 @@ Receipts are still the verifier's own statement; the judge never authors them.
 
 ## Skills
 
+> **Canonical pedagogy lives here.** The skills in `learning-pi/.pi/skills/` are the **canonical**
+> teaching behavior. The copies under the state repo's `Skills/` (and `OPENWEBUI.md`) are a
+> **frozen, unmaintained legacy path** — the two diverged and pi is now the single source of truth
+> for teaching behavior, verification, and the flows. Add teaching-behavior changes here only; a
+> behavior-contract change updates `CONTRACT.md`/`contracts/learning-core.json` in the same commit.
+> The frozen copies are not deleted (yet) so the Open WebUI branch stays readable.
+
 Four of the skills in `.pi/skills/` (`learning-system`, `learning-teach`, `learning-review`,
 `llm-wiki`) are **sanitized, vendored copies** of the originals — stripped of
 Open WebUI plumbing, host-specific paths, and all volatile state (lesson positions, dates,
