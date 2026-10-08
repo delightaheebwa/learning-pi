@@ -139,19 +139,30 @@ Each item lists **Goal · Where · Design · Verify**.
   draft hash` reads the NDJSON and confirms a `fact_check` line with `claims[]` + `envelopeHash`.
 - **Commit:** _see git history_ (`gate: always-on claim-level receipt ledger (P0.3)`).
 
-#### [ ] P0.4 — Multi-dimensional mastery + independence gate
+#### [x] P0.4 — Multi-dimensional mastery + independence gate
 - **Goal:** mastery means demonstrated capability, not recent quiz correctness.
-- **Where:** `learning-system/scripts/ops.py`, `scripts/learner_history.py`; then
-  `Attempts.json` schema; skill text in `learning-pi/.pi/skills/learning-system/SKILL.md`.
-- **Design:** per concept track six dimensions (recall, conceptual, procedural, transfer,
-  independence, stability). Proposed shape: keep the existing `attempts[]` and add optional fields
-  `confidence`, `hint_count`, `independent` (bool). `compute_mastery` becomes a multi-dimension
-  report. `solid` requires recall + explain-back + independence + no open misconception + stability
-  window. `consolidated` additionally requires a delayed transfer pass and a 90-day unaided pass.
-  Grandfather existing concepts as *activity-history only, mastery unproven* — never retroactively
-  grant `solid`.
-- **Verify:** extend `ops_test.py`; `learn-check --with-sidecars` green; a migration dry-run on a
-  copy of `Attempts.json`.
+- **Where (as landed):** `learning-system/scripts/ops.py`, `scripts/learner_history.py`,
+  `scripts/ops_test.py`; `learning-pi/.pi/skills/learning-system/SKILL.md`,
+  `.pi/skills/learning-teach/SKILL.md`, `.pi/agents/review-clerk.md`.
+- **Design (as landed, additive):**
+  - `compute_dimensions(entry)` reports six dimensions 0–3: recall, conceptual (Feynman),
+    procedural, transfer, independence (last `mode:"solo"` attempt), stability (interval_index).
+    A dimension with no evidencing attempt is `None` (unknown), never a false 0.
+  - `ops.py attempt` gains optional `--confidence`, `--hints N`, `--mode normal|solo`; the fields are
+    recorded only when supplied, so existing attempts and callers are unchanged.
+  - `ops.py mastery [TRACK] [--json]` prints the scalar plus all six dimensions.
+  - Independence gate: `independence_ok(entry)` is false only when a **failed solo** attempt is on
+    record. `learner_history.tag()` cannot return `solid` when it is false. Absence of solo evidence
+    is unknown → existing concepts are grandfathered (no mass demotion), and the gate becomes real
+    once `/solo` (P0.5) produces data.
+- **Deferred:** the full graduation rework (consolidated + 90-day unaided pass) waits on P0.5's solo
+  data and P1.2's `q_type` enum; the dimension model now exists to build it on.
+- **Verify:** `ops_test.py` 24 tests OK (4 new: dimension split, unknown≠0, independence gate,
+  optional-field recording); `learn-check --no-load --with-sidecars` → OK.
+  Manual: `ops.py mastery` prints dimensions; `--json` dumps them; `tag()` returns solid for a
+  passing solo and neutral for a failed solo behind later passes.
+- **Commits:** _see git history_ (`ops: per-dimension mastery + independence gate (P0.4)` in
+  learning-system; `skills: document per-dimension mastery (P0.4)` in learning-pi).
 
 #### [ ] P0.5 — `/solo` AI-free flow
 - **Goal:** measure what the learner can do without the AI; make it veto mastery.
