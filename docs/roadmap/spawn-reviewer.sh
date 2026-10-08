@@ -31,6 +31,6 @@ if [ -z "$PANE" ] || [ "$PANE" = "null" ]; then
 fi
 
 herdr agent start "$NAME" --kind opencode --pane "$PANE" -- --auto --model "$MODEL" >/dev/null
-herdr agent prompt "$NAME" "$(cat "$BRIEF")"
+bash "$ROOT/docs/roadmap/prompt-agent.sh" "$NAME" "$BRIEF"
 
 echo "spawned reviewer $NAME in pane $PANE (tab 'review $CP', model $MODEL)"

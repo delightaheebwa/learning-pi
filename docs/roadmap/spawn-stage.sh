@@ -37,6 +37,8 @@ if [ -n "$MODEL" ]; then
 else
   herdr agent start "$NAME" --kind opencode --pane "$PANE" -- --auto >/dev/null
 fi
-herdr agent prompt "$NAME" "$(cat "$BRIEF")"
+# `agent start` can return before the TUI input is ready; prompt-agent retries
+# until the brief is actually accepted.
+bash "$ROOT/docs/roadmap/prompt-agent.sh" "$NAME" "$BRIEF"
 
 echo "spawned $NAME in pane $PANE (tab 'roadmap $STAGE')${MODEL:+ model=$MODEL}"
