@@ -64,10 +64,15 @@ field authorizes nothing and the turn is withheld.
   the learner could have a prior on, ask ONE prediction / "what do you think?" question grounded in
   `Core/Learner History.md` and the learner's own recorded phrasings (`Learning Records/`, mistake
   self-attributions). An elicitation batch is a `[[TURN:quiz]]` (quiz-audited, `purpose: "probe"`)
-  and is **ungraded** — no pass/fail, no confidence tag, no `ops.py attempt`. Then at most **2**
-  guiding questions (Hint shape, `[[TURN:claims]]`). The **learner** then states the idea in his own
+  and is **ungraded** — no pass/fail, no confidence tag, no `ops.py attempt`. Then guiding
+  questions (Hint shape, `[[TURN:claims]]`) — **the budget fades with independence (P1.9):** read
+  the concept's `independence`/`stability` dimensions (`ops.py mastery <track>`); no independence
+  evidence → up to **2**, `neutral`/untested-`solid` → **1**, a passed solo (`independence ≥ 2`) →
+  **0**. Record the number given with `--hints N`. The **learner** then states the idea in his own
   words, one or two lines — a `[[TURN:none]]` transition when the prompt is purely procedural, a
-  `[[TURN:claims]]` turn when it embeds substantive framing. The Tutor then checks the learner's
+  `[[TURN:claims]]` turn when it embeds substantive framing. **Capture those exact words** for the
+  handoff so the Clerk can place them in the wiki page's `## My understanding` section (P1.7,
+  `status=learner-note`), never rewritten. The Tutor then checks the learner's
   statement and **adds only what the learner did not produce**, each addition labeled
   (`Source framing:`, `External angle:`, or a `⚠️ Sources disagree` callout); never replace the
   learner's words with a polished substitute. Compress the State rung to a direct statement only
@@ -76,6 +81,14 @@ field authorizes nothing and the turn is withheld.
   still closes with one minimal learner generation (a one-line ask, or the scheduled isomorphic
   micro-check). Log every opt-out in the handoff `dependency_events[]` as `just_tell_me` (or
   `declined_generation` if the closing ask is also declined); log a told repair as `told_repair`.
+- **Prerequisites (P1.3):** before teaching a concept, run `python3 scripts/ops.py prereqs "<concept>"`.
+  If `blocks` is true (a direct prereq is `fuzzy` or has an open mistake), **refuse to advance** —
+  re-derive the prereq first, then return. A prereq with no evidence is `unknown` (advisory, never
+  blocks). Record edges with `ops.py attempt ... --prereq NAME`.
+- **Attempts & confidence (P1.4):** record every graded attempt via `ops.py attempt`, passing
+  `--qtype` (the enum value actually asked), `--confidence` (the learner's `sure`/`hunch`/`no-idea`
+  tag), and `--hints` (guiding questions given). `ops.py calibration <track>` reports whether
+  `sure` answers are actually right; a `sure`-wrong pattern means slow down, not hide the number.
 - **Answer-first, one screen:** answer the question actually asked in ≤3 sentences before any
   elaboration; keep teaching, answer, and repair turns to about one screen (~150–220 words plus one
   formula block) and end with a check-back; define every term at first use; when the learner is

@@ -59,6 +59,44 @@ Trust order: **raw source > verified claim > labelled synthesis > learner note**
 A wiki page is never a source of truth for a claim it does not cite; the
 citation is the evidence, the page is the map.
 
+## Learner-authored understanding ("My understanding", P1.7)
+
+Every **concept** page carries a `## My understanding` section written in the
+learner's own words. The learner authors it (captured verbatim during the
+session at the learner-consolidation rung and carried in the lesson handoff's
+`learner_understanding`); the AI never ghost-writes it.
+
+- **Preserve and append — never overwrite.** The Clerk places the learner's
+  text verbatim under `## My understanding` and may annotate *around* it
+  (`Source framing:` / `External angle:` lines, a `⚠️ Sources disagree`
+  callout, a missing-piece note), but must not paraphrase, polish, or replace
+  the learner's words.
+- Mark the section as the learner's: set the page provenance
+  `status=learner-note` for that block (a page may be `status=synthesis`
+  overall while its `## My understanding` block is the learner's note), and
+  record it in the page's provenance line.
+- The learner's note is *their model*, not a verified claim: check it against
+  the cited source and name plainly what is wrong or missing — do not rewrite
+  it. Corrections the learner accepts become an annotation, not a replacement.
+
+Sample page shape:
+
+```markdown
+<!-- provenance: status=synthesis | source=raw/sources/... | verified-by=— | date=2026-10-08 -->
+# Eigenvalues
+
+**Insight:** …
+
+## My understanding
+> status=learner-note — the learner's words, verbatim, preserved.
+> "An eigenvector is a direction the matrix only stretches, so the eigenvalue is how much it stretches it."
+
+**Source framing:** the curriculum states it as Av = λv.
+
+## Notes
+…
+```
+
 ## Wiki maintenance
 
 - Keep raw sources immutable.
