@@ -110,6 +110,16 @@ const r3 = await msg('[[TURN:grade]]\nGraded (verifier-agreed): W1 PASS.', 'stop
 assert('repeated withheld turns are blocked before the cap', blocked(r1, 'NO_GRADE_AUDIT_PASS') && blocked(r2, 'NO_GRADE_AUDIT_PASS'));
 assert('retry cap surfaces unverified after 2 withholdings', outText(r3).includes('⛔ UNVERIFIED'));
 
+// P1.6: at the cap, a claims turn stating hard facts is withheld outright —
+// only the banner renders, no content — while non-hard-fact prose still degrades.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const hfDraft = 'The mean is 12.5 and the variance is 3.2.';
+const hf1 = await msg(`[[TURN:claims]]\n${hfDraft}`, 'stop');
+const hf2 = await msg(`[[TURN:claims]]\n${hfDraft}`, 'stop');
+const hf3 = await msg(`[[TURN:claims]]\n${hfDraft}`, 'stop');
+assert('retry cap withholds a hard-fact claims turn', blocked(hf3, 'WITHHELD') && !outText(hf3).includes('12.5'));
+assert('repeated hard-fact claims turns are blocked before the cap', blocked(hf1, 'NO_FACT_CHECK_MATCH') && blocked(hf2, 'NO_FACT_CHECK_MATCH'));
+
 // ============================================================================
 // none-evasion: a verified fact-check draft tagged [[TURN:none]] is withheld.
 // ============================================================================
