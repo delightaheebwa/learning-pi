@@ -139,6 +139,16 @@ export interface LedgerReceipt {
   envelopeHash?: string;
   artifact?: string;
   consumedBy?: string;
+  // Claim-level detail parsed from the verifier's own verdict JSON, so a
+  // recorded PASS is auditable (which claims passed/failed) rather than a tally.
+  claims?: LedgerClaim[];
+}
+
+export interface LedgerClaim {
+  id?: string | number;
+  verdict: string;
+  explanation?: string;
+  correctedClaim?: string;
 }
 
 export interface LedgerDecision {

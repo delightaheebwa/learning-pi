@@ -121,15 +121,23 @@ Each item lists **Goal · Where · Design · Verify**.
   allowed; unverified tail withheld.
 - **Commit:** _see git history_ (`gate: extract hard facts and bound the unverified draft tail (P0.2)`).
 
-#### [ ] P0.3 — Persist claim-level verification verdicts
+#### [x] P0.3 — Persist claim-level verification verdicts
 - **Goal:** verification becomes auditable, not a prose tally.
-- **Where:** gate writes (or `review-clerk` at close) → `Learning System/Reviews/Quality Gates/`;
-  `learning-pi/.pi/skills/learning-review/SKILL.md`; possibly a small writer helper.
-- **Design:** for every `fact_check` / `quiz_audit` / `grade_audit` the gate mints, persist a JSON
-  artifact: `{gate, agent, model, at, draft_hash, verdict, claims:[{id, verdict, explanation,
-  corrected_claim}], evidence:[...]}`. Today only `review`-gate JSONs are stored.
-- **Verify:** a teach/review run produces verdict JSON on disk with the draft hash; `learn-check`
-  unaffected.
+- **Where (as landed):** `gate-core/ledger.ts` (existing), `gate-core/judge/types.ts`,
+  `gate-core/primitives.ts`, `gate-core/engine.ts`, `pi-adapter/index.ts`,
+  `test/gate_test.mjs`.
+- **Design:** the receipt ledger now records, for every verifier receipt, the claim-level verdicts
+  parsed from the verifier's own JSON (`claims:[{id, verdict, explanation, correctedClaim}]`) and an
+  FNV-1a fingerprint of the exact bound draft (`envelopeHash`). It is **always on** (previously built
+  only when a judge was configured), so the judge-less legacy path is auditable too.
+- **Deviation from the draft plan (recorded):** the ledger lives under the pi agent dir
+  (`~/.pi/agent/learning-gate/receipts.ndjson`, override `LEARNING_GATE_LEDGER_DIR`) rather than in
+  the state repo's `Reviews/Quality Gates/`. The extension must not become a state writer (the audit
+  flagged state writes outside the flows); the home ledger is the sanctioned extension write path and
+  is the same provenance source the weekly audit already reads. An in-repo mirror is deferred.
+- **Verify:** `learn-check --no-load` → OK; new assertion `ledger records claim-level verdicts with a
+  draft hash` reads the NDJSON and confirms a `fact_check` line with `claims[]` + `envelopeHash`.
+- **Commit:** _see git history_ (`gate: always-on claim-level receipt ledger (P0.3)`).
 
 #### [ ] P0.4 — Multi-dimensional mastery + independence gate
 - **Goal:** mastery means demonstrated capability, not recent quiz correctness.

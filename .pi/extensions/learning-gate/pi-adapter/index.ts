@@ -327,7 +327,10 @@ export default function learningGate(pi: ExtensionAPI): void {
   const ensureEngine = (ctx: any): GateEngine => {
     if (engine) return engine;
     const judge = buildJudge(ctx);
-    engine = createGate({ judge, ledger: judge ? makeFileLedger() : undefined });
+    // The ledger is always on (not only when a judge is configured): it is the
+    // durable, claim-level record of every verifier receipt, so a recorded PASS
+    // is auditable even on the judge-less legacy path. Best-effort, never blocks.
+    engine = createGate({ judge, ledger: makeFileLedger() });
     if (!judge && ctx?.hasUI && !judgeUnavailableNotified) {
       judgeUnavailableNotified = true;
       try {

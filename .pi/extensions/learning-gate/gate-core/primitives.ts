@@ -1051,6 +1051,106 @@ export function parseReviewScoutReceipt(text: string): { digest?: string; queue:
   }
 }
 
+/** Claim-level verdict extracted from a verifier's raw JSON, for the ledger. */
+export interface ClaimVerdict {
+  id?: string | number;
+  verdict: string;
+  explanation?: string;
+  correctedClaim?: string;
+}
+
+/** Canonical text: Unicode NFC, whitespace collapsed, trimmed. Case preserved. */
+export function canonicalText(s: string): string {
+  return (s || "").normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * A short deterministic hash (FNV-1a 32-bit) of a draft's canonical text, for
+ * fingerprinting what a receipt was bound to in the ledger. Not cryptographic:
+ * it identifies a draft for audit, it does not authenticate it.
+ */
+export function draftHash(text: string): string {
+  const s = canonicalText(text);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+/** Parse the first balanced JSON object in a verifier's raw output. */
+function parseAnyVerdictObject(raw: string): any | undefined {
+  const trimmed = (raw || "").trim();
+  const start = trimmed.indexOf("{");
+  if (start >= 0) {
+    const blob = extractBalancedJson(trimmed, start);
+    if (blob) {
+      try {
+        const j = JSON.parse(blob);
+        if (j && typeof j === "object") return j;
+      } catch {
+        /* fall through to the verdict-keyed walk */
+      }
+    }
+  }
+  return parseVerdictObject(raw);
+}
+
+/**
+ * Claim-level verdicts from a verifier's raw JSON, for the ledger. A fact-check
+ * carries `verdicts[]`, a grade-audit `items[]` (with `correct_verdict`), and
+ * the review/quiz family an `issues[]` list. This is what makes a recorded PASS
+ * auditable (which claims passed) instead of a tally.
+ */
+export function claimVerdictsOf(raw: string, gate: string): ClaimVerdict[] {
+  const obj = parseAnyVerdictObject(raw);
+  if (!obj) return [];
+  const out: ClaimVerdict[] = [];
+  if (Array.isArray(obj.verdicts)) {
+    for (const v of obj.verdicts) {
+      if (!v || typeof v !== "object") continue;
+      out.push({
+        id: v.id,
+        verdict: typeof v.verdict === "string" ? v.verdict : "",
+        explanation: typeof v.explanation === "string" ? v.explanation : undefined,
+        correctedClaim: typeof v.corrected_claim === "string" ? v.corrected_claim : undefined,
+      });
+    }
+  }
+  if (Array.isArray(obj.items)) {
+    for (const it of obj.items) {
+      if (!it || typeof it !== "object") continue;
+      out.push({
+        id: it.id,
+        verdict:
+          typeof it.correct_verdict === "string"
+            ? it.correct_verdict
+            : typeof it.agrees === "boolean"
+            ? it.agrees
+              ? "agrees"
+              : "disagrees"
+            : "",
+        explanation: typeof it.explanation === "string" ? it.explanation : undefined,
+      });
+    }
+  }
+  if (out.length === 0 && Array.isArray(obj.issues)) {
+    for (const it of obj.issues) {
+      if (it == null) continue;
+      if (typeof it === "string") {
+        out.push({ verdict: "ISSUE", explanation: it });
+        continue;
+      }
+      if (typeof it !== "object") continue;
+      const sev = typeof it.severity === "string" ? it.severity : "";
+      const msg = typeof it.problem === "string" ? it.problem : typeof it.issue === "string" ? it.issue : "";
+      out.push({ id: it.id, verdict: sev ? `ISSUE:${sev}` : "ISSUE", explanation: msg || undefined });
+    }
+  }
+  return out.slice(0, 50);
+}
+
 /** Expected envelope gate per verifier agent (wrong envelope => no receipt). */
 export const EXPECTED_ENVELOPE_GATE: Record<string, string> = {
   "fact-check": "fact_check",

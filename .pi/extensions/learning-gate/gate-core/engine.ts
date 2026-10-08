@@ -90,12 +90,17 @@ export function createGate(options: GateOptions = {}): GateEngine {
     // RunState.lastGradeReceipt).
     if (r.gate === "grade_audit") run.lastGradeReceipt = r;
     try {
+      const bound = r.renderedContent || r.questionsText || r.gradeText;
       ledger.receipt({
         at: new Date().toISOString(),
         agent: agent || (r as any).agent || "",
         gate: r.gate,
         verdict: r.issues ? "ISSUES" : r.valid ? (r.flags ? "PASS_WITH_FLAGS" : "PASS") : "UNVERIFIED",
         artifact: r.auditFiles && r.auditFiles[0],
+        // Fingerprint the exact draft the receipt bound to and record which
+        // claims passed/failed, so a PASS is auditable rather than a tally.
+        envelopeHash: bound ? P.draftHash(bound) : undefined,
+        claims: P.claimVerdictsOf(r.raw, r.gate),
       });
     } catch {
       /* best effort */

@@ -6,6 +6,8 @@
 // generation did not finish (`stopReason` error/aborted/length) must pass
 // through ungated without consuming a verifier receipt, so the retried or
 // continued message can still bind to it.
+// Keep the always-on receipt ledger out of the real pi agent dir during tests.
+process.env.LEARNING_GATE_LEDGER_DIR = '/tmp/learning-gate-test/';
 const handlers = {};
 const tools = {};
 const listeners = {};
@@ -659,5 +661,20 @@ const tailEmit =
   ' An extra conclusion appended after the fact-check receipt was minted and never verified by any verifier at all.';
 const tailed = await msg(`[[TURN:claims]]\n${tailEmit}`, 'stop');
 assert('unverified tail beyond the draft is withheld', blocked(tailed, 'FACT_CHECK_MISMATCH'));
+
+// ============================================================================
+// 2026-10-08 P0.3: the always-on receipt ledger records claim-level verdicts
+// (and a draft fingerprint), so a recorded PASS is auditable, not a tally.
+// ============================================================================
+try {
+  const ledgerText = await Deno.readTextFile('/tmp/learning-gate-test/receipts.ndjson');
+  const entries = ledgerText.trim().split('\n').map((l) => JSON.parse(l));
+  const auditable = entries.find(
+    (e) => e.gate === 'fact_check' && Array.isArray(e.claims) && e.claims.length > 0 && typeof e.envelopeHash === 'string'
+  );
+  assert('ledger records claim-level verdicts with a draft hash', !!auditable);
+} catch {
+  assert('ledger records claim-level verdicts with a draft hash', false);
+}
 
 

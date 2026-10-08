@@ -6,6 +6,8 @@
 // the tutor-audit and review-session write gates, scout-required, the retry cap,
 // out-of-scope review demotion, and the verified-draft `none` evasion guard.
 // Assertions are named to match the `tests` entries in contracts/learning-core.json.
+// Keep the always-on receipt ledger out of the real pi agent dir during tests.
+process.env.LEARNING_GATE_LEDGER_DIR = '/tmp/learning-gate-test/';
 const handlers = {};
 const pi = { on: (ev, h) => { (handlers[ev] ||= []).push(h); } };
 const mod = await import('../../.pi/extensions/learning-gate/index.ts');
