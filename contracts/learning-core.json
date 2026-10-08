@@ -172,6 +172,15 @@
       "tests": ["repeated withheld turns are blocked before the cap", "retry cap surfaces unverified after 2 withholdings"]
     },
     {
+      "id": "G-hard-fact-withhold",
+      "severity": "hard",
+      "statement": "At the retry cap, a claims turn whose draft states hard facts (extractHardFacts: URL, LaTeX/math expression, scientific notation, decimal, percentage, or 3+ digit integer) is withheld entirely — only the banner renders, no content — rather than delivered as ⛔ UNVERIFIED. Non-hard-fact prose still degrades gracefully with the UNVERIFIED banner, and G-retry-cap semantics are unchanged for every other turn (grade/quiz/none). This deliberately inverts the anti-dead-end policy for load-bearing facts: a number or formula nobody verified is never shown.",
+      "tests": [
+        "retry cap withholds a hard-fact claims turn",
+        "retry cap still delivers non-hard-fact prose"
+      ]
+    },
+    {
       "id": "G-out-of-scope-demoted",
       "severity": "policy",
       "statement": "Review findings that are all out-of-scope state/bookkeeping are demoted to flags so a clean target page is not re-reviewed forever.",

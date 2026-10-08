@@ -892,6 +892,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
 
       if (run.retries > P.MAX_RETRIES) {
         run.retries = 0;
+        // Hard-fact claims are withheld outright at the cap (P1.6): a number,
+        // formula, or URL nobody verified must never be delivered, banner or
+        // not. Non-hard-fact prose still degrades gracefully (G-retry-cap).
+        if (tag === "claims" && P.extractHardFacts(text).length > 0) {
+          const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.\n${fallbackNote}\n`;
+          return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };
+        }
         const banner = `⛔ UNVERIFIED — gate retries exhausted (${codes.join(", ")}). The content below was not verified.\n${fallbackNote}\n`;
         return { message: P.prependBanner(P.replaceText(message, text), banner) };
       }
@@ -1356,6 +1363,15 @@ export function createGate(options: GateOptions = {}): GateEngine {
     // dump the content as UNVERIFIED. The cap applies to every other reason.
     if (run.retries > P.MAX_RETRIES && !remainingHighMedium) {
       run.retries = 0;
+      // Hard-fact claims are withheld outright at the cap (P1.6): a number,
+      // formula, or URL nobody verified must never be delivered. Non-hard-fact
+      // prose still degrades gracefully (G-retry-cap).
+      if (turnType === "claims" && P.extractHardFacts(text).length > 0) {
+        const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.\n${fallbackNote}\n`;
+        ledger.decision({ at: new Date().toISOString(), flow: run.flow, turnType: turnType as any, outcome: "block", codes, source: assessment.source,
+          escalated: assessment.escalated, reason: assessment.reason });
+        return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };
+      }
       const banner = `⛔ UNVERIFIED — gate retries exhausted (${codes.join(", ")}). The content below was not verified.\n${fallbackNote}\n`;
       ledger.decision({ at: new Date().toISOString(), flow: run.flow, turnType: turnType as any, outcome: "unverified", codes, source: assessment.source,
         escalated: assessment.escalated, reason: assessment.reason });

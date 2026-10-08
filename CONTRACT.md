@@ -115,6 +115,14 @@ its tagged test, change the implementation, all in one reviewed commit.
   (`NO_SCOUT_CONTEXT`) until a scout run has happened.
 - **G-retry-cap** *(hard)* — repeated withheld turns are capped; beyond the cap
   the turn surfaces with `⛔ UNVERIFIED` rather than looping.
+- **G-hard-fact-withhold** *(hard)* — at the retry cap, a `claims` turn whose
+  draft states hard facts (`extractHardFacts`: URL, LaTeX/math expression,
+  scientific notation, decimal, percentage, or 3+ digit integer) is **withheld
+  entirely** — only the banner renders, no content — rather than delivered as
+  `⛔ UNVERIFIED`. Non-hard-fact prose still degrades gracefully with the
+  UNVERIFIED banner, and `G-retry-cap` semantics are unchanged for grade/quiz/
+  none turns. A deliberate inversion of the anti-dead-end policy for
+  load-bearing facts: a number or formula nobody verified is never shown.
 - **G-out-of-scope-demoted** *(policy)* — review findings that are all
   out-of-scope state bookkeeping are demoted to flags, so a clean target page is
   not re-reviewed forever.

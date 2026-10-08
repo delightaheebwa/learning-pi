@@ -719,4 +719,30 @@ await fg('soq1', 'quiz-audit', soloQEnv, SOLO_QUIZ_PASS);
 const soloQuiz = await msg('[[TURN:quiz]]\nDefine entropy.', 'stop');
 assert('solo flow allows the closed-book quiz batch', allowed(soloQuiz));
 
+// ============================================================================
+// 2026-10-08 P1.6: at the retry cap, a claims turn stating hard facts is
+// withheld outright (banner only, no content) rather than shown as UNVERIFIED.
+// Non-hard-fact prose still degrades gracefully. G-retry-cap is unchanged.
+// ============================================================================
+const hardCapDraft = 'The explained variance is 4.98 on both arms (n=200).';
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const hc1 = await msg(`[[TURN:claims]]\n${hardCapDraft}`, 'stop');
+const hc2 = await msg(`[[TURN:claims]]\n${hardCapDraft}`, 'stop');
+const hc3 = await msg(`[[TURN:claims]]\n${hardCapDraft}`, 'stop');
+assert('repeated withheld turns are blocked before the cap', blocked(hc1, 'NO_FACT_CHECK_MATCH') && blocked(hc2, 'NO_FACT_CHECK_MATCH'));
+assert(
+  'retry cap withholds a hard-fact claims turn',
+  blocked(hc3, 'WITHHELD') && !outText(hc3).includes('4.98') && !outText(hc3).includes('explained variance')
+);
+
+const proseCapDraft = 'The idea is that variation is the gap between joint and shared information.';
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const pc1 = await msg(`[[TURN:claims]]\n${proseCapDraft}`, 'stop');
+const pc2 = await msg(`[[TURN:claims]]\n${proseCapDraft}`, 'stop');
+const pc3 = await msg(`[[TURN:claims]]\n${proseCapDraft}`, 'stop');
+assert(
+  'retry cap still delivers non-hard-fact prose',
+  outText(pc3).includes('⛔ UNVERIFIED') && outText(pc3).includes('variation is the gap')
+);
+
 
