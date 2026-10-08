@@ -105,6 +105,17 @@
       "tests": ["unverified tail beyond the draft is withheld"]
     },
     {
+      "id": "G-solo-no-teaching",
+      "severity": "hard",
+      "statement": "In an AI-free solo flow ([[FLOW:solo]]) the Tutor cannot teach or add aids: a claims turn is withheld with SOLO_NO_TEACHING and a viz turn with SOLO_NO_AIDS, so the learner's answers are unassisted. The closed-book quiz batch and grading are allowed, the first content turn requires a review-scout run (deterministic queue), and the close uses the review-session audit like a review.",
+      "tests": [
+        "solo flow withholds a teaching claims turn",
+        "solo flow withholds a visualization",
+        "solo first quiz requires a review-scout run",
+        "solo flow allows the closed-book quiz batch"
+      ]
+    },
+    {
       "id": "G-none-evasion-guard",
       "severity": "hard",
       "statement": "Teaching content tagged [[TURN:none]] while its fact-check is still in flight or already verified is withheld (FACT_CHECK_PENDING / TURN_TAG_MISMATCH). Review-flow carve-out: closing review feedback/summaries legitimately reuse verified prose, so a none turn covered by a passing fact-check renders in the review flow.",

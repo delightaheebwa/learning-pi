@@ -6,6 +6,7 @@ learning-system repository; its `Learning System/` and `Knowledge Wiki/` folders
 ## Routing (load the matching skill and follow it — do not improvise)
 
 - **"review"** → the `learning-system` skill, Review flow (runs in this session; `review-scout` gathers context, `review-clerk` writes).
+- **"solo" / "AI-free check" / "closed-book"** → the `learning-system` skill, Solo flow (`[[FLOW:solo]]`): a closed-book review where teaching, hints, and figures are withheld by the gate; `review-scout` builds the queue and `review-clerk` records every attempt `mode:"solo"`.
 - **"teach me X" / "learn" / "study" / "lesson" / "continue" / "pause"** → the `learning-teach` skill.
 - **"show me" / "visualize" / "draw" / "can I play with X" / "what does that look like"** → the `learning-viz` skill (a verified `[[TURN:viz]]` figure; opt-in, teach/resume only).
 - **"ingest"** → the `learning-system` skill, Ingest flow, delegated to the `clerk` subagent.

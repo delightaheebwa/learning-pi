@@ -1,6 +1,6 @@
 ---
 name: learning-system
-description: Run the spaced-repetition learning system. Use for "review" (review the active track), "ingest" (ingest new content), "teach me X"/"learn"/"study" (teaching loop, delegated to the learning-teach skill), and "lesson"/"continue" (next curriculum lesson, delegated to learning-teach). Loads Core state from the repository working copy, executes the review/ingest/teach flow, and persists session notes, wiki updates, and Active Concepts changes.
+description: Run the spaced-repetition learning system. Use for "review" (review the active track), "solo" (AI-free closed-book check), "ingest" (ingest new content), "teach me X"/"learn"/"study" (teaching loop, delegated to the learning-teach skill), and "lesson"/"continue" (next curriculum lesson, delegated to learning-teach). Loads Core state from the repository working copy, executes the review/ingest/teach flow, and persists session notes, wiki updates, and Active Concepts changes.
 ---
 
 # Learning System
@@ -9,6 +9,7 @@ The active learning system, running in pi against the learning-system repository
 
 **Trigger routing (read first):**
 - **"review" → review flow** (active track). Runs in the main session.
+- **"solo" / "AI-free check" / "closed-book" → solo flow** — a closed-book review of the active track where the gate withholds teaching (`SOLO_NO_TEACHING`) and figures (`SOLO_NO_AIDS`). Same deterministic queue and close as the review flow, but `review-clerk` records every attempt with `mode:"solo"` so it feeds the independence gate. Teaching and hints are impossible by construction; grade the closed-book answers only.
 - **"teach me X" / "learn" / "study" → teaching loop** — use the `learning-teach` skill, NOT a review. "review" alone means the review flow.
 - **"lesson" / "continue" → next curriculum lesson** — use the `learning-teach` skill.
 

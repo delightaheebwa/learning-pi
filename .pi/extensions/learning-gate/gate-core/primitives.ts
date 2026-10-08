@@ -49,7 +49,7 @@ export const LENGTH_SLACK_TOKENS = 12;
 export const VERDICT_ONLY_MIN_TOKENS = 12;
 export const VERDICT_ONLY_MAX_RATIO = 0.5;
 export const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|viz|none)\]\]\s*/i;
-export const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest)\]\]/i;
+export const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest|solo)\]\]/i;
 export const STATE_AUDIT_RE = /(\d+)\s+errors?\b[^\d]*(\d+)\s+warnings?/i;
 export const WRITE_TOOLS = new Set(["write", "edit"]);
 
@@ -61,7 +61,7 @@ export const VERIFIER_FALLBACK_MODEL = "opencode-go/deepseek-v4.1-flash";
 export const SCOUT_FALLBACK_MODEL = "opencode-go/muse-spark-1.3-contributor";
 export const FALLBACK_AFTER_FAILURES = 2;
 
-export type Flow = "teach" | "resume" | "review" | "ingest" | "other";
+export type Flow = "teach" | "resume" | "review" | "ingest" | "solo" | "other";
 
 export interface Receipt {
   gate: string;

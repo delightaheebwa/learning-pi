@@ -677,4 +677,46 @@ try {
   assert('ledger records claim-level verdicts with a draft hash', false);
 }
 
+// ============================================================================
+// 2026-10-08 P0.5: the AI-free solo flow. Teaching and aids are withheld; the
+// closed-book quiz batch is allowed; the first content turn needs review-scout.
+// ============================================================================
+const SOLO_QUIZ_PASS = JSON.stringify({ verdict: 'PASS', issues: [] });
+const SOLO_SCOUT_OK =
+  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[]}';
+
+// A teaching claims turn in solo is withheld.
+await setPrompt('[[FLOW:solo]] solo check');
+await dispatch('fact-check', fcEnvelope(DRAFT), 'so1');
+await fg('so1', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
+const soloTeach = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
+assert('solo flow withholds a teaching claims turn', blocked(soloTeach, 'SOLO_NO_TEACHING'));
+
+// A visualization in solo is withheld.
+await setPrompt('[[FLOW:solo]] solo check');
+const soloFence = '```viz\n{"viz":"1","kind":"bar","bars":[]}\n```';
+const soloViz = await msg(`[[TURN:viz]]\nA figure.\n${soloFence}`, 'stop');
+assert('solo flow withholds a visualization', blocked(soloViz, 'SOLO_NO_AIDS'));
+
+// The first solo quiz turn requires a review-scout run (deterministic queue).
+const soloQEnv = JSON.stringify({
+  gate: 'quiz_audit',
+  purpose: 'probe',
+  questions_json: [{ id: 1, question: 'Define entropy.' }],
+});
+await setPrompt('[[FLOW:solo]] solo check');
+await dispatch('quiz-audit', soloQEnv, 'soq0');
+await fg('soq0', 'quiz-audit', soloQEnv, SOLO_QUIZ_PASS);
+const soloNoScout = await msg('[[TURN:quiz]]\nDefine entropy.', 'stop');
+assert('solo first quiz requires a review-scout run', blocked(soloNoScout, 'NO_REVIEW_CONTEXT'));
+
+// With a review-scout run, the closed-book quiz batch renders.
+await setPrompt('[[FLOW:solo]] solo check');
+await dispatch('review-scout', 'build the solo queue', 'sosc1');
+await fg('sosc1', 'review-scout', 'build the solo queue', SOLO_SCOUT_OK);
+await dispatch('quiz-audit', soloQEnv, 'soq1');
+await fg('soq1', 'quiz-audit', soloQEnv, SOLO_QUIZ_PASS);
+const soloQuiz = await msg('[[TURN:quiz]]\nDefine entropy.', 'stop');
+assert('solo flow allows the closed-book quiz batch', allowed(soloQuiz));
+
 

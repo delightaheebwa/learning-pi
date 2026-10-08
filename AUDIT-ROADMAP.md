@@ -164,17 +164,22 @@ Each item lists **Goal · Where · Design · Verify**.
 - **Commits:** _see git history_ (`ops: per-dimension mastery + independence gate (P0.4)` in
   learning-system; `skills: document per-dimension mastery (P0.4)` in learning-pi).
 
-#### [ ] P0.5 — `/solo` AI-free flow
+#### [x] P0.5 — `/solo` AI-free flow
 - **Goal:** measure what the learner can do without the AI; make it veto mastery.
-- **Where:** new `.pi/prompts/solo.md` (`[[FLOW:solo]]`), `learning-gate` engine
-  (`primitives.ts` flow enum + `engine.ts` branch: block `claims`/hint turns in solo), new skill text,
-  `.pi/settings.json` only if needed, contract + tests.
-- **Design:** a closed-book review drawn from the deterministic queue, `mode:solo`. The gate forbids
-  `[[TURN:claims]]` in a solo flow, so the Tutor cannot hint or teach. The learner submits final
-  answers in one message; grading is deterministic for MCQ and LLM-only for free recall. Solo result
-  is the headline independence signal; a quiz-pass + solo-fail is a dependency alarm.
-- **Verify:** gate test that a `claims` turn in solo is withheld; `learn-check` green; optional e2e
-  solo scenario.
+- **Where (as landed):** new `.pi/prompts/solo.md` (`[[FLOW:solo]]`); `gate-core/primitives.ts`
+  (flow enum + `FLOW_TAG_RE`); `gate-core/engine.ts` (solo blocks + reuse of the review gates);
+  `.pi/agents/review-clerk.md` (`mode:"solo"` pass-through); `.pi/skills/learning-system/SKILL.md`,
+  `.pi/APPEND_SYSTEM.md`, `README.md`, `FIELD-GUIDE.md`; `test/contract/check_learning_layer.py`;
+  `contracts/learning-core.json` + `CONTRACT.md`; `test/gate_test.mjs`.
+- **Design:** `/solo` is a review flow with the AI removed. `[[FLOW:solo]]`; the gate withholds
+  `[[TURN:claims]]` (`SOLO_NO_TEACHING`) and `[[TURN:viz]]` (`SOLO_NO_AIDS`) by construction, so the
+  Tutor cannot hint or teach. The learner answers one closed-book batch; `grade-audit` grades it;
+  `review-clerk` records every attempt with `--mode solo` (feeding P0.4's independence gate); the
+  close reuses the `review-session-audit`. `review-scout` supplies the deterministic queue.
+- **Verify:** `learn-check --no-load` → OK; invariant `G-solo-no-teaching` covered by 4 assertions
+  (teaching withheld, viz withheld, first quiz needs review-scout, closed-book batch allowed); solo.md
+  carries `[[FLOW:solo]]`.
+- **Commit:** _see git history_ (`gate: add the AI-free solo flow (P0.5)`).
 
 #### [ ] P0.6 — Knowledge-Wiki provenance + trust inversion
 - **Goal:** stop contamination compounding; trust flows from sources.

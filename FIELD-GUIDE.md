@@ -33,6 +33,7 @@ A practical guide to running your spaced-repetition learning system from the pi 
 | `/continue` | Resume a paused lesson at its next mini-checkpoint (no Scout needed) |
 | `/pause` | Stop cleanly: exit ticket, partial lesson file, bank progress via Clerk |
 | `/review` | Spaced-repetition review session (Review Scout builds the queue → up to 5 concepts → review-clerk persists) |
+| `/solo` | AI-free closed-book check (Review Scout builds the queue; teaching, hints, and figures are withheld by the gate; attempts recorded `mode:"solo"` to feed the independence gate) |
 | `/ingest <content or URL>` | Standalone ingest via Clerk (also used after a lesson handoff: `/ingest` with no args) |
 | `/show <concept>` | Ask for a verified visualization of a concept (or to play with one). Opt-in; teach/resume only. `/viz` reopens the interactive explorer or toggles auto-open |
 | `/audit` | Read-only state consistency audit (MISSION/CURRICULUM/Profile/Active Concepts/index); reports loudly, never writes |

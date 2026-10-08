@@ -33,7 +33,8 @@ cd ~/learning-system && pi        # approve/trust the project once
 
 ## Usage
 
-Slash commands: `/review`, `/ingest <content>`, `/teach <topic>`, `/lesson`, `/continue`, `/pause`,
+Slash commands: `/review`, `/solo` (an AI-free closed-book check — no teaching or hints),
+`/ingest <content>`, `/teach <topic>`, `/lesson`, `/continue`, `/pause`,
 `/audit`, `/show <concept>` (a verified visualization; `/viz` reopens/controls the explorer).
 The main pi session acts as the **Tutor**; `scout`, `clerk`, and the verifier subagents run as
 children. The Tutor writes only its four handoff artifacts (lesson file, session note, learning

@@ -27,6 +27,7 @@ EXPECTED_PROMPTS = {
     "pause": "resume",
     "review": "review",
     "ingest": "ingest",
+    "solo": "solo",
     "audit": None,
     "show": "resume",
 }

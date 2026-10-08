@@ -87,6 +87,12 @@ its tagged test, change the implementation, all in one reviewed commit.
   with reordering or punctuation edits but may not append unverified prose: at
   most `LENGTH_SLACK_TOKENS` (12) emitted tokens may be absent from the draft.
   The old 1.4× length ratio allowed an unbounded unverified tail.
+- **G-solo-no-teaching** *(hard)* — in an AI-free solo flow (`[[FLOW:solo]]`) the
+  Tutor cannot teach or add aids: a claims turn is withheld (`SOLO_NO_TEACHING`)
+  and a viz turn is withheld (`SOLO_NO_AIDS`), so the learner's answers are
+  unassisted. The closed-book quiz batch and grading render; the first content
+  turn requires a `review-scout` run (deterministic queue); the close uses the
+  same `review-session-audit` as a review.
 - **G-none-evasion-guard** *(hard)* — `[[TURN:none]]` over a verified or
   in-flight fact-check draft is withheld (`TURN_TAG_MISMATCH` /
   `FACT_CHECK_PENDING`). Review-flow carve-out: closing review feedback/summaries

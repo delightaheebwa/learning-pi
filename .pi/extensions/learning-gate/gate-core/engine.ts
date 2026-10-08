@@ -525,7 +525,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const inferredNone =
         !tagMatch &&
         ((run.flow === "ingest" && run.clerkCalled && P.looksLikeIngestSummary(text)) ||
-          (run.flow === "review" && run.reviewSessionWrote && P.looksLikeReviewSummary(text)));
+          ((run.flow === "review" || run.flow === "solo") &&
+            run.reviewSessionWrote &&
+            P.looksLikeReviewSummary(text)));
       // Grade/quiz turns are tightly bound to a verifier receipt, so a
       // forgotten tag can be inferred from it in any interactive flow.
       let inferredTag: "grade" | "quiz" | "viz" | "claims" | undefined;
@@ -536,6 +538,16 @@ export function createGate(options: GateOptions = {}): GateEngine {
         if (!inferredTag) blockers.push("NO_TURN_TAG");
       }
       const tag = explicitTag || inferredTag || (inferredNone ? "none" : undefined);
+
+      // Solo (AI-free) flow: the Tutor may not teach, hint, or show a figure, so
+      // the learner's answers are unassisted. Only the closed-book quiz batch,
+      // grading, and transitions are allowed.
+      if (run.flow === "solo" && (tag === "claims" || tag === "viz")) {
+        blockers.push(tag === "viz" ? "SOLO_NO_AIDS" : "SOLO_NO_TEACHING");
+        verdictNote =
+          "This is an AI-free solo check: no teaching, hints, or visualizations. " +
+          "Ask the closed-book questions, grade the answers, or say this is a solo check — do not teach.";
+      }
 
       // Viz specs are their own turn: a ```viz block in a teaching or transition
       // turn is withheld so the figure is always gated as [[TURN:viz]] (and the
@@ -770,7 +782,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // is withheld until a `review-scout` run has happened. A finished scout
       // with a partial/missing digest surfaces a banner (never a withhold),
       // mirroring Scout for new lessons.
-      if (run.flow === "review" && (tag === "claims" || tag === "quiz")) {
+      if ((run.flow === "review" || run.flow === "solo") && (tag === "claims" || tag === "quiz")) {
         if (!run.reviewScoutCalled) {
           reviewScoutNeeded = true;
         } else if (run.reviewScoutReceiptSeen && run.reviewScoutFailedRefs.length > 0) {
@@ -789,7 +801,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // never held hostage by it.
       const reviewSessionGateApplies =
         run.reviewSessionWrote &&
-        run.flow === "review" &&
+        (run.flow === "review" || run.flow === "solo") &&
         (!tag || tag === "claims" || tag === "none") &&
         P.looksLikeReviewSummary(text);
       if (reviewSessionGateApplies) {
