@@ -24,10 +24,13 @@
 
 ## 0b. Cascade orchestration (Herdr)
 
-This roadmap is executed by a **cascade of Herdr agents**, one per remaining stage:
+This roadmap is executed by a **cascade of Herdr agents**, one per remaining stage, then a review
+phase, then final end-to-end testing:
 
 ```
-P1 → P2 → P3 → E2E
+P1 → P2 → P3 → REVIEW → E2E
+               ├── R-P0..R-P3 (Muse Spark, one per checkpoint, parallel)
+               └── aggregate + implement fixes (default model)
 ```
 
 - Full audit (canonical capture): [`docs/AUDIT-2026-10-08.md`](docs/AUDIT-2026-10-08.md).
@@ -35,6 +38,9 @@ P1 → P2 → P3 → E2E
 - Each stage agent implements its stage, verifies (`learn-check --no-load --with-sidecars`), commits
   and pushes both repos, updates this file, then spawns the next stage with
   `bash docs/roadmap/spawn-stage.sh <next>`.
+- `REVIEW` spawns one **Muse Spark** reviewer per checkpoint (`R-P0`..`R-P3`, review-only), waits for
+  them, aggregates findings, implements the fixes (default model), and only then spawns `E2E`.
+  See [`docs/roadmap/reviews/`](docs/roadmap/reviews/README.md).
 - The final `E2E` agent runs full end-to-end verification and writes
   `docs/roadmap/E2E-REPORT.md`.
 
