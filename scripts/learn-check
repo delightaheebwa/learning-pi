@@ -69,7 +69,7 @@ echo
 # 1. behavior suites (gate + golden) --------------------------------------
 : >"$TMP/gate.out"
 if command -v deno >/dev/null 2>&1; then
-  for suite in "$LAYER/test/gate_test.mjs" "$LAYER/test/golden/golden_test.mjs" "$LAYER/test/viz_test.mjs" "$LAYER/test/judge_test.mjs" "$LAYER/test/judge_model_test.mjs" "$LAYER/test/judge_router_test.mjs"; do
+  for suite in "$LAYER/test/gate_test.mjs" "$LAYER/test/golden/golden_test.mjs" "$LAYER/test/redteam/redteam_test.mjs" "$LAYER/test/viz_test.mjs" "$LAYER/test/judge_test.mjs" "$LAYER/test/judge_model_test.mjs" "$LAYER/test/judge_router_test.mjs"; do
     name="$(basename "$suite")"
     out="$TMP/$name.out"
     if deno run --allow-all "$suite" >"$out" 2>&1; then
