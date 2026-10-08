@@ -35,6 +35,7 @@ const pi = {
 };
 const mod = await import('../.pi/extensions/learning-gate/index.ts');
 mod.default(pi);
+const P = await import('../.pi/extensions/learning-gate/gate-core/primitives.ts');
 const fire = async (ev, e) => { let r; for (const h of handlers[ev] || []) r = await h(e, { ui: { notify() {} } }); return r; };
 const setPrompt = (p) => fire('before_agent_start', { prompt: p });
 const msg = (t, stopReason) => fire('message_end', { message: { role: 'assistant', content: [{ type: 'text', text: t }], stopReason } });
@@ -743,6 +744,31 @@ const pc3 = await msg(`[[TURN:claims]]\n${proseCapDraft}`, 'stop');
 assert(
   'retry cap still delivers non-hard-fact prose',
   outText(pc3).includes('⛔ UNVERIFIED') && outText(pc3).includes('variation is the gap')
+);
+
+// ============================================================================
+// 2026-10-08 P2.2: the out-of-scope demotion is restricted to findings that
+// CITE a bookkeeping path. A content finding that merely mentions a bookkeeping
+// word in its issue text must NOT be demoted (the old issue-text fallback and
+// the blanket low-severity bypass are removed).
+// ============================================================================
+assert(
+  'out-of-scope review issues with a bookkeeping location render as flags',
+  P.reviewIssuesAllOutOfScope(
+    JSON.stringify({
+      verdict: 'ISSUES',
+      issues: [{ severity: 'high', location: 'Learning System/Core/Attempts.json', issue: 'stale schedule' }],
+    })
+  )
+);
+assert(
+  'content review findings are not demoted by a bookkeeping word',
+  !P.reviewIssuesAllOutOfScope(
+    JSON.stringify({
+      verdict: 'ISSUES',
+      issues: [{ severity: 'high', location: 'Knowledge Wiki/wiki/X.md', issue: 'the schedule in attempts.json is stale' }],
+    })
+  ) && !P.reviewIssuesAllOutOfScope(JSON.stringify({ verdict: 'ISSUES', issues: [{ severity: 'medium', issue: 'index.md is wrong' }] }))
 );
 
 

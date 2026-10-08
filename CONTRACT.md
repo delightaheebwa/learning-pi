@@ -123,9 +123,19 @@ its tagged test, change the implementation, all in one reviewed commit.
   UNVERIFIED banner, and `G-retry-cap` semantics are unchanged for grade/quiz/
   none turns. A deliberate inversion of the anti-dead-end policy for
   load-bearing facts: a number or formula nobody verified is never shown.
-- **G-out-of-scope-demoted** *(policy)* — review findings that are all
-  out-of-scope state bookkeeping are demoted to flags, so a clean target page is
-  not re-reviewed forever.
+- **G-out-of-scope-demoted** *(policy)* — review findings are demoted to flags
+  only when **every** finding cites an explicit bookkeeping-path `location`
+  (state/session/review/lesson notes, log/index bookkeeping, git metadata). A
+  finding that cites a content location, or gives no location, is never demoted:
+  a content defect that merely mentions a bookkeeping word in its `issue` text
+  still blocks. The old issue-text fallback and the blanket low-severity
+  demotion are removed (they could swallow a real content finding).
+- **G-state-audit-blocking** *(hard)* — the content gate
+  (fact-check/quiz/grade/review) and the state gate are split. At the
+  ingest/review close, the deterministic state audit's **errors** block the
+  summary (`STATE_AUDIT_ERRORS`) until the drift is fixed and the audit re-runs
+  clean; **warnings** remain a non-blocking `⚠️ STATE AUDIT` banner. A warning
+  can never dead-end the flow.
 - **A-subagent-result-shape** *(hard)* — the dispatch envelope is recovered from
   `tool_call` when pi-subagents redacts `task` on a foreground result.
 - **G-receipt-shape-binds** *(hard)* — a receipt minted from a

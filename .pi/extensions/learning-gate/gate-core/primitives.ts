@@ -790,15 +790,23 @@ export function gradeAnswersOf(envelope: any): string[] | undefined {
 }
 
 /**
- * Out-of-scope for a review-gate pass: state bookkeeping / provenance that
- * review-gate.md explicitly excludes (state files, lesson/session/review files,
- * log/index bookkeeping, git/commit metadata). A review that reports only these
- * must not read as blocking issues on the target content — otherwise the tutor
- * re-reviews the same clean page forever.
+ * Bookkeeping paths a review-gate pass explicitly excludes (state files,
+ * session/review/lesson notes, log/index bookkeeping, git/commit metadata).
+ * Used only to decide whether a finding that CITES such a location is
+ * out-of-scope for the reviewed content.
  */
-const REVIEW_OUT_OF_SCOPE_RE =
+const BOOKKEEPING_PATH_RE =
   /(mission\.md|curriculum\.md|learning profile|learner history|mistakes\.md|attempts\.json|pending ingest\.json|\bsessions\/|\breviews\/|\blessons\/|log\.md|index\.md|git history|commit message|provenance|staged files|worktree)/i;
 
+/**
+ * Out-of-scope review findings: a review that reports ONLY findings whose
+ * `location` is an explicit bookkeeping path must not read as blocking issues
+ * on the reviewed content (otherwise the tutor re-reviews the same clean page
+ * forever). A finding that cites a content location, or gives no location, is
+ * NEVER demoted — a content defect that merely mentions a bookkeeping word in
+ * its `issue` text still blocks. (The old code fell back to the issue text and
+ * blanket-demoted every `low` finding, which could swallow exactly that.)
+ */
 export function reviewIssuesAllOutOfScope(text: string): boolean {
   const v = text.search(/"verdict"\s*:/i);
   if (v < 0) return false;
@@ -819,14 +827,10 @@ export function reviewIssuesAllOutOfScope(text: string): boolean {
         const issues = Array.isArray(parsed.issues) ? parsed.issues : [];
         if (issues.length === 0) return false;
         return issues.every((it: any) => {
-          const sev = typeof it?.severity === "string" ? it.severity.toLowerCase() : "";
-          if (sev === "low") return true;
           const loc = typeof it?.location === "string" ? it.location.trim() : "";
-          const iss = typeof it?.issue === "string" ? it.issue : "";
-          // Prefer the cited location; only fall back to the issue text when no
-          // location was given (avoids demoting content findings that merely
-          // mention a word like "total" in prose).
-          return REVIEW_OUT_OF_SCOPE_RE.test(loc.length > 0 ? loc : iss);
+          // A finding with no location cannot be proven out-of-scope, and the
+          // issue prose is deliberately NOT consulted — only the cited path.
+          return loc.length > 0 && BOOKKEEPING_PATH_RE.test(loc);
         });
       }
     }

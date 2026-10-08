@@ -305,6 +305,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
   const onCustomMessage = (input: NotificationInput): void => {
     const text = input.text;
     if (!text) return;
+    // The state audit verdict is emitted by clerk / review-clerk before they
+    // return; parse it from any completion text (mirroring onToolResult) so an
+    // async run feeds the state gate too.
+    {
+      const audit = P.parseStateAudit(text);
+      if (audit) run.stateAudit = audit;
+    }
     // A failed async run clears its pending envelope (so the "verification
     // pending" hint does not lie) and counts provider failures, without minting.
     if (input.failedAgent) {
@@ -538,6 +545,15 @@ export function createGate(options: GateOptions = {}): GateEngine {
         if (!inferredTag) blockers.push("NO_TURN_TAG");
       }
       const tag = explicitTag || inferredTag || (inferredNone ? "none" : undefined);
+
+      // State gate (P2.1): the content gate (fact-check/quiz/grade/review) and
+      // the state gate are separate. At the ingest/review close the
+      // deterministic state audit blocks on errors; capture the close-summary
+      // condition NOW, before the review-session gate consumes
+      // `reviewSessionWrote` below.
+      const stateAuditApplies =
+        (run.flow === "ingest" && run.clerkCalled && P.looksLikeIngestSummary(text)) ||
+        (run.flow === "review" && run.reviewSessionWrote && P.looksLikeReviewSummary(text));
 
       // Solo (AI-free) flow: the Tutor may not teach, hint, or show a figure, so
       // the learner's answers are unassisted. Only the closed-book quiz batch,
@@ -853,11 +869,22 @@ export function createGate(options: GateOptions = {}): GateEngine {
         }
       }
 
-      // State audit: surface (never block) when the deterministic audit found
-      // errors or warnings still outstanding.
-      if (run.stateAudit && (run.stateAudit.errors > 0 || run.stateAudit.warnings > 0) && (run.flow === "ingest" || run.flow === "review")) {
-        surface += `⚠️ STATE AUDIT — ${run.stateAudit.errors} error(s), ${run.stateAudit.warnings} warning(s). Run /audit for details.\n\n`;
-        run.stateAudit = undefined;
+      // State gate (P2.1): at the ingest/review close, state-audit ERRORS block
+      // the summary (state drift must be fixed and the audit re-run clean);
+      // warnings stay a non-blocking banner so they never dead-end the flow.
+      if (run.stateAudit && (run.flow === "ingest" || run.flow === "review")) {
+        if (run.stateAudit.errors > 0 && stateAuditApplies) {
+          blockers.push("STATE_AUDIT_ERRORS");
+          verdictNote =
+            `The deterministic state audit found ${run.stateAudit.errors} error(s). Fix them ` +
+            `(apply the \`STATE_AUDIT_FIXES\` hints, or run /audit for the list) and re-run the audit ` +
+            `before the close summary; warnings do not block.`;
+        } else if (run.stateAudit.warnings > 0 && stateAuditApplies) {
+          surface += `⚠️ STATE AUDIT — ${run.stateAudit.errors} error(s), ${run.stateAudit.warnings} warning(s). Run /audit for details.\n\n`;
+          run.stateAudit = undefined;
+        } else if (run.stateAudit.errors === 0 && run.stateAudit.warnings === 0) {
+          run.stateAudit = undefined;
+        }
       }
 
       if (blockers.length === 0 && !scoutNeeded && !reviewScoutNeeded) {
@@ -1044,6 +1071,12 @@ export function createGate(options: GateOptions = {}): GateEngine {
     const toConsume: P.Receipt[] = [];
     let turnType = (explicitTag || assessment.turnType) as string;
     const summaryKind = assessment.summaryKind;
+
+    // State gate (P2.1): capture the close-summary condition before the
+    // review-session gate consumes `reviewSessionWrote` below.
+    const stateAuditApplies =
+      (run.flow === "ingest" && run.clerkCalled && (summaryKind === "ingest" || P.looksLikeIngestSummary(text))) ||
+      (run.flow === "review" && run.reviewSessionWrote && (summaryKind === "review" || P.looksLikeReviewSummary(text)));
 
     const bindingFor = (gate: string): number => {
       for (const b of assessment.bindings) {
@@ -1266,9 +1299,20 @@ export function createGate(options: GateOptions = {}): GateEngine {
       }
     }
 
-    if (run.stateAudit && (run.stateAudit.errors > 0 || run.stateAudit.warnings > 0) && (run.flow === "ingest" || run.flow === "review")) {
-      surface += `⚠️ STATE AUDIT — ${run.stateAudit.errors} error(s), ${run.stateAudit.warnings} warning(s). Run /audit for details.\n\n`;
-      run.stateAudit = undefined;
+    // State gate (P2.1): errors block the close summary; warnings banner.
+    if (run.stateAudit && (run.flow === "ingest" || run.flow === "review")) {
+      if (run.stateAudit.errors > 0 && stateAuditApplies) {
+        blocks.push("STATE_AUDIT_ERRORS");
+        verdictNote =
+          `The deterministic state audit found ${run.stateAudit.errors} error(s). Fix them ` +
+          `(apply the \`STATE_AUDIT_FIXES\` hints, or run /audit for the list) and re-run the audit ` +
+          `before the close summary; warnings do not block.`;
+      } else if (run.stateAudit.warnings > 0 && stateAuditApplies) {
+        surface += `⚠️ STATE AUDIT — ${run.stateAudit.errors} error(s), ${run.stateAudit.warnings} warning(s). Run /audit for details.\n\n`;
+        run.stateAudit = undefined;
+      } else if (run.stateAudit.errors === 0 && run.stateAudit.warnings === 0) {
+        run.stateAudit = undefined;
+      }
     }
 
     const codes = [...blocks];

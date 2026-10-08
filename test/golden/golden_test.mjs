@@ -192,7 +192,37 @@ await fg(
   JSON.stringify({ verdict: 'ISSUES', issues: [{ severity: 'high', location: 'ATTEMPTS.json', issue: 'stale schedule' }], evidence: ['x'] })
 );
 const demoted = await msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}', 'stop');
-assert('out-of-scope review issues render as flags, not withheld', allowed(demoted) && outText(demoted).includes('REVIEW FLAGS SURFACED'));
+assert('out-of-scope review issues with a bookkeeping location render as flags', allowed(demoted) && outText(demoted).includes('REVIEW FLAGS SURFACED'));
+
+// ============================================================================
+// P2.1 state gate: at the ingest close, a state-audit ERROR withholds the
+// summary (state drift must be fixed first); a WARNING only banners.
+// ============================================================================
+await setPrompt('[[FLOW:ingest]] ingest this');
+await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'sg-c1');
+await notify(`Background task completed: **clerk**\n\n${CLERK_WRITES}\nSTATE_AUDIT_VERDICT: {"errors":1,"warnings":0}`);
+await dispatch('review-gate', JSON.stringify({ gate: 'review', concepts: ['X'], target_files: [{ path: 'p.md' }] }), 'sg-rg1');
+await fg(
+  'sg-rg1',
+  'review-gate',
+  JSON.stringify({ gate: 'review', concepts: ['X'], target_files: [{ path: 'p.md' }] }),
+  JSON.stringify({ verdict: 'PASS', evidence: ['x'], issues: [] })
+);
+const stateAuditBlocked = await msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":1,"warnings":0}', 'stop');
+assert('state-audit error withholds the close summary', blocked(stateAuditBlocked, 'STATE_AUDIT_ERRORS'));
+
+await setPrompt('[[FLOW:ingest]] ingest this');
+await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'sg-c2');
+await notify(`Background task completed: **clerk**\n\n${CLERK_WRITES}\nSTATE_AUDIT_VERDICT: {"errors":0,"warnings":2}`);
+await dispatch('review-gate', JSON.stringify({ gate: 'review', concepts: ['X'], target_files: [{ path: 'p.md' }] }), 'sg-rg2');
+await fg(
+  'sg-rg2',
+  'review-gate',
+  JSON.stringify({ gate: 'review', concepts: ['X'], target_files: [{ path: 'p.md' }] }),
+  JSON.stringify({ verdict: 'PASS', evidence: ['x'], issues: [] })
+);
+const stateAuditWarned = await msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":2}', 'stop');
+assert('state-audit warnings render a non-blocking banner', allowed(stateAuditWarned) && outText(stateAuditWarned).includes('STATE AUDIT'));
 
 // ============================================================================
 // review context: the review flow's first claims/quiz turn needs a review-scout
