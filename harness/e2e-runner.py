@@ -393,6 +393,11 @@ def run_scenario(scn: dict, sandbox: Sandbox, pi_bin: str, timeout: float, layer
     env = dict(os.environ)
     env["PI_CODING_AGENT_DIR"] = str(sandbox.agent)
     env["PI_CODING_AGENT_SESSION_DIR"] = str(sandbox.sessions)
+    # The gate ledger defaults to `~/.pi/agent/learning-gate` (pi-adapter
+    # makeFileLedger), which ignores PI_CODING_AGENT_DIR; point it at the
+    # throwaway sandbox so a sandboxed journey never appends to the real ledger
+    # (CONTRACT S-2 isolation).
+    env["LEARNING_GATE_LEDGER_DIR"] = str(sandbox.agent / "learning-gate")
     env.pop("PI_OFFLINE", None)
 
     proc = subprocess.Popen(
