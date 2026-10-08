@@ -631,7 +631,20 @@ export function createGate(options: GateOptions = {}): GateEngine {
             )}%, no unverified tail). Emit the verified draft unchanged, or fact-check this new text.`;
           } else blockers.push("NO_FACT_CHECK_MATCH");
         } else {
-          toConsume.push(best);
+          // Deterministic completeness: every hard fact in the draft (number,
+          // formula, URL) must have been placed before the verifier. The
+          // generator choosing its own claim list is the top hallucination path;
+          // this closes it for the objectively-extractable facts.
+          const missing = P.missingHardFacts(best.renderedContent || "", best.claimsText);
+          if (missing.length > 0) {
+            blockers.push("CLAIMS_INCOMPLETE");
+            verdictNote =
+              `This draft states load-bearing facts that were not in claims[], so the verifier never checked them: ${missing.join(
+                ", "
+              )}. Re-dispatch the fact-check with every one of these added as a claim, then emit this draft unchanged.`;
+          } else {
+            toConsume.push(best);
+          }
         }
       } else if (tag === "quiz") {
         const candidates = run.receipts.filter(
@@ -679,8 +692,17 @@ export function createGate(options: GateOptions = {}): GateEngine {
               verdictNote = `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.`;
             }
           } else if (validGrade && fc) {
-            toConsume.push(validGrade);
-            toConsume.push(fc);
+            const missing = P.missingHardFacts(fc.renderedContent || "", fc.claimsText);
+            if (missing.length > 0) {
+              blockers.push("CLAIMS_INCOMPLETE");
+              verdictNote =
+                `The repair prose states load-bearing facts that were not in claims[], so the verifier never checked them: ${missing.join(
+                  ", "
+                )}. Re-dispatch the fact-check with these added, then emit.`;
+            } else {
+              toConsume.push(validGrade);
+              toConsume.push(fc);
+            }
           } else if (validGrade) {
             blockers.push("GRADE_AUDIT_STALE");
             verdictNote =

@@ -94,24 +94,32 @@ Each item lists **Goal · Where · Design · Verify**.
 - **No gate code changed** — the new turns fit existing `[[TURN:none]]` / `[[TURN:claims]]` semantics.
 - **Commit:** _see git history_ (`teach: learner-authored consolidation + dependency logging`).
 
-#### [ ] P0.2 — Deterministic claim extraction + exact-draft receipt binding
+#### [x] P0.2 — Deterministic claim extraction + exact-draft receipt binding
 - **Goal:** the generator can no longer curate its own exam, and a receipt binds the exact emitted
-  bytes, not a bag-of-words overlap.
-- **Where:** `learning-pi/.pi/extensions/learning-gate/gate-core/primitives.ts` (+ `engine.ts` if the
-  binding call sites need it), `contracts/learning-core.json`, `test/gate_test.mjs`,
-  `test/golden/golden_test.mjs`.
-- **Design:**
-  - Extract load-bearing claims from the draft in **code** (numbers, formulas, definitions, causal
-    assertions, URLs) instead of trusting `claims[]`. Compare the extracted set to the submitted
-    `claims[]`; missing load-bearing claims become a withholding condition.
-  - Bind a receipt to a hash of the exact emitted draft (canonicalised whitespace), replacing the
-    `coverage ≥ 0.85` whole-draft and `bindingMatches` bag-of-words staleness checks.
-  - Remove the "empty binding binds anything" back-compat branch.
-  - Keep the change behind the revise door: update the contract first, add/replace tests in the same
-    commit.
-- **Verify:** `learn-check --no-load` green with updated contract + golden tests; new tests for
-  (a) reordered/paraphrased emission no longer auto-binds, (b) an omitted load-bearing claim is
-  caught, (c) an empty binding refuses.
+  draft, not a loose overlap.
+- **Where:** `learning-pi/.pi/extensions/learning-gate/gate-core/primitives.ts` + `engine.ts`,
+  `contracts/learning-core.json`, `CONTRACT.md`, `test/gate_test.mjs`,
+  `.pi/agents/fact-check.md`, `.pi/skills/learning-teach/SKILL.md`.
+- **Design (as landed):**
+  - Deterministic hard-fact extraction in code (`extractHardFacts`): URLs, LaTeX/math expressions,
+    scientific notation, decimals, percentages, and 3+ digit integers (calendar years excluded).
+    A hard fact present in the draft but absent from the submitted `claims[]` withholds the turn as
+    `CLAIMS_INCOMPLETE`, so the Tutor must place every number/formula/URL before the verifier.
+  - Tightened draft binding (`contentMatches`): coverage raised 0.85 → 0.95, and the old 1.4× length
+    ratio replaced by a bounded unverified tail (`extraTokenCount ≤ 12`). Reordering/punctuation are
+    still tolerated; appended never-verified prose is not.
+  - `fact-check.md` now requires the verifier to independently enumerate the draft's load-bearing
+    claims, not trust the submitted list.
+- **Deviation from the draft plan (recorded):** kept a *tight fuzzy* bind rather than a byte hash.
+  The gate's own history is a catalogue of re-emission deadlocks; a byte hash would withhold any
+  tag-strip/punctuation drift and is high-risk in a multi-agent flow. The tail bound removes the
+  actual hazard (unverified appended content) without that fragility. Revisit only with e2e evidence.
+- **Empty-binding back-compat:** the wrong-shape-envelope case already refuses (`G-receipt-shape-binds`);
+  the remaining envelope-less async fallback is a legitimate uncorrelated-notification path, kept.
+- **Verify:** `learn-check --no-load` → OK; new invariants `G-claims-complete` (2 tests) and
+  `G-draft-tail-bound` (1 test) covered. Tests: unlisted hard fact withheld; listed hard facts
+  allowed; unverified tail withheld.
+- **Commit:** _see git history_ (`gate: extract hard facts and bound the unverified draft tail (P0.2)`).
 
 #### [ ] P0.3 — Persist claim-level verification verdicts
 - **Goal:** verification becomes auditable, not a prose tally.

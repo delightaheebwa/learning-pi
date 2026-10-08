@@ -607,4 +607,57 @@ const malformedSubagent = await fire('tool_call', {
 });
 assert('malformed subagent workflow is blocked toward dispatch', !!(malformedSubagent?.block && /dispatch/.test(malformedSubagent.reason || '')));
 
+// ============================================================================
+// 2026-10-08 P0.2: deterministic hard-fact completeness + tight tail binding.
+// The generator must not pick its own exam; and a passed receipt may not carry
+// an appended, never-verified tail.
+// ============================================================================
+const hardDraft = 'The explained variance is 4.98 on both arms (n=200).';
+
+// A hard fact in the draft that no claim covers is withheld before emission.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const envMissingFact = JSON.stringify({
+  gate: 'fact_check',
+  claims: [{ id: 1, claim: 'both arms agree' }],
+  rendered_content: hardDraft,
+  source_urls: ['https://e.com'],
+});
+await dispatch('fact-check', envMissingFact, 'hf1');
+await fg('hf1', 'fact-check', envMissingFact, FC_PASS);
+const unlistedFact = await msg(`[[TURN:claims]]\n${hardDraft}`, 'stop');
+assert('draft with an unlisted hard fact is withheld', blocked(unlistedFact, 'CLAIMS_INCOMPLETE'));
+
+// The same draft renders once every hard fact is placed before the verifier.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const envListedFact = JSON.stringify({
+  gate: 'fact_check',
+  claims: [
+    { id: 1, claim: 'the explained variance is 4.98' },
+    { id: 2, claim: 'the sample size is n=200' },
+  ],
+  rendered_content: hardDraft,
+  source_urls: ['https://e.com'],
+});
+await dispatch('fact-check', envListedFact, 'hf2');
+await fg('hf2', 'fact-check', envListedFact, FC_PASS);
+const listedFact = await msg(`[[TURN:claims]]\n${hardDraft}`, 'stop');
+assert('hard fact listed in claims is allowed', allowed(listedFact));
+
+// An unverified tail appended to a verified draft is withheld (no 1.4x slack).
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const tailDraft = 'Entropy is the average surprise of a distribution.';
+const envTail = JSON.stringify({
+  gate: 'fact_check',
+  claims: [{ id: 1, claim: 'entropy is the average surprise of a distribution' }],
+  rendered_content: tailDraft,
+  source_urls: ['https://e.com'],
+});
+await dispatch('fact-check', envTail, 'tb1');
+await fg('tb1', 'fact-check', envTail, FC_PASS);
+const tailEmit =
+  tailDraft +
+  ' An extra conclusion appended after the fact-check receipt was minted and never verified by any verifier at all.';
+const tailed = await msg(`[[TURN:claims]]\n${tailEmit}`, 'stop');
+assert('unverified tail beyond the draft is withheld', blocked(tailed, 'FACT_CHECK_MISMATCH'));
+
 

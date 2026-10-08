@@ -72,12 +72,21 @@ its tagged test, change the implementation, all in one reviewed commit.
 - **G-async-notify-mints** *(hard)* — async completion notifications mint
   content-bound receipts from the dispatch envelope; failures clear pending.
 - **G-infer-claims-from-bound** *(hard)* — a dropped `claims` tag is recovered
-  only from a content-bound passing fact-check (100% coverage with a judge, ≥85%
-  on the legacy path).
+  only from a content-bound passing fact-check (100% coverage with a judge, ≥95%
+  plus a bounded unverified tail on the legacy path).
 - **G-infer-grade-quiz** *(hard)* — a dropped `grade`/`quiz` tag is inferred
   from a bound receipt or the single valid pending receipt; ambiguity withholds.
 - **G-claims-requires-factcheck** *(hard)* — claims render only with a
   content-matched passing fact-check; a pending one withholds with a wait hint.
+- **G-claims-complete** *(hard)* — the generator may not curate its own exam:
+  every hard fact in the draft (decimal, percentage, scientific notation, 3+
+  digit integer, LaTeX/math expression, URL) must appear in the submitted
+  `claims[]`, or the turn is withheld (`CLAIMS_INCOMPLETE`). A number or formula
+  nobody listed is a number or formula nobody verified.
+- **G-draft-tail-bound** *(hard)* — an emission may reproduce a verified draft
+  with reordering or punctuation edits but may not append unverified prose: at
+  most `LENGTH_SLACK_TOKENS` (12) emitted tokens may be absent from the draft.
+  The old 1.4× length ratio allowed an unbounded unverified tail.
 - **G-none-evasion-guard** *(hard)* — `[[TURN:none]]` over a verified or
   in-flight fact-check draft is withheld (`TURN_TAG_MISMATCH` /
   `FACT_CHECK_PENDING`). Review-flow carve-out: closing review feedback/summaries

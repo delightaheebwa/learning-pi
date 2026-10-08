@@ -65,6 +65,8 @@ Rules:
 
 Generation-to-emission (not plan-to-generation): draft the step internally first, put the draft in `rendered_content`, list its load-bearing claims in `claims[]`, then dispatch. Fold verdicts (apply `corrected_claim`) before emitting the final. Prefer `source_urls` (Rohit + at least one external ref). The subagent fetches the source itself. It returns `{"verdicts":[{"id":1,"verdict":"PASS|ISSUES|UNVERIFIED","explanation":"...","corrected_claim":"only when ISSUES else null"}, ...]}`.
 
+**`claims[]` must be complete — not just the claims you chose.** The gate deterministically extracts the draft's hard facts (every decimal, percentage, scientific notation, 3+ digit integer, LaTeX/math expression, and URL) and withholds the turn (`CLAIMS_INCOMPLETE`) if any is absent from `claims[]`. Put every such fact in `claims[]` with its own id so the verifier checks it; a number, formula, or URL that is not listed is a number, formula, or URL nobody verified. (Prose claims are still the verifier's job — it enumerates those itself.)
+
 ### Quiz-audit envelope (probe AND end-of-lesson quiz)
 
 ```json

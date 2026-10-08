@@ -36,11 +36,12 @@ export const MAX_CLERK_DISPATCHES = 2;
 // The review close is delegated to review-clerk once per flow. Re-dispatching it
 // re-writes the same Review notes / rows and re-commits.
 export const MAX_REVIEW_CLERK_DISPATCHES = 2;
-export const MATCH_THRESHOLD = 0.85;
-// Emitted text may be slightly longer than the verified draft (tag strip,
-// minor edits) but must not carry a large unverified tail.
-export const MAX_LENGTH_RATIO = 1.4;
-export const LENGTH_SLACK_TOKENS = 30;
+export const MATCH_THRESHOLD = 0.95;
+// The emitted text may differ from the verified draft only by tag-strip,
+// punctuation, or reordering (all handled by `coverage`). At most this many
+// emitted tokens may be absent from the draft, so a large unverified tail can
+// never ride on a passed receipt (the old 1.4x ratio allowed an unbounded tail).
+export const LENGTH_SLACK_TOKENS = 12;
 // A verdict-only grade turn is short (answers + confirmation framing). These
 // bound how long it may be before it counts as teaching prose needing a
 // fact-check: at least `VERDICT_ONLY_MIN_TOKENS` tokens, and no more than
@@ -73,6 +74,10 @@ export interface Receipt {
   // gate surface exactly which answers the verifier disputed on a mismatch.
   gradeItems?: GradeCorrection[];
   renderedContent?: string;
+  // The load-bearing claims the generator submitted for a `fact_check` envelope,
+  // joined. Lets the gate check that every hard fact in the draft was actually
+  // placed before the verifier (see `missingHardFacts`).
+  claimsText?: string;
   // Canonical JSON of the verified visualization spec (viz_audit). A viz turn
   // binds only when its emitted fenced spec canonicalizes to this value.
   vizSpec?: string;
@@ -429,16 +434,81 @@ export function coverage(needle: string, hay: string): number {
 }
 
 /**
- * Guard against unverified tails: the verified draft must cover the emission
- * AND the emission must not be much longer than the draft.
+ * Number of tokens in `hay` not accounted for by `needle` (as a multiset).
+ * Reordering or punctuation edits leave this near zero; appended prose raises
+ * it. Bounds the unverified tail of an emission.
+ */
+export function extraTokenCount(needle: string, hay: string): number {
+  const need = new Map<string, number>();
+  for (const t of tokens(needle)) need.set(t, (need.get(t) || 0) + 1);
+  let extra = 0;
+  for (const t of tokens(hay)) {
+    const c = need.get(t) || 0;
+    if (c > 0) need.set(t, c - 1);
+    else extra++;
+  }
+  return extra;
+}
+
+/**
+ * Guard against unverified tails: the emission must reproduce the verified
+ * draft (coverage ≥ `MATCH_THRESHOLD`) AND add no more than
+ * `LENGTH_SLACK_TOKENS` tokens of its own. Reordering and punctuation are
+ * tolerated; an appended, never-verified sentence is not.
  */
 export function contentMatches(renderedContent: string, emittedText: string): boolean {
-  const score = coverage(renderedContent, emittedText);
-  if (score < MATCH_THRESHOLD) return false;
   const nLen = tokens(renderedContent).length;
-  const hLen = tokens(emittedText).length;
   if (nLen === 0) return false;
-  return hLen <= nLen * MAX_LENGTH_RATIO + LENGTH_SLACK_TOKENS;
+  if (coverage(renderedContent, emittedText) < MATCH_THRESHOLD) return false;
+  return extraTokenCount(renderedContent, emittedText) <= LENGTH_SLACK_TOKENS;
+}
+
+const YEAR_RE = /^(19|20)\d{2}$/;
+
+/** Normalise a hard fact for containment comparison. */
+export function normHardFact(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, " ").trim().replace(/[.,;:]+$/, "");
+}
+
+/**
+ * Deterministic extraction of the *hard*, objectively-checkable facts in a
+ * draft: URLs, LaTeX/math expressions, scientific notation, decimals,
+ * percentages, and integers of 3+ digits (calendar years excluded). These are
+ * exactly the load-bearing facts a `fact_check` envelope's `claims[]` must
+ * place before the verifier — a number or formula nobody listed is a number or
+ * formula nobody checked. Prose claims are left to the verifier.
+ */
+export function extractHardFacts(text: string): string[] {
+  if (typeof text !== "string" || text.length === 0) return [];
+  const out = new Set<string>();
+  const add = (s: string) => {
+    const n = normHardFact(s);
+    if (n.length > 0) out.add(n);
+  };
+  for (const m of text.matchAll(/https?:\/\/[^\s)\]}>"']+/g)) add(m[0]);
+  for (const m of text.matchAll(/\$\$([\s\S]+?)\$\$/g)) add(m[1]);
+  for (const m of text.matchAll(/\$([^$\n]+)\$/g)) add(m[1]);
+  for (const m of text.matchAll(/\\\[([\s\S]*?)\\\]/g)) add(m[1]);
+  for (const m of text.matchAll(/\\\(([\s\S]*?)\\\)/g)) add(m[1]);
+  for (const m of text.matchAll(/\b\d+(?:\.\d+)?[eE][+-]?\d+\b/g)) add(m[0]);
+  for (const m of text.matchAll(/\b\d+\.\d+\b/g)) add(m[0]);
+  for (const m of text.matchAll(/\b\d+(?:\.\d+)?%/g)) add(m[0]);
+  for (const m of text.matchAll(/\b\d{3,}\b/g)) {
+    if (!YEAR_RE.test(m[0])) add(m[0]);
+  }
+  return [...out];
+}
+
+/**
+ * Hard facts present in `draft` but absent from the submitted claims text. A
+ * non-empty result means the draft states a number/formula/URL the verifier was
+ * never asked about.
+ */
+export function missingHardFacts(draft: string, claimsText: string | undefined): string[] {
+  const facts = extractHardFacts(draft);
+  if (facts.length === 0) return [];
+  const hay = normHardFact(claimsText || "");
+  return facts.filter((f) => !hay.includes(f));
 }
 
 /** Quiz/grade binding: the receipt's audited content must overlap the emission. */
@@ -833,6 +903,13 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     correctVerdict: cm ? cm[1].toLowerCase() : undefined,
     gradeItems,
     renderedContent: envelope && typeof envelope.rendered_content === "string" ? envelope.rendered_content : undefined,
+    claimsText:
+      envelope && Array.isArray(envelope.claims)
+        ? envelope.claims
+            .map((c: any) => (c && typeof c.claim === "string" ? c.claim : ""))
+            .filter(Boolean)
+            .join("\n")
+        : undefined,
     vizSpec:
       gate === "viz_audit" && envelope && envelope.spec && typeof envelope.spec === "object"
         ? canonicalJson(envelope.spec)

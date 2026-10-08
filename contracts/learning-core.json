@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
-  "version": 2,
-  "updated": "2026-10-06",
+  "version": 3,
+  "updated": "2026-10-08",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -91,6 +91,18 @@
       "severity": "hard",
       "statement": "A claims turn does not render without a content-matched, passing fact-check; a pending async fact-check withholds with a wait hint instead of dead-ending.",
       "tests": ["unverified untagged message still withheld", "claims emit before notification is withheld with a wait hint"]
+    },
+    {
+      "id": "G-claims-complete",
+      "severity": "hard",
+      "statement": "The generator may not curate its own exam: every hard fact in a fact-check draft (decimal, percentage, scientific notation, 3+ digit integer, LaTeX/math expression, URL) must appear in the submitted claims[], or the turn is withheld as CLAIMS_INCOMPLETE so a number or formula nobody listed cannot pass unverified.",
+      "tests": ["draft with an unlisted hard fact is withheld", "hard fact listed in claims is allowed"]
+    },
+    {
+      "id": "G-draft-tail-bound",
+      "severity": "hard",
+      "statement": "An emission may reproduce a verified draft with reordering or punctuation edits but may not append unverified prose: at most 12 emitted tokens may be absent from the draft (previously a 1.4x length ratio allowed an unbounded unverified tail).",
+      "tests": ["unverified tail beyond the draft is withheld"]
     },
     {
       "id": "G-none-evasion-guard",
