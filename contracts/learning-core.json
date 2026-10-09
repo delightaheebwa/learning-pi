@@ -78,10 +78,12 @@
     {
       "id": "G-no-duplicate-factcheck",
       "severity": "hard",
-      "statement": "Re-dispatching a fact-check for a draft that already has a valid receipt is blocked, while a materially corrected draft after an ISSUES verdict is allowed.",
+      "statement": "Re-dispatching a fact-check for a draft that already has a valid receipt is blocked, while a materially corrected draft after an ISSUES verdict is allowed, and so is the re-dispatch CLAIMS_INCOMPLETE mandates (the same draft with the missing claims added); the corrected receipt supersedes the incomplete one.",
       "tests": [
         "duplicate fact-check of a verified draft is blocked",
-        "corrected re-dispatch after ISSUES is allowed"
+        "corrected re-dispatch after ISSUES is allowed",
+        "corrected fact-check re-dispatch for missing claims is allowed",
+        "complete fact-check re-dispatch is still blocked"
       ]
     },
     {
@@ -122,13 +124,14 @@
     {
       "id": "G-claims-complete",
       "severity": "hard",
-      "statement": "The generator may not curate its own exam: every hard fact in a fact-check draft (decimal, percentage, scientific notation, 3+ digit integer, LaTeX/math expression, URL) must appear in the submitted claims[], or the turn is withheld as CLAIMS_INCOMPLETE so a number or formula nobody listed cannot pass unverified.",
+      "statement": "The generator may not curate its own exam: every hard fact in a fact-check draft (decimal, percentage, scientific notation, 3+ digit integer, LaTeX/math expression, URL) must appear in the submitted claims[], or the turn is withheld as CLAIMS_INCOMPLETE so a number or formula nobody listed cannot pass unverified. Containment is notation-insensitive: a LaTeX formula or parameter listed in the claims as plain prose counts as present.",
       "tests": [
         "draft with an unlisted hard fact is withheld",
         "hard fact listed in claims is allowed",
         "hard fact is not subsumed by a longer number",
         "comma-grouped thousands are not treated as a hard fact",
         "four-digit years are not hard facts",
+        "prose-notation claims cover LaTeX hard facts (only the unlisted number is missing)",
         "judge path withholds claims with an unlisted hard fact"
       ]
     },

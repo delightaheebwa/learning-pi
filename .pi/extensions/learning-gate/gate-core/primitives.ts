@@ -471,6 +471,29 @@ export function normHardFact(s: string): string {
 }
 
 /**
+ * Normalise a hard fact for *notation-insensitive* containment: the same fact
+ * written as LaTeX and as plain prose must compare equal. The generator submits
+ * claims in prose ("Per(P_i) = 2^(H(P_i))") while the draft may render the same
+ * fact as math ("\mathrm{Per}(P_i) = 2^{H(P_i)}"); a byte comparison withheld
+ * such a turn as CLAIMS_INCOMPLETE even though the verifier had checked it (the
+ * 2026-10-09 t-SNE perplexity loop). Strip LaTeX font/formatting wrappers and
+ * delimiters so both spellings collapse to one form. Inter-word whitespace is
+ * preserved so `factPresent`'s token-boundary test still keeps numeric
+ * containment exact.
+ */
+export function normMathFact(s: string): string {
+  return normHardFact(s)
+    .replace(
+      /\\(?:mathrm|mathbf|mathit|mathsf|mathtt|operatorname|boldsymbol|vec|hat|bar|tilde|left|right|big|Big|bigg|Bigg)\b/g,
+      " "
+    )
+    .replace(/\\/g, "")
+    .replace(/[{}\[\]()]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Deterministic extraction of the *hard*, objectively-checkable facts in a
  * draft: URLs, LaTeX/math expressions, scientific notation, decimals,
  * percentages, and integers of 3+ digits (calendar years excluded). These are
@@ -533,8 +556,8 @@ function factPresent(fact: string, hay: string): boolean {
 export function missingHardFacts(draft: string, claimsText: string | undefined): string[] {
   const facts = extractHardFacts(draft);
   if (facts.length === 0) return [];
-  const hay = normHardFact(claimsText || "");
-  return facts.filter((f) => !factPresent(f, hay));
+  const hay = normMathFact(claimsText || "");
+  return facts.filter((f) => !factPresent(normMathFact(f), hay));
 }
 
 /** Quiz/grade binding: the receipt's audited content must overlap the emission. */

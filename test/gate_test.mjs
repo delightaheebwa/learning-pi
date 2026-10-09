@@ -884,3 +884,54 @@ assert(
     })
   )
 );
+
+// ============================================================================
+// 2026-10-09: the CLAIMS_INCOMPLETE dead-end. (a) Hard-fact matching is
+// notation-insensitive: a LaTeX formula/parameter listed in the claims as plain
+// prose is NOT a missing fact. (b) The remedy CLAIMS_INCOMPLETE mandates — a
+// re-dispatch of the SAME draft with the missing claim added — must be allowed,
+// and its corrected receipt must supersede the incomplete one.
+// ============================================================================
+const latexDraft =
+  'Perplexity is $\\mathrm{Per}(P_i) = 2^{H(P_i)}$ and each point spreads by $\\sigma_i$; it can be 23.7.';
+const latexClaimsProse = 'perplexity is Per(P_i) = 2^(H(P_i))\neach point spreads by sigma_i';
+assert(
+  'prose-notation claims cover LaTeX hard facts (only the unlisted number is missing)',
+  JSON.stringify(P.missingHardFacts(latexDraft, latexClaimsProse)) === JSON.stringify(['23.7'])
+);
+
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const envLatex1 = JSON.stringify({
+  gate: 'fact_check',
+  claims: [
+    { id: 1, claim: 'perplexity is Per(P_i) = 2^(H(P_i))' },
+    { id: 2, claim: 'each point spreads by sigma_i' },
+  ],
+  rendered_content: latexDraft,
+  source_urls: ['https://e.com'],
+});
+await dispatch('fact-check', envLatex1, 'lx1');
+await fg('lx1', 'fact-check', envLatex1, FC_PASS);
+const lateIncomplete = await msg(`[[TURN:claims]]\n${latexDraft}`, 'stop');
+assert(
+  'claims turn with an unlisted hard fact is withheld (CLOSURE)',
+  blocked(lateIncomplete, 'CLAIMS_INCOMPLETE') && outText(lateIncomplete).includes('23.7')
+);
+
+const envLatex2 = JSON.stringify({
+  gate: 'fact_check',
+  claims: [
+    { id: 1, claim: 'perplexity is Per(P_i) = 2^(H(P_i))' },
+    { id: 2, claim: 'each point spreads by sigma_i' },
+    { id: 3, claim: 'a distribution perplexity can be 23.7' },
+  ],
+  rendered_content: latexDraft,
+  source_urls: ['https://e.com'],
+});
+const lateRedispatch = await fire('tool_call', { toolName: 'subagent', toolCallId: 'lx2', input: { agent: 'fact-check', task: envLatex2 } });
+assert('corrected fact-check re-dispatch for missing claims is allowed', !(lateRedispatch && lateRedispatch.block));
+await fg('lx2', 'fact-check', envLatex2, FC_PASS);
+const lateDup = await fire('tool_call', { toolName: 'subagent', toolCallId: 'lx3', input: { agent: 'fact-check', task: envLatex2 } });
+assert('complete fact-check re-dispatch is still blocked', !!(lateDup && lateDup.block));
+const lateCorrected = await msg(`[[TURN:claims]]\n${latexDraft}`, 'stop');
+assert('corrected claims turn renders after the mandated re-dispatch', allowed(lateCorrected));

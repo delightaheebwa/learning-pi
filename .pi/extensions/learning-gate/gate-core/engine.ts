@@ -84,6 +84,26 @@ export function createGate(options: GateOptions = {}): GateEngine {
   };
 
   const addReceipt = (r: P.Receipt, agent?: string) => {
+    // A fresh fact-check of an already-verified draft supersedes the older
+    // receipt. The re-dispatch exists precisely to add hard-fact claims the
+    // first pass omitted (CLAIMS_INCOMPLETE's remedy), and the corrected
+    // receipt is the one the emission must bind; without this the older,
+    // incomplete receipt shadows it and the turn dead-ends (the 2026-10-09
+    // t-SNE perplexity loop). Only a VALID re-verification supersedes; an
+    // ISSUES verdict leaves any earlier PASS in force.
+    if (r.gate === "fact_check" && r.valid && r.renderedContent) {
+      for (let i = run.receipts.length - 1; i >= 0; i--) {
+        const prev = run.receipts[i];
+        if (
+          prev.gate === "fact_check" &&
+          prev.valid &&
+          prev.renderedContent &&
+          P.nearDuplicate(prev.renderedContent, r.renderedContent)
+        ) {
+          run.receipts.splice(i, 1);
+        }
+      }
+    }
     run.receipts.push(r);
     // Retain the newest grade verdict independently of consumption: a corrected
     // agreeing re-dispatch supersedes an older disagreement (see fix note on
@@ -205,12 +225,20 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // loop — the Tutor re-verifies clean text after a tag/binding withhold
       // instead of emitting the verified text. Block it and say what to do.
       // A materially corrected draft (post-ISSUES) is not a near-duplicate, so
-      // the legitimate fix cycle is unaffected.
+      // the legitimate fix cycle is unaffected. A receipt whose claims do NOT
+      // cover the draft's hard facts is incomplete: CLAIMS_INCOMPLETE's remedy
+      // is exactly to re-dispatch with the missing claims added, so that
+      // re-dispatch must be allowed (the 2026-10-09 dead-end).
       for (const fc of calls.filter((c) => c.agent === "fact-check")) {
         const draft = fc.envelope && typeof fc.envelope.rendered_content === "string" ? fc.envelope.rendered_content : undefined;
         if (!draft) continue;
         const verified = run.receipts.find(
-          (r) => r.gate === "fact_check" && r.valid && r.renderedContent && P.nearDuplicate(r.renderedContent, draft)
+          (r) =>
+            r.gate === "fact_check" &&
+            r.valid &&
+            r.renderedContent &&
+            P.nearDuplicate(r.renderedContent, draft) &&
+            P.missingHardFacts(r.renderedContent, r.claimsText).length === 0
         );
         if (verified) {
           return {
@@ -363,7 +391,26 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // without the dispatch-correlated envelope we mint nothing rather than a
       // receipt that could only ever produce FACT_CHECK_MISSING_DRAFT.
       if (!calls || calls.length === 0) return;
-      if (run.receipts.some((r) => r.gate === "fact_check" && r.valid)) return;
+      // A duplicate dispatch mints nothing — unless it is the corrected
+      // re-verification CLAIMS_INCOMPLETE mandates: the existing valid receipt
+      // left hard facts unlisted, so the new receipt (which supersedes it) must
+      // carry the claims the first pass missed.
+      const alreadyCovered = (draft: string | undefined) =>
+        !!draft &&
+        run.receipts.some(
+          (r) =>
+            r.gate === "fact_check" &&
+            r.valid &&
+            r.renderedContent &&
+            P.nearDuplicate(r.renderedContent, draft) &&
+            P.missingHardFacts(r.renderedContent, r.claimsText).length === 0
+        );
+      if (
+        run.receipts.some((r) => r.gate === "fact_check" && r.valid) &&
+        calls.every((c) => alreadyCovered(c.envelope && typeof c.envelope.rendered_content === "string" ? c.envelope.rendered_content : undefined))
+      ) {
+        return;
+      }
       for (const c of calls) addReceipt(P.parseResult(text, gate, c.envelope));
       return;
     }

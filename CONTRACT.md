@@ -68,7 +68,10 @@ its tagged test, change the implementation, all in one reviewed commit.
 - **G-provider-fallback** *(policy)* — after two consecutive provider failures,
   offer (never force) a one-shot alternate-model re-dispatch.
 - **G-no-duplicate-factcheck** *(hard)* — re-verifying an already-verified draft
-  is blocked; a materially corrected post-ISSUES draft is allowed.
+  is blocked; a materially corrected post-ISSUES draft is allowed, as is the
+  re-dispatch `CLAIMS_INCOMPLETE` mandates (the same draft with the missing
+  claims added). The corrected receipt supersedes the incomplete one, so the
+  emission binds the claims-complete pass.
 - **G-async-notify-mints** *(hard)* — async completion notifications mint
   content-bound receipts from the dispatch envelope; failures clear pending.
 - **G-infer-claims-from-bound** *(hard)* — a dropped `claims` tag is recovered
@@ -82,7 +85,11 @@ its tagged test, change the implementation, all in one reviewed commit.
   every hard fact in the draft (decimal, percentage, scientific notation, 3+
   digit integer, LaTeX/math expression, URL) must appear in the submitted
   `claims[]`, or the turn is withheld (`CLAIMS_INCOMPLETE`). A number or formula
-  nobody listed is a number or formula nobody verified.
+  nobody listed is a number or formula nobody verified. Containment is
+  notation-insensitive: the same fact written as LaTeX in the draft and as plain
+  prose in `claims[]` (e.g. `\mathrm{Per}(P_i) = 2^{H(P_i)}` vs
+  `Per(P_i) = 2^(H(P_i))`, or `\sigma_i` vs `sigma_i`) counts as present, so a
+  notation difference cannot dead-end the turn.
 - **G-draft-tail-bound** *(hard)* — an emission may reproduce a verified draft
   with reordering or punctuation edits but may not append unverified prose: at
   most `LENGTH_SLACK_TOKENS` (12) emitted tokens may be absent from the draft.
