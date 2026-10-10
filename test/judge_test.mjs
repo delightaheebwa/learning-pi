@@ -257,6 +257,97 @@ const mintFC = (engine, output = FC_PASS) =>
   assert('derived quiz boundText includes the options', pkg.receipts[0].boundText.includes('A) surprise'));
 }
 
+// --- S10b: a red (ISSUES) quiz receipt the judge marks covers:true must not
+// shadow the valid PASS for the same gate (the 2026-10-10 warm-up loop). After a
+// fix cycle the run holds two quiz receipts — the old ISSUES and the corrected
+// PASS. When the judge marks the ISSUES receipt `covers:true` (alone, or
+// alongside the PASS), `bindingFor` returned the invalid receipt first and
+// stranded the fully-verified quiz as QUIZ_AUDIT_STALE.
+{
+  const batch = 'Warm-up — 3 quick MCQs.\n**W1.** What is entropy? A) surprise B) certainty C) zero D) negative';
+  const oldDraft = 'Warm-up — 3 quick MCQs.\n**W1.** What is entropy? A) surprise B) certainty';
+  const mintQuiz = (engine, draft, output) =>
+    engine.onToolResult({
+      tool: 'subagent',
+      isError: false,
+      text: output,
+      dispatchCalls: [],
+      mintCalls: [{ agent: 'quiz-audit', envelope: { gate: 'quiz_audit', rendered_content: draft }, output }],
+    });
+  const ISSUES = JSON.stringify({ verdict: 'ISSUES', issues: [{ severity: 'medium', location: 'W1', issue: 'length parity' }] });
+  const PASS = JSON.stringify({ verdict: 'PASS', evidence: ['W1 checked'], issues: [] });
+  const driveTwo = (coversFor, engine) => {
+    engine.onBeforeAgentStart('[[FLOW:resume]] continue');
+    mintQuiz(engine, oldDraft, ISSUES);
+    mintQuiz(engine, batch, PASS);
+  };
+
+  // Judge marks BOTH receipts as covering — the invalid one would shadow the PASS.
+  {
+    const j = stubJudge({
+      evaluate: (pkg) => ({
+        turnType: 'quiz',
+        bindings: pkg.receipts.map((r) => ({ index: r.index, covers: true, uncovered: [] })),
+        bestReceipt: 1,
+        reason: 'Receipt 1 is a strong PASS from quiz_audit and covers 100% of the emitted text.',
+      }),
+    });
+    const engine = createGate({ judge: j.judge });
+    driveTwo(() => true, engine);
+    const res = await engine.onMessageEnd({ message: msg('[[TURN:quiz]]\n' + batch) });
+    assert('red receipt marked covers does not shadow a valid PASS quiz', allowed(res));
+  }
+
+  // Judge binds only the invalid ISSUES receipt, but the PASS binds the text.
+  {
+    const j = stubJudge({
+      evaluate: (pkg) => ({
+        turnType: 'quiz',
+        bindings: pkg.receipts.map((r) => ({ index: r.index, covers: r.index === 0, uncovered: [] })),
+        bestReceipt: 0,
+      }),
+    });
+    const engine = createGate({ judge: j.judge });
+    driveTwo((i) => i === 0, engine);
+    const res = await engine.onMessageEnd({ message: msg('[[TURN:quiz]]\n' + batch) });
+    assert('binding that points at the red receipt falls back to the binding PASS', allowed(res));
+  }
+
+  // Guard: the fallback still blocks a genuinely stale quiz and a hollow PASS.
+  {
+    const j = stubJudge({
+      evaluate: (pkg) => ({
+        turnType: 'quiz',
+        bindings: pkg.receipts.map((r) => ({ index: r.index, covers: false, uncovered: [] })),
+        substantiveness: pkg.receipts.map(() => 'strong'),
+        bestReceipt: -1,
+      }),
+    });
+    const engine = createGate({ judge: j.judge });
+    engine.onBeforeAgentStart('[[FLOW:resume]] continue');
+    mintQuiz(engine, oldDraft, ISSUES);
+    mintQuiz(engine, batch, PASS);
+    const res = await engine.onMessageEnd({ message: msg('[[TURN:quiz]]\nEntirely different questions nobody audited. A) x B) y') });
+    assert('a genuinely stale quiz is still withheld', blocked(res, 'QUIZ_AUDIT_STALE'));
+  }
+  {
+    const j = stubJudge({
+      evaluate: (pkg) => ({
+        turnType: 'quiz',
+        bindings: pkg.receipts.map((r) => ({ index: r.index, covers: true, uncovered: [] })),
+        substantiveness: pkg.receipts.map(() => 'none'),
+        bestReceipt: 1,
+      }),
+    });
+    const engine = createGate({ judge: j.judge });
+    engine.onBeforeAgentStart('[[FLOW:resume]] continue');
+    mintQuiz(engine, oldDraft, ISSUES);
+    mintQuiz(engine, batch, PASS);
+    const res = await engine.onMessageEnd({ message: msg('[[TURN:quiz]]\n' + batch) });
+    assert('a hollow PASS is still withheld (G-pass-substantive holds)', blocked(res, 'QUIZ_AUDIT_STALE'));
+  }
+}
+
 // --- S11: a verdict-only grade turn binds even when the judge marks it uncovered ---
 // The grade-audit binds the graded question/answer/verdict; a terse verdict
 // presentation is not literally covered by the full question text. The engine

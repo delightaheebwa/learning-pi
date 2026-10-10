@@ -1154,8 +1154,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
       (run.flow === "review" && run.reviewSessionWrote && (summaryKind === "review" || P.looksLikeReviewSummary(text)));
 
     const bindingFor = (gate: string): number => {
+      // Only a valid (passing) receipt may bind. An invalid receipt the judge
+      // nevertheless marked `covers:true` must never shadow a valid PASS for the
+      // same gate: `bindingFor` returns the first match, so an ISSUES receipt —
+      // which is what a re-dispatch leaves behind — could otherwise strand the
+      // verified turn (the 2026-10-10 warm-up loop, QUIZ_AUDIT_STALE on a PASS).
       for (const b of assessment.bindings) {
-        if (R[b.index]?.gate === gate && b.covers) return b.index;
+        if (R[b.index]?.gate === gate && R[b.index].valid && b.covers) return b.index;
       }
       return -1;
     };
@@ -1265,9 +1270,21 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const idx = bindingFor("quiz_audit");
       if (idx >= 0 && R[idx].valid && substantive(idx) !== "none") toConsume.push(R[idx]);
       else {
-        const anyBound = R.some((r) => r.gate === "quiz_audit" && r.valid);
-        const issuesReceipt = R.some((r) => r.gate === "quiz_audit" && r.issues);
-        blocks.push(anyBound ? "QUIZ_AUDIT_STALE" : issuesReceipt ? "QUIZ_AUDIT_ISSUES" : "NO_QUIZ_AUDIT_PASS");
+        // Deterministic fallback (mirrors the legacy path): a valid quiz-audit
+        // receipt whose bound batch text covers the emitted turn releases it,
+        // even when the judge's binding points at a non-passing receipt or omits
+        // the passing one. Without this, a red (ISSUES) receipt the judge marked
+        // `covers:true` for the same text strands a fully-verified quiz as
+        // QUIZ_AUDIT_STALE (the 2026-10-10 warm-up loop). G-pass-substantive still
+        // holds: the fallback requires the judge to have scored the PASS.
+        const det = R.findIndex((r) => r.gate === "quiz_audit" && r.valid && P.receiptBinds(r, text));
+        if (det >= 0 && substantive(det) !== "none") {
+          toConsume.push(R[det]);
+        } else {
+          const anyBound = R.some((r) => r.gate === "quiz_audit" && r.valid);
+          const issuesReceipt = R.some((r) => r.gate === "quiz_audit" && r.issues);
+          blocks.push(anyBound ? "QUIZ_AUDIT_STALE" : issuesReceipt ? "QUIZ_AUDIT_ISSUES" : "NO_QUIZ_AUDIT_PASS");
+        }
       }
     } else if (turnType === "grade") {
       let idx = bindingFor("grade_audit");
