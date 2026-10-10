@@ -740,7 +740,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
             verdictNote =
               `This draft states load-bearing facts that were not in claims[], so the verifier never checked them: ${missing.join(
                 ", "
-              )}. Re-dispatch the fact-check with every one of these added as a claim, then emit this draft unchanged.`;
+              )}. Re-dispatch the fact-check with every one of these added as a claim (a formula written as LaTeX in the draft may be restated in plain prose — matching is notation-insensitive), then emit this draft unchanged.`;
           } else {
             toConsume.push(best);
           }
@@ -797,7 +797,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
               verdictNote =
                 `The repair prose states load-bearing facts that were not in claims[], so the verifier never checked them: ${missing.join(
                   ", "
-                )}. Re-dispatch the fact-check with these added, then emit.`;
+                )}. Re-dispatch the fact-check with these added as claims (formulas may be restated in plain prose — matching is notation-insensitive), then emit.`;
             } else {
               toConsume.push(validGrade);
               toConsume.push(fc);
@@ -1204,7 +1204,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
           verdictNote =
             `This draft states load-bearing facts that were not in claims[], so the verifier never checked them: ${missing.join(
               ", "
-            )}. Re-dispatch the fact-check with every one added as a claim, then emit this draft unchanged.`;
+            )}. Re-dispatch the fact-check with every one added as a claim (a formula written as LaTeX in the draft may be restated in plain prose — matching is notation-insensitive), then emit this draft unchanged.`;
         }
       }
     }

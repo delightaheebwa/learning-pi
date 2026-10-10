@@ -103,8 +103,11 @@ field authorizes nothing and the turn is withheld.
   `lang_recommendation`. Never translate a verified draft — a translated turn no longer covers its
   verifier receipt and is withheld; re-verify the translated text if the language must change.
 - **Math:** follow the runtime `## Math authoring` directive injected by the `math-mode` extension.
-  On an image-capable terminal (Ghostty/Kitty/WezTerm/iTerm2) write LaTeX (`$...$`, `\[...\]`) so
-  `pi-math` renders it; with no image protocol (foot/tmux) write plain Unicode/fenced code.
+  On an image-capable terminal (Ghostty/Kitty/WezTerm/iTerm2) **always** write LaTeX (`$...$`, `\[...\]`)
+  so `pi-math` renders it; with no image protocol (foot/tmux) write plain Unicode/fenced code. The gate's
+  hard-fact check is notation-insensitive: state each formula in `claims[]` in plain prose (e.g.
+  `Per(P_i) = 2^(H(P_i))` covers `$\mathrm{Per}(P_i)=2^{H(P_i)}$`) and it matches — never downgrade
+  math to plain Unicode on an image-capable terminal to keep the claims list short.
 
 ## Turn tags (required)
 

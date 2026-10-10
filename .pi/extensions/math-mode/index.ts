@@ -27,6 +27,7 @@ function mathDirective(): string {
       "Write mathematics as LaTeX: inline `$...$`, display `\\[...\\]` or `$$...$$`.",
       "Do not hand-render formulas as ASCII art or Unicode when LaTeX is available.",
       "Keep GATE envelopes and fenced code raw (do not wrap those in LaTeX).",
+      "In a fact-check `claims[]`, restate each formula in plain prose (the gate matches notation-insensitively); keep the LaTeX in the emitted draft and never downgrade it to prose/Unicode.",
     ].join("\n");
   }
 
