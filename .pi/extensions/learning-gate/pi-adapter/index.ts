@@ -18,7 +18,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createGate, type BlockResult, type GateEngine, type MessageEndResult } from "../gate-core/engine.ts";
 import { parseTask, type CallRef } from "../gate-core/primitives.ts";
 import {
@@ -251,6 +251,33 @@ function makeFileLedger(): Ledger {
   }
 }
 
+/**
+ * Optional, off-by-default capture of the judge's raw exchange, for diagnosing a
+ * gate block (which receipt the judge bound, what it scored substantive, why it
+ * withheld). `LEARNING_GATE_JUDGE_DUMP=1` appends to
+ * `<ledgerDir>/judge-raw.ndjson`; any other value is used as the file path
+ * directly. Each line is `{at, model, user, response}` — or
+ * `{at, model, user, error}` when the call throws. Best-effort: it never gates
+ * and never changes behavior. The judge's `user` message is the serialized
+ * package the engine built, so this is the exact input/output pair to replay.
+ */
+function makeJudgeDump(): ((entry: Record<string, unknown>) => void) | undefined {
+  const setting = process.env.LEARNING_GATE_JUDGE_DUMP;
+  if (!setting || setting === "0" || setting === "false") return undefined;
+  const path =
+    setting === "1" || setting === "true"
+      ? join(process.env.LEARNING_GATE_LEDGER_DIR || join(homedir(), ".pi", "agent", "learning-gate"), "judge-raw.ndjson")
+      : setting;
+  return (entry) => {
+    try {
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      appendFileSync(path, JSON.stringify({ at: new Date().toISOString(), ...entry }) + "\n");
+    } catch {
+      /* best effort */
+    }
+  };
+}
+
 /** Split a "provider/model" id and resolve it against the live model registry. */
 function resolveModel(registry: any, configured: string): any | undefined {
   if (!registry?.find) return undefined;
@@ -264,24 +291,32 @@ function resolveModel(registry: any, configured: string): any | undefined {
 }
 
 /** A `complete` function that calls one resolved model through pi. */
-function makeComplete(registry: any, model: any): CompleteFn {
+function makeComplete(registry: any, model: any, label: string): CompleteFn {
+  const dump = makeJudgeDump();
   return async ({ system, user, maxTokens }) => {
     const sessionId =
       (globalThis as any).crypto?.randomUUID?.() ?? `gate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const response = await registry.complete(
-      model,
-      {
-        messages: [
-          {
-            role: "user",
-            content: [{ type: "text", text: `${system}\n\n${user}` }],
-            timestamp: Date.now(),
-          },
-        ],
-      },
-      { maxTokens: maxTokens ?? 4096, cacheRetention: "none", sessionId }
-    );
+    let response: any;
+    try {
+      response = await registry.complete(
+        model,
+        {
+          messages: [
+            {
+              role: "user",
+              content: [{ type: "text", text: `${system}\n\n${user}` }],
+              timestamp: Date.now(),
+            },
+          ],
+        },
+        { maxTokens: maxTokens ?? 4096, cacheRetention: "none", sessionId }
+      );
+    } catch (err) {
+      dump?.({ model: label, user, error: err instanceof Error ? err.message : String(err) });
+      throw err;
+    }
     const text = responseText(response);
+    dump?.({ model: label, user, response: text });
     if (!text.trim()) {
       throw new Error(`judge returned no text (raw=${JSON.stringify(response).slice(0, 900)})`);
     }
@@ -301,7 +336,7 @@ export default function learningGate(pi: ExtensionAPI): void {
       const registry = ctx?.modelRegistry;
       const primaryModel = resolveModel(registry, process.env.LEARNING_GATE_JUDGE_MODEL || DEFAULT_JUDGE_MODEL);
       if (!primaryModel) return undefined;
-      const primary = createModelJudge(makeComplete(registry, primaryModel));
+      const primary = createModelJudge(makeComplete(registry, primaryModel, "primary"));
 
       // Escalation model (hard cases + primary outage). Optional: if it is not
       // configured, the router runs primary-only.
@@ -311,7 +346,7 @@ export default function learningGate(pi: ExtensionAPI): void {
           registry,
           process.env.LEARNING_GATE_JUDGE_ESCALATION_MODEL || DEFAULT_JUDGE_ESCALATION_MODEL
         );
-        if (escModel) escalate = createModelJudge(makeComplete(registry, escModel));
+        if (escModel) escalate = createModelJudge(makeComplete(registry, escModel, "escalation"));
       } catch {
         escalate = undefined;
       }

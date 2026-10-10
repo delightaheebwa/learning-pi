@@ -321,6 +321,16 @@ still have consumed), review verdicts with no backing run, clerk-relayed review 
 `STATE_AUDIT_VERDICT` markers with no `audit_state.py` invocation. It also prints the model each run
 used. Exit 1 when it finds an error-level issue.
 
+### Judge raw dump (diagnosing a withhold the ledger can't explain)
+
+When a block isn't obvious from `decisions.ndjson` — e.g. a `QUIZ_AUDIT_STALE` on a clean PASS — the
+judge's exact input and output are the missing evidence. Export `LEARNING_GATE_JUDGE_DUMP=1` and
+reproduce; each judge call appends `{at, model, user, response}` to
+`~/.pi/agent/learning-gate/judge-raw.ndjson`. `user` is the serialized `JUDGE PACKAGE` (the receipts
+the judge saw, their `boundText`, the emitted turn) and `response` is the model's raw JSON
+(`bindings`/`substantiveness`/`reason`). Set it to a path to write elsewhere. Off by default; it
+never changes gating.
+
 ---
 
 ## 12. Maintenance
