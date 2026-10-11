@@ -6,6 +6,14 @@
 > **Audience:** future agents and humans working on either repo. Read this before proposing changes
 > to teaching behavior, the verification gate, learner state, or the Knowledge Wiki.
 
+> **New here? TL;DR:** run the system via [`README.md`](README.md#install) (`~/learning-pi/install.sh
+> ~/learning-system`, then `pi` with `/review` `/solo` `/teach`). P0–P2 are done and verified
+> (learner-authored consolidation, hard-fact gate binding, claim ledger, multi-dimensional mastery,
+> `/solo` AI-free checks, wiki provenance, plus the P1/P2 hardening); P3 is deferred. Open
+> conversations in [`learning-system` Discussions](https://github.com/delightaheebwa/learning-system/discussions),
+> pi bugs in [`learning-pi/issues`](https://github.com/delightaheebwa/learning-pi/issues), state/wiki
+> bugs in [`learning-system/issues`](https://github.com/delightaheebwa/learning-system/issues).
+
 ---
 
 ## 0. How to use this document
