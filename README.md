@@ -78,12 +78,12 @@ assistant turn unless the matching, **passing** receipt is present:
 | Turn contains | Required receipt |
 | --- | --- |
 | Teaching claims (Tutor) | `fact-check` whose `rendered_content` covers the emitted text and has no `ISSUES`. With a judge configured the rule is **100% span coverage** (the judge checks every sentence); the legacy path approximates it with ≥85% token coverage + a length guard |
-| A question batch | `quiz-audit` returning `PASS` (or `PASS_WITH_FLAGS` for lows-only, accepted silently with no banner to the learner, max 2 cycles); the envelope carries `questions_json` **and** `rendered_content` = the full batch text (intro/instructions + every question + its options), which binds the whole emitted turn |
+| A question batch | `quiz-audit` returning `PASS` (zero issues); any issue, at any severity, blocks until fixed (max 2 cycles). The envelope carries `questions_json` **and** `rendered_content` = the full batch text (intro/instructions + every question + its options), which binds the whole emitted turn |
 | A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced. One batched `items[]` envelope grades every answer from a single learner reply (never one subagent per answer) |
 | A visualization (`[[TURN:viz]]` — a ` ```viz ` spec + supporting words) | `viz-audit` whose canonical `spec` matches the emitted fenced spec and whose `rendered_content` covers the turn (missing → `NO_VIZ_AUDIT`, `ISSUES` → `VIZ_AUDIT_ISSUES`, unbound/stale → `VIZ_AUDIT_STALE`). A ` ```viz ` block in any other turn is withheld (`VIZ_REQUIRES_OWN_TURN`); a missing parseable spec is withheld (`VIZ_SPEC_INVALID`). Figures are opt-in and teach/resume-only; `viz-mode` renders them inline and opens an interactive explorer overlay |
-| A `Learning System/` handoff write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` (once per handoff batch; high/medium block, lows pass as `PASS_WITH_FLAGS`) |
-| An ingest | after the Clerk returns a `CLERK_WRITES` receipt, the Tutor dispatches an independent `review-gate` on the wiki pages written; `PASS` renders clean, `ISSUES`/`PASS_WITH_FLAGS` render with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run). A verdict relayed by the Clerk instead of a real review-gate run gets a `⚠️ INGEST GATE` banner; a review verdict with no `evidence` list gets a `⚠️ REVIEW GATE` banner |
-| The **close** of a standalone `/review` (the delegated `review-clerk` run wrote the Review notes, session note, and touched Active Concepts / Mistakes rows) | `review-session-audit` reading the writes back against the transcript + per-concept grade verdicts; `PASS`/`PASS_WITH_FLAGS` render clean, `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner — never withheld, never a re-run (cap 2 passes per flow) |
+| A `Learning System/` handoff write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` (once per handoff batch; every issue blocks at any severity; out-of-scope observations go to `context_notes`) |
+| An ingest | after the Clerk returns a `CLERK_WRITES` receipt, the Tutor dispatches an independent `review-gate` on the wiki pages written; `PASS` renders clean, `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run). A verdict relayed by the Clerk instead of a real review-gate run gets a `⚠️ INGEST GATE` banner; a review verdict with no `evidence` list gets a `⚠️ REVIEW GATE` banner |
+| The **close** of a standalone `/review` (the delegated `review-clerk` run wrote the Review notes, session note, and touched Active Concepts / Mistakes rows) | `review-session-audit` reading the writes back against the transcript + per-concept grade verdicts; `PASS` renders clean, `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner — never withheld, never a re-run (cap 2 passes per flow) |
 | A new lesson | a `scout` run before teaching; a partial/missing `SCOUT_DIGEST` receipt surfaces as a `⚠️ SOURCES INCOMPLETE` / `⚠️ SCOUT DIGEST UNVERIFIED` banner (never a withhold) |
 | A `/review` session | a `review-scout` run before the first claims/quiz turn (`NO_REVIEW_CONTEXT` until then); a partial/missing `REVIEW_SCOUT_DIGEST` receipt surfaces as a `⚠️ REVIEW CONTEXT INCOMPLETE` / `⚠️ REVIEW SCOUT DIGEST UNVERIFIED` banner (never a withhold) |
 
@@ -113,7 +113,7 @@ content-matched verification (generation-to-emission — "verify A, emit B" is b
   subagent envelopes (`"flow":"teach"`, "Pending Ingest.json") were being misread as learning flows.
 - Every assistant message must begin with a turn tag the gate strips before the learner sees it:
   - `[[TURN:claims]]` → requires a content-matched, passing `fact-check`
-  - `[[TURN:quiz]]` → requires a PASS (or flagged PASS_WITH_FLAGS) `quiz-audit`
+  - `[[TURN:quiz]]` → requires a `PASS` `quiz-audit` (zero issues; any severity blocks)
   - `[[TURN:grade]]` → requires an agreeing `grade-audit`
   - `[[TURN:none]]` → no verifier required
 - A missing tag is withheld (`NO_TURN_TAG`) on the legacy path — **except** a grade/quiz turn, which
@@ -147,8 +147,9 @@ Receipts are still the verifier's own statement; the judge never authors them.
   and emit that draft unchanged; any uncovered span blocks, and the remedy names the span.
 - **PASS-real:** a `PASS` the judge scores unsubstantiated (no evidence, items unchecked) verifies
   nothing — the receipt is treated as absent.
-- **No cap while a high/medium issue remains:** the gate keeps blocking and never dumps the turn as
-  `⛔ UNVERIFIED`; the cap applies to every other reason.
+- **No cap while any issue remains:** the gate keeps blocking and never dumps the turn as
+  `⛔ UNVERIFIED`; the cap applies to every other reason. Severity labels no longer gate — a `low`
+  blocks exactly like a `high` or `medium`.
 - **Dispute:** the same issue blocking three times is adjudicated by the judge; if it no longer
   applies the engine releases the turn with `⚠️ VERIFIER DISPUTED`.
 - **Ledger:** every decision and receipt is appended to `~/.pi/agent/learning-gate/`

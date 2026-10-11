@@ -100,9 +100,9 @@ export interface Receipt {
   provenance?: "dispatch" | "clerk";
   // Review-family verdicts must carry an `evidence` list (what was read/checked).
   evidenceMissing?: boolean;
-  // Highest issue severity the verifier reported (high/medium/low). Used by the
-  // retry-cap rule: while a high/medium issue remains, the gate keeps blocking
-  // and never dumps the turn as UNVERIFIED.
+  // Highest issue severity the verifier reported (high/medium/low). Retained for
+  // the ledger only: severity no longer gates — ANY issue (any severity) keeps
+  // blocking and never dumps the turn as UNVERIFIED.
   severity?: "high" | "medium" | "low";
   raw: string;
 }
@@ -122,10 +122,6 @@ export function maxSeverity(issues: any[]): "high" | "medium" | "low" | undefine
     }
   }
   return best;
-}
-
-export function isHighOrMedium(severity: string | undefined): boolean {
-  return severity === "high" || severity === "medium";
 }
 
 export interface StateAudit {
@@ -903,10 +899,22 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
   let passWithFlags = /"verdict"\s*:\s*"PASS_WITH_FLAGS"/i.test(text);
   // Review-gate: if every high/medium finding is out-of-scope bookkeeping, the
   // target content is clean. Surface them as flags, never as blocking issues.
-  if (gate === "review" && issues && reviewIssuesAllOutOfScope(text)) {
+  // This is the ONLY remaining source of a passing `flags` receipt — it is a
+  // scope ruling on bookkeeping paths, not a severity tolerance.
+  const outOfScopeDemoted = gate === "review" && issues && reviewIssuesAllOutOfScope(text);
+  if (outOfScopeDemoted) {
     issues = false;
     passWithFlags = true;
   }
+  // Any verifier finding blocks at ANY severity. A verdict object carrying a
+  // non-empty `issues[]` is an ISSUES verdict regardless of the stated verdict
+  // word, so a `PASS_WITH_FLAGS` that lists residual `low` issues is NOT a pass
+  // (lows block exactly like highs). The only exception is the out-of-scope
+  // bookkeeping demotion above, whose findings are not content issues.
+  const parsedVerdict = parseVerdictObject(text);
+  const hasIssueList =
+    !!parsedVerdict && Array.isArray(parsedVerdict.issues) && parsedVerdict.issues.length > 0;
+  if (hasIssueList && !outOfScopeDemoted) issues = true;
   const unverified =
     /"verdict"\s*:\s*"UNVERIFIED"/i.test(text) ||
     (gate === "fact_check" && /"verdicts"\s*:\s*\[[\s\S]*?"UNVERIFIED"/i.test(text));
@@ -980,10 +988,8 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     hasEnvelope: !!envelope && typeof envelope === "object",
     provenance: "dispatch",
     evidenceMissing,
-    severity: (() => {
-      const vo = parseVerdictObject(text);
-      return vo && Array.isArray(vo.issues) ? maxSeverity(vo.issues) : undefined;
-    })(),
+    severity:
+      parsedVerdict && Array.isArray(parsedVerdict.issues) ? maxSeverity(parsedVerdict.issues) : undefined,
     raw: text,
   };
   // UNVERIFIED never counts as verified — it must block, not pass.

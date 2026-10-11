@@ -26,6 +26,10 @@ const FC_ISSUES_HIGH = JSON.stringify({
   verdict: 'ISSUES',
   issues: [{ severity: 'high', location: 'X', issue: 'the definition of X is wrong' }],
 });
+const FC_ISSUES_LOW = JSON.stringify({
+  verdict: 'ISSUES',
+  issues: [{ severity: 'low', location: 'X', issue: 'a wording nit' }],
+});
 
 /**
  * A scriptable judge. `script` maps a predicate over the package to an
@@ -130,6 +134,20 @@ const mintFC = (engine, output = FC_PASS) =>
     if (outText(res).includes('UNVERIFIED')) sawUnverified = true;
   }
   assert('high/medium issue never dumps as UNVERIFIED', !sawUnverified);
+}
+
+// --- S4b: no-cap applies to a low issue too — severity labels no longer gate ---
+{
+  const j = stubJudge({ evaluate: () => ({ turnType: 'claims' }), dispute: { applies: true, reason: 'still wrong', source: 'replay' } });
+  const engine = createGate({ judge: j.judge });
+  drive(engine);
+  mintFC(engine, FC_ISSUES_LOW);
+  let sawUnverified = false;
+  for (let i = 0; i < 6; i++) {
+    const res = await engine.onMessageEnd({ message: msg('The definition of X is the thing.') });
+    if (outText(res).includes('UNVERIFIED')) sawUnverified = true;
+  }
+  assert('low-severity issue never dumps as UNVERIFIED', !sawUnverified);
 }
 
 // --- S5: dispute — the judge can clear a stale issue after three blocks ---

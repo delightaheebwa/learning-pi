@@ -17,8 +17,8 @@
  *     the semantic questions: turn type, full coverage, PASS substance, remedy,
  *     and a dispute. The judge only sees and writes text; the engine acts. On a
  *     judge fault the gate runs this legacy deterministic path unchanged.
- *   - quiz  -> a quiz-audit receipt returning PASS, or PASS_WITH_FLAGS (lows only)
- *     which is accepted silently (flags are not surfaced to the learner).
+ *   - quiz  -> a quiz-audit receipt returning PASS (zero issues). Any issue, at any
+ *     severity, is an ISSUES verdict and blocks until fixed.
  *   - grade -> a grade-audit receipt that agrees (a conflicting correct_verdict is surfaced).
  *   - viz   -> a [[TURN:viz]] message carrying one ```viz spec needs a passing viz-audit
  *     whose canonical spec matches the emitted block and whose rendered_content covers the turn;
@@ -43,10 +43,10 @@
  *     a completed run arms the review-session audit gate, so the summary needs a
  *     passing `review-session-audit` over the writes.
  *   - ingest -> the parent dispatches an independent `review-gate` after the Clerk
- *     returns `CLERK_WRITES`. A PASS renders clean; ISSUES/PASS_WITH_FLAGS render
- *     with a visible `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run
- *     loop). A verdict relayed inside the Clerk's own output surfaces `⚠️ INGEST
- *     GATE`; a review verdict with no `evidence` list surfaces `⚠️ REVIEW GATE`.
+ *     returns `CLERK_WRITES`. A PASS renders clean; ISSUES renders with a visible
+ *     `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run loop). A verdict
+ *     relayed inside the Clerk's own output surfaces `⚠️ INGEST GATE`; a review
+ *     verdict with no `evidence` list surfaces `⚠️ REVIEW GATE`.
  *   - provider failures (503/429/overloaded) are counted per agent; after two in a
  *     row the withheld banner offers a one-shot alternate-model fallback directive.
  *

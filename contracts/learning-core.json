@@ -361,9 +361,19 @@
     {
       "id": "G-issues-no-cap",
       "severity": "hard",
-      "statement": "While a high or medium verifier issue remains, the gate keeps blocking and never dumps the turn as UNVERIFIED; the retry cap applies only to every other block reason.",
+      "statement": "While ANY verifier issue remains (any severity), the gate keeps blocking and never dumps the turn as UNVERIFIED; the retry cap applies only to every other block reason. Severity labels no longer gate: a `low` blocks exactly like a `high`.",
       "tests": [
-        "high/medium issue never dumps as UNVERIFIED"
+        "high/medium issue never dumps as UNVERIFIED",
+        "low-severity issue never dumps as UNVERIFIED"
+      ]
+    },
+    {
+      "id": "G-any-issue-blocks",
+      "severity": "hard",
+      "statement": "Every verifier finding blocks at any severity: a verdict object carrying a non-empty `issues[]` is an ISSUES verdict regardless of the stated verdict word or the severity labels, so a `low` blocks exactly like a `high`. PASS_WITH_FLAGS is no longer a passing verdict for a verifier's own findings; it survives only as the review-gate out-of-scope bookkeeping demotion.",
+      "tests": [
+        "low-severity issue blocks a quiz turn",
+        "PASS_WITH_FLAGS residual low issue blocks a quiz turn"
       ]
     },
     {

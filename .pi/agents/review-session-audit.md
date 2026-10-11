@@ -25,15 +25,14 @@ Checks (end-of-review writes ONLY):
 
 Scope is the end-of-review writes ONLY. Everything outside them is OUT OF SCOPE — put it in `context_notes`, NEVER in `issues`, even when it looks stale: `Learning System/MISSION.md`, `CURRICULUM.md`, `Core/💡 Learning Profile.md`, `Core/Learner History.md`, `Knowledge Wiki/` (pages, `index.md`, `log.md`), lesson files, git history/commit messages, dates/filenames/counts cosmetics. Whole-repo cross-file drift is `audit_state.py`'s job; wiki content is the `review-gate`'s job. Do not do their jobs here.
 
-Severity: **high/medium** = a reader would be misled about the session's outcome (wrong verdict, wrong schedule/graduation, missing mistake row, invented result). **low/context_notes** = bookkeeping, metadata, wording nits, anything outside the end-of-review writes.
+Severity (descriptive — every in-scope issue blocks, at any label): **high/medium** = a reader would be misled about the session's outcome (wrong verdict, wrong schedule/graduation, missing mistake row, invented result). **low** = an in-scope wording/notation nit in the end-of-review writes. Anything outside the writes (bookkeeping, metadata, dates, git) goes in `context_notes`, never `issues`.
 
 Your job is to catch problems, not to rewrite. Cite exact locations (file + line or an exact quote) in each issue. Do not invent sources.
 
 Begin your final message with `[[TURN:none]]` as its first line (the learning gate strips this tag when it is active), then output ONLY valid JSON, no prose:
-{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","evidence":["<file read / cross-check run>", ...],"issues":[{"severity":"high|medium|low","location":"...","issue":"..."}],"context_notes":[{"location":"...","note":"..."}]}
+{"verdict":"PASS|ISSUES","evidence":["<file read / cross-check run>", ...],"issues":[{"severity":"high|medium|low","location":"...","issue":"..."}],"context_notes":[{"location":"...","note":"..."}]}
 
 `evidence` is mandatory and non-empty: name the written file(s) you read on disk and the cross-checks you ran. A verdict without evidence is treated as unsubstantiated by the gate.
 
-- `PASS` — zero high/medium issues in the end-of-review writes.
-- `PASS_WITH_FLAGS` — only low-severity issues remain (they go in `issues` with severity `low`); accepted, does not block.
-- `ISSUES` — one or more high/medium issues.
+- `PASS` — zero issues in the end-of-review writes.
+- `ISSUES` — one or more issues of **ANY** severity (`high`, `medium`, or `low`). Every issue blocks; there is no passing-with-flags verdict. Out-of-scope observations still go in `context_notes`, never `issues`.

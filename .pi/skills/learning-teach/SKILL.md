@@ -83,7 +83,7 @@ Generation-to-emission (not plan-to-generation): draft the step internally first
 
 `questions_json` is the structured item list the auditor checks; `rendered_content` is the **verbatim full batch** the gate binds the receipt to. The gate requires 100% of the emitted quiz text — including the intro/instructions and every option — so send the complete batch in `rendered_content` and then emit that text unchanged, or the turn is withheld as `QUIZ_AUDIT_STALE`.
 
-The subagent returns `{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","evidence":[...],"issues":[...]}` — `evidence` is mandatory and names the per-item + batch checks, so a clean `PASS` is substantive (the gate treats an evidence-less PASS as unsubstantiated). Mechanical pre-checks (done BEFORE dispatch): each MCQ has 4 options; `correct_index` in range; correct positions not all in one slot.
+The subagent returns `{"verdict":"PASS|ISSUES","evidence":[...],"issues":[...]}` — `evidence` is mandatory and names the per-item + batch checks, so a clean `PASS` is substantive (the gate treats an evidence-less PASS as unsubstantiated). A PASS means zero issues; any issue (any severity) blocks. Mechanical pre-checks (done BEFORE dispatch): each MCQ has 4 options; `correct_index` in range; correct positions not all in one slot.
 
 ### Grade-audit envelope (one envelope per learner reply — batched)
 
@@ -138,7 +138,7 @@ The `learning-gate` extension **withholds** a teach/resume summary that follows 
 }
 ```
 
-There is no `expected` block — the auditor derives the truth from the files and checks them against each other. It returns `{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","evidence":[...],"issues":[...],"context_notes":[...]}` — `evidence` is mandatory (each file read + cross-check), so a clean `PASS` is substantive. Fix any high/medium issue, re-dispatch (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is sufficient to proceed. Keep `bash` out of this check — it verifies content, not history.
+There is no `expected` block — the auditor derives the truth from the files and checks them against each other. It returns `{"verdict":"PASS|ISSUES","evidence":[...],"issues":[...],"context_notes":[...]}` — `evidence` is mandatory (each file read + cross-check), so a clean `PASS` is substantive. Fix every issue regardless of severity, re-dispatch (max 2 cycles); only a `PASS` (zero issues) proceeds. Keep `bash` out of this check — it verifies content, not history.
 
 ## Scope & state
 
@@ -173,8 +173,8 @@ These rules stop the correct answer from being guessable by presentation or dist
 1. Write the full batch first: for an assessment batch, all MCQs plus one free-recall item per strand; an **elicitation** batch (the ladder's first rung) is free-recall prompt(s) only.
 2. Run the mechanical pre-checks yourself — fix before dispatch.
 3. `dispatch` ONE `quiz-audit` with the envelope above.
-   4. On `ISSUES`: fix every high/medium item per `suggested_fix`, then re-run. Max 2 cycles; on the second cycle a `PASS_WITH_FLAGS` (lows only) is sufficient — present it silently (no flags banner), never run a third cycle.
-5. Never present a batch without a PASS/PASS_WITH_FLAGS receipt. The auditor never sees learner answers.
+   4. On `ISSUES`: fix every item per `suggested_fix` (any severity blocks), then re-run. Max 2 cycles; never run a third cycle.
+5. Never present a batch without a `PASS` receipt. The auditor never sees learner answers.
 
 ## Explanation discipline (novelty budget — anti-curse-of-knowledge)
 

@@ -199,7 +199,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       if (reviewSessionCalls > 0 && run.reviewSessionAudits > P.MAX_REVIEW_SESSION_AUDITS) {
         return {
           block: true,
-          reason: `review-session audit cap reached (${P.MAX_REVIEW_SESSION_AUDITS} passes per flow). Report the existing verdict — fix any high/medium flags next session instead of re-running.`,
+          reason: `review-session audit cap reached (${P.MAX_REVIEW_SESSION_AUDITS} passes per flow). Report the existing verdict — fix any issues next session instead of re-running.`,
         };
       }
       if (reviewGateCalls > 0 && run.reviewGates > P.MAX_REVIEW_GATES) {
@@ -666,7 +666,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
             // previous endless pass-3/4/… loop). Defer consumption to the
             // success path so a later blocker doesn't lose the receipt.
             toConsume.push(any);
-            surface = "⚠️ REVIEW FLAGS SURFACED — high/medium review issues were reported on the ingest output; the content below is shown with those flags outstanding.\n\n";
+            surface = "⚠️ REVIEW FLAGS SURFACED — review issues were reported on the ingest output; the content below is shown with those flags outstanding.\n\n";
             if (any.provenance === "clerk") {
               surface +=
                 "⚠️ INGEST GATE — the review verdict was relayed by the Clerk, not produced by an independent " +
@@ -877,10 +877,10 @@ export function createGate(options: GateOptions = {}): GateEngine {
       }
 
       // Review-session gate: after the review flow writes its notes/rows, a
-      // summary-like turn needs a review_session audit. A PASS/PASS_WITH_FLAGS
-      // renders clean; ISSUES renders with a flags banner (never a withhold —
-      // a withheld final message dead-ends the session). Quiz/grade turns are
-      // never held hostage by it.
+      // summary-like turn needs a review_session audit. A PASS renders clean;
+      // ISSUES renders with a flags banner (never a withhold — a withheld final
+      // message dead-ends the session). Quiz/grade turns are never held hostage
+      // by it.
       const reviewSessionGateApplies =
         run.reviewSessionWrote &&
         (run.flow === "review" || run.flow === "solo") &&
@@ -1008,7 +1008,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const fix = [
         "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, `[[TURN:viz]]`, or `[[TURN:none]]`.",
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged. A `[[TURN:claims]]` tag is also inferred automatically when your text matches an already-verified `rendered_content`, so if a message is withheld here, just re-emit the verified draft with its tag.",
-        "quiz: send the exact batch as `questions_json` (not `items[]`) AND the full learner-facing batch text as `rendered_content` (intro/instructions + every question + its options) so the receipt covers the whole emitted turn; fix high/medium issues (max 2 cycles), then accept PASS_WITH_FLAGS instead of looping.",
+        "quiz: send the exact batch as `questions_json` (not `items[]`) AND the full learner-facing batch text as `rendered_content` (intro/instructions + every question + its options) so the receipt covers the whole emitted turn; fix EVERY issue (any severity blocks; max 2 cycles), then re-emit the corrected batch instead of looping.",
         "grade: when one learner reply answers several questions, send ONE `grade-audit` envelope with an `items[]` entry per answer (`{id,concept,question,learner_answer,claimed_verdict,source_excerpt}`); a single answer may use the flat object. Use the verifier's per-item `correct_verdict`.",
         "grade mismatch: on GRADE_MISMATCH, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict`, then emit those verdicts — do not emit a disputed grade.",
         "do not re-verify: if a fact-check receipt already covers your draft, emit that draft unchanged — re-dispatching the same claims is blocked and only for a materially corrected draft after an ISSUES verdict.",
@@ -1018,7 +1018,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary.",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review context: run the `review-scout` subagent first; it builds the due queue and writes the review digest (`REVIEW_SCOUT_DIGEST:`). A review's first claims/quiz turn is withheld (NO_REVIEW_CONTEXT) until it has run; a partial digest banners (REVIEW CONTEXT INCOMPLETE), never withholds.",
-        "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. A PASS/PASS_WITH_FLAGS renders clean and an ISSUES verdict renders with a flags banner (no re-run, cap 2 passes).",
+        "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. A PASS renders clean and an ISSUES verdict renders with a flags banner (no re-run, cap 2 passes).",
         "viz: a figure is its own `[[TURN:viz]]` message (never a ```viz block inside a claims/none turn). Give the `viz` subagent the teaching intent, then dispatch ONE foreground `viz-audit` with the spec AND `rendered_content` = the full turn draft (supporting words + the fenced spec); emit the audited draft unchanged. A wrong/different spec, or a receipt with no spec/rendered_content, will not bind.",
         "verifier failed on provider errors (503/429/timeout): retry once, then re-dispatch the SAME verifier with an explicit `model:` from the alternate set (verifiers → deepseek-v4.1-flash, scout/review-scout → muse-spark-1.3-contributor); if it still fails, proceed and surface what is unverified.",
       ].join("\n");
@@ -1225,7 +1225,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         }
       } else if (any) {
         toConsume.push(any);
-        surface += "⚠️ REVIEW FLAGS SURFACED — high/medium review issues were reported on the ingest output; the content below is shown with those flags outstanding.\n\n";
+        surface += "⚠️ REVIEW FLAGS SURFACED — review issues were reported on the ingest output; the content below is shown with those flags outstanding.\n\n";
       } else {
         blocks.push("NO_REVIEW_GATE_PASS");
       }
@@ -1499,7 +1499,10 @@ export function createGate(options: GateOptions = {}): GateEngine {
     }
 
     run.retries += 1;
-    const remainingHighMedium = R.some((r) => r.issues && P.isHighOrMedium(r.severity));
+    // Any issue remains blocking, at ANY severity: a verifier's `low` is as
+    // hard a stop as a `high`. The no-cap rule below therefore keys on the
+    // presence of an issue, not on its severity label.
+    const remainingIssues = R.some((r) => r.issues);
 
     const fallbackLines: string[] = [];
     for (const [agent, count] of Object.entries(run.agentFailures)) {
@@ -1519,9 +1522,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
     const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";
     const reviewScoutNote = reviewScoutNeeded ? "Run the `review-scout` subagent first to build the due queue.\n" : "";
 
-    // No-cap rule: while a high/medium issue remains, keep blocking and never
-    // dump the content as UNVERIFIED. The cap applies to every other reason.
-    if (run.retries > P.MAX_RETRIES && !remainingHighMedium) {
+    // No-cap rule: while any issue remains (any severity), keep blocking and
+    // never dump the content as UNVERIFIED. The cap applies to every other reason.
+    if (run.retries > P.MAX_RETRIES && !remainingIssues) {
       run.retries = 0;
       const soloBlocked = codes.some((c) => c === "SOLO_NO_TEACHING" || c === "SOLO_NO_AIDS");
       const verificationBlocked = codes.some((c) => /^(FACT_CHECK|CLAIMS_INCOMPLETE|NO_FACT_CHECK_MATCH)/.test(c));

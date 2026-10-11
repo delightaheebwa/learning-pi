@@ -514,6 +514,24 @@ await fg('sq3', 'quiz-audit', fullEnv, JSON.stringify({ verdict: 'PASS', issues:
 const fullQuiz = await msg('[[TURN:quiz]]\n' + fullBatch, 'stop');
 assert('rendered_content quiz receipt binds the full batch', allowed(fullQuiz));
 
+// Any severity blocks: a low-severity quiz issue is an ISSUES verdict, not an
+// accepted caveat. (Lows used to pass as PASS_WITH_FLAGS, silently.)
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const lowQuizEnv = JSON.stringify({ gate: 'quiz_audit', purpose: 'probe', questions_json: [{ id: 1, question: 'What is entropy?' }] });
+await dispatch('quiz-audit', lowQuizEnv, 'sq4');
+await fg('sq4', 'quiz-audit', lowQuizEnv, JSON.stringify({ verdict: 'ISSUES', issues: [{ id: 'q1', severity: 'low', problem: 'wording nit' }] }));
+const lowQuizTurn = await msg('[[TURN:quiz]]\nWhat is entropy?', 'stop');
+assert('low-severity issue blocks a quiz turn', blocked(lowQuizTurn, 'QUIZ_AUDIT_ISSUES'));
+
+// A `PASS_WITH_FLAGS` that still lists residual low issues is NOT a pass: any
+// non-empty `issues[]` is an ISSUES verdict regardless of the verdict word.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const flagQuizEnv = JSON.stringify({ gate: 'quiz_audit', purpose: 'probe', questions_json: [{ id: 1, question: 'What is KL divergence?' }] });
+await dispatch('quiz-audit', flagQuizEnv, 'sq5');
+await fg('sq5', 'quiz-audit', flagQuizEnv, JSON.stringify({ verdict: 'PASS_WITH_FLAGS', issues: [{ id: 'q1', severity: 'low', problem: 'wording nit' }] }));
+const flagQuizTurn = await msg('[[TURN:quiz]]\nWhat is KL divergence?', 'stop');
+assert('PASS_WITH_FLAGS residual low issue blocks a quiz turn', blocked(flagQuizTurn, 'QUIZ_AUDIT_ISSUES'));
+
 // An envelope-less async notification still mints an unbound receipt that binds
 // (its dispatch could not be correlated, so there is nothing to bind against).
 await setPrompt('[[FLOW:resume]] continue the lesson');

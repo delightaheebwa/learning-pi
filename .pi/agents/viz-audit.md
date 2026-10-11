@@ -34,12 +34,11 @@ are supplied) and the `instructed` intent:
 
 Begin your final message with `[[TURN:none]]` as its first line (the learning gate strips this tag
 when it is active), then output ONLY valid JSON, no prose:
-`{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","issues":[{"severity":"high|medium|low","where":"spec|prose","problem":"...","suggested_fix":"..."}],"evidence":["what you read/checked"]}`
+`{"verdict":"PASS|ISSUES","issues":[{"severity":"high|medium|low","where":"spec|prose","problem":"...","suggested_fix":"..."}],"evidence":["what you read/checked"]}`
 
-- `PASS` — zero high/medium issues.
-- `PASS_WITH_FLAGS` — no high issues and at most one medium, or lows only (the Tutor accepts these
-  silently, without re-running).
-- `ISSUES` — one or more high issues, or two+ mediums.
+- `PASS` — zero issues.
+- `ISSUES` — one or more issues of **ANY** severity (`high`, `medium`, or `low`). Every issue
+  blocks; the Tutor fixes it and re-audits. There is no passing-with-flags verdict.
 
 `evidence` MUST list what you actually read/checked (files, sources, and the spec fields). A verdict
 without evidence is unsubstantiated. Do not nitpick wording or stylistic choices; a correct figure

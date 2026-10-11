@@ -211,9 +211,16 @@ deterministic path unchanged (G-judge-degraded-fallback).
   blocks, and the remedy names the span.
 - **G-pass-substantive** *(hard)* — a PASS the judge scores unsubstantiated
   (thin/none, missing items, no evidence) does not verify the turn.
-- **G-issues-no-cap** *(hard)* — while a high/medium issue remains the gate
-  keeps blocking and never dumps the turn as `⛔ UNVERIFIED`; the cap applies to
-  every other reason.
+- **G-issues-no-cap** *(hard)* — while **any** verifier issue remains (any
+  severity) the gate keeps blocking and never dumps the turn as `⛔ UNVERIFIED`;
+  the cap applies to every other reason. Severity labels no longer gate: a `low`
+  blocks exactly like a `high`.
+- **G-any-issue-blocks** *(hard)* — every verifier finding blocks at any
+  severity. A verdict object carrying a non-empty `issues[]` is an ISSUES verdict
+  regardless of the stated verdict word or the severity labels, so a
+  `PASS_WITH_FLAGS` listing residual `low` issues is not a pass. `PASS_WITH_FLAGS`
+  survives only as the review-gate out-of-scope bookkeeping demotion
+  (G-out-of-scope-demoted), never as a verifier's own severity tolerance.
 - **G-verifier-dispute** *(policy)* — the same issue blocking three times is
   adjudicated by the judge (does it still apply?); if not, the engine releases
   the turn with `⚠️ VERIFIER DISPUTED`. The judge only answers.

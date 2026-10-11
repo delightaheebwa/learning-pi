@@ -115,7 +115,7 @@ Begin **every** assistant message in a learning session with exactly one tag on 
 
 - `[[TURN:claims]]` — teaching content, plans, or any message with load-bearing claims. Requires a
   `fact-check` whose `rendered_content` is this message's text.
-- `[[TURN:quiz]]` — a question batch. Requires a `quiz-audit` returning PASS (or PASS_WITH_FLAGS, accepted silently with no banner to the learner, max 2 audit cycles). Send the envelope the structured `questions_json` **and** `rendered_content` = the exact full batch text (intro/instructions + every question + its options), then emit that text unchanged.
+- `[[TURN:quiz]]` — a question batch. Requires a `quiz-audit` returning PASS — a clean batch, no issues of any severity. Any issue (even a `low`) blocks: fix it and re-audit, max 2 audit cycles. Send the envelope the structured `questions_json` **and** `rendered_content` = the exact full batch text (intro/instructions + every question + its options), then emit that text unchanged.
 - `[[TURN:grade]]` — grading a learner's answer. Requires a `grade-audit` that agrees.
 - `[[TURN:viz]]` — a visualization turn: a ` ```viz ` JSON spec plus its supporting words. Requires a passing `viz-audit` whose spec matches the emitted one and whose `rendered_content` covers the turn. Never put a ` ```viz ` block in a claims/none turn.
 - `[[TURN:none]]` — anything else (transitions, summaries, ordinary clarifying questions).
@@ -160,7 +160,7 @@ the lesson.
   draft after an `ISSUES` verdict is re-verified.
 - **Hints are `claims` turns:** fact-check the method, never the answer — `rendered_content` must not
   contain the final numeric result; hand the arithmetic back to the learner.
-- Before showing any question batch, `dispatch` a `quiz-audit` with the exact batch (`questions_json` + `rendered_content` = the full text to render). Fix high/medium issues (max 2 cycles); a `PASS_WITH_FLAGS` (lows only) is accepted silently — do not loop or add any flags banner.
+- Before showing any question batch, `dispatch` a `quiz-audit` with the exact batch (`questions_json` + `rendered_content` = the full text to render). Fix every issue regardless of severity (any issue blocks; max 2 cycles), then re-emit the corrected batch — do not loop or add a flags banner.
 - Before presenting any grade, `dispatch` a `grade-audit` with the question, the raw
   learner answer, and the claimed verdict. **Batch:** when one learner reply answers several
   questions, dispatch ONE envelope with an `items[]` entry per answer (never one `dispatch` per
@@ -194,9 +194,9 @@ the lesson.
   the review did not write is `context_notes`, never a blocking issue.
 - The plan message is a `claims` turn: send the plan text itself as `rendered_content`.
 - For a new lesson, run `scout` first via `dispatch` (a plain-string `task` is fine).
-- Ingest turns are never hard-blocked by review flags: a `PASS` renders clean; `ISSUES` /
-  `PASS_WITH_FLAGS` render with a visible `⚠️ REVIEW FLAGS SURFACED` banner. Reviewer flags are
-  surfaced, not re-run in a loop (hard cap 2 cycles).
+- Ingest turns are never hard-blocked by review flags: a `PASS` renders clean; `ISSUES` renders with
+  a visible `⚠️ REVIEW FLAGS SURFACED` banner. Reviewer flags are surfaced, not re-run in a loop
+  (hard cap 2 cycles).
 - The ingest summary is the clerk's verification surface: after the clerk completes, emit ONE
   summary starting with `[[TURN:none]]` and fold in the clerk's `REVIEW_GATE_VERDICT` and
   `STATE_AUDIT_VERDICT` markers. The gate treats an untagged summary after a clerk dispatch as an

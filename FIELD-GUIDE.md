@@ -196,7 +196,7 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `⚠️ SCOUT DIGEST UNVERIFIED` | Scout finished without a parseable `SCOUT_DIGEST:` receipt | verify the digest exists on disk; re-run Scout if the lesson context looks thin |
 | `⚠️ REVIEW CONTEXT INCOMPLETE` | Review Scout could not read one or more state items | review around the gaps; re-run `review-scout` if the queue looks thin |
 | `⚠️ REVIEW SCOUT DIGEST UNVERIFIED` | Review Scout finished without a parseable `REVIEW_SCOUT_DIGEST:` receipt | verify the digest exists on disk; re-run `review-scout` |
-| `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked (or the receipt named no `files`) / verifier flagged high-or-medium issues | dispatch `tutor-audit` on the handoff batch with `files:[...]`; fix and re-audit (lows pass as `PASS_WITH_FLAGS`) |
+| `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked (or the receipt named no `files`) / verifier flagged an issue (any severity) | dispatch `tutor-audit` on the handoff batch with `files:[...]`; fix every issue and re-audit (out-of-scope observations are `context_notes`, never blocking) |
 | `NO_REVIEW_SESSION_AUDIT` | review close (review-clerk writes) wasn't audited, or the receipt named no `written_files` | dispatch `review-session-audit` with `written_files:[{path},...]` on the exact writes, then summarize |
 | `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output **or** the review-session audit returned `ISSUES` | shown with a banner, **not** withheld or re-run (review close caps at 2 passes) |
 | `⚠️ STATE AUDIT` | `audit_state.py` found **warnings** still outstanding (touched ones are fixed in-flow); warnings never block | run `/audit` for details |

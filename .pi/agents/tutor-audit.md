@@ -27,11 +27,10 @@ Checks (all against the four handoff artifacts only):
 Scope is the four Tutor handoff artifacts ONLY. Everything outside them is OUT OF SCOPE: cross-file position/status drift (MISSION.md, CURRICULUM.md, 💡 Learning Profile.md, 📚 Active Concepts.md, Learner History.md, 🧯 Mistakes.md, Attempts.json), wiki/index/log bookkeeping, and historical session notes are reconciled by the Clerk at `/ingest` and checked by `audit_state.py`. Report such observations in `context_notes` — NEVER as `issues`, even when they look stale. Do not audit wiki page content (that is the `review-gate`).
 
 Begin your final message with `[[TURN:none]]` as its first line (the learning gate strips this tag when it is active), then output ONLY valid JSON, no prose:
-{"verdict":"PASS|PASS_WITH_FLAGS|ISSUES","evidence":["<file read / cross-check run>", ...],"issues":[{"severity":"high|medium|low","location":"...","issue":"..."}],"context_notes":[{"location":"...","note":"..."}]}
+{"verdict":"PASS|ISSUES","evidence":["<file read / cross-check run>", ...],"issues":[{"severity":"high|medium|low","location":"...","issue":"..."}],"context_notes":[{"location":"...","note":"..."}]}
 
-- `PASS` — zero high/medium issues.
-- `PASS_WITH_FLAGS` — only low-severity issues remain (they go in `issues` with severity `low`); this is accepted and does not block.
-- `ISSUES` — one or more high/medium issues.
+- `PASS` — zero issues.
+- `ISSUES` — one or more issues of **ANY** severity (`high`, `medium`, or `low`). Every issue blocks; there is no passing-with-flags verdict. Out-of-scope observations still go in `context_notes`, never `issues`.
 
 `evidence` is mandatory and non-empty: name each handoff file you read and the cross-checks you ran (path pointer agreement, record numbering/Bloom, `Pending Ingest.json` ↔ lesson/session agreement). A verdict with no evidence is treated as unsubstantiated by the gate, even when it is a clean `PASS`.
 
