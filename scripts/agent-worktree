@@ -60,7 +60,15 @@ cmd_clean() {
           fi
           # Drop the merged agent branch too, so a later same-slug `new`
           # reuses the plain date name instead of needlessly suffixing.
-          [ "$removed" = 1 ] && git -C "$ROOT" branch -d "$ref" >/dev/null 2>&1 || true
+          # Under --force the checkout HEAD may not contain the branch even
+          # though main does, so -d can refuse — use -D there.
+          if [ "$removed" = 1 ]; then
+            if [ "$force" = 1 ]; then
+              git -C "$ROOT" branch -D "$ref" >/dev/null 2>&1 || true
+            else
+              git -C "$ROOT" branch -d "$ref" >/dev/null 2>&1 || true
+            fi
+          fi
         fi
       done
   git -C "$ROOT" worktree prune
