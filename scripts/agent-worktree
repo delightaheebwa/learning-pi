@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# agent-worktree — one worktree per agent so concurrent models never collide.
+#
+# Usage:
+#   scripts/agent-worktree new <slug> [--base <ref>] [--path <dir>]
+#   scripts/agent-worktree list
+#   scripts/agent-worktree clean [--force]
+#
+# `new` fetches origin, creates branch agent/<slug>-YYYYMMDD (or with a
+# numeric suffix on collision) from <ref> (default origin/main, fallback
+# main), and adds a worktree as a SIBLING of the repo root:
+#   <repo-parent>/learning-pi-worktrees/<sanitized-branch>
+# It prints the new worktree path on the last line (cd there for all work).
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_NAME="$(basename "$ROOT")"
+PARENT="$(dirname "$ROOT")"
+WT_BASE="$PARENT/${REPO_NAME}-worktrees"
+
+die() { echo "agent-worktree: $*" >&2; exit 1; }
+
+cmd_list() {
+  git -C "$ROOT" worktree list
+}
+
+cmd_clean() {
+  local force=0
+  [[ "${1:-}" == "--force" ]] && force=1
+  git -C "$ROOT" worktree prune
+  # Remove worktrees whose branch is already merged into main.
+  git -C "$ROOT" worktree list --porcelain \
+    | awk '/^worktree /{wt=$2} /^branch /{print wt"|"$2}' \
+    | while IFS='|' read -r wt br; do
+        [ "$wt" = "$ROOT" ] && continue
+        ref="${br#refs/heads/}"
+        case "$ref" in
+          agent/*) ;;
+          *) continue ;;
+        esac
+        if git -C "$ROOT" merge-base --is-ancestor "$br" refs/heads/main 2>/dev/null \
+        || git -C "$ROOT" merge-base --is-ancestor "$br" refs/remotes/origin/main 2>/dev/null; then
+          if [ "$force" = 1 ]; then
+            git -C "$ROOT" worktree remove --force "$wt" && echo "removed $wt"
+          else
+            if git -C "$ROOT" worktree remove "$wt" 2>/dev/null; then
+              echo "removed $wt"
+            else
+              echo "skip $wt (dirty or unpushed — use --force to remove anyway)" >&2
+            fi
+          fi
+        fi
+      done
+  git -C "$ROOT" worktree prune
+  git -C "$ROOT" worktree list
+}
+
+cmd_new() {
+  local slug="${1:-}"; shift || true
+  local base="" custom_path=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --base) base="$2"; shift 2 ;;
+      --path) custom_path="$2"; shift 2 ;;
+      *) die "unknown argument: $1" ;;
+    esac
+  done
+  [[ -n "$slug" ]] || die "usage: scripts/agent-worktree new <slug> [--base <ref>]"
+  slug="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-')"
+  [[ -n "$slug" && "$slug" != "-" ]] || die "bad slug"
+
+  git -C "$ROOT" fetch origin main 2>/dev/null || true
+
+  if [ -z "$base" ]; then
+    if git -C "$ROOT" rev-parse --verify -q refs/remotes/origin/main >/dev/null; then
+      base="origin/main"
+    else
+      base="main"
+    fi
+  fi
+  git -C "$ROOT" rev-parse --verify -q "$base" >/dev/null \
+    || die "base ref '$base' does not exist"
+
+  local date; date="$(date +%Y%m%d)"
+  local branch="agent/${slug}-${date}"
+  local n=1
+  while git -C "$ROOT" rev-parse --verify -q "refs/heads/$branch" >/dev/null \
+     || git -C "$ROOT" rev-parse --verify -q "refs/remotes/origin/$branch" >/dev/null; do
+    n=$((n + 1))
+    branch="agent/${slug}-${date}-${n}"
+  done
+
+  local wt_path
+  if [ -n "$custom_path" ]; then
+    wt_path="$custom_path"
+  else
+    local safe; safe="$(printf '%s' "$branch" | tr '/' '-')"
+    wt_path="$WT_BASE/$safe"
+  fi
+  [ -e "$wt_path" ] && die "path already exists: $wt_path"
+  mkdir -p "$(dirname "$wt_path")"
+
+  git -C "$ROOT" worktree add -b "$branch" "$wt_path" "$base" \
+    || die "git worktree add failed"
+  echo "branch:   $branch"
+  echo "worktree: $wt_path"
+  echo "base:     $base"
+  echo "next: cd to the worktree — do ALL edits, tests, and commits there."
+  printf '%s\n' "$wt_path"
+}
+
+case "${1:-}" in
+  new) shift; cmd_new "$@" ;;
+  list) cmd_list ;;
+  clean) shift; cmd_clean "$@" ;;
+  -h|--help|help|"") sed -n '2,14p' "$0" ;;
+  *) die "unknown command: $1 (new|list|clean)" ;;
+esac
