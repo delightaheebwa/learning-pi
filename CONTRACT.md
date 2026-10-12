@@ -177,7 +177,9 @@ its tagged test, change the implementation, all in one reviewed commit.
   whatever the model claims). The deterministic script guard withholds it as
   `LANGUAGE_MISMATCH` before binding, on both the judge and legacy paths, and
   never dumps it at the retry cap. A learner who writes CJK is exempt, and the
-  verified draft survives for a clean re-emit.
+  verified draft survives for a clean re-emit. Scope is CJK/kana/Hangul only
+  (Latin, Greek, and Cyrillic are excluded because math and names mix them into
+  English prose); drift into other non-Latin scripts is not covered.
 - **G-dispatch-object-task** *(hard)* — verifier/worker dispatches go through the
   `dispatch` helper, which takes the JSON envelope as an **object** and runs the
   child through pi-subagents' structured delegation bridge (`subagent` is

@@ -1250,16 +1250,20 @@ export function createGate(options: GateOptions = {}): GateEngine {
       }
     }
 
-    // Language/script drift guard (deterministic, pre-judge): a turn the tutor
-    // drafted in one script but emitted in another is model drift, not a
-    // rendering glitch. Its receipt no longer binds and the learner cannot read
-    // it, so withhold it outright — never surface foreign-script content, even
-    // at the retry cap. References are the learner's latest message and every
-    // submitted/verified draft: if any already uses the script, it is the
-    // learner's language and the emission is allowed.
+    // Language/script drift guard (deterministic; runs before the judge verdict
+    // is applied): a turn the tutor drafted in one script but emitted in another
+    // is model drift, not a rendering glitch. Its receipt no longer binds and
+    // the learner cannot read it, so withhold it outright — never surface
+    // foreign-script content, even at the retry cap. References are the
+    // learner's latest message and every submitted/verified draft: if any
+    // already uses the script, it is the learner's language and the emission is
+    // allowed. Include `renderedContent` alongside `boundTextOf` so the judge
+    // path sees the same reference set as the legacy path (which uses
+    // `renderedContent || questionsText || gradeText`).
     {
       const scriptRefs: Array<string | undefined> = [run.learnerText];
       for (const r of R) {
+        if (r.renderedContent) scriptRefs.push(r.renderedContent);
         const b = boundTextOf(r);
         if (b) scriptRefs.push(b);
       }

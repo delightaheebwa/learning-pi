@@ -449,7 +449,10 @@ export function coverage(needle: string, hay: string): number {
 // getting Chinese).
 const CJK_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7a3]/g;
 export const CJK_MIN_CHARS = 12;
-export const CJK_MIN_REF_CHARS = 4;
+// A terse CJK learner ("你好", "好的") must exempt the tutor, so the reference
+// threshold is deliberately low; the emission threshold stays high enough that a
+// stray CJK word in English prose is never flagged.
+export const CJK_MIN_REF_CHARS = 2;
 
 /** Number of CJK/kana/Hangul characters in `s`. */
 export function cjkCount(s: string): number {

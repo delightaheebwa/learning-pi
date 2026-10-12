@@ -295,7 +295,7 @@
     {
       "id": "G-language-drift",
       "severity": "hard",
-      "statement": "A learner-facing turn emitted predominantly in CJK/kana/Hangul while the learner's latest message and every submitted/verified draft are not is language drift (a fluent translation, not a rendering glitch). The deterministic script guard withholds it as LANGUAGE_MISMATCH before binding, on both the judge and legacy paths, and never dumps it at the retry cap; a learner who writes CJK is exempt, and the verified draft survives for a clean re-emit.",
+      "statement": "A learner-facing turn emitted predominantly in CJK/kana/Hangul while the learner's latest message and every submitted/verified draft are not is language drift (a fluent translation, not a rendering glitch). The deterministic script guard withholds it as LANGUAGE_MISMATCH before binding, on both the judge and legacy paths, and never dumps it at the retry cap; a learner who writes CJK is exempt, and the verified draft survives for a clean re-emit. Scope is CJK/kana/Hangul only.",
       "tests": [
         "a Chinese emission of an English quiz is withheld",
         "the verified English re-emit renders after drift",
@@ -304,7 +304,9 @@
         "scriptDrift flags Chinese text with only English references",
         "scriptDrift allows a CJK learner writing CJK",
         "scriptDrift ignores ordinary English",
-        "scriptDrift ignores a few CJK chars in English prose"
+        "scriptDrift ignores a few CJK chars in English prose",
+        "a CJK learner keeps getting CJK",
+        "drift never dumps at the retry cap"
       ]
     },
     {

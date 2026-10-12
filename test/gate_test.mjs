@@ -576,6 +576,22 @@ assert(
 assert('scriptDrift allows a CJK learner writing CJK', !P.scriptDrift('暂停退出凭证 仅限今天的三个后续问题 请回答选项字母', ['请解释内核']));
 assert('scriptDrift ignores ordinary English', !P.scriptDrift('Which kernel does t-SNE use on which side?', ['x']));
 assert('scriptDrift ignores a few CJK chars in English prose', !P.scriptDrift('The 内 kernel is Gaussian.', ['English draft']));
+assert('looksLikeGateEnvelope detects a GATE envelope', P.looksLikeGateEnvelope('GATE:fact_check\n{"gate":"fact_check"}'));
+assert('looksLikeGateEnvelope ignores learner prose', !P.looksLikeGateEnvelope('please explain the t-SNE kernel'));
+
+// A CJK learner keeps getting CJK: their own message exempts the guard.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await setPrompt('请用中文解释一下 t-SNE 的内核');
+const cjkNone = await msg('[[TURN:none]]\n我们继续学习 t-SNE 的内核，请用中文回答这个问题。', 'stop');
+assert('a CJK learner keeps getting CJK', allowed(cjkNone));
+
+// A fresh English learner emitting the same CJK transition is withheld, and
+// repeated drift never dumps foreign-script content at the retry cap.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+for (let i = 0; i < 3; i++) {
+  const driftNone = await msg('[[TURN:none]]\n我们继续学习 t-SNE 的内核，请用中文回答这个问题。', 'stop');
+  assert(`drift never dumps at the retry cap (attempt ${i + 1})`, blocked(driftNone, 'LANGUAGE_MISMATCH'));
+}
 
 // --- 2026-09-26: write-gate receipts that name no artifacts must not bind ---
 // tutor-audit without `files` audited nothing identifiable.
