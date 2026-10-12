@@ -1259,8 +1259,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
     // learner's latest message and every submitted/verified draft: if any
     // already uses the script, it is the learner's language and the emission is
     // allowed. Include `renderedContent` alongside `boundTextOf` so the judge
-    // path sees the same reference set as the legacy path (which uses
-    // `renderedContent || questionsText || gradeText`).
+    // path covers the same text fields the legacy path pushes separately
+    // (`renderedContent`/`questionsText`/`gradeText`).
     {
       const scriptRefs: Array<string | undefined> = [run.learnerText];
       for (const r of R) {
