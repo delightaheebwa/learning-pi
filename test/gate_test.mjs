@@ -539,6 +539,44 @@ await notify('Background task completed: **quiz-audit**\n\nquiz-audit:\n[[TURN:n
 const legacyQuiz = await msg('[[TURN:quiz]]\nWhat is the entropy of a fair coin?', 'stop');
 assert('envelope-less async quiz receipt still binds its turn', allowed(legacyQuiz));
 
+// --- 2026-10-12: the script-drift guard (legacy path) ---
+// A model that drifts into another script (a fluent Chinese translation of an
+// English quiz, later explained as a "rendering glitch") must be withheld, not
+// shown. The guard is deterministic and runs before the binding check, so it
+// fires even when a verified English receipt exists.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const driftEnv = JSON.stringify({
+  gate: 'quiz_audit',
+  rendered_content:
+    'Pause exit ticket. Which kernel does t-SNE use on which side of the comparison, and why? A) Student-t data B) Gaussian data',
+  questions_json: [
+    {
+      id: 'X1',
+      type: 'mcq',
+      question: 'Which kernel does t-SNE use on which side of the comparison, and why?',
+      options: ['A) Student-t data', 'B) Gaussian data'],
+    },
+  ],
+});
+await dispatch('quiz-audit', driftEnv, 'ld1');
+await fg('ld1', 'quiz-audit', driftEnv, JSON.stringify({ verdict: 'PASS', issues: [] }));
+const driftedQuiz = await msg(
+  '[[TURN:quiz]]\n暂停退出凭证 — 仅限今天的三个后续问题。请回答选项字母，并针对每个问题标注置信度。在对比中，t-SNE 在哪一侧使用哪种内核，为什么？',
+  'stop'
+);
+assert('legacy path withholds a Chinese emission of an English quiz', blocked(driftedQuiz, 'LANGUAGE_MISMATCH'));
+const cleanQuiz = await msg('[[TURN:quiz]]\nPause exit ticket. Which kernel does t-SNE use on which side of the comparison, and why?', 'stop');
+assert('legacy path renders the English re-emit after drift', allowed(cleanQuiz));
+
+// Primitive unit checks for the guard.
+assert(
+  'scriptDrift flags Chinese text with only English references',
+  P.scriptDrift('暂停退出凭证 仅限今天的三个后续问题 请回答选项字母 并针对每个问题标注置信度', ['Which kernel does t-SNE use?'])
+);
+assert('scriptDrift allows a CJK learner writing CJK', !P.scriptDrift('暂停退出凭证 仅限今天的三个后续问题 请回答选项字母', ['请解释内核']));
+assert('scriptDrift ignores ordinary English', !P.scriptDrift('Which kernel does t-SNE use on which side?', ['x']));
+assert('scriptDrift ignores a few CJK chars in English prose', !P.scriptDrift('The 内 kernel is Gaussian.', ['English draft']));
+
 // --- 2026-09-26: write-gate receipts that name no artifacts must not bind ---
 // tutor-audit without `files` audited nothing identifiable.
 await setPrompt('[[FLOW:teach]] teach me X');

@@ -136,8 +136,18 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const flow = P.detectFlow(prompt);
       // Subagent starts carry no FLOW marker — never wipe the parent run.
       // Only (re)start gating when a real learning flow begins.
-      if (flow === "other") return;
+      if (flow === "other") {
+        // A bare learner message inside an active flow: remember its text so the
+        // script-drift guard can tell the learner's language from the model's.
+        // Verifier/subagent prompts carry a GATE envelope; ignore those.
+        if (run.flow !== "other") {
+          const t = P.promptText(prompt);
+          if (t && !P.looksLikeGateEnvelope(t)) run.learnerText = t;
+        }
+        return;
+      }
       reset(flow);
+      run.learnerText = P.promptText(prompt);
     } catch {
       /* fail open: keep existing run */
     }
@@ -592,6 +602,37 @@ export function createGate(options: GateOptions = {}): GateEngine {
         if (!inferredTag) blockers.push("NO_TURN_TAG");
       }
       const tag = explicitTag || inferredTag || (inferredNone ? "none" : undefined);
+
+      // Language/script drift guard (deterministic): never surface a turn the
+      // model emitted in a different script than the learner and the verified
+      // drafts (see primitives.scriptDrift). Applies on the legacy path too, so
+      // a judge-less run cannot leak foreign-script content.
+      {
+        const scriptRefs: Array<string | undefined> = [run.learnerText];
+        for (const r of run.receipts) {
+          const b = r.renderedContent || r.questionsText || r.gradeText;
+          if (b) scriptRefs.push(b);
+        }
+        if (P.scriptDrift(text, scriptRefs)) {
+          const withheld =
+            "⛔ WITHHELD (LANGUAGE_MISMATCH)\n" +
+            "This turn was written in a different language/script than the learner's. Re-emit it in the " +
+            "learner's own language (the language of their latest message); do not translate a verified draft " +
+            "without re-verifying it first.\n\n";
+          ledger.decision({
+            at: new Date().toISOString(),
+            flow: run.flow,
+            turnType: (tag || "none") as any,
+            outcome: "block",
+            codes: ["LANGUAGE_MISMATCH"],
+            source: "heuristic",
+            reason:
+              "The emission is predominantly CJK/kana/Hangul while the learner's message and every verified draft are not.",
+            remedy: "Re-emit in the learner's language; re-verify a translated draft before emitting it.",
+          });
+          return { message: P.replaceText(message, withheld), notify: "learning-gate blocked: LANGUAGE_MISMATCH" };
+        }
+      }
 
       // State gate (P2.1): the content gate (fact-check/quiz/grade/review) and
       // the state gate are separate. At the ingest/review close the
@@ -1206,6 +1247,41 @@ export function createGate(options: GateOptions = {}): GateEngine {
               ", "
             )}. Re-dispatch the fact-check with every one added as a claim (a formula written as LaTeX in the draft may be restated in plain prose — matching is notation-insensitive), then emit this draft unchanged.`;
         }
+      }
+    }
+
+    // Language/script drift guard (deterministic, pre-judge): a turn the tutor
+    // drafted in one script but emitted in another is model drift, not a
+    // rendering glitch. Its receipt no longer binds and the learner cannot read
+    // it, so withhold it outright — never surface foreign-script content, even
+    // at the retry cap. References are the learner's latest message and every
+    // submitted/verified draft: if any already uses the script, it is the
+    // learner's language and the emission is allowed.
+    {
+      const scriptRefs: Array<string | undefined> = [run.learnerText];
+      for (const r of R) {
+        const b = boundTextOf(r);
+        if (b) scriptRefs.push(b);
+      }
+      if (P.scriptDrift(text, scriptRefs)) {
+        const withheld =
+          "⛔ WITHHELD (LANGUAGE_MISMATCH)\n" +
+          "This turn was written in a different language/script than the learner's. Re-emit it in the " +
+          "learner's own language (the language of their latest message); do not translate a verified draft " +
+          "without re-verifying it first.\n\n";
+        ledger.decision({
+          at: new Date().toISOString(),
+          flow: run.flow,
+          turnType: turnType as any,
+          outcome: "block",
+          codes: ["LANGUAGE_MISMATCH"],
+          source: assessment.source,
+          escalated: assessment.escalated,
+          reason:
+            "The emission is predominantly CJK/kana/Hangul while the learner's message and every verified draft are not.",
+          remedy: "Re-emit in the learner's language; re-verify a translated draft before emitting it.",
+        });
+        return { message: P.replaceText(message, withheld), notify: "learning-gate blocked: LANGUAGE_MISMATCH" };
       }
     }
 

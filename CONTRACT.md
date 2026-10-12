@@ -171,6 +171,13 @@ its tagged test, change the implementation, all in one reviewed commit.
   bound text the judge sees, and without it the derived bound text includes each
   item's `options`. A questions-only binding cannot strand a valid quiz turn as
   `QUIZ_AUDIT_STALE`.
+- **G-language-drift** *(hard)* — a learner-facing turn emitted predominantly in
+  CJK/kana/Hangul while the learner's latest message and every submitted/verified
+  draft are not is language drift (a fluent translation, not a rendering glitch,
+  whatever the model claims). The deterministic script guard withholds it as
+  `LANGUAGE_MISMATCH` before binding, on both the judge and legacy paths, and
+  never dumps it at the retry cap. A learner who writes CJK is exempt, and the
+  verified draft survives for a clean re-emit.
 - **G-dispatch-object-task** *(hard)* — verifier/worker dispatches go through the
   `dispatch` helper, which takes the JSON envelope as an **object** and runs the
   child through pi-subagents' structured delegation bridge (`subagent` is

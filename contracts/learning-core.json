@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
-  "version": 3,
-  "updated": "2026-10-08",
+  "version": 4,
+  "updated": "2026-10-12",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -290,6 +290,21 @@
         "quiz turn with full rendered_content binds",
         "judge package carries the full quiz batch as boundText",
         "derived quiz boundText includes the options"
+      ]
+    },
+    {
+      "id": "G-language-drift",
+      "severity": "hard",
+      "statement": "A learner-facing turn emitted predominantly in CJK/kana/Hangul while the learner's latest message and every submitted/verified draft are not is language drift (a fluent translation, not a rendering glitch). The deterministic script guard withholds it as LANGUAGE_MISMATCH before binding, on both the judge and legacy paths, and never dumps it at the retry cap; a learner who writes CJK is exempt, and the verified draft survives for a clean re-emit.",
+      "tests": [
+        "a Chinese emission of an English quiz is withheld",
+        "the verified English re-emit renders after drift",
+        "legacy path withholds a Chinese emission of an English quiz",
+        "legacy path renders the English re-emit after drift",
+        "scriptDrift flags Chinese text with only English references",
+        "scriptDrift allows a CJK learner writing CJK",
+        "scriptDrift ignores ordinary English",
+        "scriptDrift ignores a few CJK chars in English prose"
       ]
     },
     {

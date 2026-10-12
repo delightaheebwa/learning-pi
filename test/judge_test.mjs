@@ -248,6 +248,51 @@ const mintFC = (engine, output = FC_PASS) =>
   assert('judge package carries the full quiz batch as boundText', j.getPkg().receipts[0].boundText === batch);
 }
 
+// --- S9b (2026-10-12): a fluent Chinese emission of an English quiz is drift ---
+// The t-SNE exit-ticket incident: the tutor verified an English batch, then
+// emitted a fluent Chinese translation and called it a "rendering glitch". A
+// coverage check can pass a semantic translation, so the deterministic script
+// guard must withhold it — and the verified English receipt must survive for
+// the clean re-emit.
+{
+  const batch =
+    'Pause exit ticket. Which kernel does t-SNE use on which side of the comparison, and why?\nA. Student-t data / Gaussian map B. Gaussian data / Student-t map';
+  const env = {
+    gate: 'quiz_audit',
+    rendered_content: batch,
+    questions_json: [
+      {
+        id: 'X1',
+        type: 'mcq',
+        question: 'Which kernel does t-SNE use on which side of the comparison, and why?',
+        options: ['Student-t data / Gaussian map', 'Gaussian data / Student-t map'],
+      },
+    ],
+  };
+  const j = stubJudge({
+    evaluate: (pkg) => ({
+      turnType: 'quiz',
+      bindings: pkg.receipts.map((r) => ({ index: r.index, covers: true, uncovered: [] })),
+      bestReceipt: 0,
+    }),
+  });
+  const engine = createGate({ judge: j.judge });
+  drive(engine);
+  engine.onToolResult({
+    tool: 'subagent',
+    isError: false,
+    text: JSON.stringify({ verdict: 'PASS', issues: [] }),
+    dispatchCalls: [],
+    mintCalls: [{ agent: 'quiz-audit', envelope: env, output: JSON.stringify({ verdict: 'PASS', issues: [] }) }],
+  });
+  const chinese =
+    '暂停退出凭证 — 仅限今天的三个后续问题。请回答选项字母，并针对每个问题标注置信度。在对比中，t-SNE 在哪一侧使用哪种内核，为什么？在数据侧使用 Student-t，在映射侧使用 Gaussian。';
+  const drifted = await engine.onMessageEnd({ message: msg('[[TURN:quiz]]\n' + chinese) });
+  assert('a Chinese emission of an English quiz is withheld', blocked(drifted, 'LANGUAGE_MISMATCH'));
+  const english = await engine.onMessageEnd({ message: msg('[[TURN:quiz]]\n' + batch) });
+  assert('the verified English re-emit renders after drift', allowed(english));
+}
+
 // --- S10: without rendered_content the derived bound text still includes options ---
 {
   const env = {

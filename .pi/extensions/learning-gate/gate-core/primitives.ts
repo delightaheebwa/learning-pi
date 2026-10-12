@@ -179,6 +179,10 @@ export interface RunState {
   // A corrected (agreeing) re-dispatch must supersede an older disagreement, so
   // a stale `agrees:false` cannot block every later grade turn in the flow.
   lastGradeReceipt?: Receipt;
+  // The learner's latest message text, captured at agent start. The script-drift
+  // guard uses it to tell the learner's language from a drift-prone model's, so
+  // a learner who writes in CJK keeps getting CJK.
+  learnerText?: string;
 }
 
 export interface CallRef {
@@ -427,6 +431,54 @@ export function coverage(needle: string, hay: string): number {
   let hit = 0;
   for (const t of n) if (hs.has(t)) hit++;
   return hit / n.length;
+}
+
+// ---------------------------------------------------------------------------
+// Script-drift guard (language).
+//
+// A drift-prone model occasionally emits a learner-facing turn in a language the
+// learner is not using — e.g. a fluent Chinese translation of an English quiz,
+// which it then explains away as a "rendering glitch" (the 2026-10-12 t-SNE
+// exit-ticket incident). Such a turn is not the verified draft, the learner
+// cannot read it, and its receipt no longer binds, so the gate withholds it.
+//
+// Only CJK ideographs / kana / Hangul are counted. Latin, Greek, and Cyrillic
+// are deliberately excluded: math notation and proper nouns legitimately mix
+// them into English prose. A turn is also exempt when the learner's own latest
+// text or a draft already uses the script (a learner writing Chinese must keep
+// getting Chinese).
+const CJK_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7a3]/g;
+export const CJK_MIN_CHARS = 12;
+export const CJK_MIN_REF_CHARS = 4;
+
+/** Number of CJK/kana/Hangul characters in `s`. */
+export function cjkCount(s: string): number {
+  const m = (s || "").match(CJK_RE);
+  return m ? m.length : 0;
+}
+
+/** Fraction of `s`'s letters that are CJK/kana/Hangul. */
+export function cjkLetterRatio(s: string): number {
+  const letters = (s || "").match(/\p{L}/gu);
+  if (!letters || letters.length === 0) return 0;
+  return cjkCount(s) / letters.length;
+}
+
+/**
+ * True when `text` is written predominantly in CJK/kana/Hangul while none of
+ * `references` (the learner's latest message and the submitted/verified drafts)
+ * use that script. The caller withholds the turn rather than let it render.
+ */
+export function scriptDrift(text: string, references: Array<string | undefined>): boolean {
+  if (cjkCount(text) < CJK_MIN_CHARS) return false;
+  if (cjkLetterRatio(text) < 0.5) return false;
+  for (const r of references) if (r && cjkCount(r) >= CJK_MIN_REF_CHARS) return false;
+  return true;
+}
+
+/** Whether `s` looks like a verifier/subagent GATE envelope rather than prose. */
+export function looksLikeGateEnvelope(s: string): boolean {
+  return /GATE:\s*\w+/.test(s) || /"gate"\s*:/.test(s);
 }
 
 /**
