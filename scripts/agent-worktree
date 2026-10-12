@@ -5,12 +5,22 @@
 #   scripts/agent-worktree new <slug> [--base <ref>] [--path <dir>]
 #   scripts/agent-worktree list
 #   scripts/agent-worktree clean [--force]
+#   scripts/agent-worktree land            # run inside your worktree, after reviewer CLEAN
 #
 # `new` fetches origin, creates branch agent/<slug>-YYYYMMDD (or with a
 # numeric suffix on collision) from <ref> (default origin/main, fallback
 # main), and adds a worktree as a SIBLING of the repo root:
 #   <repo-parent>/learning-pi-worktrees/<sanitized-branch>
 # It prints the new worktree path on the last line (cd there for all work).
+#
+# `land` merges your agent/* branch into main (fast-forward — this repo keeps
+# linear history), pushes main, and removes your worktree. Run it inside your
+# worktree after the reviewer reports CLEAN. If main moved under you, land
+# merges origin/main back into your branch and retries (max 3 attempts). If
+# that merge conflicts, land stops with exit 3 and lists the files: resolve
+# them in your worktree (see AGENTS.md §4), re-verify, commit, and re-run
+# land. Land never rebases, never force-pushes, and never resolves conflicts
+# itself — a conflict always needs the agent's judgment.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -129,10 +139,72 @@ cmd_new() {
   printf '%s\n' "$wt_path"
 }
 
+cmd_land() {
+  # $HERE is this worktree's root (the script lives in <worktree>/scripts/).
+  local wt="$HERE"
+  local branch; branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD)"
+  case "$branch" in
+    agent/*) ;;
+    *) die "land runs inside your worktree on your agent/* branch, not '$branch'" ;;
+  esac
+  [ "$wt" != "$ROOT" ] || die "land runs inside your worktree, not the main checkout"
+  [ -z "$(git -C "$wt" status --porcelain)" ] \
+    || die "worktree has uncommitted changes — commit or stash first"
+  [ "$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)" = "main" ] \
+    || die "main checkout is not on main — report to the user, do not touch it"
+  [ -z "$(git -C "$ROOT" status --porcelain)" ] \
+    || die "main checkout is dirty — report to the user, do not touch it"
+
+  local attempt=1 max_attempts=3
+  while [ "$attempt" -le "$max_attempts" ]; do
+    git -C "$ROOT" fetch origin main \
+      || die "cannot fetch origin — offline? report to the user"
+
+    # Absorb main into the branch first, so the final fast-forward cannot
+    # conflict. A conflict here stops the land: the agent resolves it in
+    # the worktree (AGENTS.md §4), re-verifies, commits, and re-runs land.
+    if ! git -C "$wt" merge origin/main -m "merge: origin/main into $branch" 2>/tmp/land-merge.err; then
+      echo "agent-worktree: conflict merging origin/main into $branch — land stopped." >&2
+      echo "agent-worktree: conflicted files:" >&2
+      git -C "$wt" diff --name-only --diff-filter=U | sed 's/^/  /' >&2
+      echo "agent-worktree: resolve in this worktree per AGENTS.md §4, run" >&2
+      echo "agent-worktree: scripts/learn-check, commit, push, re-review if" >&2
+      echo "agent-worktree: non-trivial, then re-run scripts/agent-worktree land." >&2
+      exit 3
+    fi
+
+    git -C "$wt" push origin "$branch" \
+      || die "cannot push $branch — report to the user"
+
+    git -C "$ROOT" merge --ff-only origin/main >/dev/null \
+      || die "main checkout diverged from origin/main — report to the user"
+    if git -C "$ROOT" merge --ff-only "$branch" >/dev/null 2>&1; then
+      if git -C "$ROOT" push origin main; then
+        local sha; sha="$(git -C "$ROOT" rev-parse HEAD)"
+        echo "landed: $branch -> main ($sha)"
+        cd "$ROOT" || die "cannot cd to $ROOT"
+        git worktree remove --force "$wt" \
+          || die "landed but could not remove $wt — remove it by hand"
+        git branch -d "$branch" >/dev/null 2>&1 || true
+        git worktree prune
+        echo "worktree removed: $wt"
+        echo "continue in the main checkout: $ROOT"
+        return 0
+      fi
+      echo "agent-worktree: main push rejected (someone landed first) — retrying ($attempt/$max_attempts) ..." >&2
+    else
+      echo "agent-worktree: main moved under you — re-merging ($attempt/$max_attempts) ..." >&2
+    fi
+    attempt=$((attempt + 1))
+  done
+  die "land failed after $max_attempts attempts — report branch $branch to the user"
+}
+
 case "${1:-}" in
   new) shift; cmd_new "$@" ;;
   list) cmd_list ;;
   clean) shift; cmd_clean "$@" ;;
+  land) shift; cmd_land "$@" ;;
   -h|--help|help|"") sed -n '2,14p' "$0" ;;
-  *) die "unknown command: $1 (new|list|clean)" ;;
+  *) die "unknown command: $1 (new|list|clean|land)" ;;
 esac

@@ -55,13 +55,45 @@ git worktree add -b agent/<slug>-$(date +%Y%m%d) ../learning-pi-worktrees/agent-
 - Verify here: `scripts/learn-check` (add `--no-load` if offline). Proceed
   only on pass.
 - Push with `git push -u origin <your-branch>` (plain push, never force),
-  then report the worktree path, branch, and SHA so the user can review/merge.
-- After merge, clean up: `git worktree remove <path>` (or
-  `scripts/agent-worktree clean`), then `git worktree prune`.
+  then follow the ship loop (§3). After reviewer `CLEAN`, land it yourself
+  (§4) — do not leave the merge to the user.
 
 ## 3. Ship loop (runs inside the worktree)
 
 Follow `.opencode/loop.md`: verify → commit + push your branch → spawn the
 `reviewer` subagent with worktree path + SHA + intent → fix every `blocking`
 finding → re-verify → new commit (never amend pushed work) → push →
-re-review. Stop at `CLEAN` or after 3 rounds, then report leftovers.
+re-review. Stop at `CLEAN` or after 3 rounds. On `CLEAN`, land (§4). With
+`blocking` findings left after 3 rounds, do **not** land — report the branch,
+the SHA, and the leftovers to the user.
+
+## 4. Landing (auto-merge — you do this, no one else)
+
+After reviewer `CLEAN`, run from inside your worktree:
+
+```bash
+scripts/agent-worktree land
+```
+
+This fast-forwards `main` to your branch (this repo keeps linear history),
+pushes `main`, and removes your worktree — continue in the main checkout
+afterwards. If `main` moved while you worked, `land` merges `origin/main`
+back into your branch and retries (max 3 attempts). It never rebases, never
+force-pushes, and never resolves conflicts itself.
+
+If `land` stops with a conflict (exit 3), resolve it in your worktree:
+
+- `git status` → read every conflicted file **in full**. Keep **both**
+  sides' intent: leave the main-side code intact and adapt your change
+  around it. When the same lines genuinely disagree, prefer the version
+  that keeps existing tests and contracts passing.
+- Never bulk `checkout --ours/--theirs`. Never resolve by deleting or
+  weakening tests, `contracts/`, or `CONTRACT.md` — that is the revise door
+  and needs the user.
+- A conflict in `contracts/`, `CONTRACT.md`, or `test/` expectations you do
+  not fully understand → stop and report to the user instead of guessing.
+- After resolving: `scripts/learn-check` must pass → commit → push → if the
+  resolution touched code beyond the conflict markers, re-run the reviewer
+  → re-run `scripts/agent-worktree land`.
+- Still conflicted after 3 land attempts, or anything above tells you to
+  stop → report the branch, the SHA, and the conflicted files to the user.
