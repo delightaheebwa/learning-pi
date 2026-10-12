@@ -76,7 +76,8 @@ scripts/agent-worktree land
 ```
 
 This fast-forwards `main` to your branch (this repo keeps linear history),
-pushes `main`, and removes your worktree — continue in the main checkout
+pushes `main`, deletes the branch (local and remote), and removes your
+worktree — continue in the main checkout
 afterwards. If `main` moved while you worked, `land` merges `origin/main`
 back into your branch and retries (max 3 attempts). It never rebases, never
 force-pushes, and never resolves conflicts itself.

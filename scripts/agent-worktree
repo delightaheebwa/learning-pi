@@ -14,8 +14,8 @@
 # It prints the new worktree path on the last line (cd there for all work).
 #
 # `land` merges your agent/* branch into main (fast-forward — this repo keeps
-# linear history), pushes main, and removes your worktree. Run it inside your
-# worktree after the reviewer reports CLEAN. If main moved under you, land
+# linear history), pushes main, deletes the branch (local and remote), and
+# removes your worktree. Run it inside your worktree after the reviewer reports CLEAN. If main moved under you, land
 # merges origin/main back into your branch and retries (max 3 attempts). If
 # that merge conflicts, land stops with exit 3 and lists the files: resolve
 # them in your worktree (see AGENTS.md §4), re-verify, commit, and re-run
@@ -182,6 +182,9 @@ cmd_land() {
       if git -C "$ROOT" push origin main; then
         local sha; sha="$(git -C "$ROOT" rev-parse HEAD)"
         echo "landed: $branch -> main ($sha)"
+        git -C "$ROOT" push origin --delete "$branch" >/dev/null 2>&1 \
+          && echo "remote branch deleted: origin/$branch" \
+          || echo "agent-worktree: warning: could not delete origin/$branch — delete it by hand" >&2
         cd "$ROOT" || die "cannot cd to $ROOT"
         git worktree remove --force "$wt" \
           || die "landed but could not remove $wt — remove it by hand"
