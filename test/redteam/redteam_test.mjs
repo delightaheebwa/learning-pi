@@ -39,7 +39,7 @@ const allowed = (r) => r && r.message && !outText(r).startsWith('⛔');
 
 const FC_PASS = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
 const fcEnvelope = (draft, claims) =>
-  JSON.stringify({ gate: 'fact_check', claims: claims.map((c, i) => ({ id: i + 1, claim: c })), rendered_content: draft, source_urls: ['https://e.com'] });
+  JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', claims: claims.map((c, i) => ({ id: i + 1, claim: c })), rendered_content: draft, source_urls: ['https://e.com'] });
 
 let idn = 0;
 const nextId = () => `rt${++idn}`;

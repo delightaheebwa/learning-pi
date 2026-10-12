@@ -1,6 +1,6 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
-  "version": 4,
+  "version": 5,
   "updated": "2026-10-12",
   "invariants": [
     {
@@ -78,7 +78,7 @@
     {
       "id": "G-no-duplicate-factcheck",
       "severity": "hard",
-      "statement": "Re-dispatching a fact-check for a draft that already has a valid receipt is blocked, while a materially corrected draft after an ISSUES verdict is allowed, and so is the re-dispatch CLAIMS_INCOMPLETE mandates (the same draft with the missing claims added); the corrected receipt supersedes the incomplete one.",
+      "statement": "Re-dispatching a fact-check for a draft that already has a valid receipt is blocked, while a materially corrected draft after an ISSUES verdict is allowed, and so are the re-dispatches CLAIMS_INCOMPLETE and FOUNDATION_INCOMPLETE mandate (the same draft with the missing claims or foundation beats added); the corrected receipt supersedes the incomplete one.",
       "tests": [
         "duplicate fact-check of a verified draft is blocked",
         "corrected re-dispatch after ISSUES is allowed",
@@ -136,6 +136,25 @@
         "a mutated formula is still reported as a missing hard fact",
         "a content-free math span normalises to nothing and is not a missing fact",
         "judge path withholds claims with an unlisted hard fact"
+      ]
+    },
+    {
+      "id": "G-foundation-beats",
+      "severity": "hard",
+      "statement": "The gate checks omission, not just commission. In a teach/resume flow a claims turn must declare a `turn_kind`: `idea` (introduces a new definition, formula, mechanism, or micro-step) carries a `foundation` block with all four beats — `problem` (what it is for), `where_from` (derivation/mechanism), `conditions` (assumptions/boundary cases), `contrast` (nearest-neighbour distinction) — each non-empty and its prose present in the verified draft; `answer`/`repair`/`hint`/`plan` need no foundation. A missing or unknown `turn_kind`, or an `idea` turn missing or not binding a beat, is withheld as FOUNDATION_INCOMPLETE, so a fluent what-only summary that is factually true and fully span-covered cannot render as if complete. At the retry cap such a turn is withheld entirely rather than shown. A fact_check verdict that names a non-empty `omitted_foundations[]` (load-bearing theory in the sources with no trace in the draft) is an ISSUES verdict even when it also says PASS.",
+      "tests": [
+        "idea turn with a complete bound foundation renders",
+        "teach/resume claims turn without turn_kind is withheld",
+        "idea turn missing a foundation beat is withheld",
+        "idea turn whose foundation beat is not in the draft is withheld",
+        "answer turn needs no foundation beat",
+        "idea turn without a foundation block is withheld",
+        "corrected fact-check re-dispatch for a missing foundation is allowed",
+        "corrected foundation re-emit renders",
+        "fact-check that names omitted foundations blocks the turn",
+        "retry cap withholds a foundation-incomplete idea turn",
+        "judge path: idea turn with a complete foundation renders",
+        "judge path: idea turn without turn_kind is withheld"
       ]
     },
     {
@@ -233,7 +252,7 @@
     {
       "id": "G-hard-fact-withhold",
       "severity": "hard",
-      "statement": "At the retry cap, a claims turn whose draft states hard facts (extractHardFacts: URL, LaTeX/math expression, scientific notation, decimal, percentage, or 3+ digit integer) is withheld entirely — only the banner renders, no content — rather than delivered as `⛔ UNVERIFIED`, but only when the block implicates verification (`FACT_CHECK_*`, `CLAIMS_INCOMPLETE`, `NO_FACT_CHECK_MATCH`). A verified draft blocked only on context (`NO_SCOUT_CONTEXT`/`NO_REVIEW_CONTEXT`) degrades gracefully. Non-hard-fact prose still degrades with the UNVERIFIED banner, and G-retry-cap semantics are unchanged for every other turn (grade/quiz/none). This deliberately inverts the anti-dead-end policy for load-bearing facts: a number or formula nobody verified is never shown.",
+      "statement": "At the retry cap, a claims turn whose draft states hard facts (extractHardFacts: URL, LaTeX/math expression, scientific notation, decimal, percentage, or 3+ digit integer) is withheld entirely — only the banner renders, no content — rather than delivered as `⛔ UNVERIFIED`, but only when the block implicates verification (`FACT_CHECK_*`, `CLAIMS_INCOMPLETE`, `FOUNDATION_INCOMPLETE`, `NO_FACT_CHECK_MATCH`). A foundation-incomplete idea turn (`FOUNDATION_INCOMPLETE`) is withheld the same way even with no hard facts, so a complete-sounding but foundation-less summary is never shown. A verified draft blocked only on context (`NO_SCOUT_CONTEXT`/`NO_REVIEW_CONTEXT`) degrades gracefully. Non-hard-fact prose still degrades with the UNVERIFIED banner, and G-retry-cap semantics are unchanged for every other turn (grade/quiz/none). This deliberately inverts the anti-dead-end policy for load-bearing facts and for the missing theoretical foundation.",
       "tests": [
         "retry cap withholds a hard-fact claims turn",
         "retry cap still delivers non-hard-fact prose",

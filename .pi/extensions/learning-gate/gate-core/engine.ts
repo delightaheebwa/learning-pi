@@ -131,6 +131,29 @@ export function createGate(options: GateOptions = {}): GateEngine {
     if (i >= 0) run.receipts.splice(i, 1);
   };
 
+  // Foundation beats (G-foundation-beats) apply only to the teaching flows: a
+  // new idea delivered during teach/resume must ship its theoretical
+  // foundation, not just the "what". Other flows (review/solo/ingest) keep the
+  // existing behavior.
+  const foundationApplies = () => run.flow === "teach" || run.flow === "resume";
+  const foundationGapsOf = (r: P.Receipt): string[] =>
+    foundationApplies() ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation) : [];
+  const foundationRemedy = (r: P.Receipt, gaps: string[]): string => {
+    if (gaps.length === 1 && gaps[0] === "turn_kind") {
+      return (
+        "This teach/resume claims turn declares no `turn_kind`. Add `\"turn_kind\": \"idea\"` (with a `foundation` block) " +
+        "when the turn introduces a new idea, or `\"answer\"|\"repair\"|\"hint\"|\"plan\"` when it does not. Re-dispatch the " +
+        "fact-check envelope with the field, then emit this draft unchanged."
+      );
+    }
+    return (
+      `This idea turn is missing part of its theoretical foundation (${gaps.join(", ")}). Every new idea ships with all ` +
+      "four beats — `problem` (what it is for), `where_from` (the derivation or mechanism), `conditions` (assumptions and " +
+      "boundary cases), `contrast` (the nearest-neighbour distinction). Put each beat's prose in the draft and list it " +
+      "verbatim (or as a close excerpt) in the envelope's `foundation` block, then re-dispatch the fact-check and emit."
+    );
+  };
+
   const onBeforeAgentStart = (prompt: any): void => {
     try {
       const flow = P.detectFlow(prompt);
@@ -236,7 +259,10 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // the legitimate fix cycle is unaffected. A receipt whose claims do NOT
       // cover the draft's hard facts is incomplete: CLAIMS_INCOMPLETE's remedy
       // is exactly to re-dispatch with the missing claims added, so that
-      // re-dispatch must be allowed (the 2026-10-09 dead-end).
+      // re-dispatch must be allowed (the 2026-10-09 dead-end). A receipt whose
+      // foundation beat is incomplete is incomplete for the same reason: the
+      // FOUNDATION_INCOMPLETE remedy adds the missing beats, so it too is
+      // allowed to re-dispatch.
       for (const fc of calls.filter((c) => c.agent === "fact-check")) {
         const draft = fc.envelope && typeof fc.envelope.rendered_content === "string" ? fc.envelope.rendered_content : undefined;
         if (!draft) continue;
@@ -246,7 +272,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
             r.valid &&
             r.renderedContent &&
             P.nearDuplicate(r.renderedContent, draft) &&
-            P.missingHardFacts(r.renderedContent, r.claimsText).length === 0
+            P.missingHardFacts(r.renderedContent, r.claimsText).length === 0 &&
+            foundationGapsOf(r).length === 0
         );
         if (verified) {
           return {
@@ -782,7 +809,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
                 ", "
               )}. Re-dispatch the fact-check with every one of these added as a claim (a formula written as LaTeX in the draft may be restated in plain prose — matching is notation-insensitive), then emit this draft unchanged.`;
           } else {
-            toConsume.push(best);
+            const gaps = foundationGapsOf(best);
+            if (gaps.length > 0) {
+              blockers.push("FOUNDATION_INCOMPLETE");
+              verdictNote = foundationRemedy(best, gaps);
+            } else {
+              toConsume.push(best);
+            }
           }
         }
       } else if (tag === "quiz") {
@@ -1025,16 +1058,24 @@ export function createGate(options: GateOptions = {}): GateEngine {
         // M11: withhold hard facts only when verification is implicated. A
         // verified draft blocked on context alone (NO_SCOUT_CONTEXT /
         // NO_REVIEW_CONTEXT) degrades gracefully instead of being suppressed.
-        const verificationBlocked = codes.some((c) => /^(FACT_CHECK|CLAIMS_INCOMPLETE|NO_FACT_CHECK_MATCH)/.test(c));
+        const verificationBlocked = codes.some((c) => /^(FACT_CHECK|CLAIMS_INCOMPLETE|FOUNDATION_INCOMPLETE|NO_FACT_CHECK_MATCH)/.test(c));
         if (soloBlocked) {
           const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This is an AI-free solo check: teaching content is withheld rather than delivered.\n${fallbackNote}\n`;
           return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };
         }
         // Hard-fact claims are withheld outright at the cap (P1.6): a number,
         // formula, or URL nobody verified must never be delivered, banner or
-        // not. Non-hard-fact prose still degrades gracefully (G-retry-cap).
-        if (tag === "claims" && P.extractHardFacts(text).length > 0 && verificationBlocked) {
-          const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.\n${fallbackNote}\n`;
+        // not. A FOUNDATION_INCOMPLETE idea turn is withheld the same way: a
+        // complete-sounding but foundation-less summary is exactly the harm the
+        // foundation gate exists to prevent. Non-hard-fact prose still degrades
+        // gracefully (G-retry-cap).
+        const foundationBlocked = codes.includes("FOUNDATION_INCOMPLETE");
+        if (tag === "claims" && verificationBlocked && (P.extractHardFacts(text).length > 0 || foundationBlocked)) {
+          const reason =
+            foundationBlocked && P.extractHardFacts(text).length === 0
+              ? "This turn is missing its theoretical foundation and the gate retries are exhausted, so the content is withheld rather than delivered as a complete-sounding but foundation-less summary."
+              : "This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.";
+          const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). ${reason}\n${fallbackNote}\n`;
           return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };
         }
         const banner = `⛔ UNVERIFIED — gate retries exhausted (${codes.join(", ")}). The content below was not verified.\n${fallbackNote}\n`;
@@ -1044,6 +1085,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const fix = [
         "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, `[[TURN:viz]]`, or `[[TURN:none]]`.",
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged. A `[[TURN:claims]]` tag is also inferred automatically when your text matches an already-verified `rendered_content`, so if a message is withheld here, just re-emit the verified draft with its tag.",
+        "foundation: every teach/resume claims turn needs `turn_kind`; an `idea` turn (new definition, formula, mechanism, or micro-step) also needs a `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft. `answer`/`repair`/`hint`/`plan` need no foundation.",
         "quiz: send the exact batch as `questions_json` (not `items[]`) AND the full learner-facing batch text as `rendered_content` (intro/instructions + every question + its options) so the receipt covers the whole emitted turn; fix EVERY issue (any severity blocks), then re-emit the corrected batch instead of looping.",
         "grade: when one learner reply answers several questions, send ONE `grade-audit` envelope with an `items[]` entry per answer (`{id,concept,question,learner_answer,claimed_verdict,source_excerpt}`); a single answer may use the flat object. Use the verifier's per-item `correct_verdict`.",
         "grade mismatch: on GRADE_MISMATCH, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict`, then emit those verdicts — do not emit a disputed grade.",
@@ -1241,6 +1283,12 @@ export function createGate(options: GateOptions = {}): GateEngine {
             `This draft states load-bearing facts that were not in claims[], so the verifier never checked them: ${missing.join(
               ", "
             )}. Re-dispatch the fact-check with every one added as a claim (a formula written as LaTeX in the draft may be restated in plain prose — matching is notation-insensitive), then emit this draft unchanged.`;
+        } else {
+          const gaps = foundationGapsOf(R[fcIdx]);
+          if (gaps.length > 0) {
+            blocks.push("FOUNDATION_INCOMPLETE");
+            verdictNote = foundationRemedy(R[fcIdx], gaps);
+          }
         }
       }
     }
@@ -1600,7 +1648,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
     if (run.retries > P.MAX_RETRIES && !remainingIssues) {
       run.retries = 0;
       const soloBlocked = codes.some((c) => c === "SOLO_NO_TEACHING" || c === "SOLO_NO_AIDS");
-      const verificationBlocked = codes.some((c) => /^(FACT_CHECK|CLAIMS_INCOMPLETE|NO_FACT_CHECK_MATCH)/.test(c));
+      const verificationBlocked = codes.some((c) => /^(FACT_CHECK|CLAIMS_INCOMPLETE|FOUNDATION_INCOMPLETE|NO_FACT_CHECK_MATCH)/.test(c));
       if (soloBlocked) {
         const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This is an AI-free solo check: teaching content is withheld rather than delivered.\n${fallbackNote}\n`;
         ledger.decision({ at: new Date().toISOString(), flow: run.flow, turnType: turnType as any, outcome: "block", codes, source: assessment.source,
@@ -1608,11 +1656,18 @@ export function createGate(options: GateOptions = {}): GateEngine {
         return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };
       }
       // Hard-fact claims are withheld outright at the cap (P1.6): a number,
-      // formula, or URL nobody verified must never be delivered. Non-hard-fact
-      // prose still degrades gracefully (G-retry-cap). M11: only when the block
-      // implicates verification (context-only blocks degrade).
-      if (turnType === "claims" && P.extractHardFacts(text).length > 0 && verificationBlocked) {
-        const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.\n${fallbackNote}\n`;
+      // formula, or URL nobody verified must never be delivered. A
+      // FOUNDATION_INCOMPLETE idea turn is withheld the same way — a
+      // complete-sounding but foundation-less summary is the exact harm. Non-
+      // hard-fact prose still degrades gracefully (G-retry-cap). M11: only when
+      // the block implicates verification (context-only blocks degrade).
+      const foundationBlocked = codes.includes("FOUNDATION_INCOMPLETE");
+      if (turnType === "claims" && verificationBlocked && (P.extractHardFacts(text).length > 0 || foundationBlocked)) {
+        const reason =
+          foundationBlocked && P.extractHardFacts(text).length === 0
+            ? "This turn is missing its theoretical foundation and the gate retries are exhausted, so the content is withheld rather than delivered as a complete-sounding but foundation-less summary."
+            : "This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.";
+        const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). ${reason}\n${fallbackNote}\n`;
         ledger.decision({ at: new Date().toISOString(), flow: run.flow, turnType: turnType as any, outcome: "block", codes, source: assessment.source,
           escalated: assessment.escalated, reason: assessment.reason });
         return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };

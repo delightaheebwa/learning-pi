@@ -111,7 +111,7 @@ const fgRedacted = (id, agent, output) =>
 const subFail = (id, text) =>
   fire('tool_result', { toolName: 'subagent', toolCallId: id, isError: true, content: [{ type: 'text', text }] });
 const fcEnvelope = (draft) =>
-  JSON.stringify({ gate: 'fact_check', claims: [{ id: 1, claim: 'x' }], rendered_content: draft, source_urls: ['https://e.com'] });
+  JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', claims: [{ id: 1, claim: 'x' }], rendered_content: draft, source_urls: ['https://e.com'] });
 const FC_PASS = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
 const REVIEW_PASS = JSON.stringify({ verdict: 'PASS', evidence: ['read X.md'], issues: [], context_notes: [] });
 const CLERK_WRITES = '[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"commit":"abc"}';
@@ -139,7 +139,7 @@ const repairGradeResult = JSON.stringify({
   items: [{ id: 1, agrees: true, correct_verdict: 'fail', explanation: 'divisor slip' }],
 });
 const repairFcEnv = JSON.stringify({
-  gate: 'fact_check',
+  gate: 'fact_check', turn_kind: 'answer',
   claims: [{ id: 1, claim: 'the recipe divides by n-1' }],
   rendered_content: repairDraft,
   source_urls: ['https://e.com'],
@@ -747,7 +747,7 @@ const hardDraft = 'The explained variance is 4.98 on both arms (n=200).';
 // A hard fact in the draft that no claim covers is withheld before emission.
 await setPrompt('[[FLOW:resume]] continue the lesson');
 const envMissingFact = JSON.stringify({
-  gate: 'fact_check',
+  gate: 'fact_check', turn_kind: 'answer',
   claims: [{ id: 1, claim: 'both arms agree' }],
   rendered_content: hardDraft,
   source_urls: ['https://e.com'],
@@ -760,7 +760,7 @@ assert('draft with an unlisted hard fact is withheld', blocked(unlistedFact, 'CL
 // The same draft renders once every hard fact is placed before the verifier.
 await setPrompt('[[FLOW:resume]] continue the lesson');
 const envListedFact = JSON.stringify({
-  gate: 'fact_check',
+  gate: 'fact_check', turn_kind: 'answer',
   claims: [
     { id: 1, claim: 'the explained variance is 4.98' },
     { id: 2, claim: 'the sample size is n=200' },
@@ -777,7 +777,7 @@ assert('hard fact listed in claims is allowed', allowed(listedFact));
 await setPrompt('[[FLOW:resume]] continue the lesson');
 const tailDraft = 'Entropy is the average surprise of a distribution.';
 const envTail = JSON.stringify({
-  gate: 'fact_check',
+  gate: 'fact_check', turn_kind: 'answer',
   claims: [{ id: 1, claim: 'entropy is the average surprise of a distribution' }],
   rendered_content: tailDraft,
   source_urls: ['https://e.com'],
@@ -923,7 +923,7 @@ assert(
 await setPrompt('[[FLOW:resume]] continue the lesson');
 const tailDraft2 = 'Entropy is the average surprise of a distribution.';
 const envTail2 = JSON.stringify({
-  gate: 'fact_check',
+  gate: 'fact_check', turn_kind: 'answer',
   claims: [{ id: 1, claim: 'entropy is the average surprise of a distribution' }],
   rendered_content: tailDraft2,
   source_urls: ['https://e.com'],
@@ -972,7 +972,7 @@ assert('solo grade repair tail is withheld', blocked(soloRepair, 'SOLO_NO_TEACHI
 // to UNVERIFIED (not withheld) — no verification receipt is missing.
 const ctxDraft = 'The explained variance is 4.98 on both arms (n=200).';
 const ctxEnv = JSON.stringify({
-  gate: 'fact_check',
+  gate: 'fact_check', turn_kind: 'answer',
   claims: [
     { id: 1, claim: 'the explained variance is 4.98' },
     { id: 2, claim: 'the sample size is n=200' },
@@ -1054,7 +1054,7 @@ assert(
 
 await setPrompt('[[FLOW:resume]] continue the lesson');
 const envLatex1 = JSON.stringify({
-  gate: 'fact_check',
+  gate: 'fact_check', turn_kind: 'answer',
   claims: [
     { id: 1, claim: 'perplexity is Per(P_i) = 2^(H(P_i))' },
     { id: 2, claim: 'each point spreads by sigma_i' },
@@ -1071,7 +1071,7 @@ assert(
 );
 
 const envLatex2 = JSON.stringify({
-  gate: 'fact_check',
+  gate: 'fact_check', turn_kind: 'answer',
   claims: [
     { id: 1, claim: 'perplexity is Per(P_i) = 2^(H(P_i))' },
     { id: 2, claim: 'each point spreads by sigma_i' },
@@ -1087,3 +1087,107 @@ const lateDup = await fire('tool_call', { toolName: 'subagent', toolCallId: 'lx3
 assert('complete fact-check re-dispatch is still blocked', !!(lateDup && lateDup.block));
 const lateCorrected = await msg(`[[TURN:claims]]\n${latexDraft}`, 'stop');
 assert('corrected claims turn renders after the mandated re-dispatch', allowed(lateCorrected));
+
+// ============================================================================
+// Foundation beats (G-foundation-beats). The failure mode is *omission*: a
+// fluent "what"-only summary is factually true and fully covered, so every
+// existing gate passes it. These tests make the missing "why"/theoretical
+// foundation deterministically visible: a teach/resume claims turn must declare
+// a turn_kind, and an `idea` turn must ship all four beats bound into the draft.
+// ============================================================================
+const FOUND_DRAFT =
+  'Entropy counts the average number of yes/no questions needed to identify a draw. ' +
+  'It is the expected surprise, and it comes from the logarithm of the number of typical sequences nH. ' +
+  'It assumes the distribution is fixed and the draws are independent. ' +
+  'Unlike variance, which measures spread in the values, entropy measures spread in the probabilities.';
+const FOUNDATION = {
+  problem: 'Entropy counts the average number of yes/no questions needed to identify a draw.',
+  where_from: 'It comes from the logarithm of the number of typical sequences nH.',
+  conditions: 'It assumes the distribution is fixed and the draws are independent.',
+  contrast: 'Unlike variance, which measures spread in the values, entropy measures spread in the probabilities.',
+};
+const ideaEnv = (draft, foundation, kind = 'idea') =>
+  JSON.stringify({
+    gate: 'fact_check',
+    turn_kind: kind,
+    foundation,
+    claims: [{ id: 1, claim: 'entropy is the expected surprise of a distribution' }],
+    rendered_content: draft,
+    source_urls: ['https://e.com'],
+  });
+const runFoundationClaims = async (id, draft, envelope, verifierOutput = FC_PASS) => {
+  await setPrompt('[[FLOW:resume]] continue the lesson');
+  await dispatch('fact-check', envelope, id);
+  await fg(id, 'fact-check', envelope, verifierOutput);
+  return msg(`[[TURN:claims]]\n${draft}`, 'stop');
+};
+
+{
+  const r = await runFoundationClaims('fb1', FOUND_DRAFT, ideaEnv(FOUND_DRAFT, FOUNDATION));
+  assert('idea turn with a complete bound foundation renders', allowed(r));
+}
+{
+  const noKind = JSON.stringify({ ...JSON.parse(ideaEnv(FOUND_DRAFT, FOUNDATION)), turn_kind: undefined });
+  const r = await runFoundationClaims('fb2', FOUND_DRAFT, noKind);
+  assert('teach/resume claims turn without turn_kind is withheld', blocked(r, 'FOUNDATION_INCOMPLETE'));
+}
+{
+  const partial = { ...FOUNDATION };
+  delete partial.conditions;
+  const r = await runFoundationClaims('fb3', FOUND_DRAFT, ideaEnv(FOUND_DRAFT, partial));
+  assert(
+    'idea turn missing a foundation beat is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('conditions')
+  );
+}
+{
+  const unbound = { ...FOUNDATION, contrast: 'Entropy is the same thing as enthalpy.' };
+  const r = await runFoundationClaims('fb4', FOUND_DRAFT, ideaEnv(FOUND_DRAFT, unbound));
+  assert(
+    'idea turn whose foundation beat is not in the draft is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('contrast')
+  );
+}
+{
+  const r = await runFoundationClaims('fb5', 'It is 2^H(P).', ideaEnv('It is 2^H(P).', undefined, 'answer'));
+  assert('answer turn needs no foundation beat', allowed(r));
+}
+{
+  await setPrompt('[[FLOW:resume]] continue the lesson');
+  await dispatch('fact-check', ideaEnv(FOUND_DRAFT, undefined), 'fb6');
+  await fg('fb6', 'fact-check', ideaEnv(FOUND_DRAFT, undefined), FC_PASS);
+  const incomplete = await msg(`[[TURN:claims]]\n${FOUND_DRAFT}`, 'stop');
+  assert('idea turn without a foundation block is withheld', blocked(incomplete, 'FOUNDATION_INCOMPLETE'));
+  const fixed = await fire('tool_call', {
+    toolName: 'subagent',
+    toolCallId: 'fb7',
+    input: { agent: 'fact-check', task: ideaEnv(FOUND_DRAFT, FOUNDATION) },
+  });
+  assert('corrected fact-check re-dispatch for a missing foundation is allowed', !(fixed && fixed.block));
+  await fg('fb7', 'fact-check', ideaEnv(FOUND_DRAFT, FOUNDATION), FC_PASS);
+  const reemit = await msg(`[[TURN:claims]]\n${FOUND_DRAFT}`, 'stop');
+  assert('corrected foundation re-emit renders', allowed(reemit));
+}
+{
+  const omitted = JSON.stringify({
+    verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }],
+    omitted_foundations: [{ theory: 'the derivation from typical sequences', source: 'rohit' }],
+    contradictions: [],
+  });
+  const r = await runFoundationClaims('fb8', FOUND_DRAFT, ideaEnv(FOUND_DRAFT, FOUNDATION), omitted);
+  assert('fact-check that names omitted foundations blocks the turn', blocked(r, 'FACT_CHECK_ISSUES'));
+}
+
+// --- at the retry cap a foundation-incomplete idea turn is withheld, not shown ---
+{
+  await setPrompt('[[FLOW:resume]] continue the lesson');
+  const env = ideaEnv(FOUND_DRAFT, undefined);
+  await dispatch('fact-check', env, 'fb9');
+  await fg('fb9', 'fact-check', env, FC_PASS);
+  let last;
+  for (let i = 0; i < 3; i++) last = await msg(`[[TURN:claims]]\n${FOUND_DRAFT}`, 'stop');
+  assert(
+    'retry cap withholds a foundation-incomplete idea turn',
+    outText(last).startsWith('⛔ WITHHELD') && outText(last).includes('FOUNDATION_INCOMPLETE')
+  );
+}

@@ -465,6 +465,35 @@ Each item lists **Goal · Where · Design · Verify**.
 - P3.3 Learning-analytics dashboard (independence trend, hint debt, retention curves).
 - P3.4 Learner challenge/dispute workflow for suspect wiki claims.
 
+### P4 — Teaching-side foundation beats (post-audit, landed 2026-10-12)
+
+> **Status:** landed. Closes the gap the audit flagged as *"Elaboration / self-explanation:
+> Superficially → Partially"* and the deeper asymmetry it did not name: the gate verified
+> **commission** (everything said is true and span-covered) but never **omission** (the
+> load-bearing *why* was silently dropped). A fluent, factually correct "what"-only summary passed
+> every check, so the learner could not tell the theory was missing.
+
+- **G-foundation-beats** *(hard)*. In a teach/resume flow a `claims` turn must declare a
+  `turn_kind`; an `idea` turn (new definition/formula/mechanism/micro-step) must ship the four-beat
+  `foundation` block — `problem`, `where_from`, `conditions`, `contrast` — each non-empty and
+  present in the verified draft. Missing/unknown kind, or a missing/unbound beat → withheld
+  (`FOUNDATION_INCOMPLETE`; withheld outright at the retry cap). `fact-check` also returns
+  `omitted_foundations[]` (source theory with no trace in the draft) which is an `ISSUES` verdict.
+  `answer`/`repair`/`hint`/`plan` need no foundation.
+- **Prompt rebalance.** The "one screen per turn" cap no longer splits on word count (it conflated
+  idea count with depth and cut theory first): a new idea is delivered whole, split on **idea
+  count**. The ladder's *rungs* may compress for pace; the idea and its foundation may not. "Just
+  tell me" compresses delivery, not content. The four beats mirror the Feynman rubric used to grade
+  the learner — the teaching-side twin of the explain-back.
+- **Scout.** Digest `excerpt` gains a `theory_excerpt` (the derivation/mechanism/assumptions
+  passage) and `synthesis[]` gains a `theory` line, so the Tutor has the "why" in context; otherwise
+  the foundation beat would demand theory it never fetched.
+- **Files:** `contracts/learning-core.json`, `CONTRACT.md`, `.pi/extensions/learning-gate/gate-core/`
+  (`primitives.ts`, `engine.ts`), `.pi/agents/fact-check.md`, `.pi/agents/scout.md`,
+  `.pi/APPEND_SYSTEM.md`, `.pi/skills/learning-teach/SKILL.md`, `.pi/skills/learning-system/SKILL.md`,
+  `test/gate_test.mjs`, `test/judge_test.mjs`, `test/golden/golden_test.mjs`, `test/redteam/`. Verified
+  with `scripts/learn-check`.
+
 ---
 
 ## 4. KEEP / CHANGE / REMOVE / ADD / RETHINK (condensed)
@@ -489,6 +518,8 @@ Each item lists **Goal · Where · Design · Verify**.
 | Learner-authored wiki | **ADD** (P1.7) | The learner builds durable understanding |
 | Duplicate skill copies | **RETHINK** (P2.4) | Two divergent pedagogies drift |
 | Bookkeeping triple-audit | **RETHINK** (P2.1) | Over-verifies state, under-verifies truth |
+| "What" without the "why" | **CHANGE** (P4) | Gate checked commission, never omission |
+| "One screen per turn" | **CHANGE** (P4) | Conflated idea count with depth; cut theory first |
 
 ---
 

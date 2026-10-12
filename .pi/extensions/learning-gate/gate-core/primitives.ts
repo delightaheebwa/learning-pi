@@ -75,6 +75,14 @@ export interface Receipt {
   // joined. Lets the gate check that every hard fact in the draft was actually
   // placed before the verifier (see `missingHardFacts`).
   claimsText?: string;
+  // The kind this teach/resume claims turn declared (`idea`, `answer`, `repair`,
+  // `hint`, `plan`). A turn that introduces a new idea must declare `idea` and
+  // carry a `foundation` block, or it is withheld as FOUNDATION_INCOMPLETE.
+  turnKind?: string;
+  // The four-beat theoretical foundation a new idea must ship with (see
+  // `foundationGaps`). Each beat is an excerpt of prose actually present in the
+  // verified draft.
+  foundation?: FoundationBlock;
   // Canonical JSON of the verified visualization spec (viz_audit). A viz turn
   // binds only when its emitted fenced spec canonicalizes to this value.
   vizSpec?: string;
@@ -629,6 +637,71 @@ export function missingHardFacts(draft: string, claimsText: string | undefined):
   return facts.filter((f) => !factPresent(normMathFact(f), hay));
 }
 
+/**
+ * The theoretical-foundation beat a new idea must ship with: not just the
+ * "what" but `problem` (what it is for), `where_from` (derivation or
+ * mechanism), `conditions` (assumptions/boundary cases), and `contrast` (the
+ * nearest-neighbour distinction). Mirrors the Feynman rubric — that rubric is
+ * used to *grade* the learner; this is the teaching-side twin.
+ */
+export interface FoundationBlock {
+  problem?: string;
+  where_from?: string;
+  conditions?: string;
+  contrast?: string;
+}
+
+export const FOUNDATION_FIELDS = ["problem", "where_from", "conditions", "contrast"] as const;
+
+/**
+ * A foundation beat is an excerpt of the emitted turn, so token coverage
+ * tolerates markdown/punctuation differences without accepting a beat whose
+ * prose is not actually in the draft. (A claim stated in the envelope but never
+ * emitted is the "sounds complete" failure in reverse.)
+ */
+export const FOUNDATION_BIND_THRESHOLD = 0.6;
+
+/** turn_kinds that do NOT introduce a new idea and need no foundation beat. */
+const NON_IDEA_TURN_KINDS = new Set(["answer", "repair", "hint", "plan"]);
+
+/**
+ * Deterministic foundation-beat check for a teach/resume `claims` turn (the
+ * complement of the fact-check's correctness check: fact-check verifies that
+ * everything *said* is true; this verifies that the load-bearing *why* was
+ * actually said). Returns the list of gaps — empty means the turn is complete.
+ *
+ *   - no valid `turn_kind`             -> ["turn_kind"]
+ *   - `turn_kind` in {answer,repair,hint,plan} -> [] (no beat required)
+ *   - `turn_kind: "idea"`              -> every field non-empty AND its prose
+ *     bound into the verified draft; a missing or unbound field is a gap.
+ */
+export function foundationGaps(
+  renderedContent: string | undefined,
+  turnKind: string | undefined,
+  foundation: FoundationBlock | undefined
+): string[] {
+  const kind = typeof turnKind === "string" ? turnKind.trim().toLowerCase() : "";
+  if (kind !== "idea" && !NON_IDEA_TURN_KINDS.has(kind)) return ["turn_kind"];
+  if (kind !== "idea") return [];
+  const draft = renderedContent || "";
+  const gaps: string[] = [];
+  for (const field of FOUNDATION_FIELDS) {
+    const raw = foundation && typeof foundation[field] === "string" ? foundation[field]!.trim() : "";
+    if (raw.length === 0) gaps.push(`${field} (missing)`);
+    else if (coverage(raw, draft) < FOUNDATION_BIND_THRESHOLD) gaps.push(`${field} (not in the draft)`);
+  }
+  return gaps;
+}
+
+/**
+ * True when a `fact_check` verdict lists a non-empty `omitted_foundations[]` —
+ * load-bearing theory present in the sources with no trace in the draft. Such a
+ * verdict is an ISSUES verdict even if the verifier labelled it PASS.
+ */
+export function hasOmittedFoundations(text: string): boolean {
+  return /"omitted_foundations"\s*:\s*\[\s*[{"]/.test(text);
+}
+
 /** Quiz/grade binding: the receipt's audited content must overlap the emission. */
 export function bindingMatches(bound: string | undefined, emittedText: string): boolean {
   if (!bound || bound.trim().length === 0) return true; // back-compat
@@ -988,6 +1061,11 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
   const hasIssueList =
     !!parsedVerdict && Array.isArray(parsedVerdict.issues) && parsedVerdict.issues.length > 0;
   if (hasIssueList && !outOfScopeDemoted) issues = true;
+  // A fact_check that names `omitted_foundations[]` (load-bearing theory in the
+  // sources with no trace in the draft) is an ISSUES verdict even if it also
+  // says PASS: silence about the missing "why" is exactly the failure this
+  // closes.
+  if (gate === "fact_check" && hasOmittedFoundations(text)) issues = true;
   const unverified =
     /"verdict"\s*:\s*"UNVERIFIED"/i.test(text) ||
     (gate === "fact_check" && /"verdicts"\s*:\s*\[[\s\S]*?"UNVERIFIED"/i.test(text));
@@ -1048,6 +1126,11 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
             .map((c: any) => (c && typeof c.claim === "string" ? c.claim : ""))
             .filter(Boolean)
             .join("\n")
+        : undefined,
+    turnKind: envelope && typeof envelope.turn_kind === "string" ? envelope.turn_kind : undefined,
+    foundation:
+      envelope && envelope.foundation && typeof envelope.foundation === "object" && !Array.isArray(envelope.foundation)
+        ? (envelope.foundation as FoundationBlock)
         : undefined,
     vizSpec:
       gate === "viz_audit" && envelope && envelope.spec && typeof envelope.spec === "object"

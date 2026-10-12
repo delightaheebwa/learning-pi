@@ -68,10 +68,10 @@ its tagged test, change the implementation, all in one reviewed commit.
 - **G-provider-fallback** *(policy)* — after two consecutive provider failures,
   offer (never force) a one-shot alternate-model re-dispatch.
 - **G-no-duplicate-factcheck** *(hard)* — re-verifying an already-verified draft
-  is blocked; a materially corrected post-ISSUES draft is allowed, as is the
-  re-dispatch `CLAIMS_INCOMPLETE` mandates (the same draft with the missing
-  claims added). The corrected receipt supersedes the incomplete one, so the
-  emission binds the claims-complete pass.
+  is blocked; a materially corrected post-ISSUES draft is allowed, as are the
+  re-dispatches `CLAIMS_INCOMPLETE` and `FOUNDATION_INCOMPLETE` mandate (the same
+  draft with the missing claims or foundation beats added). The corrected receipt
+  supersedes the incomplete one, so the emission binds the complete pass.
 - **G-async-notify-mints** *(hard)* — async completion notifications mint
   content-bound receipts from the dispatch envelope; failures clear pending.
 - **G-infer-claims-from-bound** *(hard)* — a dropped `claims` tag is recovered
@@ -96,6 +96,19 @@ its tagged test, change the implementation, all in one reviewed commit.
   with reordering or punctuation edits but may not append unverified prose: at
   most `LENGTH_SLACK_TOKENS` (12) emitted tokens may be absent from the draft.
   The old 1.4× length ratio allowed an unbounded unverified tail.
+- **G-foundation-beats** *(hard)* — the gate checks omission, not just commission.
+  In a teach/resume flow a `claims` turn must declare a `turn_kind`: `idea`
+  (a new definition, formula, mechanism, or micro-step) carries a `foundation`
+  block with all four beats — `problem` (what it is for), `where_from`
+  (derivation/mechanism), `conditions` (assumptions/boundary cases), `contrast`
+  (nearest-neighbour distinction) — each non-empty and its prose present in the
+  verified draft; `answer`/`repair`/`hint`/`plan` need no foundation. A missing or
+  unknown `turn_kind`, or an `idea` turn missing or not binding a beat, is
+  withheld (`FOUNDATION_INCOMPLETE`), so a fluent what-only summary that is
+  factually true and fully span-covered cannot render as if complete. At the retry
+  cap such a turn is withheld entirely rather than shown. A fact-check verdict
+  naming a non-empty `omitted_foundations[]` (load-bearing theory in the sources
+  with no trace in the draft) is an `ISSUES` verdict even when it also says PASS.
 - **G-solo-no-teaching** *(hard)* — in an AI-free solo flow (`[[FLOW:solo]]`) the
   Tutor cannot teach or add aids: a claims turn is withheld (`SOLO_NO_TEACHING`)
   and a viz turn is withheld (`SOLO_NO_AIDS`), so the learner's answers are
@@ -136,12 +149,16 @@ its tagged test, change the implementation, all in one reviewed commit.
   scientific notation, decimal, percentage, or 3+ digit integer) is **withheld
   entirely** — only the banner renders, no content — rather than delivered as
   `⛔ UNVERIFIED`, **but only when the block implicates verification**
-  (`FACT_CHECK_*`, `CLAIMS_INCOMPLETE`, `NO_FACT_CHECK_MATCH`). A verified draft
+  (`FACT_CHECK_*`, `CLAIMS_INCOMPLETE`, `FOUNDATION_INCOMPLETE`,
+  `NO_FACT_CHECK_MATCH`). A `FOUNDATION_INCOMPLETE` idea turn is withheld the same
+  way even with no hard facts, so a complete-sounding but foundation-less summary
+  is never shown. A verified draft
   blocked only on context (`NO_SCOUT_CONTEXT`/`NO_REVIEW_CONTEXT`) degrades
   gracefully. Non-hard-fact prose still degrades with the UNVERIFIED banner, and
   `G-retry-cap` semantics are unchanged for grade/quiz/none turns. A deliberate
-  inversion of the anti-dead-end policy for load-bearing facts: a number or
-  formula nobody verified is never shown.
+  inversion of the anti-dead-end policy for load-bearing facts and for the
+  missing theoretical foundation: a number or formula nobody verified — or a
+  "why" nobody taught — is never shown.
 - **G-out-of-scope-demoted** *(policy)* — review findings are demoted to flags
   only when **every** finding cites an explicit bookkeeping-path `location`
   (state/session/review/lesson notes, log/index bookkeeping, git metadata). A

@@ -43,7 +43,7 @@ const assert = (n, c) => console.log((c ? 'PASS ' : 'FAIL ') + n);
 const DRAFT = 'The variation of information is V(X,Y) = H(X,Y) minus I(X,Y).';
 const FC_PASS = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
 const fcEnvelope = (draft) =>
-  JSON.stringify({ gate: 'fact_check', claims: [{ id: 1, claim: 'x' }], rendered_content: draft, source_urls: ['https://e.com'] });
+  JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', claims: [{ id: 1, claim: 'x' }], rendered_content: draft, source_urls: ['https://e.com'] });
 const SCOUT_OK = 'SCOUT_DIGEST: {"slug":"x","digest":"d","raw_files":[],"failed_refs":[]}';
 const CLERK_WRITES = '[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"commit":"abc"}';
 const REVIEW_SCOUT_OK =

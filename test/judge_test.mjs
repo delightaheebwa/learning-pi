@@ -20,7 +20,7 @@ const outText = (r) => {
 const allowed = (r) => r && r.message && !outText(r).startsWith('⛔');
 const blocked = (r, code) => !!(r && r.message && outText(r).startsWith('⛔') && (!code || outText(r).includes(code)));
 
-const FC_ENV = JSON.stringify({ gate: 'fact_check', rendered_content: 'The definition of X is the thing.', claims: [] });
+const FC_ENV = JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', rendered_content: 'The definition of X is the thing.', claims: [] });
 const FC_PASS = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
 const FC_ISSUES_HIGH = JSON.stringify({
   verdict: 'ISSUES',
@@ -483,7 +483,7 @@ const mintFC = (engine, output = FC_PASS) =>
     claimed_verdict: 'fail',
   });
   const gradeOut = JSON.stringify({ verdict: 'PASS', agrees: true, correct_verdict: 'fail', issues: [], items: [{ id: 1, agrees: true, correct_verdict: 'fail' }] });
-  const fcEnv = JSON.stringify({ gate: 'fact_check', rendered_content: prose, claims: [{ id: 1, claim: 'the denominator is n-1' }] });
+  const fcEnv = JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', rendered_content: prose, claims: [{ id: 1, claim: 'the denominator is n-1' }] });
   const fcOut = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
   const j = stubJudge({
     evaluate: (pkg) => {
@@ -535,7 +535,7 @@ const mintFC = (engine, output = FC_PASS) =>
     issues: [],
     items: [{ id: 3, agrees: true, correct_verdict: 'pass' }],
   });
-  const fcEnv = JSON.stringify({ gate: 'fact_check', rendered_content: prose, claims: [{ id: 1, claim: 'x' }] });
+  const fcEnv = JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', rendered_content: prose, claims: [{ id: 1, claim: 'x' }] });
   const fcOut = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
   const j = stubJudge({
     evaluate: (pkg) => ({
@@ -562,7 +562,7 @@ const mintFC = (engine, output = FC_PASS) =>
 // --- S14: a review-flow none summary over verified prose renders ---
 {
   const closing = 'Review closed. Direction right; the spoilt-food fill-in passed. Any deeper dig before I close?';
-  const fcEnv = JSON.stringify({ gate: 'fact_check', rendered_content: closing, claims: [{ id: 1, claim: 'x' }] });
+  const fcEnv = JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', rendered_content: closing, claims: [{ id: 1, claim: 'x' }] });
   const fcOut = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
   const j = stubJudge({
     evaluate: (pkg) => ({
@@ -582,7 +582,7 @@ const mintFC = (engine, output = FC_PASS) =>
 // --- S15: the same none tag outside review is still withheld as evasion ---
 {
   const prose = 'Verified teaching prose that was then mis-tagged none, outside any review flow.';
-  const fcEnv = JSON.stringify({ gate: 'fact_check', rendered_content: prose, claims: [{ id: 1, claim: 'x' }] });
+  const fcEnv = JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', rendered_content: prose, claims: [{ id: 1, claim: 'x' }] });
   const fcOut = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
   const j = stubJudge({
     evaluate: (pkg) => ({
@@ -605,7 +605,7 @@ const mintFC = (engine, output = FC_PASS) =>
 // is recovered from the bound receipt (G-infer-claims-from-bound).
 {
   const pause = 'Mini 4 sealed. Coming next: the round-cloud degenerate case, then the practice. Any questions before we move on?';
-  const fcEnv = JSON.stringify({ gate: 'fact_check', rendered_content: pause, claims: [{ id: 1, claim: 'x' }] });
+  const fcEnv = JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', rendered_content: pause, claims: [{ id: 1, claim: 'x' }] });
   const fcOut = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
   const j = stubJudge({
     evaluate: (pkg) => ({
@@ -632,7 +632,7 @@ const mintFC = (engine, output = FC_PASS) =>
   });
   const engine = createGate({ judge: j.judge });
   engine.onBeforeAgentStart('[[FLOW:solo]] solo check');
-  const env = JSON.stringify({ gate: 'fact_check', rendered_content: 'The definition of X is the thing.', claims: [{ id: 1, claim: 'x' }] });
+  const env = JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', rendered_content: 'The definition of X is the thing.', claims: [{ id: 1, claim: 'x' }] });
   engine.onToolResult({ tool: 'subagent', isError: false, text: FC_PASS, dispatchCalls: [], mintCalls: [{ agent: 'fact-check', envelope: JSON.parse(env), output: FC_PASS }] });
   const res = await engine.onMessageEnd({ message: msg('[[TURN:claims]]\nThe definition of X is the thing.') });
   assert('judge path withholds a solo teaching claims turn', blocked(res, 'SOLO_NO_TEACHING'));
@@ -650,8 +650,54 @@ const mintFC = (engine, output = FC_PASS) =>
   });
   const engine = createGate({ judge: j.judge });
   engine.onBeforeAgentStart('[[FLOW:resume]] continue the lesson');
-  const env = JSON.stringify({ gate: 'fact_check', rendered_content: hard, claims: [{ id: 1, claim: 'small sample' }] });
+  const env = JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', rendered_content: hard, claims: [{ id: 1, claim: 'small sample' }] });
   engine.onToolResult({ tool: 'subagent', isError: false, text: FC_PASS, dispatchCalls: [], mintCalls: [{ agent: 'fact-check', envelope: JSON.parse(env), output: FC_PASS }] });
   const res = await engine.onMessageEnd({ message: msg(`[[TURN:claims]]\n${hard}`) });
   assert('judge path withholds claims with an unlisted hard fact', blocked(res, 'CLAIMS_INCOMPLETE'));
+}
+
+// --- G-foundation-beats on the judge path ---
+{
+  const fdraft =
+    'Entropy counts the average number of yes/no questions needed to identify a draw. ' +
+    'It comes from the logarithm of the number of typical sequences. ' +
+    'It assumes a fixed distribution. Unlike variance, it measures spread in probabilities.';
+  const fblock = {
+    problem: 'Entropy counts the average number of yes/no questions needed to identify a draw.',
+    where_from: 'It comes from the logarithm of the number of typical sequences.',
+    conditions: 'It assumes a fixed distribution.',
+    contrast: 'Unlike variance, it measures spread in probabilities.',
+  };
+  const claimsJudge = () =>
+    stubJudge({
+      evaluate: (pkg) => ({
+        turnType: 'claims',
+        bindings: pkg.receipts.map((r) => ({ index: r.index, covers: true, uncovered: [] })),
+        bestReceipt: 0,
+      }),
+    });
+  const mint = (engine, envelope) =>
+    engine.onToolResult({
+      tool: 'subagent',
+      isError: false,
+      text: FC_PASS,
+      dispatchCalls: [],
+      mintCalls: [{ agent: 'fact-check', envelope, output: FC_PASS }],
+    });
+  {
+    const j = claimsJudge();
+    const engine = createGate({ judge: j.judge });
+    drive(engine);
+    mint(engine, { gate: 'fact_check', turn_kind: 'idea', foundation: fblock, claims: [{ id: 1, claim: 'x' }], rendered_content: fdraft });
+    const res = await engine.onMessageEnd({ message: msg(fdraft) });
+    assert('judge path: idea turn with a complete foundation renders', allowed(res));
+  }
+  {
+    const j = claimsJudge();
+    const engine = createGate({ judge: j.judge });
+    drive(engine);
+    mint(engine, { gate: 'fact_check', claims: [{ id: 1, claim: 'x' }], rendered_content: fdraft });
+    const res = await engine.onMessageEnd({ message: msg(fdraft) });
+    assert('judge path: idea turn without turn_kind is withheld', blocked(res, 'FOUNDATION_INCOMPLETE'));
+  }
 }
