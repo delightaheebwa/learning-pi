@@ -931,6 +931,17 @@ assert(
   'prose-notation claims cover a LaTeX symbol macro and operator spacing',
   P.missingHardFacts(proptoDraft, proptoClaims).length === 0
 );
+assert(
+  'a mutated formula is still reported as a missing hard fact',
+  P.missingHardFacts(proptoDraft, 'q_ij proportional to 1/(1 + d_ij^3), normalized over all pairs.')
+    .length === 1
+);
+// A math span that normalises to the empty string (`\cdot`, `\ast`) carries no
+// content and must not be reported — and must not wedge `factPresent`.
+assert(
+  'a content-free math span normalises to nothing and is not a missing fact',
+  P.missingHardFacts('a $\\cdot$ b', 'claims here').length === 0
+);
 
 await setPrompt('[[FLOW:resume]] continue the lesson');
 const envLatex1 = JSON.stringify({

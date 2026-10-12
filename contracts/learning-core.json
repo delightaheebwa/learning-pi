@@ -133,6 +133,8 @@
         "four-digit years are not hard facts",
         "prose-notation claims cover LaTeX hard facts (only the unlisted number is missing)",
         "prose-notation claims cover a LaTeX symbol macro and operator spacing",
+        "a mutated formula is still reported as a missing hard fact",
+        "a content-free math span normalises to nothing and is not a missing fact",
         "judge path withholds claims with an unlisted hard fact"
       ]
     },

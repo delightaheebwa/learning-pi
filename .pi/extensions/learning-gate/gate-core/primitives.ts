@@ -552,6 +552,11 @@ export function extractHardFacts(text: string): string[] {
  * "2000", letting a wrong number pass as verified.
  */
 function factPresent(fact: string, hay: string): boolean {
+  // An empty needle has no token boundary to anchor on: `indexOf("")` clamps to
+  // `hay.length` forever and the boundary test can never pass when the last
+  // character is wordish, so the scan below would spin. A content-free fact
+  // (e.g. `\cdot`/`\ast`, which normalise to "") is trivially "present".
+  if (fact.length === 0) return true;
   const wordish = (c: string) => /[0-9a-z.]/.test(c);
   let from = 0;
   while (true) {
