@@ -138,6 +138,14 @@ export function createGate(options: GateOptions = {}): GateEngine {
   const foundationApplies = () => run.flow === "teach" || run.flow === "resume";
   const foundationGapsOf = (r: P.Receipt): string[] =>
     foundationApplies() ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation) : [];
+  // A grade+repair turn is not a claims turn, so it may not *require* a
+  // turn_kind; but if its repair prose is explicitly labelled an idea, the beat
+  // is still enforced. (A disguise, e.g. an idea labelled `repair`, is the
+  // verifier's honesty check — see fact-check.)
+  const ideaFoundationGapsOf = (r: P.Receipt): string[] =>
+    (r.turnKind || "").trim().toLowerCase() === "idea"
+      ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation)
+      : [];
   const foundationRemedy = (r: P.Receipt, gaps: string[]): string => {
     if (gaps.length === 1 && gaps[0] === "turn_kind") {
       return (
@@ -865,12 +873,16 @@ export function createGate(options: GateOptions = {}): GateEngine {
             }
           } else if (validGrade && fc) {
             const missing = P.missingHardFacts(fc.renderedContent || "", fc.claimsText);
+            const repairGaps = ideaFoundationGapsOf(fc);
             if (missing.length > 0) {
               blockers.push("CLAIMS_INCOMPLETE");
               verdictNote =
                 `The repair prose states load-bearing facts that were not in claims[], so the verifier never checked them: ${missing.join(
                   ", "
                 )}. Re-dispatch the fact-check with these added as claims (formulas may be restated in plain prose — matching is notation-insensitive), then emit.`;
+            } else if (repairGaps.length > 0) {
+              blockers.push("FOUNDATION_INCOMPLETE");
+              verdictNote = foundationRemedy(fc, repairGaps);
             } else {
               toConsume.push(validGrade);
               toConsume.push(fc);
@@ -1441,8 +1453,14 @@ export function createGate(options: GateOptions = {}): GateEngine {
             verdictNote = `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.`;
           }
         } else if (validGrade && fcCovers) {
-          toConsume.push(validGrade);
-          toConsume.push(R[fcIdx]);
+          const repairGaps = ideaFoundationGapsOf(R[fcIdx]);
+          if (repairGaps.length > 0) {
+            blocks.push("FOUNDATION_INCOMPLETE");
+            verdictNote = foundationRemedy(R[fcIdx], repairGaps);
+          } else {
+            toConsume.push(validGrade);
+            toConsume.push(R[fcIdx]);
+          }
         } else if (validGrade) {
           blocks.push("GRADE_AUDIT_STALE");
           verdictNote =
