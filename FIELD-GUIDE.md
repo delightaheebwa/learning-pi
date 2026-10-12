@@ -197,8 +197,8 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `⚠️ REVIEW CONTEXT INCOMPLETE` | Review Scout could not read one or more state items | review around the gaps; re-run `review-scout` if the queue looks thin |
 | `⚠️ REVIEW SCOUT DIGEST UNVERIFIED` | Review Scout finished without a parseable `REVIEW_SCOUT_DIGEST:` receipt | verify the digest exists on disk; re-run `review-scout` |
 | `NO_TUTOR_AUDIT` / `TUTOR_AUDIT_ISSUES` | handoff writes weren't checked (or the receipt named no `files`) / verifier flagged an issue (any severity) | dispatch `tutor-audit` on the handoff batch with `files:[...]`; fix every issue and re-audit (out-of-scope observations are `context_notes`, never blocking) |
-| `NO_REVIEW_SESSION_AUDIT` | review close (review-clerk writes) wasn't audited, or the receipt named no `written_files` | dispatch `review-session-audit` with `written_files:[{path},...]` on the exact writes, then summarize |
-| `⚠️ REVIEW FLAGS SURFACED` | reviewer found issues in the ingest output **or** the review-session audit returned `ISSUES` | shown with a banner, **not** withheld or re-run |
+| `NO_REVIEW_SESSION_AUDIT` / `REVIEW_SESSION_AUDIT_ISSUES` | review close (review-clerk writes) wasn't audited, or the receipt named no `written_files` / the audit flagged an issue (any severity) | dispatch `review-session-audit` with `written_files:[{path},...]` on the exact writes; fix the writes and re-audit until `PASS` (no cycle cap) |
+| `⚠️ REVIEW FLAGS SURFACED` | reviewer found out-of-scope bookkeeping flags in the ingest output | shown with a banner, **not** withheld or re-run |
 | `⚠️ STATE AUDIT` | `audit_state.py` found **warnings** still outstanding (touched ones are fixed in-flow); warnings never block | run `/audit` for details |
 | `STATE_AUDIT_ERRORS` | at the ingest/review close, `audit_state.py` reported **errors** (state drift); the close summary is withheld until they are fixed | apply the `STATE_AUDIT_FIXES` hints (or `/audit` for the list), re-run the audit clean, then re-emit the summary |
 | `⛔ UNVERIFIED` | retries exhausted (2); content shown unverified | review it manually |

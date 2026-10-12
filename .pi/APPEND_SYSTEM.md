@@ -189,8 +189,10 @@ the lesson.
   INCOMPLETE`), never withholds. You write **no** state files: at the close, hand the writes to ONE
   `review-clerk` (`REVIEW_WRITES` envelope), then `dispatch` ONE `review-session-audit` with
   the exact writes (`concepts/transcript/grade_verdicts/written_files`); the closing summary is withheld
-  (`NO_REVIEW_SESSION_AUDIT`) until a receipt exists. `ISSUES` renders with a `⚠️ REVIEW FLAGS
-  SURFACED` banner — never a withhold, never a re-run. Scope is fenced: state drift
+  (`NO_REVIEW_SESSION_AUDIT`) until a receipt exists, and stays withheld on an `ISSUES` verdict
+  (`REVIEW_SESSION_AUDIT_ISSUES`) until the writes are fixed (re-dispatch `review-clerk`) and a
+  fresh audit returns zero issues (any severity) — fix and re-audit, there is no cycle cap. Scope
+  is fenced: state drift
   the review did not write is `context_notes`, never a blocking issue.
 - The plan message is a `claims` turn: send the plan text itself as `rendered_content`.
 - For a new lesson, run `scout` first via `dispatch` (a plain-string `task` is fine).

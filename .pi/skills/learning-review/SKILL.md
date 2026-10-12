@@ -1,6 +1,6 @@
 ---
 name: learning-review
-description: Quality-gate learning-system output before it is finalized — wherever it originates. Use after every standalone ingest, at the end of any teaching lesson that produced wiki pages or Active Concepts rows (review-gate), AND at the close of a standalone /review session (review-session gate on the Review notes / session note / touched state rows). The review-gate subagent flags accuracy, correctness, clarity, and completeness issues; every in-scope issue blocks until fixed regardless of severity, and the re-check runs until the verifier returns zero issues (no cycle cap). The review-session close audit surfaces its flags rather than re-running.
+description: Quality-gate learning-system output before it is finalized — wherever it originates. Use after every standalone ingest, at the end of any teaching lesson that produced wiki pages or Active Concepts rows (review-gate), AND at the close of a standalone /review session (review-session gate on the Review notes / session note / touched state rows). The review-gate subagent flags accuracy, correctness, clarity, and completeness issues; every in-scope issue blocks until fixed regardless of severity, and the re-check runs until the verifier returns zero issues (no cycle cap). The review-session close audit likewise withholds the close summary on an ISSUES verdict until the writes are fixed and a fresh audit returns zero issues.
 ---
 
 # Learning System Review Gate
@@ -19,7 +19,7 @@ The writes a review-clerk persists: the `Reviews/Review — [Concept] — [Date]
 
 - Verifier: the `review-session-audit` subagent (`muse-spark-1.3-contributor`, high, read-only), envelope `{"gate":"review_session","concepts":[...],"transcript":"exact Q/A + learner answers + claimed verdicts","grade_verdicts":[{"concept","correct_verdict"}],"written_files":[{"path"}],"state_rows":"...","pass_number":N}`.
 - The `learning-gate` arms the gate when the delegated `review-clerk` run returns (or the main session writes the session note) and withholds the closing summary until a receipt exists (`NO_REVIEW_SESSION_AUDIT`). An untagged closing summary is treated as implicit `[[TURN:none]]` once the receipt is present — a dropped tag never dead-ends the session.
-- Verdict: `PASS|ISSUES` + `issues` + `context_notes`. `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner, **never** withheld or re-run.
+- Verdict: `PASS|ISSUES` + `issues` + `context_notes`. An `ISSUES` verdict withholds the close summary (`REVIEW_SESSION_AUDIT_ISSUES`); fix the writes (re-dispatch `review-clerk`) and re-audit until `PASS` (zero issues, no cycle cap).
 - Scope is fenced: MISSION/CURRICULUM/Learning Profile/Learner History/`Knowledge Wiki/`/git drift → `context_notes`, never `issues` (state drift is `audit_state.py`'s job, run by review-clerk; the wiki is `review-gate`'s job).
 
 ## Config

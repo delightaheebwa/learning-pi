@@ -193,12 +193,13 @@
     {
       "id": "G-review-session-audit",
       "severity": "hard",
-      "statement": "After the review flow's writes land — the delegated review-clerk run, or a session-note write — a summary turn requires a review-session audit receipt.",
+      "statement": "After the review flow's writes land — the delegated review-clerk run, or a session-note write — a summary turn requires a review-session audit receipt. Only a receipt with zero issues releases the summary; an ISSUES verdict blocks it (REVIEW_SESSION_AUDIT_ISSUES) until the writes are corrected and a fresh audit returns zero issues at any severity, with no per-flow pass cap.",
       "tests": [
         "review-session audit required after session-note write",
         "review-session pass releases the close summary",
         "review-clerk writes require a review-session audit",
-        "review-clerk close released by review-session pass"
+        "review-clerk close released by review-session pass",
+        "review-session audit ISSUES blocks the close summary"
       ]
     },
     {

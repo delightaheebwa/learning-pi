@@ -120,7 +120,10 @@ its tagged test, change the implementation, all in one reviewed commit.
   written; quiz/grade turns are not held hostage.
 - **G-review-session-audit** *(hard)* — after the review flow writes its session
   note (or the delegated `review-clerk` run returns), a summary turn needs a
-  `review-session-audit` receipt.
+  `review-session-audit` receipt. Only a receipt with zero issues releases the
+  summary: an `ISSUES` verdict blocks it (`REVIEW_SESSION_AUDIT_ISSUES`) until the
+  writes are corrected and a fresh audit returns zero issues (any severity), with
+  no per-flow pass cap.
 - **G-review-context-required** *(hard)* — a review's first claims/quiz turn is
   withheld (`NO_REVIEW_CONTEXT`) until a `review-scout` run has happened; a
   partial review digest banners, never withholds.

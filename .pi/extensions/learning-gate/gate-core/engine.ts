@@ -908,10 +908,11 @@ export function createGate(options: GateOptions = {}): GateEngine {
       }
 
       // Review-session gate: after the review flow writes its notes/rows, a
-      // summary-like turn needs a review_session audit. A PASS renders clean;
-      // ISSUES renders with a flags banner (never a withhold — a withheld final
-      // message dead-ends the session). Quiz/grade turns are never held hostage
-      // by it.
+      // summary-like turn needs a review_session audit. Only a receipt with no
+      // issues releases the summary; an ISSUES verdict blocks it
+      // (REVIEW_SESSION_AUDIT_ISSUES) until the writes are corrected and a fresh
+      // audit returns zero issues at any severity. Quiz/grade turns are never
+      // held hostage by it.
       const reviewSessionGateApplies =
         run.reviewSessionWrote &&
         (run.flow === "review" || run.flow === "solo") &&
@@ -920,24 +921,19 @@ export function createGate(options: GateOptions = {}): GateEngine {
       if (reviewSessionGateApplies) {
         // Require the audit to name the writes it checked: a present-but-
         // artifactless envelope cannot have audited the session note/rows.
-        const audit = run.receipts.find((r) => r.gate === "review_session" && P.receiptAuditsArtifacts(r));
+        const audit = run.receipts.find((r) => r.gate === "review_session" && r.valid && P.receiptAuditsArtifacts(r));
         if (audit) {
           toConsume.push(audit);
           run.reviewSessionWrote = false;
           run.reviewSessionPaths = [];
-          if (audit.issues) {
-            surface +=
-              "⚠️ REVIEW FLAGS SURFACED — the end-of-review audit returned flags on the session writes " +
-              "(Review notes / session note / touched state rows). The summary below is shown with those flags " +
-              "outstanding; fix them next session. The close audit is surfaced, not re-run.\n\n";
-          }
           if (audit.evidenceMissing) {
             surface +=
               "⚠️ REVIEW SESSION GATE — the audit verdict carries no `evidence` list (what it read/checked); " +
               "treat the pass as unsubstantiated.\n\n";
           }
         } else {
-          blockers.push("NO_REVIEW_SESSION_AUDIT");
+          const badAudit = run.receipts.some((r) => r.gate === "review_session" && !r.valid && P.receiptAuditsArtifacts(r));
+          blockers.push(badAudit ? "REVIEW_SESSION_AUDIT_ISSUES" : "NO_REVIEW_SESSION_AUDIT");
         }
       }
 
@@ -1049,7 +1045,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary.",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review context: run the `review-scout` subagent first; it builds the due queue and writes the review digest (`REVIEW_SCOUT_DIGEST:`). A review's first claims/quiz turn is withheld (NO_REVIEW_CONTEXT) until it has run; a partial digest banners (REVIEW CONTEXT INCOMPLETE), never withholds.",
-        "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. A PASS renders clean and an ISSUES verdict renders with a flags banner (surfaced, not re-run).",
+        "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. Only a receipt with zero issues releases the summary: on an ISSUES verdict, fix the writes (re-dispatch review-clerk) and re-audit until it returns PASS — there is no cycle cap.",
         "viz: a figure is its own `[[TURN:viz]]` message (never a ```viz block inside a claims/none turn). Give the `viz` subagent the teaching intent, then dispatch ONE foreground `viz-audit` with the spec AND `rendered_content` = the full turn draft (supporting words + the fenced spec); emit the audited draft unchanged. A wrong/different spec, or a receipt with no spec/rendered_content, will not bind.",
         "verifier failed on provider errors (503/429/timeout): retry once, then re-dispatch the SAME verifier with an explicit `model:` from the alternate set (verifiers → deepseek-v4.1-flash, scout/review-scout → muse-spark-1.3-contributor); if it still fails, proceed and surface what is unverified.",
       ].join("\n");
@@ -1449,19 +1445,17 @@ export function createGate(options: GateOptions = {}): GateEngine {
     const reviewSessionGateApplies =
       run.reviewSessionWrote && run.flow === "review" && turnType !== "quiz" && turnType !== "grade" && turnType !== "viz" && reviewSummaryish;
     if (reviewSessionGateApplies) {
-      const audit = R.find((r) => r.gate === "review_session" && P.receiptAuditsArtifacts(r));
+      const audit = R.find((r) => r.gate === "review_session" && r.valid && P.receiptAuditsArtifacts(r));
       if (audit) {
         toConsume.push(audit);
         run.reviewSessionWrote = false;
         run.reviewSessionPaths = [];
-        if (audit.issues) {
-          surface += "⚠️ REVIEW FLAGS SURFACED — the end-of-review audit returned flags on the session writes. Fix them next session. The close audit is surfaced, not re-run.\n\n";
-        }
         if (audit.evidenceMissing) {
           surface += "⚠️ REVIEW SESSION GATE — the audit verdict carries no `evidence` list; treat the pass as unsubstantiated.\n\n";
         }
       } else {
-        blocks.push("NO_REVIEW_SESSION_AUDIT");
+        const badAudit = R.some((r) => r.gate === "review_session" && !r.valid && P.receiptAuditsArtifacts(r));
+        blocks.push(badAudit ? "REVIEW_SESSION_AUDIT_ISSUES" : "NO_REVIEW_SESSION_AUDIT");
       }
     }
 

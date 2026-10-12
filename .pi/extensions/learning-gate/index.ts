@@ -41,7 +41,9 @@
  *     surfaces `⚠️ REVIEW CONTEXT INCOMPLETE` / `⚠️ REVIEW SCOUT DIGEST UNVERIFIED`
  *     (banner, never a withhold). The close writes are delegated to `review-clerk`;
  *     a completed run arms the review-session audit gate, so the summary needs a
- *     passing `review-session-audit` over the writes.
+ *     `review-session-audit` over the writes; an ISSUES verdict keeps it withheld
+ *     (`REVIEW_SESSION_AUDIT_ISSUES`) until the writes are fixed and a fresh
+ *     audit returns zero issues.
  *   - ingest -> the parent dispatches an independent `review-gate` after the Clerk
  *     returns `CLERK_WRITES`. In-scope issues keep the re-check going (uncapped,
  *     any severity) until the verifier returns zero issues; out-of-scope

@@ -610,6 +610,19 @@ await fg('rsa1', 'review-session-audit', JSON.stringify({ gate: 'review_session'
 const noWritesRS = await msg('Review — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
 assert('review-session audit without written_files does not release the close summary', blocked(noWritesRS, 'NO_REVIEW_SESSION_AUDIT'));
 
+// review-session-audit ISSUES blocks the close summary until a fresh PASS.
+await setPrompt('[[FLOW:review]] review my due concepts');
+await bashCall("python3 scripts/ops.py apply <<'SPEC'\nLearning System/Sessions/Session — Review — 2026-09-27.md\nSPEC", 'rw2');
+const rsEnv = JSON.stringify({ gate: 'review_session', concepts: ['X'], written_files: [{ path: 'Learning System/Sessions/Session — Review — 2026-09-27.md' }] });
+await dispatch('review-session-audit', rsEnv, 'rsa2');
+await fg('rsa2', 'review-session-audit', rsEnv, JSON.stringify({ verdict: 'ISSUES', evidence: ['read'], issues: [{ severity: 'low', issue: 'session note date wrong', location: 'Learning System/Sessions/Session — Review — 2026-09-27.md' }] }));
+const rsIssues = await msg('Review — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
+assert('review-session audit ISSUES blocks the close summary', blocked(rsIssues, 'REVIEW_SESSION_AUDIT_ISSUES'));
+await dispatch('review-session-audit', rsEnv, 'rsa3');
+await fg('rsa3', 'review-session-audit', rsEnv, JSON.stringify({ verdict: 'PASS', evidence: ['read'], issues: [] }));
+const rsPass = await msg('Review — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
+assert('review-session audit PASS releases the close summary after ISSUES', allowed(rsPass));
+
 // review-gate without `target_files` reviewed nothing.
 await setPrompt('[[FLOW:ingest]] ingest this');
 await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'ic1');
