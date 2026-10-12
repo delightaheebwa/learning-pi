@@ -623,6 +623,20 @@ await fg('rsa3', 'review-session-audit', rsEnv, JSON.stringify({ verdict: 'PASS'
 const rsPass = await msg('Review — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
 assert('review-session audit PASS releases the close summary after ISSUES', allowed(rsPass));
 
+// review-clerk fix re-dispatch is exempt from its cap while a flagged
+// review-session audit is pending (the close is not done).
+await setPrompt('[[FLOW:review]] review my due concepts');
+await bashCall("python3 scripts/ops.py apply <<'SPEC'\nLearning System/Sessions/Session — Review — 2026-09-28.md\nSPEC", 'rw3');
+const rcEnv = JSON.stringify({ gate: 'review_session', concepts: ['X'], written_files: [{ path: 'Learning System/Sessions/Session — Review — 2026-09-28.md' }] });
+await dispatch('review-session-audit', rcEnv, 'rsa4');
+await fg('rsa4', 'review-session-audit', rcEnv, JSON.stringify({ verdict: 'ISSUES', evidence: ['read'], issues: [{ severity: 'low', issue: 'date wrong', location: 'Learning System/Sessions/Session — Review — 2026-09-28.md' }] }));
+let rcBlocked = false;
+for (let i = 1; i <= 4; i++) {
+  const r = await fire('tool_call', { toolName: 'subagent', toolCallId: `rccap${i}`, input: { agent: 'review-clerk', task: JSON.stringify({ gate: 'review_clerk', concepts: ['X'] }) } });
+  if (r && r.block) rcBlocked = true;
+}
+assert('review-clerk re-dispatch uncapped while a review-session audit is flagged', !rcBlocked);
+
 // review-gate without `target_files` reviewed nothing.
 await setPrompt('[[FLOW:ingest]] ingest this');
 await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'ic1');

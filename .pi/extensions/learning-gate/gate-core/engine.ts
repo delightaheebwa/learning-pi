@@ -214,10 +214,19 @@ export function createGate(options: GateOptions = {}): GateEngine {
         };
       }
       if (reviewClerkCalls > 0 && run.reviewClerkDispatches > P.MAX_REVIEW_CLERK_DISPATCHES) {
-        return {
-          block: true,
-          reason: `review-clerk cap reached (${P.MAX_REVIEW_CLERK_DISPATCHES} per flow). The review close is already running or done — report its result instead of re-dispatching.`,
-        };
+        // A flagged review-session audit means the review close is NOT done: its
+        // writes still need fixing, so a re-dispatch to correct them is not the
+        // runaway this cap guards against. Exempt it; the fix loop is bounded by
+        // the dispute safeguard (three identical blocks escalate to the judge).
+        const fixPending =
+          run.reviewSessionWrote &&
+          run.receipts.some((r) => r.gate === "review_session" && !r.valid && P.receiptAuditsArtifacts(r));
+        if (!fixPending) {
+          return {
+            block: true,
+            reason: `review-clerk cap reached (${P.MAX_REVIEW_CLERK_DISPATCHES} per flow). The review close is already running or done — report its result instead of re-dispatching.`,
+          };
+        }
       }
       // Duplicate fact-check guard: re-dispatching a draft that already has a
       // valid (PASS) receipt is the observed "multiple fact-checks in one turn"
