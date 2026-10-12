@@ -13,7 +13,15 @@
 # It prints the new worktree path on the last line (cd there for all work).
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Anchor to the MAIN checkout: inside a linked worktree $HERE is the worktree
+# itself, which would scatter new worktrees as <worktree>-worktrees/... .
+# --git-common-dir always points at the main checkout's .git dir.
+if COMMON="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
+  ROOT="$(dirname "$COMMON")"
+else
+  ROOT="$HERE"
+fi
 REPO_NAME="$(basename "$ROOT")"
 PARENT="$(dirname "$ROOT")"
 WT_BASE="$PARENT/${REPO_NAME}-worktrees"
@@ -30,7 +38,7 @@ cmd_clean() {
   git -C "$ROOT" worktree prune
   # Remove worktrees whose branch is already merged into main.
   git -C "$ROOT" worktree list --porcelain \
-    | awk '/^worktree /{wt=$2} /^branch /{print wt"|"$2}' \
+    | awk '/^worktree /{sub(/^worktree /, ""); wt=$0} /^branch /{sub(/^branch /, ""); print wt"|"$0}' \
     | while IFS='|' read -r wt br; do
         [ "$wt" = "$ROOT" ] && continue
         ref="${br#refs/heads/}"
@@ -40,15 +48,19 @@ cmd_clean() {
         esac
         if git -C "$ROOT" merge-base --is-ancestor "$br" refs/heads/main 2>/dev/null \
         || git -C "$ROOT" merge-base --is-ancestor "$br" refs/remotes/origin/main 2>/dev/null; then
+          removed=0
           if [ "$force" = 1 ]; then
-            git -C "$ROOT" worktree remove --force "$wt" && echo "removed $wt"
+            git -C "$ROOT" worktree remove --force "$wt" && echo "removed $wt" && removed=1
           else
             if git -C "$ROOT" worktree remove "$wt" 2>/dev/null; then
-              echo "removed $wt"
+              echo "removed $wt" && removed=1
             else
               echo "skip $wt (dirty or unpushed — use --force to remove anyway)" >&2
             fi
           fi
+          # Drop the merged agent branch too, so a later same-slug `new`
+          # reuses the plain date name instead of needlessly suffixing.
+          [ "$removed" = 1 ] && git -C "$ROOT" branch -d "$ref" >/dev/null 2>&1 || true
         fi
       done
   git -C "$ROOT" worktree prune
@@ -67,7 +79,7 @@ cmd_new() {
   done
   [[ -n "$slug" ]] || die "usage: scripts/agent-worktree new <slug> [--base <ref>]"
   slug="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-')"
-  [[ -n "$slug" && "$slug" != "-" ]] || die "bad slug"
+  [[ "$slug" =~ [a-z0-9] ]] || die "bad slug"
 
   git -C "$ROOT" fetch origin main 2>/dev/null || true
 
