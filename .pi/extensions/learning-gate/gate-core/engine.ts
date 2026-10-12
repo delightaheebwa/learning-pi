@@ -610,8 +610,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
       {
         const scriptRefs: Array<string | undefined> = [run.learnerText];
         for (const r of run.receipts) {
-          const b = r.renderedContent || r.questionsText || r.gradeText;
-          if (b) scriptRefs.push(b);
+          if (r.renderedContent) scriptRefs.push(r.renderedContent);
+          if (r.questionsText) scriptRefs.push(r.questionsText);
+          if (r.gradeText) scriptRefs.push(r.gradeText);
         }
         if (P.scriptDrift(text, scriptRefs)) {
           const withheld =
