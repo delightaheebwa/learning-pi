@@ -918,6 +918,20 @@ assert(
   JSON.stringify(P.missingHardFacts(latexDraft, latexClaimsProse)) === JSON.stringify(['23.7'])
 );
 
+// 2026-10-12: the t-SNE kernel loop. The draft rendered `$q_{ij} \propto
+// 1/(1+d_{ij}^2)$` while the claims listed the same fact in prose
+// ("q_ij proportional to 1/(1 + d_ij^2)"): a symbol macro (`\propto`) and
+// operator spacing both differed, so an already-verified formula was withheld
+// as CLAIMS_INCOMPLETE on every re-dispatch. Symbol macros must translate to
+// their prose spelling and whitespace around operators is insignificant.
+const proptoDraft = 'The map-side curve is $q_{ij} \\propto 1/(1+d_{ij}^2)$ (normalized over all pairs).';
+const proptoClaims =
+  'In the map, Q is defined from distances by q_ij proportional to 1/(1 + d_ij^2), normalized over all pairs.';
+assert(
+  'prose-notation claims cover a LaTeX symbol macro and operator spacing',
+  P.missingHardFacts(proptoDraft, proptoClaims).length === 0
+);
+
 await setPrompt('[[FLOW:resume]] continue the lesson');
 const envLatex1 = JSON.stringify({
   gate: 'fact_check',

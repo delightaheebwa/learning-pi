@@ -88,8 +88,10 @@ its tagged test, change the implementation, all in one reviewed commit.
   nobody listed is a number or formula nobody verified. Containment is
   notation-insensitive: the same fact written as LaTeX in the draft and as plain
   prose in `claims[]` (e.g. `\mathrm{Per}(P_i) = 2^{H(P_i)}` vs
-  `Per(P_i) = 2^(H(P_i))`, or `\sigma_i` vs `sigma_i`) counts as present, so a
-  notation difference cannot dead-end the turn.
+  `Per(P_i) = 2^(H(P_i))`, `\sigma_i` vs `sigma_i`, or `q_{ij} \propto
+  1/(1+d_{ij}^2)` vs `q_ij proportional to 1/(1 + d_ij^2)`) counts as present, so
+  a notation difference — a LaTeX symbol macro, or whitespace around an operator
+  — cannot dead-end the turn.
 - **G-draft-tail-bound** *(hard)* — an emission may reproduce a verified draft
   with reordering or punctuation edits but may not append unverified prose: at
   most `LENGTH_SLACK_TOKENS` (12) emitted tokens may be absent from the draft.

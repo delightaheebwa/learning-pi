@@ -132,6 +132,7 @@
         "comma-grouped thousands are not treated as a hard fact",
         "four-digit years are not hard facts",
         "prose-notation claims cover LaTeX hard facts (only the unlisted number is missing)",
+        "prose-notation claims cover a LaTeX symbol macro and operator spacing",
         "judge path withholds claims with an unlisted hard fact"
       ]
     },

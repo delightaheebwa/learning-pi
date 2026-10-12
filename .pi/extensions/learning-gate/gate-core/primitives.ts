@@ -472,21 +472,41 @@ export function normHardFact(s: string): string {
  * claims in prose ("Per(P_i) = 2^(H(P_i))") while the draft may render the same
  * fact as math ("\mathrm{Per}(P_i) = 2^{H(P_i)}"); a byte comparison withheld
  * such a turn as CLAIMS_INCOMPLETE even though the verifier had checked it (the
- * 2026-10-09 t-SNE perplexity loop). Strip LaTeX font/formatting wrappers and
- * delimiters so both spellings collapse to one form. Inter-word whitespace is
- * preserved so `factPresent`'s token-boundary test still keeps numeric
- * containment exact.
+ * 2026-10-09 t-SNE perplexity loop). Symbol macros whose prose spelling is not
+ * the macro name are translated first ("\propto" vs "proportional to" — the
+ * 2026-10-12 t-SNE kernel loop), then LaTeX font/formatting wrappers and
+ * delimiters are stripped and whitespace is dropped only around math operators
+ * so `1/(1+d_{ij}^2)` equals `1/(1 + d_{ij}^2)`. Inter-word whitespace between
+ * ordinary words is preserved so `factPresent`'s token-boundary test still keeps
+ * numeric containment exact ("200" does not match inside "2000").
  */
 export function normMathFact(s: string): string {
-  return normHardFact(s)
-    .replace(
-      /\\(?:mathrm|mathbf|mathit|mathsf|mathtt|operatorname|boldsymbol|vec|hat|bar|tilde|left|right|big|Big|bigg|Bigg)\b/g,
-      " "
-    )
-    .replace(/\\/g, "")
-    .replace(/[{}\[\]()]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    normHardFact(s)
+      // Symbol macros whose plain-prose spelling is not the macro name. Without
+      // this the generic backslash strip below leaves the bare token "propto"
+      // and a correctly-claimed formula is withheld as CLAIMS_INCOMPLETE. The
+      // Unicode spellings of the same symbols normalise identically.
+      .replace(/\\(?:propto|varpropto)(?![a-zA-Z])|∝/g, " proportional to ")
+      .replace(/\\(?:approx|sim|simeq|cong)(?![a-zA-Z])|≈/g, " approximately ")
+      .replace(/\\(?:times|cross)(?![a-zA-Z])|×/g, " x ")
+      .replace(/\\(?:cdot|ast)(?![a-zA-Z])|·/g, " ")
+      .replace(/\\(?:to|rightarrow|longrightarrow|Rightarrow|implies)(?![a-zA-Z])|→/g, " to ")
+      .replace(/\\(?:le|leq|leqslant)(?![a-zA-Z])|≤/g, " <= ")
+      .replace(/\\(?:ge|geq|geqslant)(?![a-zA-Z])|≥/g, " >= ")
+      .replace(/\\(?:ne|neq)(?![a-zA-Z])|≠/g, " != ")
+      .replace(/\\(?:pm|mp)(?![a-zA-Z])|±/g, " +/- ")
+      .replace(/\\(?:infty)(?![a-zA-Z])|∞/g, " infinity ")
+      .replace(
+        /\\(?:mathrm|mathbf|mathit|mathsf|mathtt|operatorname|boldsymbol|vec|hat|bar|tilde|left|right|big|Big|bigg|Bigg)\b/g,
+        " "
+      )
+      .replace(/\\/g, "")
+      .replace(/[{}\[\]()]/g, "")
+      .replace(/\s*([+\-=/^_*<>!])\s*/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 /**
