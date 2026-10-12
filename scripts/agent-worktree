@@ -163,7 +163,7 @@ cmd_land() {
     # Absorb main into the branch first, so the final fast-forward cannot
     # conflict. A conflict here stops the land: the agent resolves it in
     # the worktree (AGENTS.md §4), re-verifies, commits, and re-runs land.
-    if ! git -C "$wt" merge origin/main -m "merge: origin/main into $branch" 2>/tmp/land-merge.err; then
+    if ! git -C "$wt" merge origin/main -m "merge: origin/main into $branch" 2>/dev/null; then
       echo "agent-worktree: conflict merging origin/main into $branch — land stopped." >&2
       echo "agent-worktree: conflicted files:" >&2
       git -C "$wt" diff --name-only --diff-filter=U | sed 's/^/  /' >&2
@@ -207,7 +207,7 @@ case "${1:-}" in
   new) shift; cmd_new "$@" ;;
   list) cmd_list ;;
   clean) shift; cmd_clean "$@" ;;
-  land) shift; cmd_land "$@" ;;
-  -h|--help|help|"") sed -n '2,14p' "$0" ;;
+  land) shift; [ $# -eq 0 ] || die "land takes no arguments"; cmd_land "$@" ;;
+  -h|--help|help|"") sed -n '2,23p' "$0" ;;
   *) die "unknown command: $1 (new|list|clean|land)" ;;
 esac
