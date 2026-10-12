@@ -388,6 +388,15 @@
       ]
     },
     {
+      "id": "G-verifier-recheck-uncapped",
+      "severity": "hard",
+      "statement": "Verifier re-checks are not dispatch-capped: a review-gate or review-session-audit may be re-dispatched as many times as needed, and the Tutor/Reviewer keeps fixing and re-checking until the verifier returns zero issues at any severity. There is no per-flow pass limit and no 'max 2 cycles' stop. An identical issue that never changes is still bounded by G-verifier-dispute (three identical blocks escalate to the judge).",
+      "tests": [
+        "review-gate re-check is uncapped",
+        "review-session-audit re-check is uncapped"
+      ]
+    },
+    {
       "id": "G-any-issue-blocks",
       "severity": "hard",
       "statement": "Every verifier finding blocks at any severity: a verdict object carrying a non-empty `issues[]` is an ISSUES verdict regardless of the stated verdict word or the severity labels, so a `low` blocks exactly like a `high`. PASS_WITH_FLAGS is no longer a passing verdict for a verifier's own findings; it survives only as the review-gate out-of-scope bookkeeping demotion.",

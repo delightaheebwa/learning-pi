@@ -44,7 +44,7 @@ Rules:
 - **Envelope, not freeform prompt:** send `{"gate":"fact_check","claims":[{"id":1,"claim":"..."}],"rendered_content":"...","source_urls":[...],"reference_excerpt":"...","context":"..."}` (and analogously `{"gate":"quiz_audit", ...}`). Do not add prose outside the envelope.
 - **Fold verdicts in before proceeding:** never present claims or questions to the learner while a gate task is still pending.
 - **Per-generation (Tutor only):** every Tutor generation that teaches a step must have its own fresh `fact-check` receipt **for the actual draft text, right before emission**. Draft the step internally, send `claims[] + rendered_content=draft + source_urls + reference_excerpt` in ONE foreground call, fold verdicts (apply `corrected_claim`), then emit the corrected final. Do not verify a plan and then generate different text. Each assistant message that contains teaching claims needs its own `fact-check` receipt.
-- **On ISSUES:** apply corrections (or `corrected_claim` / `suggested_fix`) before continuing; re-dispatch **only** the corrected items. Max 2 cycles per batch; then surface remaining flags to the user. This is the **only** case in which a second `fact-check`/`quiz-audit` for the same turn is legitimate — a materially corrected draft. After a PASS, never re-dispatch: emit the verified text. For a `grade-audit` with `agrees:false`, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict` (see the grade envelope below), then emit.
+- **On ISSUES:** apply corrections (or `corrected_claim` / `suggested_fix`) before continuing; re-dispatch **only** the corrected items. There is no cycle cap: keep fixing and re-checking until the verifier returns no issues (any severity). This is the **only** case in which a second `fact-check`/`quiz-audit` for the same turn is legitimate — a materially corrected draft. After a PASS, never re-dispatch: emit the verified text. For a `grade-audit` with `agrees:false`, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict` (see the grade envelope below), then emit.
 - **On a match/binding withhold** (`NO_FACT_CHECK_MATCH`, `FACT_CHECK_MISMATCH`, `FACT_CHECK_MISSING_DRAFT`, `QUIZ_AUDIT_STALE`, `GRADE_AUDIT_STALE`, `NO_TURN_TAG`, `FACT_CHECK_PENDING`): do **not** re-run the verifier. The receipt already exists — re-emit the verified draft unchanged (or add the missing `[[TURN:…]]` tag). Re-dispatching the same draft is blocked by the gate and will not clear the withhold. If the withhold says a verifier is **still in flight**, wait for its completion notification, then re-emit.
 - **Never tag teaching content `[[TURN:none]]` to dodge the gate.** `none` is transitions/summaries only; a `none` message that matches a verified or pending `fact-check` draft is withheld (`TURN_TAG_MISMATCH` / `FACT_CHECK_PENDING`). This is not a workaround — fix the tag and emit the verified text.
 - **Never surface gate/tooling internals to the learner** (receipts, verifiers, dispatches, gate codes, "the gate is broken"). Fold verdicts silently; the learner sees only the lesson.
@@ -138,7 +138,7 @@ The `learning-gate` extension **withholds** a teach/resume summary that follows 
 }
 ```
 
-There is no `expected` block — the auditor derives the truth from the files and checks them against each other. It returns `{"verdict":"PASS|ISSUES","evidence":[...],"issues":[...],"context_notes":[...]}` — `evidence` is mandatory (each file read + cross-check), so a clean `PASS` is substantive. Fix every issue regardless of severity, re-dispatch (max 2 cycles); only a `PASS` (zero issues) proceeds. Keep `bash` out of this check — it verifies content, not history.
+There is no `expected` block — the auditor derives the truth from the files and checks them against each other. It returns `{"verdict":"PASS|ISSUES","evidence":[...],"issues":[...],"context_notes":[...]}` — `evidence` is mandatory (each file read + cross-check), so a clean `PASS` is substantive. Fix every issue regardless of severity, re-dispatch until the verifier returns zero issues (no cycle cap); only a `PASS` (zero issues) proceeds. Keep `bash` out of this check — it verifies content, not history.
 
 ## Scope & state
 
@@ -173,7 +173,7 @@ These rules stop the correct answer from being guessable by presentation or dist
 1. Write the full batch first: for an assessment batch, all MCQs plus one free-recall item per strand; an **elicitation** batch (the ladder's first rung) is free-recall prompt(s) only.
 2. Run the mechanical pre-checks yourself — fix before dispatch.
 3. `dispatch` ONE `quiz-audit` with the envelope above.
-   4. On `ISSUES`: fix every item per `suggested_fix` (any severity blocks), then re-run. Max 2 cycles; never run a third cycle.
+   4. On `ISSUES`: fix every item per `suggested_fix` (any severity blocks), then re-run until the verifier returns PASS. There is no cycle cap.
 5. Never present a batch without a `PASS` receipt. The auditor never sees learner answers.
 
 ## Explanation discipline (novelty budget — anti-curse-of-knowledge)
@@ -282,5 +282,5 @@ After a teaching session, the Tutor writes its four handoff artifacts (lesson fi
    - Lesson file exists in `Lessons/` with today's date · session note exists in `Sessions/`
    - Learning record numbered correctly (highest + 1) · glossary terms promoted only with user approval
    - `Pending Ingest.json` written with `status`, `resume_from`, `lesson_file`, `session_file`, `concepts`, a source ref, and `dependency_events` (when any opt-out occurred)
-3. Fix any discrepancy immediately, then re-audit once (max 2 cycles).
+3. Fix any discrepancy immediately, then re-audit until the verifier returns PASS (no cycle cap).
 4. Do **not** commit and do **not** touch position/state files. Hand off to the Clerk (`/ingest`), which reconciles MISSION/CURRICULUM/Profile/Active Concepts/Mistakes, regenerates Learner History, and commits and pushes state (`Learning System/`, `Knowledge Wiki/`) per `Learning System/AGENTS.md`. For a partial (`/pause`) handoff, Clerk keeps the lesson `in-progress`; only a final handoff lets the curriculum row go `done`.

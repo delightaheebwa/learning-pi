@@ -226,6 +226,13 @@ deterministic path unchanged (G-judge-degraded-fallback).
   severity) the gate keeps blocking and never dumps the turn as `⛔ UNVERIFIED`;
   the cap applies to every other reason. Severity labels no longer gate: a `low`
   blocks exactly like a `high`.
+- **G-verifier-recheck-uncapped** *(hard)* — verifier re-checks are not dispatch-
+  capped: a `review-gate` or `review-session-audit` may be re-dispatched as many
+  times as needed, and the Tutor/Reviewer keeps fixing and re-checking until the
+  verifier returns **zero issues at any severity**. There is no per-flow pass
+  limit and no "max 2 cycles" stop. An identical issue that never changes is
+  still bounded by G-verifier-dispute (three identical blocks escalate to the
+  judge), so the loop cannot spin on a stale finding.
 - **G-any-issue-blocks** *(hard)* — every verifier finding blocks at any
   severity. A verdict object carrying a non-empty `issues[]` is an ISSUES verdict
   regardless of the stated verdict word or the severity labels, so a

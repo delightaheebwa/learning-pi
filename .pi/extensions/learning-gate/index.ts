@@ -43,8 +43,10 @@
  *     a completed run arms the review-session audit gate, so the summary needs a
  *     passing `review-session-audit` over the writes.
  *   - ingest -> the parent dispatches an independent `review-gate` after the Clerk
- *     returns `CLERK_WRITES`. A PASS renders clean; ISSUES renders with a visible
- *     `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run loop). A verdict
+ *     returns `CLERK_WRITES`. In-scope issues keep the re-check going (uncapped,
+ *     any severity) until the verifier returns zero issues; out-of-scope
+ *     bookkeeping findings are demoted to a visible `⚠️ REVIEW FLAGS SURFACED`
+ *     banner. A verdict
  *     relayed inside the Clerk's own output surfaces `⚠️ INGEST GATE`; a review
  *     verdict with no `evidence` list surfaces `⚠️ REVIEW GATE`.
  *   - provider failures (503/429/overloaded) are counted per agent; after two in a

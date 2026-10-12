@@ -34,7 +34,7 @@ about what they saw.
    voice and must be accurate — `viz-audit` checks them.
 3. **Verify.** `dispatch` ONE `viz-audit` with the spec AND the full turn draft:
    `{"gate":"viz_audit","concept":"...","instructed":"...","spec":{...},"rendered_content":"the full turn draft (supporting words + fenced spec)","sources":[...]}`.
-   On `ISSUES`: apply fixes and re-dispatch the **materially corrected** draft once (max 2 cycles).
+   On `ISSUES`: apply fixes and re-dispatch the **materially corrected** draft until the verifier returns PASS — there is no cycle cap.
    Any issue at any severity blocks. Never emit the turn without a passing, bound receipt.
 4. **Emit.** Send the audited draft unchanged as `[[TURN:viz]]`. The `viz-mode` extension renders the
    figure and auto-opens the explorer for interactive specs. Talk **about the content** ("push the

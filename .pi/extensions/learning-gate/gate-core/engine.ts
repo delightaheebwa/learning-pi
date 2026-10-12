@@ -193,31 +193,20 @@ export function createGate(options: GateOptions = {}): GateEngine {
       if (calls.length === 0 && input.agentless) {
         run.agentlessDispatch = true;
       }
-      const reviewGateCalls = calls.filter((c) => c.agent === "review-gate").length;
-      const reviewSessionCalls = calls.filter((c) => c.agent === "review-session-audit").length;
       const clerkCalls = calls.filter((c) => c.agent === "clerk").length;
       const reviewScoutCalls = calls.filter((c) => c.agent === "review-scout").length;
       const reviewClerkCalls = calls.filter((c) => c.agent === "review-clerk").length;
-      if (reviewGateCalls > 0) run.reviewGates += reviewGateCalls;
-      if (reviewSessionCalls > 0) run.reviewSessionAudits += reviewSessionCalls;
       if (clerkCalls > 0) run.clerkDispatches += clerkCalls;
       if (reviewScoutCalls > 0) run.reviewScoutCalled = true;
       if (reviewClerkCalls > 0) {
         run.reviewClerkCalled = true;
         run.reviewClerkDispatches += reviewClerkCalls;
       }
-      if (reviewSessionCalls > 0 && run.reviewSessionAudits > P.MAX_REVIEW_SESSION_AUDITS) {
-        return {
-          block: true,
-          reason: `review-session audit cap reached (${P.MAX_REVIEW_SESSION_AUDITS} passes per flow). Report the existing verdict — fix any issues next session instead of re-running.`,
-        };
-      }
-      if (reviewGateCalls > 0 && run.reviewGates > P.MAX_REVIEW_GATES) {
-        return {
-          block: true,
-          reason: `review-gate cap reached (${P.MAX_REVIEW_GATES} passes per flow). Report the existing verdict — do not re-run. State/bookkeeping drift is audit_state.py's job, not another review pass.`,
-        };
-      }
+      // Verifier re-checks are deliberately UNCAPPED: review-gate and
+      // review-session-audit dispatch counts are not limited, so the Tutor /
+      // Reviewer can keep fixing and re-verifying until the verifier returns
+      // zero issues at ANY severity. A repeated identical issue is still
+      // bounded by the dispute safeguard (three repeats escalate to the judge).
       if (clerkCalls > 0 && run.clerkDispatches > P.MAX_CLERK_DISPATCHES) {
         return {
           block: true,
@@ -940,7 +929,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
             surface +=
               "⚠️ REVIEW FLAGS SURFACED — the end-of-review audit returned flags on the session writes " +
               "(Review notes / session note / touched state rows). The summary below is shown with those flags " +
-              "outstanding; fix them next session — do not re-run the audit (hard cap 2 cycles).\n\n";
+              "outstanding; fix them next session. The close audit is surfaced, not re-run.\n\n";
           }
           if (audit.evidenceMissing) {
             surface +=
@@ -1050,7 +1039,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const fix = [
         "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, `[[TURN:viz]]`, or `[[TURN:none]]`.",
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged. A `[[TURN:claims]]` tag is also inferred automatically when your text matches an already-verified `rendered_content`, so if a message is withheld here, just re-emit the verified draft with its tag.",
-        "quiz: send the exact batch as `questions_json` (not `items[]`) AND the full learner-facing batch text as `rendered_content` (intro/instructions + every question + its options) so the receipt covers the whole emitted turn; fix EVERY issue (any severity blocks; max 2 cycles), then re-emit the corrected batch instead of looping.",
+        "quiz: send the exact batch as `questions_json` (not `items[]`) AND the full learner-facing batch text as `rendered_content` (intro/instructions + every question + its options) so the receipt covers the whole emitted turn; fix EVERY issue (any severity blocks), then re-emit the corrected batch instead of looping.",
         "grade: when one learner reply answers several questions, send ONE `grade-audit` envelope with an `items[]` entry per answer (`{id,concept,question,learner_answer,claimed_verdict,source_excerpt}`); a single answer may use the flat object. Use the verifier's per-item `correct_verdict`.",
         "grade mismatch: on GRADE_MISMATCH, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict`, then emit those verdicts — do not emit a disputed grade.",
         "do not re-verify: if a fact-check receipt already covers your draft, emit that draft unchanged — re-dispatching the same claims is blocked and only for a materially corrected draft after an ISSUES verdict.",
@@ -1060,7 +1049,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary.",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review context: run the `review-scout` subagent first; it builds the due queue and writes the review digest (`REVIEW_SCOUT_DIGEST:`). A review's first claims/quiz turn is withheld (NO_REVIEW_CONTEXT) until it has run; a partial digest banners (REVIEW CONTEXT INCOMPLETE), never withholds.",
-        "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. A PASS renders clean and an ISSUES verdict renders with a flags banner (no re-run, cap 2 passes).",
+        "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. A PASS renders clean and an ISSUES verdict renders with a flags banner (surfaced, not re-run).",
         "viz: a figure is its own `[[TURN:viz]]` message (never a ```viz block inside a claims/none turn). Give the `viz` subagent the teaching intent, then dispatch ONE foreground `viz-audit` with the spec AND `rendered_content` = the full turn draft (supporting words + the fenced spec); emit the audited draft unchanged. A wrong/different spec, or a receipt with no spec/rendered_content, will not bind.",
         "verifier failed on provider errors (503/429/timeout): retry once, then re-dispatch the SAME verifier with an explicit `model:` from the alternate set (verifiers → deepseek-v4.1-flash, scout/review-scout → muse-spark-1.3-contributor); if it still fails, proceed and surface what is unverified.",
       ].join("\n");
@@ -1466,7 +1455,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         run.reviewSessionWrote = false;
         run.reviewSessionPaths = [];
         if (audit.issues) {
-          surface += "⚠️ REVIEW FLAGS SURFACED — the end-of-review audit returned flags on the session writes. Fix them next session; do not re-run the audit (hard cap 2 cycles).\n\n";
+          surface += "⚠️ REVIEW FLAGS SURFACED — the end-of-review audit returned flags on the session writes. Fix them next session. The close audit is surfaced, not re-run.\n\n";
         }
         if (audit.evidenceMissing) {
           surface += "⚠️ REVIEW SESSION GATE — the audit verdict carries no `evidence` list; treat the pass as unsubstantiated.\n\n";

@@ -32,7 +32,7 @@ Begin your final message with `[[TURN:none]]` as its first line (the learning ga
 {"verdict":"PASS|ISSUES","evidence":["what you actually checked per item, e.g. 'q1: one correct option, parallel grammar, no length outlier'","q2: ..."],"issues":[{"id":"q1","severity":"high|medium|low","problem":"...","suggested_fix":"..."}]}
 
 - `PASS` — zero issues. The batch is clean and ready to show.
-- `ISSUES` — one or more issues of **ANY** severity (`high`, `medium`, or `low`). Every issue blocks: the Tutor fixes it and re-audits (max 2 cycles). There is no passing-with-flags verdict — a `low` is not an accepted caveat, it is an issue to fix.
+- `ISSUES` — one or more issues of **ANY** severity (`high`, `medium`, or `low`). Every issue blocks: the Tutor fixes it and re-audits until the verifier returns PASS; there is no cycle cap. There is no passing-with-flags verdict — a `low` is not an accepted caveat, it is an issue to fix.
 
 `evidence` is mandatory and non-empty: name the checks you actually ran (per item, plus the batch-level checks: exactly-one-correct, length parity, position variety, parallel grammar, no answer leak). A verdict with no evidence is treated as unsubstantiated by the gate, even when it is a clean `PASS`.
 

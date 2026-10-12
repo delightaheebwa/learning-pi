@@ -1,6 +1,6 @@
 ---
 name: learning-review
-description: Quality-gate learning-system output before it is finalized — wherever it originates. Use after every standalone ingest, at the end of any teaching lesson that produced wiki pages or Active Concepts rows (review-gate), AND at the close of a standalone /review session (review-session gate on the Review notes / session note / touched state rows). The review-gate subagent flags accuracy, correctness, clarity, and completeness issues; every issue blocks until fixed regardless of severity; max 2 cycles, then remaining flags are surfaced (never re-run).
+description: Quality-gate learning-system output before it is finalized — wherever it originates. Use after every standalone ingest, at the end of any teaching lesson that produced wiki pages or Active Concepts rows (review-gate), AND at the close of a standalone /review session (review-session gate on the Review notes / session note / touched state rows). The review-gate subagent flags accuracy, correctness, clarity, and completeness issues; every in-scope issue blocks until fixed regardless of severity, and the re-check runs until the verifier returns zero issues (no cycle cap). The review-session close audit surfaces its flags rather than re-running.
 ---
 
 # Learning System Review Gate
@@ -19,7 +19,7 @@ The writes a review-clerk persists: the `Reviews/Review — [Concept] — [Date]
 
 - Verifier: the `review-session-audit` subagent (`muse-spark-1.3-contributor`, high, read-only), envelope `{"gate":"review_session","concepts":[...],"transcript":"exact Q/A + learner answers + claimed verdicts","grade_verdicts":[{"concept","correct_verdict"}],"written_files":[{"path"}],"state_rows":"...","pass_number":N}`.
 - The `learning-gate` arms the gate when the delegated `review-clerk` run returns (or the main session writes the session note) and withholds the closing summary until a receipt exists (`NO_REVIEW_SESSION_AUDIT`). An untagged closing summary is treated as implicit `[[TURN:none]]` once the receipt is present — a dropped tag never dead-ends the session.
-- Verdict: `PASS|ISSUES` + `issues` + `context_notes`. `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner, **never** withheld or re-run; hard cap **2 passes per flow**.
+- Verdict: `PASS|ISSUES` + `issues` + `context_notes`. `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner, **never** withheld or re-run.
 - Scope is fenced: MISSION/CURRICULUM/Learning Profile/Learner History/`Knowledge Wiki/`/git drift → `context_notes`, never `issues` (state drift is `audit_state.py`'s job, run by review-clerk; the wiki is `review-gate`'s job).
 
 ## Config
@@ -73,12 +73,12 @@ Grounding (`source_url`, `source_file`, or `lesson_ref`) is required. Every conc
 
 For each NEW concept, spot-check 1–2 load-bearing factual claims (mechanisms, formulas, definitions) against authoritative sources. Flag mismatches. If inconclusive, note it as unverified — do not flag.
 
-### 4. Fix loop (max 2 cycles — hard cap)
+### 4. Fix loop (uncapped — until zero issues)
 
-- On any `issues` (every severity blocks): fix the target text, then re-run the quality gate (`pass_number: 2`) with the UPDATED target text and the SAME sources/concepts.
-- **Cap: 2 cycles total. Never run a third pass, and never ask the parent/another agent to run one.** After cycle 2:
+- On any `issues` (every severity blocks): fix the target text, then re-run the quality gate with the UPDATED target text and the SAME sources/concepts.
+- **There is no cycle cap.** Keep fixing and re-running until the gate returns `PASS` (zero issues). Never ask the parent/another agent to run a pass on your behalf.
   - target clean → `PASS`;
-  - in-scope issues remain → `ISSUES`, surfaced to the user and **not** re-run.
+  - remaining `ISSUES` are only ever surfaced when they are out-of-scope bookkeeping demoted to `context_notes`.
 - The reviewer never rewrites content. You own final wording.
 
 ### 5. Report
@@ -89,7 +89,7 @@ Tell the user concisely: gate result per concept (passed after N cycles / flags 
 
 - Only the ingest's own output is in scope. Do not audit state drift here.
 - Every in-scope finding is an `issue` (all severities block); bookkeeping/nits outside the target files are `context_notes`.
-- Hard stop after 2 cycles. Remaining flags go to the user, always.
+- No cycle cap: re-check until zero issues. Any genuine leftover flags (out-of-scope bookkeeping) go to the user, always.
 - Never skip the gate silently. If it can't run, say so and surface what was unverified.
 - Never run this gate on lesson files, learning records, or glossary promotions — those use `fact-check`/`tutor-audit`.
 

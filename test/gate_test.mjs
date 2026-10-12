@@ -619,6 +619,34 @@ await fg('irg1', 'review-gate', JSON.stringify({ gate: 'review', concepts: ['X']
 const noTargetsRG = await msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}', 'stop');
 assert('review-gate without target_files does not release the ingest summary', blocked(noTargetsRG, 'NO_REVIEW_GATE_PASS'));
 
+// --- uncapped verifier re-check: review-gate / review-session-audit are not dispatch-capped ---
+// The Tutor/Reviewer may keep fixing and re-checking a verifier until it returns
+// zero issues (any severity). A 3rd/4th dispatch must not be blocked by an old
+// per-flow cap of 2.
+await setPrompt('[[FLOW:ingest]] ingest this');
+let rgCapped = false;
+for (let i = 1; i <= 4; i++) {
+  const r = await fire('tool_call', {
+    toolName: 'subagent',
+    toolCallId: `rgcap${i}`,
+    input: { agent: 'review-gate', task: JSON.stringify({ gate: 'review', concepts: ['X'], target_files: [{ path: `p${i}.md` }] }) },
+  });
+  if (r && r.block) rgCapped = true;
+}
+assert('review-gate re-check is uncapped', !rgCapped);
+
+await setPrompt('[[FLOW:review]] review my due concepts');
+let rsaCapped = false;
+for (let i = 1; i <= 4; i++) {
+  const r = await fire('tool_call', {
+    toolName: 'subagent',
+    toolCallId: `rsacap${i}`,
+    input: { agent: 'review-session-audit', task: JSON.stringify({ gate: 'review_session', concepts: ['X'], written_files: [{ path: 'Learning System/Sessions/s.md' }] }) },
+  });
+  if (r && r.block) rsaCapped = true;
+}
+assert('review-session-audit re-check is uncapped', !rsaCapped);
+
 // --- a failed async verifier clears the in-flight state (no stale hint) ---
 await setPrompt('[[FLOW:resume]] continue the lesson');
 await asyncDispatch('n2', 'fact-check', fcEnvelope(vDraft));

@@ -23,13 +23,10 @@ export const VERIFIER_AGENTS: Record<string, string> = {
 };
 
 export const MAX_RETRIES = 2;
-// A review-gate pass may legitimately run twice (fix cycle). A third pass is
-// the runaway loop we observed: repeated re-reviews of out-of-scope state
-// bookkeeping. Cap dispatches per flow so it cannot spiral.
-export const MAX_REVIEW_GATES = 2;
-// Review-session close audit: at most 2 passes per flow (initial + one fix
-// cycle). A third is the runaway loop we must avoid.
-export const MAX_REVIEW_SESSION_AUDITS = 2;
+// Verifier re-checks are NOT capped: review-gate and review-session-audit may
+// be re-dispatched as many times as needed until the verifier returns zero
+// issues (any severity). A repeated identical issue is still bounded by the
+// dispute safeguard (three identical blocks escalate to the judge).
 // The ingest is delegated to clerk once per flow. Re-dispatching it re-ingests
 // the same handoff and re-runs the whole review-gate chain.
 export const MAX_CLERK_DISPATCHES = 2;
@@ -156,7 +153,6 @@ export interface RunState {
   // arms the review-session audit gate. Capped to stop a re-ingest loop.
   reviewClerkCalled: boolean;
   reviewClerkDispatches: number;
-  reviewGates: number;
   retries: number;
   // Consecutive provider-failure count per verifier/scout, and whether the
   // one-shot alternate-model fallback directive was already surfaced.
@@ -168,7 +164,6 @@ export interface RunState {
   // touched state rows; a summary-like turn then needs a review_session audit.
   reviewSessionWrote: boolean;
   reviewSessionPaths: string[];
-  reviewSessionAudits: number;
   stateAudit?: StateAudit;
   agentlessDispatch: boolean;
   // Same-issue repeat count per turn, keyed by a fingerprint of (gate + issue
@@ -208,7 +203,6 @@ export function newRun(flow: Flow): RunState {
     reviewScoutFailedRefs: [],
     reviewClerkCalled: false,
     reviewClerkDispatches: 0,
-    reviewGates: 0,
     retries: 0,
     agentFailures: {},
     agentFallbackUsed: {},
@@ -216,7 +210,6 @@ export function newRun(flow: Flow): RunState {
     writtenPaths: [],
     reviewSessionWrote: false,
     reviewSessionPaths: [],
-    reviewSessionAudits: 0,
     agentlessDispatch: false,
     issueBlocks: {},
   };
