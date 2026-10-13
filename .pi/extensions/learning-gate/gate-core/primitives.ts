@@ -20,13 +20,14 @@ export const VERIFIER_AGENTS: Record<string, string> = {
   "tutor-audit": "tutor_audit",
   "review-session-audit": "review_session",
   "viz-audit": "viz_audit",
+  "scout-audit": "scout_audit",
 };
 
 export const MAX_RETRIES = 2;
-// Verifier re-checks are NOT capped: review-gate and review-session-audit may
-// be re-dispatched as many times as needed until the verifier returns zero
-// issues (any severity). A repeated identical issue is still bounded by the
-// dispute safeguard (three identical blocks escalate to the judge).
+// Verifier re-checks are NOT capped: review-gate, review-session-audit, and
+// scout-audit may be re-dispatched as many times as needed until the verifier
+// returns zero issues (any severity). A repeated identical issue is still
+// bounded by the dispute safeguard (three identical blocks escalate to the judge).
 // The ingest is delegated to clerk once per flow. Re-dispatching it re-ingests
 // the same handoff and re-runs the whole review-gate chain.
 export const MAX_CLERK_DISPATCHES = 2;
@@ -938,6 +939,14 @@ export function artifactPaths(envelope: any): string[] | undefined {
       .map((v: any) => (typeof v === "string" ? v : v && typeof v === "object" && typeof v.path === "string" ? v.path : ""))
       .filter((p: string) => p.length > 0);
   }
+  // Scout-audit names its digest as a single `digest` string plus a `raw_files`
+  // string list. Collect both so the receipt binds the audited context.
+  const scout: string[] = [];
+  if (typeof envelope.digest === "string" && envelope.digest.length > 0) scout.push(envelope.digest);
+  if (Array.isArray(envelope.raw_files)) {
+    for (const v of envelope.raw_files) if (typeof v === "string" && v.length > 0) scout.push(v);
+  }
+  if (scout.length > 0) return scout;
   return undefined;
 }
 
@@ -1043,11 +1052,11 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     /"verdict"\s*:\s*"PASS"/i.test(text) ||
     (gate === "fact_check" && /"verdicts"\s*:\s*\[[\s\S]*?"PASS"/i.test(text));
   let passWithFlags = /"verdict"\s*:\s*"PASS_WITH_FLAGS"/i.test(text);
-  // Review-gate: if every high/medium finding is out-of-scope bookkeeping, the
+  // Review-gate + scout-audit: if every high/medium finding is out-of-scope bookkeeping, the
   // target content is clean. Surface them as flags, never as blocking issues.
   // This is the ONLY remaining source of a passing `flags` receipt — it is a
   // scope ruling on bookkeeping paths, not a severity tolerance.
-  const outOfScopeDemoted = gate === "review" && issues && reviewIssuesAllOutOfScope(text);
+  const outOfScopeDemoted = (gate === "review" || gate === "scout_audit") && issues && reviewIssuesAllOutOfScope(text);
   if (outOfScopeDemoted) {
     issues = false;
     passWithFlags = true;
@@ -1087,7 +1096,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
   const auditFiles = artifactPaths(envelope);
   // Review-family verdicts: a PASS without an evidence list is unsubstantiated.
   let evidenceMissing = false;
-  if (gate === "review" || gate === "review_session") {
+  if (gate === "review" || gate === "review_session" || gate === "scout_audit") {
     const obj = parseVerdictObject(text);
     const ev = obj?.evidence;
     const hasEvidence =
@@ -1380,4 +1389,5 @@ export const EXPECTED_ENVELOPE_GATE: Record<string, string> = {
   "tutor-audit": "tutor_audit",
   "review-session-audit": "review_session",
   "viz-audit": "viz_audit",
+  "scout-audit": "scout_audit",
 };

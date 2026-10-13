@@ -33,6 +33,7 @@ EXPECTED_PROMPTS = {
 }
 EXPECTED_AGENTS = {
     "scout",
+    "scout-audit",
     "clerk",
     "review-scout",
     "review-clerk",
@@ -143,7 +144,7 @@ def check_resources(root: Path) -> None:
     # when the verifier shows no evidence. Verifiers whose clean verdict is an
     # empty `issues:[]` must therefore emit a mandatory `evidence` list, or every
     # clean PASS dead-ends as *_STALE (the 2026-10-05 session looped on it).
-    evidence_agents = ["quiz-audit", "tutor-audit", "viz-audit", "review-gate", "review-session-audit"]
+    evidence_agents = ["quiz-audit", "tutor-audit", "viz-audit", "review-gate", "review-session-audit", "scout-audit"]
     missing_evidence = [
         name
         for name in evidence_agents

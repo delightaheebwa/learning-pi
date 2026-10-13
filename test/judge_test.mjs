@@ -30,6 +30,8 @@ const FC_ISSUES_LOW = JSON.stringify({
   verdict: 'ISSUES',
   issues: [{ severity: 'low', location: 'X', issue: 'a wording nit' }],
 });
+const SA_ENV = { gate: 'scout_audit', slug: 'x', digest: 'Learning System/.tmp/context-x.json', raw_files: [], failed_refs: [] };
+const SA_PASS = JSON.stringify({ verdict: 'PASS', evidence: ['read digest'], issues: [] });
 
 /**
  * A scriptable judge. `script` maps a predicate over the package to an
@@ -65,7 +67,19 @@ const msg = (t, stop = 'stop') => ({ role: 'assistant', content: [{ type: 'text'
 
 function drive(engine, { scout = true } = {}) {
   engine.onBeforeAgentStart('[[FLOW:teach]] teach X');
-  if (scout) engine.onToolCall({ tool: 'subagent', input: {}, calls: [{ agent: 'scout' }], agentless: false });
+  if (scout) {
+    engine.onToolCall({ tool: 'subagent', input: {}, calls: [{ agent: 'scout' }], agentless: false });
+    // Lesson-start context audit: the judge path enforces the same
+    // NO_SCOUT_AUDIT_PASS gate as the legacy path, so the shared drive helper
+    // mints a valid scout-audit receipt alongside the scout run.
+    engine.onToolResult({
+      tool: 'subagent',
+      isError: false,
+      text: SA_PASS,
+      dispatchCalls: [],
+      mintCalls: [{ agent: 'scout-audit', envelope: SA_ENV, output: SA_PASS }],
+    });
+  }
 }
 
 const mintFC = (engine, output = FC_PASS) =>
@@ -177,8 +191,9 @@ const mintFC = (engine, output = FC_PASS) =>
   mintFC(engine);
   await engine.onMessageEnd({ message: msg('The definition of X is the thing.') });
   const pkg = j.getPkg();
-  assert('judge package carries the receipt', pkg && pkg.receipts.length === 1 && pkg.receipts[0].gate === 'fact_check');
-  assert('judge package carries the verified draft', pkg && pkg.receipts[0].boundText === JSON.parse(FC_ENV).rendered_content);
+  const fc = pkg && pkg.receipts.find((r) => r.gate === 'fact_check');
+  assert('judge package carries the receipt', !!fc);
+  assert('judge package carries the verified draft', fc && fc.boundText === JSON.parse(FC_ENV).rendered_content);
 }
 
 // --- S7: a judge failure falls back to the legacy deterministic path ---
@@ -245,7 +260,7 @@ const mintFC = (engine, output = FC_PASS) =>
   });
   const res = await engine.onMessageEnd({ message: msg('[[TURN:quiz]]\n' + batch) });
   assert('quiz turn with full rendered_content binds', allowed(res));
-  assert('judge package carries the full quiz batch as boundText', j.getPkg().receipts[0].boundText === batch);
+  assert('judge package carries the full quiz batch as boundText', j.getPkg().receipts.find((r) => r.gate === 'quiz_audit').boundText === batch);
 }
 
 // --- S9b (2026-10-12): a fluent Chinese emission of an English quiz is drift ---
@@ -317,7 +332,7 @@ const mintFC = (engine, output = FC_PASS) =>
   });
   await engine.onMessageEnd({ message: msg('[[TURN:quiz]]\nWhat is entropy? A) surprise B) certainty') });
   const pkg = j.getPkg();
-  assert('derived quiz boundText includes the options', pkg.receipts[0].boundText.includes('A) surprise'));
+  assert('derived quiz boundText includes the options', pkg.receipts.find((r) => r.gate === 'quiz_audit').boundText.includes('A) surprise'));
 }
 
 // --- S10b: a red (ISSUES) quiz receipt the judge marks covers:true must not

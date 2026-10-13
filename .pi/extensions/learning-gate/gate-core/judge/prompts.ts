@@ -10,7 +10,7 @@ export const JUDGE_SYSTEM = `You are the JUDGE for a computer-based learning sys
 
 The system works like this:
 - A TUTOR emits turns to a learner. A turn is one learner-facing message.
-- Before a turn can render, a VERIFIER must check it. Each verifier returns a receipt: a verdict (PASS, PASS_WITH_FLAGS, ISSUES, or UNVERIFIED), the text it checked (boundText), any issues, and evidence of what it did. A PASS means zero issues. ISSUES means one or more issues of ANY severity (a low blocks exactly like a high). PASS_WITH_FLAGS appears only when a review-gate's findings were all demoted as out-of-scope bookkeeping — it is not a severity tolerance.
+- Before a turn can render, a VERIFIER must check it. Each verifier returns a receipt: a verdict (PASS, PASS_WITH_FLAGS, ISSUES, or UNVERIFIED), the text it checked (boundText), any issues, and evidence of what it did. A PASS means zero issues. ISSUES means one or more issues of ANY severity (a low blocks exactly like a high). PASS_WITH_FLAGS appears only when a review-gate's or scout-audit's findings were all demoted as out-of-scope bookkeeping — it is not a severity tolerance.
 - Turn types: claims (teaching text), quiz (a question batch), grade (grading the learner's answer), viz (a visualization), none (a transition or summary).
 - A turn tag [[TURN:...]] is a HINT. It may be missing or wrong. Read the turn type from the content.
 

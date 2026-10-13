@@ -233,11 +233,11 @@ export function createGate(options: GateOptions = {}): GateEngine {
         run.reviewClerkCalled = true;
         run.reviewClerkDispatches += reviewClerkCalls;
       }
-      // Verifier re-checks are deliberately UNCAPPED: review-gate and
-      // review-session-audit dispatch counts are not limited, so the Tutor /
-      // Reviewer can keep fixing and re-verifying until the verifier returns
-      // zero issues at ANY severity. A repeated identical issue is still
-      // bounded by the dispute safeguard (three repeats escalate to the judge).
+      // Verifier re-checks are deliberately UNCAPPED: review-gate,
+      // review-session-audit, and scout-audit dispatch counts are not limited,
+      // so the Tutor / Reviewer can keep fixing and re-verifying until the
+      // verifier returns zero issues at ANY severity. A repeated identical
+      // issue is still bounded by the dispute safeguard (three repeats escalate to the judge).
       if (clerkCalls > 0 && run.clerkDispatches > P.MAX_CLERK_DISPATCHES) {
         return {
           block: true,
@@ -770,6 +770,38 @@ export function createGate(options: GateOptions = {}): GateEngine {
             run.scoutFinished = false;
           }
         }
+        // Lesson-start context audit (copies the ingest review-gate shape): after
+        // Scout runs, the Tutor dispatches ONE independent `scout-audit` on the
+        // digest. A missing audit withholds the first teaching turn
+        // (NO_SCOUT_AUDIT_PASS) with a re-dispatch remedy; an ISSUES verdict
+        // surfaces as a banner and never hard-blocks (the lesson teaches around
+        // the gaps visibly, like the ingest REVIEW FLAGS SURFACED path). The
+        // receipt is flow-level and is NOT consumed per message.
+        let scoutAuditNote = "";
+        if (run.flow === "teach" && run.scoutCalled) {
+          const audits = run.receipts.filter((r) => r.gate === "scout_audit" && P.receiptAuditsArtifacts(r));
+          const good = audits.find((r) => r.valid);
+          const anyAudit = good || audits[0];
+          if (good) {
+            if (good.flags || good.issues) {
+              surface += "⚠️ SCOUT AUDIT FLAGS SURFACED — the scout-audit returned flags on the lesson-start digest; teaching proceeds with those flags outstanding.\n\n";
+            }
+            if (good.evidenceMissing) {
+              surface += "⚠️ SCOUT AUDIT — the scout-audit verdict carries no `evidence` list (what it read/checked); treat the pass as unsubstantiated.\n\n";
+            }
+          } else if (anyAudit) {
+            surface += "⚠️ SCOUT AUDIT FLAGS SURFACED — the scout-audit reported issues on the lesson-start digest; teaching proceeds with those flags outstanding.\n\n";
+            if (anyAudit.evidenceMissing) {
+              surface += "⚠️ SCOUT AUDIT — the scout-audit verdict carries no `evidence` list (what it read/checked); treat the result as unsubstantiated.\n\n";
+            }
+          } else {
+            blockers.push("NO_SCOUT_AUDIT_PASS");
+            scoutAuditNote =
+              "Scout gathered lesson-start context but no independent `scout-audit` receipt covers its digest. Dispatch ONE `scout-audit` on the digest " +
+              "(`{\"gate\":\"scout_audit\",\"slug\":\"...\",\"digest\":\"Learning System/.tmp/context-<session_id>-<slug>.json\",\"raw_files\":[...],\"failed_refs\":[...]}` — paths are enough, the auditor reads from disk), " +
+              "fold its verdict, fix the digest via re-scout on ISSUES and re-audit until PASS (no cycle cap), then emit.";
+          }
+        }
         let best: P.Receipt | undefined;
         let bestScore = 0;
         for (const r of run.receipts) {
@@ -826,6 +858,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
             }
           }
         }
+        if (scoutAuditNote) verdictNote = verdictNote ? verdictNote + "\n" + scoutAuditNote : scoutAuditNote;
       } else if (tag === "quiz") {
         const candidates = run.receipts.filter(
           (r) => r.gate === "quiz_audit" && r.valid && P.receiptBinds(r, text)
@@ -1106,6 +1139,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         "do not tag teaching content `[[TURN:none]]` to bypass the gate: a `none` message matching a verified or in-flight `fact-check` draft is withheld (TURN_TAG_MISMATCH / FACT_CHECK_PENDING).",
         "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch (`files:[...]`) and fold its verdict before the summary.",
         "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary.",
+        "lesson-start context: after Scout returns its `SCOUT_DIGEST` receipt, dispatch ONE independent `scout-audit` on the digest (`{\"gate\":\"scout_audit\",\"slug\":\"...\",\"digest\":\"...\",\"raw_files\":[...],\"failed_refs\":[...]}`); fold its verdict before teaching. A missing audit withholds the first claims turn (NO_SCOUT_AUDIT_PASS); ISSUES surfaces as a banner and never blocks — fix via re-scout + re-audit (no cycle cap).",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review context: run the `review-scout` subagent first; it builds the due queue and writes the review digest (`REVIEW_SCOUT_DIGEST:`). A review's first claims/quiz turn is withheld (NO_REVIEW_CONTEXT) until it has run; a partial digest banners (REVIEW CONTEXT INCOMPLETE), never withholds.",
         "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. Only a receipt with zero issues releases the summary: on an ISSUES verdict, fix the writes (re-dispatch review-clerk) and re-audit until it returns PASS — there is no cycle cap.",
@@ -1375,6 +1409,34 @@ export function createGate(options: GateOptions = {}): GateEngine {
           run.scoutFinished = false;
         }
       }
+      // Lesson-start context audit (judge path mirror): missing audit withholds
+      // (NO_SCOUT_AUDIT_PASS); ISSUES surfaces as a banner and never blocks.
+      // Flow-level receipt — NOT consumed per message.
+      let scoutAuditNote = "";
+      if (run.flow === "teach" && run.scoutCalled) {
+        const audits = R.filter((r) => r.gate === "scout_audit" && P.receiptAuditsArtifacts(r));
+        const good = audits.find((r) => r.valid);
+        const anyAudit = good || audits[0];
+        if (good) {
+          if (good.flags || good.issues) {
+            surface += "⚠️ SCOUT AUDIT FLAGS SURFACED — the scout-audit returned flags on the lesson-start digest; teaching proceeds with those flags outstanding.\n\n";
+          }
+          if (good.evidenceMissing) {
+            surface += "⚠️ SCOUT AUDIT — the scout-audit verdict carries no `evidence` list (what it read/checked); treat the pass as unsubstantiated.\n\n";
+          }
+        } else if (anyAudit) {
+          surface += "⚠️ SCOUT AUDIT FLAGS SURFACED — the scout-audit reported issues on the lesson-start digest; teaching proceeds with those flags outstanding.\n\n";
+          if (anyAudit.evidenceMissing) {
+            surface += "⚠️ SCOUT AUDIT — the scout-audit verdict carries no `evidence` list (what it read/checked); treat the result as unsubstantiated.\n\n";
+          }
+        } else {
+          blocks.push("NO_SCOUT_AUDIT_PASS");
+          scoutAuditNote =
+            "Scout gathered lesson-start context but no independent `scout-audit` receipt covers its digest. Dispatch ONE `scout-audit` on the digest " +
+            "(`{\"gate\":\"scout_audit\",\"slug\":\"...\",\"digest\":\"Learning System/.tmp/context-<session_id>-<slug>.json\",\"raw_files\":[...],\"failed_refs\":[...]}` — paths are enough, the auditor reads from disk), " +
+            "fold its verdict, fix the digest via re-scout on ISSUES and re-audit until PASS (no cycle cap), then emit.";
+        }
+      }
       const idx = bindingFor("fact_check");
       const usable = idx >= 0 && R[idx].valid && substantive(idx) !== "none";
       if (usable) {
@@ -1401,6 +1463,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
             : "The fact-check does not cover the full emitted text. Verify the full draft, or emit only verified text.";
         } else blocks.push("NO_FACT_CHECK_MATCH");
       }
+      if (scoutAuditNote) verdictNote = verdictNote ? verdictNote + "\n" + scoutAuditNote : scoutAuditNote;
     } else if (turnType === "quiz") {
       const idx = bindingFor("quiz_audit");
       if (idx >= 0 && R[idx].valid && substantive(idx) !== "none") toConsume.push(R[idx]);

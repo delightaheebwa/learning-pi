@@ -48,9 +48,14 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
 1. **Start** — `cd ~/learning-system && pi`, then run `/lesson` (next in curriculum) or
    `/teach eigenvalue decomposition` (a topic).
 2. **Scout** runs first for a new lesson: fetches the live curriculum doc + its Further Reading,
-   hashes them, writes a digest to `Learning System/.tmp/`, and posts `SCOUT DIGEST:`. The digest
+   hashes them, writes a digest to `Learning System/.tmp/`, and posts `SCOUT_DIGEST:`. The digest
    has a **7-day TTL** — if it is stale, Scout re-runs before teaching new material (a stale
-   digest's source excerpts are never authoritative).
+   digest's source excerpts are never authoritative). The Tutor then dispatches ONE independent
+   `scout-audit` on the digest — the lesson-start mirror of the ingest `review-gate`: it checks
+   completeness (every Further Reading URL fetched or explicitly failed, excerpts + `theory`
+   lines + prereqs present, raw files on disk) and fact-checks the synthesis against the raw
+   sources. A missing audit withholds the first teaching turn; `ISSUES` surfaces as a banner
+   and never blocks.
 3. **Probe** — a small batch of questions, always with an "I don't know". Answer with a confidence
    tag (`sure` / `hunch` / `no idea`). Feedback is withheld until the batch ends.
 4. **Plan** — a Mermaid dependency graph + what to skip/expand/reframe. You can push back.
@@ -179,6 +184,8 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | --- | --- | --- |
 | `NO_TURN_TAG` | message wasn't tagged | model self-corrects; if persistent, restart pi. **Not raised for an ingest summary after a clerk dispatch** (implicit `[[TURN:none]]`, verified by the clerk's `REVIEW_GATE_VERDICT` receipt), **for a grade/quiz turn in teach/resume/review that a `grade-audit`/`quiz-audit` receipt binds** — or when exactly one gate type has a valid pending receipt (async completion) — **or for an untagged review close once the session note is written** (implicit `[[TURN:none]]`, verified by the `review-session-audit` receipt) |
 | `NO_SCOUT_CONTEXT` | new lesson without a Scout run | let it run `scout`, or resume instead |
+| `NO_SCOUT_AUDIT_PASS` | Scout ran but no independent `scout-audit` covers its digest, or the receipt named no `digest` | dispatch ONE independent `scout-audit` with `digest` + `raw_files` naming the lesson-start digest; fix via re-scout + re-audit on ISSUES (no cycle cap) |
+| `⚠️ SCOUT AUDIT FLAGS SURFACED` | the scout-audit reported issues on the digest (missing source, invented excerpt, smoothed-over contradiction) | teaching proceeds with flags outstanding; fix the digest via re-scout and re-audit |
 | `NO_REVIEW_CONTEXT` | `/review` without a Review Scout run | let it run `review-scout` to build the queue |
 | `NO_FACT_CHECK_MATCH` | draft wasn't verified / changed after verifying | re-draft and re-verify |
 | `FACT_CHECK_MISSING_DRAFT` | fact-check passed but its envelope had no `rendered_content` | re-send the claims WITH the exact draft in `rendered_content` |
@@ -191,7 +198,7 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `VIZ_SPEC_INVALID` / `VIZ_REQUIRES_OWN_TURN` | a viz turn has no parseable ` ```viz ` spec, or a viz block sits in a claims/none turn | re-emit as a standalone `[[TURN:viz]]` message with one valid spec |
 | `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged, or the receipt named no `target_files` | after the Clerk returns `CLERK_WRITES`, dispatch ONE independent `review-gate` with `target_files` naming the wiki pages it wrote |
 | `⚠️ INGEST GATE` | the review verdict was relayed by the Clerk's own output, not an independent `review-gate` run | dispatch a `review-gate` on the Clerk's writes before trusting the summary |
-| `⚠️ REVIEW GATE` / `⚠️ REVIEW SESSION GATE` | a review-family verdict carried no `evidence` list (what it read/checked) | treat the pass as unsubstantiated; re-run the gate so it names its evidence |
+| `⚠️ REVIEW GATE` / `⚠️ REVIEW SESSION GATE` / `⚠️ SCOUT AUDIT` | a review-family verdict carried no `evidence` list (what it read/checked) | treat the pass as unsubstantiated; re-run the gate so it names its evidence |
 | `⚠️ SOURCES INCOMPLETE` | Scout could not fetch one or more sources (`failed_refs` non-empty) | teach around the gaps; consider re-scouting or adding a fallback source |
 | `⚠️ SCOUT DIGEST UNVERIFIED` | Scout finished without a parseable `SCOUT_DIGEST:` receipt | verify the digest exists on disk; re-run Scout if the lesson context looks thin |
 | `⚠️ REVIEW CONTEXT INCOMPLETE` | Review Scout could not read one or more state items | review around the gaps; re-run `review-scout` if the queue looks thin |
@@ -227,7 +234,7 @@ Set in `~/learning-pi/.pi/settings.json` (project scope only):
 | Tutor (your session) | `glm-5.3-flash` |
 | Scout / Clerk / Review Scout / Review Clerk | `deepseek-v4.1-flash` |
 | Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
-| Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` |
+| Ingest reviewer (`review-gate`) / lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` |
 
 Verifiers run on preferred models for cost/availability, but this is a **default, not a guarantee** —
 when the preferred model is unavailable a verifier may run on the same model as the Tutor or Clerk,

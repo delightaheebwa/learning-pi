@@ -63,6 +63,7 @@ Configured in `.pi/settings.json` (project scope only):
 | Scout / Clerk / review-scout / review-clerk / `viz` | `deepseek-v4.1-flash` |
 | Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `viz-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Clerk's writes) |
+| Lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Scout digest) |
 
 Verifiers run on these models by default for cost/availability, but separation is a **preference,
 not a guarantee** — when the preferred model is unavailable a verifier may run on the same model as
@@ -85,7 +86,7 @@ assistant turn unless the matching, **passing** receipt is present:
 | A `Learning System/` handoff write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` (once per handoff batch; every issue blocks at any severity; out-of-scope observations go to `context_notes`) |
 | An ingest | after the Clerk returns a `CLERK_WRITES` receipt, the Tutor dispatches an independent `review-gate` on the wiki pages written; `PASS` renders clean, `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run). A verdict relayed by the Clerk instead of a real review-gate run gets a `⚠️ INGEST GATE` banner; a review verdict with no `evidence` list gets a `⚠️ REVIEW GATE` banner |
 | The **close** of a standalone `/review` (the delegated `review-clerk` run wrote the Review notes, session note, and touched Active Concepts / Mistakes rows) | `review-session-audit` reading the writes back against the transcript + per-concept grade verdicts; `PASS` releases the summary, `ISSUES` withholds it (`REVIEW_SESSION_AUDIT_ISSUES`) until the writes are fixed and re-audited to zero issues (no cycle cap) |
-| A new lesson | a `scout` run before teaching; a partial/missing `SCOUT_DIGEST` receipt surfaces as a `⚠️ SOURCES INCOMPLETE` / `⚠️ SCOUT DIGEST UNVERIFIED` banner (never a withhold) |
+| A new lesson | a `scout` run before teaching plus ONE independent `scout-audit` on its digest (completeness: every Further Reading URL fetched or explicitly failed, excerpts + `theory` lines + prereqs present, raw files on disk; fact-check: synthesis grounded in the raw files, no synthesis from failed refs, contradictions surfaced). Missing audit withholds (`NO_SCOUT_AUDIT_PASS`); `ISSUES` renders with a `⚠️ SCOUT AUDIT FLAGS SURFACED` banner (never a withhold); no `evidence` gets a `⚠️ SCOUT AUDIT` banner. A partial/missing `SCOUT_DIGEST` receipt surfaces as a `⚠️ SOURCES INCOMPLETE` / `⚠️ SCOUT DIGEST UNVERIFIED` banner (never a withhold) |
 | A `/review` session | a `review-scout` run before the first claims/quiz turn (`NO_REVIEW_CONTEXT` until then); a partial/missing `REVIEW_SCOUT_DIGEST` receipt surfaces as a `⚠️ REVIEW CONTEXT INCOMPLETE` / `⚠️ REVIEW SCOUT DIGEST UNVERIFIED` banner (never a withhold) |
 
 Verifier and worker dispatches use the `dispatch` helper tool:

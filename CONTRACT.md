@@ -61,10 +61,21 @@ its tagged test, change the implementation, all in one reviewed commit.
   valid review verdict; a Clerk-completed ingest is not held hostage.
 - **G-ingest-clerk-relay-flagged** *(policy)* — a verdict relayed by the Clerk
   (not an independent `review-gate` run) surfaces `⚠️ INGEST GATE`.
-- **G-review-evidence-required** *(policy)* — a review verdict with no `evidence`
+- **G-review-evidence-required** *(policy)* — a review-family verdict (`review-gate`,
+  `review-session-audit`, `scout-audit`) with no `evidence`
   list is unsubstantiated and flagged.
 - **G-scout-banner-not-withhold** *(policy)* — a partial/missing Scout digest
   banners (`SOURCES INCOMPLETE` / `SCOUT DIGEST UNVERIFIED`), never withholds.
+- **G-scout-audit-required** *(hard)* — a new lesson's first teaching claims turn
+  renders only with a valid independent `scout-audit` receipt over the Scout
+  digest (completeness: all curriculum + Further Reading sources fetched or
+  explicitly failed, digest fields + `theory` lines + prereqs present, raw files
+  on disk; fact-check: excerpts/synthesis grounded in the raw files, no
+  synthesis from failed refs, contradictions surfaced). A missing audit
+  withholds (`NO_SCOUT_AUDIT_PASS`) with a re-dispatch remedy; an `ISSUES`
+  verdict surfaces `⚠️ SCOUT AUDIT FLAGS SURFACED` and never hard-blocks (the
+  lesson teaches around the gaps visibly, like the ingest `REVIEW FLAGS
+  SURFACED` path). A wrong-shape receipt naming no `digest` releases nothing.
 - **G-provider-fallback** *(policy)* — after two consecutive provider failures,
   offer (never force) a one-shot alternate-model re-dispatch.
 - **G-no-duplicate-factcheck** *(hard)* — re-verifying an already-verified draft
@@ -183,7 +194,8 @@ its tagged test, change the implementation, all in one reviewed commit.
   `questions_json`, or a grade envelope with no question/answer/verdict)
   authorizes no emission; a write-gate receipt with no artifact list
   (tutor-audit `files`, review-session `written_files`, review-gate
-  `target_files`) releases no summary. Only an envelope-less async completion
+  `target_files`, scout-audit `digest`) releases no summary and a scout-audit
+  receipt with no `digest` releases no teaching turn. Only an envelope-less async completion
   notification falls back to unbound. One wrong-shape receipt must not bind every
   later turn.
 - **G-quiz-binds-full-batch** *(hard)* — a `quiz-audit` receipt binds the whole
@@ -247,7 +259,7 @@ deterministic path unchanged (G-judge-degraded-fallback).
   the cap applies to every other reason. Severity labels no longer gate: a `low`
   blocks exactly like a `high`.
 - **G-verifier-recheck-uncapped** *(hard)* — verifier re-checks are not dispatch-
-  capped: a `review-gate` or `review-session-audit` may be re-dispatched as many
+  capped: a `review-gate`, `review-session-audit`, or `scout-audit` may be re-dispatched as many
   times as needed, and the Tutor/Reviewer keeps fixing and re-checking until the
   verifier returns **zero issues at any severity**. There is no per-flow pass
   limit and no "max 2 cycles" stop. An identical issue that never changes is
@@ -257,7 +269,7 @@ deterministic path unchanged (G-judge-degraded-fallback).
   severity. A verdict object carrying a non-empty `issues[]` is an ISSUES verdict
   regardless of the stated verdict word or the severity labels, so a
   `PASS_WITH_FLAGS` listing residual `low` issues is not a pass. `PASS_WITH_FLAGS`
-  survives only as the review-gate out-of-scope bookkeeping demotion
+  survives only as the review-gate/scout-audit out-of-scope bookkeeping demotion
   (G-out-of-scope-demoted), never as a verifier's own severity tolerance.
 - **G-verifier-dispute** *(policy)* — the same issue blocking three times is
   adjudicated by the judge (does it still apply?); if not, the engine releases
