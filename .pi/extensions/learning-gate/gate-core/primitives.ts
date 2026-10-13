@@ -928,8 +928,9 @@ export function envelopeText(value: any): string {
  * Paths named by a verifier envelope's artifact list. Different gates name the
  * same idea differently: `files` (tutor-audit, array of strings),
  * `written_files` (review-session, array of {path}), `target_files`
- * (review-gate, array of {path}). Returns the first list found, or undefined
- * when the envelope names none.
+ * (review-gate, array of {path}), `digest` + `raw_files` (scout-audit — the
+ * `digest` string is mandatory, `raw_files` alone binds nothing). Returns the
+ * first list found, or undefined when the envelope names none.
  */
 export function artifactPaths(envelope: any): string[] | undefined {
   if (!envelope || typeof envelope !== "object") return undefined;
