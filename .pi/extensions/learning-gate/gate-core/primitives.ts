@@ -940,14 +940,15 @@ export function artifactPaths(envelope: any): string[] | undefined {
       .filter((p: string) => p.length > 0);
   }
   // Scout-audit names its digest as a single `digest` string plus a `raw_files`
-  // string list. Collect both so the receipt binds the audited context.
-  const scout: string[] = [];
-  if (typeof envelope.digest === "string" && envelope.digest.length > 0) scout.push(envelope.digest);
+  // string list. The digest is mandatory: `raw_files` alone names context
+  // without the digest under audit, so without a digest string there is
+  // nothing bound and the receipt must not satisfy the gate.
+  if (typeof envelope.digest !== "string" || envelope.digest.length === 0) return undefined;
+  const scout: string[] = [envelope.digest];
   if (Array.isArray(envelope.raw_files)) {
     for (const v of envelope.raw_files) if (typeof v === "string" && v.length > 0) scout.push(v);
   }
-  if (scout.length > 0) return scout;
-  return undefined;
+  return scout;
 }
 
 /**

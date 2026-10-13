@@ -1224,7 +1224,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       hasEnvelope: r.hasEnvelope,
       vizSpec: r.vizSpec,
       auditFiles: r.auditFiles,
-      outOfScopeOnly: r.gate === "review" && !!r.flags && !r.issues,
+      outOfScopeOnly: (r.gate === "review" || r.gate === "scout_audit") && !!r.flags && !r.issues,
       raw: r.raw,
     }));
     prunePendingAsync();
@@ -1663,7 +1663,10 @@ export function createGate(options: GateOptions = {}): GateEngine {
     // `verdict:ISSUES` with an empty/ill-formed `issues[]` would otherwise
     // accumulate a bogus fingerprint and release on nothing.
     const concreteIssues = (r: P.Receipt) => issuesOf(r).filter((i) => i.issue || i.location || i.correction);
-    const issueIdx = R.findIndex((r) => r.issues && concreteIssues(r).length > 0);
+    // Scout-audit ISSUES is flow-level and non-blocking by design (surfaced as
+    // a banner, like the consumed ingest review path): it must neither feed
+    // the dispute safeguard nor disable the retry-cap escape for the lesson.
+    const issueIdx = R.findIndex((r) => r.gate !== "scout_audit" && r.issues && concreteIssues(r).length > 0);
     if (issueIdx >= 0) {
       const ip = concreteIssues(R[issueIdx]);
       const fp = `${R[issueIdx].gate}|${ip.map((i) => `${i.issue || ""}@${i.location || ""}`).join(";").slice(0, 200)}`;
@@ -1703,8 +1706,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
     run.retries += 1;
     // Any issue remains blocking, at ANY severity: a verifier's `low` is as
     // hard a stop as a `high`. The no-cap rule below therefore keys on the
-    // presence of an issue, not on its severity label.
-    const remainingIssues = R.some((r) => r.issues);
+    // presence of an issue, not on its severity label. Scout-audit ISSUES is
+    // excluded: it is flow-level and non-blocking by design (banner only).
+    const remainingIssues = R.some((r) => r.gate !== "scout_audit" && r.issues);
 
     const fallbackLines: string[] = [];
     for (const [agent, count] of Object.entries(run.agentFailures)) {

@@ -316,6 +316,18 @@ await fg('fc6', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
 const noDigestAudit = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
 assert('scout-audit without digest does not release the teaching turn', blocked(noDigestAudit, 'NO_SCOUT_AUDIT_PASS'));
 
+// `raw_files` alone, without the `digest` under audit, also releases nothing.
+await setPrompt('[[FLOW:teach]] teach me U2');
+await dispatch('scout', 'topic U2', 'sc6b');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"u2","digest":"Learning System/.tmp/context-u2.json","raw_files":[],"failed_refs":[]}');
+const SCOUT_AUDIT_RAWONLY = JSON.stringify({ gate: 'scout_audit', slug: 'u2', raw_files: ['Knowledge Wiki/raw/sources/u2.md'] });
+await dispatch('scout-audit', SCOUT_AUDIT_RAWONLY, 'sa6b');
+await fg('sa6b', 'scout-audit', SCOUT_AUDIT_RAWONLY, SCOUT_AUDIT_PASS);
+await dispatch('fact-check', fcEnvelope(DRAFT), 'fc6b');
+await fg('fc6b', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
+const rawOnlyAudit = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
+assert('scout-audit raw_files without digest does not release the teaching turn', blocked(rawOnlyAudit, 'NO_SCOUT_AUDIT_PASS'));
+
 // An audit PASS with no evidence list is unsubstantiated (flagged, not withheld).
 await setPrompt('[[FLOW:teach]] teach me T');
 await dispatch('scout', 'topic T', 'sc7');
@@ -327,6 +339,19 @@ await dispatch('fact-check', fcEnvelope(DRAFT), 'fc7');
 await fg('fc7', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
 const scoutAuditNoEvidence = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
 assert('scout-audit missing-evidence banner surfaced', allowed(scoutAuditNoEvidence) && outText(scoutAuditNoEvidence).includes('SCOUT AUDIT'));
+
+// A flagged (ISSUES) audit is flow-level and non-blocking: it must not pin the
+// retry-cap escape for an unrelated later withhold.
+await setPrompt('[[FLOW:teach]] teach me Q');
+await dispatch('scout', 'topic Q', 'sc8');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"q","digest":"Learning System/.tmp/context-q.json","raw_files":[],"failed_refs":[]}');
+const SCOUT_AUDIT_ENV_Q = JSON.stringify({ gate: 'scout_audit', slug: 'q', digest: 'Learning System/.tmp/context-q.json', raw_files: [], failed_refs: [] });
+await dispatch('scout-audit', SCOUT_AUDIT_ENV_Q, 'sa8');
+await fg('sa8', 'scout-audit', SCOUT_AUDIT_ENV_Q, JSON.stringify({ verdict: 'ISSUES', evidence: ['read digest'], issues: [{ severity: 'low', location: 'Learning System/.tmp/context-q.json:prereqs', issue: 'thin keywords' }], context_notes: [] }));
+await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
+await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
+const flaggedCap = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
+assert('flagged scout-audit does not pin the retry cap', outText(flaggedCap).includes('⛔ UNVERIFIED'));
 
 // --- B: two provider failures surface the fallback-model directive ---
 await setPrompt('[[FLOW:resume]] continue the lesson');

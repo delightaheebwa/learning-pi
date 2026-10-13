@@ -48,7 +48,9 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
 1. **Start** — `cd ~/learning-system && pi`, then run `/lesson` (next in curriculum) or
    `/teach eigenvalue decomposition` (a topic).
 2. **Scout** runs first for a new lesson: fetches the live curriculum doc + its Further Reading,
-   hashes them, writes a digest to `Learning System/.tmp/`, and posts `SCOUT_DIGEST:`. The digest
+   hashes them, writes a digest to `Learning System/.tmp/`, and posts `SCOUT_DIGEST:`. (Scout's
+   human-readable heading is `SCOUT DIGEST:` with a space; the machine-readable receipt line
+   the gate parses is `SCOUT_DIGEST:` with an underscore.) The digest
    has a **7-day TTL** — if it is stale, Scout re-runs before teaching new material (a stale
    digest's source excerpts are never authoritative). The Tutor then dispatches ONE independent
    `scout-audit` on the digest — the lesson-start mirror of the ingest `review-gate`: it checks
