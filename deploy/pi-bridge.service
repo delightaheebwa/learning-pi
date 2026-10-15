@@ -1,0 +1,35 @@
+# pi-bridge as a systemd --user service (Phase 3).
+#
+# Install:
+#   mkdir -p ~/.config/systemd/user
+#   cp pi-bridge.env.example ~/.config/pi-bridge.env   # then edit + chmod 600
+#   cp pi-bridge.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now pi-bridge.service
+#
+# The bridge binds to Docker's default bridge gateway (PI_BRIDGE_HOST, usually
+# 172.17.0.1) so the Open WebUI container can reach it and nothing on the LAN can
+# (a ufw rule in deploy/README.md admits docker traffic). Start Docker first; if
+# docker0 is not up yet the bind fails and the service retries.
+#
+# Logs:  journalctl --user -u pi-bridge -f
+
+[Unit]
+Description=pi-bridge — OpenAI-compatible endpoint over the pi runtime
+Documentation=file:%h/learning-pi/bridge/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/learning-pi
+EnvironmentFile=%h/.config/pi-bridge.env
+ExecStart=/usr/bin/python3 -m bridge
+Restart=on-failure
+RestartSec=3s
+# Keep the catastrophic floor of bash-guard; do not pass --allow-bash-guard here.
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=default.target

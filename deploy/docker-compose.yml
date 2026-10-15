@@ -1,0 +1,67 @@
+# Open WebUI in front of the host-run pi-bridge (Phase 3).
+#
+# Secure by default:
+#   * Open WebUI's port is published on 127.0.0.1 only — never the LAN.
+#   * The bridge is a HOST process bound to Docker's default bridge gateway
+#     (docker0, usually 172.17.0.1), reached from the container as
+#     host.docker.internal. A narrow ufw rule (see README) admits docker traffic.
+#   * No open-terminal / tool-server: the old stack's terminal service is dropped.
+#
+# The bridge itself is NOT a compose service — it runs on the host under systemd
+# (see pi-bridge.service) because it drives a real shell and the learning system.
+#
+# Usage:  cp .env.example .env && $EDITOR .env
+#         docker compose up -d                     # Open WebUI only
+#         docker compose -f docker-compose.yml -f docker-compose.search.yml up -d
+#                                                  # + optional searxng
+name: pi-webui
+
+services:
+  open-webui:
+    # Pinned to the v0.12.2 release index digest (2026-10-14). No moving tag.
+    image: ghcr.io/open-webui/open-webui:v0.12.2@sha256:10e6a78ba2d172493460a9e8a92c496aaa7a64dc4d26d622a2e95e0c736081c9
+    container_name: open-webui
+    restart: unless-stopped
+    # Loopback-only publish. Do NOT change to 0.0.0.0/3000 without a firewall or
+    # a Tailscale-only bind (see SECURITY.md).
+    ports:
+      - "127.0.0.1:3000:8080"
+    # Linux containers cannot reach the host's 127.0.0.1. On Linux,
+    # host-gateway resolves to Docker's DEFAULT bridge gateway (docker0, usually
+    # 172.17.0.1) — NOT this stack's own network — so the bridge must bind that
+    # address. Check yours with `ip -4 addr show docker0`.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:?set WEBUI_SECRET_KEY in deploy/.env}
+      WEBUI_URL: ${WEBUI_URL:-http://127.0.0.1:3000}
+      # First user to register becomes admin. After that, set ENABLE_SIGNUP=false.
+      ENABLE_SIGNUP: ${ENABLE_SIGNUP:-true}
+      # Pre-wire the pi-bridge as the OpenAI connection (same key as the bridge).
+      OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-http://host.docker.internal:8790/v1}
+      OPENAI_API_KEY: ${PI_BRIDGE_API_KEY:?set PI_BRIDGE_API_KEY in deploy/.env}
+      # searxng web search — only meaningful when started with docker-compose.search.yml
+      ENABLE_RAG_WEB_SEARCH: ${ENABLE_RAG_WEB_SEARCH:-false}
+      RAG_WEB_SEARCH_ENGINE: searxng
+      SEARXNG_QUERY_URL: ${SEARXNG_QUERY_URL:-http://searxng:8080/search?q=<query>}
+    volumes:
+      - open-webui:/app/backend/data
+    networks:
+      - pi-net
+    healthcheck:
+      # The image is python-based; use python rather than assuming curl exists.
+      test: ["CMD", "python3", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=4).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+networks:
+  pi-net:
+    # Private user-defined bridge: gives searxng a resolvable name and keeps the
+    # two containers off the default bridge. The host is still reached via
+    # host-gateway (docker0, usually 172.17.0.1), where pi-bridge binds.
+    driver: bridge
+
+volumes:
+  open-webui:
