@@ -27,8 +27,16 @@ def _final_text():
 
 
 def run_prompt(cid):
+    if SCENARIO == "handled":
+        # An extension command consumed the prompt: no run starts, so the bridge
+        # must return immediately instead of waiting for agent_settled.
+        out({"id": cid, "type": "response", "command": "prompt", "success": True,
+             "data": {"disposition": "handled"}})
+        return
     out({"id": cid, "type": "response", "command": "prompt", "success": True,
          "data": {"disposition": "started"}})
+    if SCENARIO == "slow":
+        time.sleep(1.5)
     out({"type": "agent_start"})
     out({"type": "turn_start"})
     out({"type": "message_start",
@@ -68,8 +76,12 @@ def main():
             out({"id": rec.get("id"), "type": "response", "command": "get_fork_messages",
                  "success": True, "data": {"messages": [{"entryId": "e1", "text": "hello"}]}})
         elif t == "fork":
-            out({"id": rec.get("id"), "type": "response", "command": "fork",
-                 "success": True, "data": {"text": "hello", "cancelled": False}})
+            if SCENARIO == "forkfail":
+                out({"id": rec.get("id"), "type": "response", "command": "fork",
+                     "success": False, "error": "cannot fork"})
+            else:
+                out({"id": rec.get("id"), "type": "response", "command": "fork",
+                     "success": True, "data": {"text": "hello", "cancelled": False}})
         elif t == "abort":
             out({"id": rec.get("id"), "type": "response", "command": "abort",
                  "success": True, "data": {}})

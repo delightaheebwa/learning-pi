@@ -13,10 +13,13 @@ from __future__ import annotations
 
 from typing import Optional
 
-# stopReasons that are not a completed, learner-facing turn:
-#   toolUse  -> the gate skips it (it has a tool call); any text is narration.
-#   error/aborted/length -> a partial the gate passes through untagged.
-_NON_FINAL = {"toolUse", "error", "aborted", "length"}
+# stopReasons that represent a completed learner-facing message. `error`,
+# `aborted`, and `length` are the gate's "partial pass-through" cases
+# (G-partial-ungated): it strips the turn tag and emits them, so the bridge does
+# too — a later retry replaces the text. `toolUse` is skipped because the gate
+# does not gate it (any text there is ungated narration); unknown/pending
+# reasons are skipped rather than guessed.
+_EMISSIBLE = {"stop", "error", "aborted", "length"}
 
 
 def text_of_content(content) -> str:
@@ -47,7 +50,7 @@ class TurnStream:
             m = rec.get("message") or {}
             if m.get("role") != "assistant":
                 return
-            if m.get("stopReason") in _NON_FINAL:
+            if m.get("stopReason") not in _EMISSIBLE:
                 return
             text = text_of_content(m.get("content"))
             if text.strip():

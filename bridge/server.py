@@ -12,6 +12,7 @@ behaviour lives in pi (the gate, subagents, skills).
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -25,7 +26,7 @@ from .rpc import PiSession, PiError
 from .stream import TurnStream
 
 _LEARNING_CMD_RE = re.compile(
-    r"^\s*/?(review|solo|ingest|teach|lesson|continue|pause|audit|show|viz)\b",
+    r"^\s*/(review|solo|ingest|teach|lesson|continue|pause|audit|show|viz)\b",
     re.IGNORECASE,
 )
 _FLOW_MARKER = "[[FLOW:"
@@ -84,32 +85,30 @@ def session_key(body: dict, messages) -> str:
 
 
 class LearningLock:
-    """One learning writer at a time, with idle takeover.
+    """One learning turn at a time on the shared state repo.
 
-    The learning system forbids two concurrent writers on the state repo
-    (FIELD-GUIDE). General (non-learning) chats are unaffected; a second chat
-    that tries to start a learning flow while another holds it is told to wait.
+    The learning system forbids two concurrent writers (FIELD-GUIDE). The lock is
+    held only for the duration of a learning turn and released when it ends, so
+    concurrent learning turns in different chats cannot overlap while the lock
+    never gets stuck to an idle owner. General (non-learning) chats are exempt; a
+    second chat that starts a learning turn meanwhile is told to wait.
     """
 
-    def __init__(self, idle_seconds: float = 1800.0) -> None:
+    def __init__(self) -> None:
         self._mu = threading.Lock()
         self._owner: Optional[str] = None
-        self._last = 0.0
-        self.idle = idle_seconds
 
     def acquire(self, key: str) -> bool:
         with self._mu:
-            now = time.monotonic()
-            if self._owner in (None, key) or (now - self._last) > self.idle:
+            if self._owner in (None, key):
                 self._owner = key
-                self._last = now
                 return True
             return False
 
-    def touch(self, key: str) -> None:
+    def release(self, key: str) -> None:
         with self._mu:
             if self._owner == key:
-                self._last = time.monotonic()
+                self._owner = None
 
     def owner(self) -> Optional[str]:
         with self._mu:
@@ -140,6 +139,13 @@ class SessionRegistry:
                 return entry
             if entry is not None:
                 entry.session.close()
+            # Evict the least-recently-used session if we are at the cap, so a
+            # long-lived bridge does not accumulate one pi process per chat.
+            cap = self.config.max_sessions
+            if cap > 0 and len(self._entries) >= cap:
+                oldest_key = min(self._entries, key=lambda k: self._entries[k].last_used)
+                if oldest_key != key:
+                    self._entries.pop(oldest_key).session.close()
             session = PiSession(
                 pi_bin=self.config.pi_bin,
                 cwd=self.config.state_repo,
@@ -168,12 +174,12 @@ class BridgeConfig:
         host: str = "127.0.0.1",
         port: int = 8790,
         timeout: float = 900.0,
-        emit_status: bool = False,
         models: Optional[list] = None,
         agent_dir: Optional[str] = None,
         session_dir: Optional[str] = None,
         ledger_dir: Optional[str] = None,
         disable_bash_guard: bool = True,
+        max_sessions: int = 8,
         child_env_extra: Optional[dict] = None,
     ) -> None:
         self.pi_bin = pi_bin
@@ -182,12 +188,12 @@ class BridgeConfig:
         self.host = host
         self.port = port
         self.timeout = timeout
-        self.emit_status = emit_status
         self.models = models or ["learning"]
         self.agent_dir = agent_dir
         self.session_dir = session_dir
         self.ledger_dir = ledger_dir
         self.disable_bash_guard = disable_bash_guard
+        self.max_sessions = max_sessions
         self.child_env_extra = child_env_extra or {}
 
     def session_args(self) -> list:
@@ -249,7 +255,7 @@ class Handler(BaseHTTPRequestHandler):
     def _auth_ok(self) -> bool:
         header = self.headers.get("Authorization", "")
         token = header[7:] if header.lower().startswith("bearer ") else ""
-        return bool(self.cfg.api_key) and token == self.cfg.api_key
+        return bool(self.cfg.api_key) and hmac.compare_digest(token, self.cfg.api_key)
 
     def _read_body(self) -> Optional[dict]:
         try:
@@ -311,27 +317,28 @@ class Handler(BaseHTTPRequestHandler):
         key = session_key(body, messages)
         learning = is_learning_flow(user)
 
-        if learning and not self.server.learning.acquire(key):  # type: ignore[attr-defined]
-            note = (
-                "⛔ Another learning session is currently active in a different chat. "
-                "Finish or pause it before starting a learning flow here."
-            )
-            if stream:
-                self._stream_constant(model, note)
-            else:
-                self._send_json(200, self._completion(model, note))
-            return
-
-        self.server.learning.touch(key)  # type: ignore[attr-defined]
+        acquired = False
+        if learning:
+            if not self.server.learning.acquire(key):  # type: ignore[attr-defined]
+                note = (
+                    "⛔ Another learning session is currently active in a different chat. "
+                    "Finish or pause it before starting a learning flow here."
+                )
+                if stream:
+                    self._stream_constant(model, note)
+                else:
+                    self._send_json(200, self._completion(model, note))
+                return
+            acquired = True
         try:
             entry = self.server.registry.get_or_create(key)  # type: ignore[attr-defined]
             turn = self._run_turn(entry, user)
-        except PiError as exc:
+        except (PiError, OSError) as exc:
             turn = TurnStream()
             turn.text = f"⚠️ pi runtime error: {exc}"
         finally:
-            if learning:
-                self.server.learning.touch(key)  # type: ignore[attr-defined]
+            if acquired:
+                self.server.learning.release(key)  # type: ignore[attr-defined]
 
         content = turn.final_text()
         if stream:

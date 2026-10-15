@@ -174,12 +174,17 @@ class PiSession:
                 rec = self._next(deadline)
                 if rec is None:
                     self.abort()
+                    self._drain()
                     raise PiError("prompt timed out")
                 t = rec.get("type")
                 if t == "response" and rec.get("id") == cid:
                     if not rec.get("success", True):
                         raise PiError(f"prompt rejected: {rec.get('error')}")
                     accepted = True
+                    # A prompt "handled" by an extension command starts no run:
+                    # waiting for agent_settled would block until timeout.
+                    if (rec.get("data") or {}).get("disposition") == "handled":
+                        return seen
                     continue
                 on_record(rec)
                 seen.append(rec)
@@ -187,6 +192,17 @@ class PiSession:
                     return seen
         finally:
             self._turn_lock.release()
+
+    def _drain(self, timeout: float = 2.0) -> None:
+        """Discard records left over from an aborted turn (avoid stale bleed)."""
+        end = time.monotonic() + timeout
+        while True:
+            try:
+                rec = self._q.get(timeout=max(0.0, end - time.monotonic()))
+            except queue.Empty:
+                return
+            if rec is _EOF or rec == _EOF or rec.get("type") == "agent_settled":
+                return
 
     def _next(self, deadline: float) -> Optional[dict]:
         remaining = deadline - time.monotonic()
@@ -225,3 +241,10 @@ class PiSession:
                 self.proc.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 self.proc.kill()
+            # Close the read pipes too, or a long-lived bridge leaks FDs.
+            for pipe in (self.proc.stdout, self.proc.stderr):
+                try:
+                    if pipe:
+                        pipe.close()
+                except OSError:
+                    pass
