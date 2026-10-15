@@ -512,17 +512,21 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(len(reg._entries), 1)
         self.assertIsNot(e1, e2)
 
+    def test_get_or_create_marks_inflight(self):
+        reg = self._reg()
+        self.assertTrue(reg.get_or_create("a").inflight)
+
     def test_lru_eviction_at_cap(self):
         reg = self._reg(cap=1)
         a = reg.get_or_create("a")
+        a.inflight = False            # simulate a completed turn (idle again)
         reg.get_or_create("b")
         self.assertTrue(a.session.closed)
         self.assertNotIn("a", reg._entries)
 
     def test_inflight_session_not_evicted(self):
         reg = self._reg(cap=1)
-        a = reg.get_or_create("a")
-        a.inflight = True
+        a = reg.get_or_create("a")    # returned inflight
         reg.get_or_create("b")
         self.assertFalse(a.session.closed)   # overshoot rather than kill live work
         self.assertIn("a", reg._entries)

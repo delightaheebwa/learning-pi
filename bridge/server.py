@@ -142,15 +142,17 @@ class SessionRegistry:
             entry = self._entries.get(key)
             if entry is not None and entry.session.alive():
                 entry.last_used = time.monotonic()
+                entry.inflight = True
                 return entry
             if entry is not None:
                 entry.session.close()
                 self._entries.pop(key, None)
             # Evict the least-recently-used *idle* session if we are at the cap,
             # so a long-lived bridge does not accumulate one pi process per chat.
-            # Never evict a session with a turn in flight (inflight set before the
-            # per-turn lock is taken, so the get_or_create -> lock gap is covered);
-            # overshoot the cap rather than kill live work.
+            # Entries returned by get_or_create are marked inflight under this
+            # lock (and cleared when the turn ends), so a session can never be
+            # evicted between allocation and its turn; overshoot rather than kill
+            # live work.
             cap = self.config.max_sessions
             if cap > 0 and len(self._entries) >= cap:
                 idle = [
@@ -169,6 +171,7 @@ class SessionRegistry:
             )
             session.start()
             entry = SessionEntry(key, session)
+            entry.inflight = True
             self._entries[key] = entry
             return entry
 

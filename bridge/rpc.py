@@ -174,7 +174,10 @@ class PiSession:
                 rec = self._next(deadline)
                 if rec is None:
                     self.abort()
-                    self._drain()
+                    # Give the aborted turn a moment to flush its trailing
+                    # records/agent_settled so they cannot bleed into the next
+                    # prompt (the fast default grace is only for handled prompts).
+                    self._drain(grace=1.0)
                     raise PiError("prompt timed out")
                 t = rec.get("type")
                 if t == "response" and rec.get("id") == cid:
