@@ -125,6 +125,7 @@ class SessionEntry:
         self.key = key
         self.session = session
         self.lock = threading.Lock()
+        self.inflight = False
         self.last_user_text = ""
         self.answered = False
         self.last_used = time.monotonic()
@@ -144,13 +145,18 @@ class SessionRegistry:
                 return entry
             if entry is not None:
                 entry.session.close()
+                self._entries.pop(key, None)
             # Evict the least-recently-used *idle* session if we are at the cap,
             # so a long-lived bridge does not accumulate one pi process per chat.
-            # Never evict a session with a turn in flight (its lock is held);
+            # Never evict a session with a turn in flight (inflight set before the
+            # per-turn lock is taken, so the get_or_create -> lock gap is covered);
             # overshoot the cap rather than kill live work.
             cap = self.config.max_sessions
             if cap > 0 and len(self._entries) >= cap:
-                idle = [k for k, e in self._entries.items() if k != key and not e.lock.locked()]
+                idle = [
+                    k for k, e in self._entries.items()
+                    if k != key and not e.inflight and not e.lock.locked()
+                ]
                 if idle:
                     victim = min(idle, key=lambda k: self._entries[k].last_used)
                     self._entries.pop(victim).session.close()
@@ -366,19 +372,25 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- turn execution ----------------------------------------------------
     def _run_turn(self, entry: SessionEntry, user: str) -> TurnStream:
-        with entry.lock:
-            regenerate = entry.answered and entry.last_user_text == user
-            if regenerate and entry.session.alive():
-                try:
-                    entry.session.fork_last_user_message()
-                except PiError:
-                    pass  # fall back to appending the prompt
-            turn = TurnStream()
-            entry.session.prompt(user, turn.feed, timeout=self.cfg.timeout)
-            entry.last_user_text = user
-            entry.answered = True
-            entry.last_used = time.monotonic()
-            return turn
+        # Mark in flight before taking the lock so the registry cannot evict this
+        # session in the window between get_or_create and the lock.
+        entry.inflight = True
+        try:
+            with entry.lock:
+                regenerate = entry.answered and entry.last_user_text == user
+                if regenerate and entry.session.alive():
+                    try:
+                        entry.session.fork_last_user_message()
+                    except PiError:
+                        pass  # fall back to appending the prompt
+                turn = TurnStream()
+                entry.session.prompt(user, turn.feed, timeout=self.cfg.timeout)
+                entry.last_user_text = user
+                entry.answered = True
+                entry.last_used = time.monotonic()
+                return turn
+        finally:
+            entry.inflight = False
 
     # -- serialisation -----------------------------------------------------
     def _completion(self, model: str, content: str) -> dict:

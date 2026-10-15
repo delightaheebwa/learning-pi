@@ -196,14 +196,22 @@ class PiSession:
         finally:
             self._turn_lock.release()
 
-    def _drain(self, timeout: float = 2.0) -> None:
-        """Discard records left over from an aborted turn (avoid stale bleed)."""
-        end = time.monotonic() + timeout
+    def _drain(self, grace: float = 0.05) -> None:
+        """Discard records left over from a finished/aborted turn.
+
+        Returns promptly when the queue is already empty (a `handled` prompt
+        must not pay a fixed stall); the short grace only catches records that
+        are still in flight.
+        """
+        end = time.monotonic() + grace
         while True:
             try:
-                rec = self._q.get(timeout=max(0.0, end - time.monotonic()))
+                rec = self._q.get_nowait()
             except queue.Empty:
-                return
+                if time.monotonic() >= end:
+                    return
+                time.sleep(0.005)
+                continue
             if rec is _EOF or rec == _EOF or rec.get("type") == "agent_settled":
                 return
 
@@ -238,7 +246,7 @@ class PiSession:
             try:
                 if self.proc.stdin:
                     self.proc.stdin.close()
-            except OSError:
+            except (OSError, ValueError):
                 pass
             try:
                 self.proc.wait(timeout=10)

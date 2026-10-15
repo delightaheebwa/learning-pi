@@ -266,7 +266,7 @@ class TestHandledDisposition(unittest.TestCase):
             status, data = h.post(h.body("/viz"))
             elapsed = time.time() - start
             self.assertEqual(status, 200)
-            self.assertLess(elapsed, 10)  # timeout is 30s; returning promptly proves it
+            self.assertLess(elapsed, 2.0)  # must not pay the old 2s drain stall
         finally:
             h.stop()
 
@@ -325,6 +325,64 @@ class TestStartFailure(unittest.TestCase):
             self.assertIn("pi runtime error", data["choices"][0]["message"]["content"])
         finally:
             h.stop()
+
+
+class FakeSession:
+    def __init__(self, *a, **k):
+        self.started = False
+        self.closed = False
+        self.alive_flag = True
+
+    def start(self):
+        self.started = True
+
+    def alive(self):
+        return self.alive_flag and not self.closed
+
+    def close(self):
+        self.closed = True
+
+    def prompt(self, *a, **k):
+        return []
+
+
+class TestRegistry(unittest.TestCase):
+    def setUp(self):
+        import bridge.server as S
+        self.S = S
+        self.orig = S.PiSession
+        S.PiSession = FakeSession
+
+    def tearDown(self):
+        self.S.PiSession = self.orig
+
+    def _reg(self, cap=4):
+        return self.S.SessionRegistry(self.S.BridgeConfig(
+            pi_bin="x", state_repo=str(ROOT), api_key="k", max_sessions=cap))
+
+    def test_dead_session_is_replaced_and_removed(self):
+        reg = self._reg()
+        e1 = reg.get_or_create("a")
+        e1.session.alive_flag = False
+        e2 = reg.get_or_create("a")
+        self.assertTrue(e1.session.closed)
+        self.assertEqual(len(reg._entries), 1)
+        self.assertIsNot(e1, e2)
+
+    def test_lru_eviction_at_cap(self):
+        reg = self._reg(cap=1)
+        a = reg.get_or_create("a")
+        reg.get_or_create("b")
+        self.assertTrue(a.session.closed)
+        self.assertNotIn("a", reg._entries)
+
+    def test_inflight_session_not_evicted(self):
+        reg = self._reg(cap=1)
+        a = reg.get_or_create("a")
+        a.inflight = True
+        reg.get_or_create("b")
+        self.assertFalse(a.session.closed)   # overshoot rather than kill live work
+        self.assertIn("a", reg._entries)
 
 
 if __name__ == "__main__":
