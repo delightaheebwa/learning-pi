@@ -396,15 +396,19 @@ class TestLearningLockConcurrent(unittest.TestCase):
         # one may run while another chat holds the learning lock.
         h = ServerHarness("slow")
         try:
-            t = threading.Thread(target=lambda: h.post(h.body("/review now", chat_id="A")))
+            results = {}
+
+            def learning():
+                results["a"] = h.post(h.body("/review now", chat_id="A"))
+
+            t = threading.Thread(target=learning)
             t.start()
             time.sleep(0.4)  # let the learning turn acquire the lock
             status, data = h.post(h.body("hello", chat_id="B"))
             self.assertEqual(status, 200)
-            self.assertNotIn(
-                "Another learning session", data["choices"][0]["message"]["content"]
-            )
+            self.assertEqual(data["choices"][0]["message"]["content"], "VERIFIED_FINAL")
             t.join(timeout=15)
+            self.assertEqual(results["a"][0], 200)
         finally:
             h.stop()
 
