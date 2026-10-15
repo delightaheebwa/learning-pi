@@ -97,18 +97,23 @@ class LearningLock:
     def __init__(self) -> None:
         self._mu = threading.Lock()
         self._owner: Optional[str] = None
+        self._count = 0
 
     def acquire(self, key: str) -> bool:
         with self._mu:
             if self._owner in (None, key):
                 self._owner = key
+                self._count += 1
                 return True
             return False
 
     def release(self, key: str) -> None:
         with self._mu:
             if self._owner == key:
-                self._owner = None
+                self._count -= 1
+                if self._count <= 0:
+                    self._count = 0
+                    self._owner = None
 
     def owner(self) -> Optional[str]:
         with self._mu:
@@ -139,13 +144,16 @@ class SessionRegistry:
                 return entry
             if entry is not None:
                 entry.session.close()
-            # Evict the least-recently-used session if we are at the cap, so a
-            # long-lived bridge does not accumulate one pi process per chat.
+            # Evict the least-recently-used *idle* session if we are at the cap,
+            # so a long-lived bridge does not accumulate one pi process per chat.
+            # Never evict a session with a turn in flight (its lock is held);
+            # overshoot the cap rather than kill live work.
             cap = self.config.max_sessions
             if cap > 0 and len(self._entries) >= cap:
-                oldest_key = min(self._entries, key=lambda k: self._entries[k].last_used)
-                if oldest_key != key:
-                    self._entries.pop(oldest_key).session.close()
+                idle = [k for k, e in self._entries.items() if k != key and not e.lock.locked()]
+                if idle:
+                    victim = min(idle, key=lambda k: self._entries[k].last_used)
+                    self._entries.pop(victim).session.close()
             session = PiSession(
                 pi_bin=self.config.pi_bin,
                 cwd=self.config.state_repo,
@@ -255,7 +263,17 @@ class Handler(BaseHTTPRequestHandler):
     def _auth_ok(self) -> bool:
         header = self.headers.get("Authorization", "")
         token = header[7:] if header.lower().startswith("bearer ") else ""
-        return bool(self.cfg.api_key) and hmac.compare_digest(token, self.cfg.api_key)
+        if not self.cfg.api_key:
+            return False
+        # compare bytes: a non-ASCII header byte must yield False, not a
+        # TypeError from hmac.compare_digest on str inputs.
+        try:
+            return hmac.compare_digest(
+                token.encode("utf-8", "surrogateescape"),
+                self.cfg.api_key.encode("utf-8"),
+            )
+        except (UnicodeError, TypeError):
+            return False
 
     def _read_body(self) -> Optional[dict]:
         try:

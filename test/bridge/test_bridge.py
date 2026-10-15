@@ -119,9 +119,13 @@ class TestLearningLock(unittest.TestCase):
     def test_one_owner_at_a_time(self):
         lock = LearningLock()
         self.assertTrue(lock.acquire("A"))
-        self.assertTrue(lock.acquire("A"))       # same owner renews
-        self.assertFalse(lock.acquire("B"))      # different chat refused
-        lock.release("A")
+        self.assertTrue(lock.acquire("A"))       # same owner renews (refcount)
+        self.assertFalse(lock.acquire("B"))       # different chat refused
+        lock.release("A")                          # one holder left
+        self.assertEqual(lock.owner(), "A")
+        self.assertFalse(lock.acquire("B"))       # still held
+        lock.release("A")                          # last holder released
+        self.assertIsNone(lock.owner())
         self.assertTrue(lock.acquire("B"))
         lock.release("B")
         self.assertIsNone(lock.owner())
@@ -132,6 +136,13 @@ class TestSessionArgs(unittest.TestCase):
         cfg = BridgeConfig(pi_bin=FAKE_PI, state_repo=str(ROOT), api_key="k",
                            agent_dir=str(ROOT / "test" / "bridge" / "no-such-agent"))
         self.assertEqual(cfg.session_args(), [])            # no bash-guard here
+
+    def test_bash_guard_flag_added_when_present(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "extensions" / "bash-guard").mkdir(parents=True)
+            cfg = BridgeConfig(pi_bin=FAKE_PI, state_repo=str(ROOT), api_key="k", agent_dir=d)
+            self.assertEqual(cfg.session_args(), ["--bash-guard-disabled"])
 
     def test_allow_bash_guard_overrides(self):
         real = str(Path.home() / ".pi" / "agent")
@@ -209,6 +220,17 @@ class TestIntegration(unittest.TestCase):
     def test_auth_required(self):
         status, _ = self.h.post(self.h.body("hello"), key="wrong")
         self.assertEqual(status, 401)
+
+    def test_non_ascii_auth_header_is_rejected_not_crashing(self):
+        import http.client
+        conn = http.client.HTTPConnection("127.0.0.1", self.h.port, timeout=10)
+        try:
+            conn.request("GET", "/v1/models", headers={"Authorization": "Bearer \u0080"})
+            resp = conn.getresponse()
+            self.assertEqual(resp.status, 401)
+            resp.read()
+        finally:
+            conn.close()
 
     def test_nonstream_returns_final_without_draft(self):
         status, data = self.h.post(self.h.body("hello"))

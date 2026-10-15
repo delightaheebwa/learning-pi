@@ -182,8 +182,11 @@ class PiSession:
                         raise PiError(f"prompt rejected: {rec.get('error')}")
                     accepted = True
                     # A prompt "handled" by an extension command starts no run:
-                    # waiting for agent_settled would block until timeout.
+                    # waiting for agent_settled would block until timeout. Drain
+                    # anything the extension emitted so it cannot bleed into the
+                    # next turn.
                     if (rec.get("data") or {}).get("disposition") == "handled":
+                        self._drain()
                         return seen
                     continue
                 on_record(rec)
@@ -246,5 +249,5 @@ class PiSession:
                 try:
                     if pipe:
                         pipe.close()
-                except OSError:
+                except (OSError, ValueError):
                     pass

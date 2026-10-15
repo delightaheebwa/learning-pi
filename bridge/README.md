@@ -38,21 +38,26 @@ Open WebUI (Docker, this machine)
 python3 -m bridge --port 8790 --state-repo ~/learning-system
 ```
 
-In Open WebUI: **Settings → Connections → +** (OpenAI API), Base URL
-`http://host.docker.internal:8790/v1`, API key = your bridge key, then pick the
-`learning` model. Bind to `127.0.0.1` unless you have added a network boundary.
+In Open WebUI: **Settings → Connections → +** (OpenAI API). The Base URL must be
+one a container can reach — for the default Docker bridge network bind the
+bridge to that interface and use `http://172.17.0.1:8790/v1`, or run Open WebUI
+with `--network host` and use `http://127.0.0.1:8790/v1`. (A bridge bound to
+`127.0.0.1` is **not** reachable from a normal container via
+`host.docker.internal` on Linux.) Set the API key to your bridge key, then pick
+the `learning` model.
 
-Options: `--host/--port`, `--models a,b,c`, `--timeout`, `--agent-dir`,
-`--session-dir`, `--ledger-dir`, `--allow-bash-guard` (do **not** pass
-`--bash-guard-disabled`; not recommended headless).
+Options: `--host/--port`, `--models a,b,c`, `--timeout`, `--max-sessions`,
+`--agent-dir`, `--session-dir`, `--ledger-dir`, `--allow-bash-guard` (do **not**
+pass `--bash-guard-disabled`; not recommended headless).
 
 ## Single-writer policy
 
 The learning system forbids two concurrent writers on the state repo. The bridge
-holds a learning lock: the first chat to start a learning flow (`/review`,
-`/lesson`, `/ingest`, `/teach`, `/solo`, … or a `[[FLOW:…]]` marker) owns it;
-another chat that tries a learning flow meanwhile is told to wait. General
-(non-learning) chats are unaffected. Ownership is released after an idle period.
+holds a learning lock for the duration of each learning turn and releases it when
+the turn ends, so concurrent learning turns — including two from the same chat —
+cannot overlap; a second chat that starts a learning turn meanwhile is told to
+wait. General (non-learning) chats are exempt. Idle pi sessions are evicted LRU
+(`--max-sessions`).
 
 ## Limits
 
