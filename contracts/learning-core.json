@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' \u2014 see CONTRACT.md).",
-  "version": 5,
-  "updated": "2026-10-12",
+  "version": 6,
+  "updated": "2026-10-16",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -501,6 +501,52 @@
         "verdict-only grade turn binds a full-sentence grade envelope",
         "verdict-only grade turn binds despite uncovered judge verdict",
         "verdict-only envelope does not cover a repair tail"
+      ]
+    },
+    {
+      "id": "B-deltas-never-forwarded",
+      "severity": "hard",
+      "statement": "Assistant text reaches the client only from the completed `message_end` message (the post-gate turn). `message_update` text/thinking deltas carry the raw pre-verification draft and are never emitted, so a withheld teaching draft cannot leak while it streams.",
+      "tests": [
+        "test_deltas_never_forwarded",
+        "test_stream_client_never_receives_deltas"
+      ]
+    },
+    {
+      "id": "B-withheld-banner-forwarded",
+      "severity": "hard",
+      "statement": "A withheld or retry-capped turn surfaces the gate's own banner text written into message_end (\u26d4 WITHHELD / \u26d4 UNVERIFIED) \u2014 never the raw pre-verification draft, and never a bridge-authored substitute.",
+      "tests": [
+        "test_withheld_banner_forwarded",
+        "test_unverified_banner_forwarded"
+      ]
+    },
+    {
+      "id": "B-newest-message-only",
+      "severity": "hard",
+      "statement": "One pi RPC session per chat, reused across turns; only the newest user message of each posted transcript is forwarded (pi owns its context). A resend of the same message is a regenerate: the bridge forks the session back to that user message before re-prompting, and falls back to appending if the fork fails.",
+      "tests": [
+        "test_one_session_per_chat",
+        "test_only_newest_user_message_forwarded",
+        "test_resend_forks"
+      ]
+    },
+    {
+      "id": "B-bash-guard-floor",
+      "severity": "hard",
+      "statement": "The bridge passes `--bash-guard-disabled` only when bash-guard is actually installed in the agent dir. A headless session needs the catastrophic-command floor disabled to stay usable, but pi rejects an extension flag no loaded extension registered, so passing the flag when bash-guard is absent would stop pi from starting.",
+      "tests": [
+        "test_bash_guard_flag_only_when_present",
+        "test_bash_guard_flag_added_when_present"
+      ]
+    },
+    {
+      "id": "B-single-learning-writer",
+      "severity": "hard",
+      "statement": "A single-writer learning lock admits one learning turn at a time on the shared state repo: a second learning turn in another chat is told to wait rather than overlapping the write, while general (non-learning) chats are exempt.",
+      "tests": [
+        "test_single_learning_writer",
+        "test_two_chats_cannot_run_learning_turns_at_once"
       ]
     }
   ]

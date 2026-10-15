@@ -3,12 +3,14 @@
 #
 # Runs, in order:
 #   1. gate behavior suite (test/gate_test.mjs, deno) — pure gate semantics
-#   2. resources + contract coverage (test/contract/check_learning_layer.py)
-#   3. load probe (test/contract/load_probe.py) — candidate pi loads the layer
-#   4. py_compile of the learning-pi sidecars
-#   5. optionally (--with-sidecars) the learning-system ops unittest suite,
+#   2. bridge suite (test/bridge/run_tests.py) — the OpenAI-compatible face
+#   3. resources + contract coverage (test/contract/check_learning_layer.py),
+#      binding every invariant to passing tests across the gate AND bridge output
+#   4. load probe (test/contract/load_probe.py) — candidate pi loads the layer
+#   5. py_compile of the learning-pi sidecars
+#   6. optionally (--with-sidecars) the learning-system ops unittest suite,
 #      read-only, against the real checkout
-#   6. optionally (--e2e) short learner journeys with real models in a sandbox
+#   7. optionally (--e2e) short learner journeys with real models in a sandbox
 #
 # Exit 0 only if every step passes. Used by harness/pi-safe-update to decide
 # whether a candidate may be promoted.
@@ -93,14 +95,39 @@ else
   FAILED=1
 fi
 
-# 2. resources + contract coverage ---------------------------------------
-if python3 "$LAYER/test/contract/check_learning_layer.py" "$LAYER" "$TMP/gate.out"; then
+# 2. bridge (OpenAI-compatible face over pi) ------------------------------
+# Runs before the contract-coverage check because the bridge suite is part of
+# the coverage corpus: run_tests.py emits `PASS <test id>` lines, the same
+# shape check_learning_layer.py binds against.
+: >"$TMP/bridge.out"
+shopt -s nullglob
+BRIDGE_PY=("$LAYER"/bridge/*.py)
+shopt -u nullglob
+if [ "${#BRIDGE_PY[@]}" -gt 0 ]; then
+  if python3 -m py_compile "${BRIDGE_PY[@]}" 2>"$TMP/bridge.compile.err"; then
+    echo "PASS py_compile (${#BRIDGE_PY[@]} bridge files)"
+  else
+    echo "FAIL bridge py_compile:"
+    cat "$TMP/bridge.compile.err"
+    FAILED=1
+  fi
+  if python3 "$LAYER/test/bridge/run_tests.py" >"$TMP/bridge.out" 2>&1; then
+    echo "PASS bridge tests ($(grep -Eo 'Ran [0-9]+ tests?' "$TMP/bridge.out" | head -1))"
+  else
+    echo "FAIL bridge tests:"
+    tail -30 "$TMP/bridge.out"
+    FAILED=1
+  fi
+fi
+
+# 3. resources + contract coverage ---------------------------------------
+if python3 "$LAYER/test/contract/check_learning_layer.py" "$LAYER" "$TMP/gate.out" "$TMP/bridge.out"; then
   :
 else
   FAILED=1
 fi
 
-# 3. load probe -----------------------------------------------------------
+# 4. load probe -----------------------------------------------------------
 SANDBOX_DIR=""
 if [ "$NO_LOAD" = 1 ]; then
   echo "SKIP load-probe (--no-load)"
@@ -125,7 +152,7 @@ else
   FAILED=1
 fi
 
-# 4. py_compile sidecars --------------------------------------------------
+# 5. py_compile sidecars --------------------------------------------------
 shopt -s nullglob
 PY_FILES=("$LAYER"/pi/*.py)
 shopt -u nullglob
@@ -139,28 +166,7 @@ if [ "${#PY_FILES[@]}" -gt 0 ]; then
   fi
 fi
 
-# 4b. bridge (OpenAI-compatible face over pi) -----------------------------
-shopt -s nullglob
-BRIDGE_PY=("$LAYER"/bridge/*.py)
-shopt -u nullglob
-if [ "${#BRIDGE_PY[@]}" -gt 0 ]; then
-  if python3 -m py_compile "${BRIDGE_PY[@]}" 2>"$TMP/bridge.compile.err"; then
-    echo "PASS py_compile (${#BRIDGE_PY[@]} bridge files)"
-  else
-    echo "FAIL bridge py_compile:"
-    cat "$TMP/bridge.compile.err"
-    FAILED=1
-  fi
-  if (cd "$LAYER" && python3 -m unittest discover -s test/bridge -p 'test_*.py') >"$TMP/bridge.out" 2>&1; then
-    echo "PASS bridge tests ($(grep -Eo 'Ran [0-9]+ tests?' "$TMP/bridge.out" | head -1))"
-  else
-    echo "FAIL bridge tests:"
-    tail -30 "$TMP/bridge.out"
-    FAILED=1
-  fi
-fi
-
-# 5. optional sidecar suite (read-only, real checkout) --------------------
+# 6. optional sidecar suite (read-only, real checkout) --------------------
 if [ "$WITH_SIDECARS" = 1 ]; then
   LS="${LEARNING_SYSTEM_ROOT:-$HOME/learning-system}"
   if [ -f "$LS/scripts/ops_test.py" ]; then
@@ -176,7 +182,7 @@ if [ "$WITH_SIDECARS" = 1 ]; then
   fi
 fi
 
-# 6. optional end-to-end learner journeys (real models, sandboxed) --------
+# 7. optional end-to-end learner journeys (real models, sandboxed) --------
 if [ "$E2E" = 1 ]; then
   echo "running e2e ($E2E_TIER tier) ..."
   E2E_ARGS=(--pi "$PI_BIN" --layer "$LAYER" --tier "$E2E_TIER")

@@ -53,6 +53,18 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(last_user_text(msgs), "three")
         self.assertEqual(last_user_text([]), "")
 
+    def test_only_newest_user_message_forwarded(self):
+        # B-newest-message-only: pi owns the context, so the bridge forwards
+        # only the newest user message of the posted transcript.
+        msgs = [
+            {"role": "user", "content": "oldest"},
+            {"role": "assistant", "content": "reply"},
+            {"role": "user", "content": "middle"},
+            {"role": "assistant", "content": "reply"},
+            {"role": "user", "content": [{"type": "text", "text": "newest"}]},
+        ]
+        self.assertEqual(last_user_text(msgs), "newest")
+
     def test_is_learning_flow(self):
         self.assertTrue(is_learning_flow("/review"))
         self.assertTrue(is_learning_flow("  /lesson the next one"))
@@ -74,6 +86,31 @@ class TestHelpers(unittest.TestCase):
 
 
 class TestTurnStream(unittest.TestCase):
+    def test_deltas_never_forwarded(self):
+        # B-deltas-never-forwarded: message_update deltas carry the
+        # pre-verification draft; only the completed message_end text is emitted.
+        ts = TurnStream()
+        ts.feed({"type": "message_start", "message": {"role": "assistant", "stopReason": "pending"}})
+        ts.feed({"type": "message_update", "assistantMessageEvent": {"type": "text_delta", "delta": SECRET}})
+        ts.feed({"type": "message_update", "assistantMessageEvent": {"type": "thinking_delta", "delta": SECRET}})
+        self.assertEqual(ts.final_text(), "")          # nothing while the draft streams
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "stop",
+            "content": [{"type": "text", "text": "VERIFIED_FINAL"}]}})
+        self.assertEqual(ts.final_text(), "VERIFIED_FINAL")
+        self.assertNotIn(SECRET, ts.final_text())
+
+    def test_unverified_banner_forwarded(self):
+        # B-withheld-banner-forwarded: at the retry cap the gate writes the
+        # UNVERIFIED banner into message_end; the raw draft never reaches us.
+        ts = TurnStream()
+        ts.feed({"type": "message_update", "assistantMessageEvent": {"type": "text_delta", "delta": SECRET}})
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "stop",
+            "content": [{"type": "text", "text": "⛔ UNVERIFIED (retry cap)\nA draft was withheld."}]}})
+        self.assertIn("UNVERIFIED", ts.final_text())
+        self.assertNotIn(SECRET, ts.final_text())
+
     def test_deltas_and_tooluse_never_emitted(self):
         ts = TurnStream()
         ts.feed({"type": "message_start", "message": {"role": "assistant", "stopReason": "pending"}})
@@ -116,6 +153,18 @@ class TestTurnStream(unittest.TestCase):
 
 
 class TestLearningLock(unittest.TestCase):
+    def test_single_learning_writer(self):
+        # B-single-learning-writer: at most one chat holds the state-repo write
+        # lock; a same-owner re-entry renews, a different chat is refused.
+        lock = LearningLock()
+        self.assertTrue(lock.acquire("chat A"))
+        self.assertFalse(lock.acquire("chat B"))
+        self.assertEqual(lock.owner(), "chat A")
+        lock.release("chat A")
+        self.assertTrue(lock.acquire("chat B"))
+        self.assertEqual(lock.owner(), "chat B")
+        lock.release("chat B")
+
     def test_one_owner_at_a_time(self):
         lock = LearningLock()
         self.assertTrue(lock.acquire("A"))
@@ -155,7 +204,9 @@ class TestSessionArgs(unittest.TestCase):
 # Integration (fake pi + real HTTP server)
 # --------------------------------------------------------------------------
 class ServerHarness:
-    def __init__(self, scenario="default", pi_bin=FAKE_PI):
+    def __init__(self, scenario="default", pi_bin=FAKE_PI, env_extra=None):
+        env = {"FAKE_PI_SCENARIO": scenario}
+        env.update(env_extra or {})
         self.httpd = BridgeServer(BridgeConfig(
             pi_bin=pi_bin,
             state_repo=str(ROOT),
@@ -164,7 +215,7 @@ class ServerHarness:
             port=0,
             timeout=30,
             models=["learning"],
-            child_env_extra={"FAKE_PI_SCENARIO": scenario},
+            child_env_extra=env,
         ))
         self.port = self.httpd.server_address[1]
         self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
@@ -246,11 +297,37 @@ class TestIntegration(unittest.TestCase):
         self.assertIn("[DONE]", body)
         self.assertNotIn(SECRET, body)
 
+    def test_stream_client_never_receives_deltas(self):
+        # B-deltas-never-forwarded, end to end: the SSE stream carries the
+        # post-gate text only; no delta (raw draft) is written to the client.
+        status, body = self.h.post(self.h.body("hello", stream=True), raw=True)
+        self.assertEqual(status, 200)
+        self.assertNotIn(SECRET, body)
+        self.assertNotIn("more draft text", body)
+        self.assertIn("VERIFIED_FINAL", body)
+
     def test_regenerate_same_message(self):
         self.h.post(self.h.body("hello"))
         status, data = self.h.post(self.h.body("hello"))  # same text -> fork path
         self.assertEqual(status, 200)
         self.assertEqual(data["choices"][0]["message"]["content"], "VERIFIED_FINAL")
+
+    def test_resend_forks(self):
+        # B-newest-message-only: a resend of the same user message is a
+        # regenerate, so the bridge forks the session back before re-prompting.
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            fork_log = Path(d) / "fork.log"
+            h = ServerHarness("default", env_extra={"FAKE_PI_FORK_LOG": str(fork_log)})
+            try:
+                h.post(h.body("hello"))
+                status, data = h.post(h.body("hello"))
+                self.assertEqual(status, 200)
+                self.assertEqual(data["choices"][0]["message"]["content"], "VERIFIED_FINAL")
+                self.assertTrue(fork_log.exists(), "resend did not fork the session")
+                self.assertIn("e1", fork_log.read_text())
+            finally:
+                h.stop()
 
     def test_empty_body_rejected(self):
         status, _ = self.h.post({"model": "learning", "messages": []})
@@ -300,6 +377,20 @@ class TestWithholdScenario(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertIn("WITHHELD", body)
             self.assertNotIn(SECRET, body)
+        finally:
+            h.stop()
+
+    def test_withheld_banner_forwarded(self):
+        # B-withheld-banner-forwarded: the learner sees the gate's own WITHHELD
+        # banner from message_end; the pre-verification draft never leaks.
+        h = ServerHarness("withhold")
+        try:
+            status, data = h.post(h.body("/lesson next"))
+            self.assertEqual(status, 200)
+            content = data["choices"][0]["message"]["content"]
+            self.assertIn("⛔ WITHHELD", content)
+            self.assertNotIn(SECRET, content)
+            self.assertNotIn("more draft text", content)
         finally:
             h.stop()
 
@@ -359,6 +450,14 @@ class TestRegistry(unittest.TestCase):
     def _reg(self, cap=4):
         return self.S.SessionRegistry(self.S.BridgeConfig(
             pi_bin="x", state_repo=str(ROOT), api_key="k", max_sessions=cap))
+
+    def test_one_session_per_chat(self):
+        # B-newest-message-only: one pi RPC session per chat, reused across turns.
+        reg = self._reg()
+        e1 = reg.get_or_create("chat")
+        e2 = reg.get_or_create("chat")
+        self.assertIs(e1, e2)
+        self.assertEqual(len(reg._entries), 1)
 
     def test_dead_session_is_replaced_and_removed(self):
         reg = self._reg()

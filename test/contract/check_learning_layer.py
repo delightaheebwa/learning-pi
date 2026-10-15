@@ -5,13 +5,18 @@ Two jobs:
   1. Resources: the layer's own files exist and parse — APPEND_SYSTEM.md,
      .pi/settings.json, the seven prompt templates with their [[FLOW:...]]
      markers, the ten agent definitions, the four skills.
-  2. Contract coverage: every invariant in contracts/learning-core.json has at
-     least one passing test (by name substring), and every listed test name
-     matches something. This keeps the contract registry and the tests from
-     drifting apart.
+   2. Contract coverage: every invariant in contracts/learning-core.json has at
+      least one passing test (by name substring), and every listed test name
+      matches something. This keeps the contract registry and the tests from
+      drifting apart.
+
+Passing tests are collected from every test-output file given on the command
+line: each `PASS <name>` line is a passing test. The deno gate suites and the
+bridge unittest runner (`test/bridge/run_tests.py`) both emit that shape, so one
+checker binds both corpora.
 
 Usage:
-    python3 test/contract/check_learning_layer.py LAYER_ROOT GATE_TEST_OUTPUT
+    python3 test/contract/check_learning_layer.py LAYER_ROOT OUTPUT [OUTPUT ...]
 """
 from __future__ import annotations
 
@@ -159,7 +164,7 @@ def check_resources(root: Path) -> None:
         ok(f"resources: {len(evidence_agents)} verifier agents require an `evidence` list")
 
 
-def check_contract(root: Path, gate_output: Path) -> None:
+def check_contract(root: Path, test_outputs: list[Path]) -> None:
     contract_path = root / "contracts" / "learning-core.json"
     try:
         contract = json.loads(contract_path.read_text(encoding="utf-8"))
@@ -171,10 +176,11 @@ def check_contract(root: Path, gate_output: Path) -> None:
         return
 
     passed: list[str] = []
-    if gate_output.is_file():
-        for line in gate_output.read_text(encoding="utf-8", errors="replace").splitlines():
-            if line.startswith("PASS "):
-                passed.append(line[len("PASS ") :].strip())
+    for output in test_outputs:
+        if output.is_file():
+            for line in output.read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.startswith("PASS "):
+                    passed.append(line[len("PASS ") :].strip())
 
     invariants = contract.get("invariants") or []
     for inv in invariants:
@@ -192,13 +198,16 @@ def check_contract(root: Path, gate_output: Path) -> None:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print("usage: check_learning_layer.py LAYER_ROOT GATE_TEST_OUTPUT", file=sys.stderr)
+    if len(sys.argv) < 3:
+        print(
+            "usage: check_learning_layer.py LAYER_ROOT OUTPUT [OUTPUT ...]",
+            file=sys.stderr,
+        )
         return 2
     root = Path(sys.argv[1]).resolve()
-    gate_output = Path(sys.argv[2])
+    test_outputs = [Path(arg) for arg in sys.argv[2:]]
     check_resources(root)
-    check_contract(root, gate_output)
+    check_contract(root, test_outputs)
     if FAILURES:
         print(f"\n{len(FAILURES)} learning-layer check(s) failed")
         return 1

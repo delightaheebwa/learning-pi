@@ -287,6 +287,37 @@ The judge also writes the **ledger** (`~/.pi/agent/learning-gate/`:
 `receipts.ndjson`, `decisions.ndjson`) — receipt provenance for the weekly
 audit and the accountability record for every decision.
 
+### Bridge (OpenAI-compatible face over pi)
+
+`bridge/` puts Open WebUI in front of the pinned pi runtime. It is intentionally
+thin — all learning behaviour stays in pi — but these load-bearing properties
+must hold or unverified content reaches the learner, or the runtime stops
+starting. They are covered by the Python `unittest` suite in `test/bridge/`,
+whose `PASS <test id>` lines `scripts/learn-check` feeds into the same contract
+coverage check as the deno gate suites.
+
+- **B-deltas-never-forwarded** *(hard)* — assistant text reaches the client only
+  from the completed `message_end` message (the post-gate turn). `message_update`
+  text/thinking deltas carry the raw pre-verification draft and are never
+  emitted, so a withheld teaching draft cannot leak while it streams.
+- **B-withheld-banner-forwarded** *(hard)* — a withheld or retry-capped turn
+  surfaces the gate's own banner text written into `message_end` (`⛔ WITHHELD` /
+  `⛔ UNVERIFIED`) — never the raw draft, and never a bridge-authored substitute.
+- **B-newest-message-only** *(hard)* — one pi RPC session per chat, reused across
+  turns; only the newest user message of each posted transcript is forwarded (pi
+  owns its context). A resend of the same message is a regenerate: the bridge
+  forks the session back to that user message before re-prompting, and falls back
+  to appending if the fork fails.
+- **B-bash-guard-floor** *(hard)* — the bridge passes `--bash-guard-disabled`
+  only when bash-guard is actually installed in the agent dir. A headless session
+  needs the catastrophic-command floor disabled to stay usable, but pi rejects an
+  extension flag no loaded extension registered, so passing the flag when
+  bash-guard is absent would stop pi from starting.
+- **B-single-learning-writer** *(hard)* — a single-writer learning lock admits one
+  learning turn at a time on the shared state repo: a second learning turn in
+  another chat is told to wait rather than overlapping the write, while general
+  (non-learning) chats are exempt.
+
 ### Launcher & update gate
 
 - **S-1** behavior lives here and in the tagged tests; it changes only through
