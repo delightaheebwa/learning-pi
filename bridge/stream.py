@@ -11,7 +11,27 @@ Kept free of I/O so it can be unit-tested against synthetic records.
 """
 from __future__ import annotations
 
-from typing import Optional
+import re
+
+# Mirror of the learning-gate's own turn-tag vocabulary (`TURN_TAG_RE` /
+# `stripTag` in `.pi/extensions/learning-gate/gate-core/primitives.ts`): one tag
+# at the very start of a turn (leading whitespace allowed), plus the whitespace /
+# newline that follows it. A gated learning turn reaches the bridge already
+# stripped, but a non-learning message (no `[[FLOW:…]]` marker) is passed through
+# untouched by the gate — so the bridge cleans its own learner-facing output here
+# and the internal protocol never leaks into the chat. Only a tag at the very
+# start is matched; a `[[TURN:…]]` later in the body is left alone.
+_TURN_TAG_RE = re.compile(
+    r"^\s*\[\[TURN:(?:claims|quiz|grade|viz|none)\]\]\s*", re.IGNORECASE
+)
+
+
+def strip_turn_tag(text: str) -> str:
+    """Remove one leading `[[TURN:…]]` tag and the whitespace that follows it."""
+    if not text:
+        return text
+    return _TURN_TAG_RE.sub("", text, count=1)
+
 
 # stopReasons that represent a completed learner-facing message. `error`,
 # `aborted`, and `length` are the gate's "partial pass-through" cases
@@ -66,4 +86,4 @@ class TurnStream:
                 self.tool_events.append(f"{state}:{name}")
 
     def final_text(self) -> str:
-        return self.text
+        return strip_turn_tag(self.text)

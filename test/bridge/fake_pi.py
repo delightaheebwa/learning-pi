@@ -30,6 +30,10 @@ def note(path, line):
 def _final_text():
     if SCENARIO == "withhold":
         return "⛔ WITHHELD (NO_SCOUT_CONTEXT)\nRun the `scout` subagent first for a new lesson."
+    if SCENARIO == "turn_tag":
+        # A non-learning message: the gate passes it through untouched, so the
+        # final text still carries the internal turn tag the bridge must clean.
+        return "[[TURN:none]] 2 plus 2 equals 4."
     return "VERIFIED_FINAL"
 
 

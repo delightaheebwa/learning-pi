@@ -152,6 +152,48 @@ class TestTurnStream(unittest.TestCase):
         self.assertEqual(ts.final_text(), "")
 
 
+class TestTurnTagCleanup(unittest.TestCase):
+    """B-clean-turn-tag: the bridge strips one leading turn tag from its output.
+
+    The gate strips the tag for gated flows, but a non-learning message (no
+    [[FLOW:…]] marker) passes through untouched, so the bridge cleans its own
+    learner-facing text rather than leaking the internal protocol.
+    """
+
+    def _emit(self, text):
+        ts = TurnStream()
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "stop",
+            "content": [{"type": "text", "text": text}]}})
+        return ts.final_text()
+
+    def test_leading_tag_stripped(self):
+        self.assertEqual(self._emit("[[TURN:none]] 2 plus 2 equals 4."), "2 plus 2 equals 4.")
+
+    def test_leading_tag_with_whitespace_newline_stripped(self):
+        self.assertEqual(self._emit("  \n[[TURN:claims]]\n\nHello."), "Hello.")
+
+    def test_each_tag_vocabulary_stripped_case_insensitively(self):
+        for tag in ("claims", "quiz", "grade", "viz", "none"):
+            self.assertEqual(self._emit(f"[[TURN:{tag}]] body"), "body")
+        self.assertEqual(self._emit("[[turn:NONE]] body"), "body")
+
+    def test_inline_tag_later_in_body_preserved(self):
+        text = "Intro.\n[[TURN:claims]] still part of the body"
+        self.assertEqual(self._emit(text), text)
+
+    def test_withheld_banner_untouched(self):
+        text = "⛔ WITHHELD (NO_SCOUT_CONTEXT)\nRun the `scout` subagent first."
+        self.assertEqual(self._emit(text), text)
+
+    def test_text_without_tag_unchanged(self):
+        text = "plain answer with no protocol tag"
+        self.assertEqual(self._emit(text), text)
+
+    def test_only_one_leading_tag_stripped(self):
+        self.assertEqual(self._emit("[[TURN:none]][[TURN:none]] x"), "[[TURN:none]] x")
+
+
 class TestLearningLock(unittest.TestCase):
     def test_single_learning_writer(self):
         # B-single-learning-writer: at most one chat holds the state-repo write
@@ -435,6 +477,29 @@ class TestWithholdScenario(unittest.TestCase):
             self.assertIn("⛔ WITHHELD", content)
             self.assertNotIn(SECRET, content)
             self.assertNotIn("more draft text", content)
+        finally:
+            h.stop()
+
+
+class TestTurnTagIntegration(unittest.TestCase):
+    def test_completion_cleans_leading_turn_tag(self):
+        h = ServerHarness("turn_tag")
+        try:
+            status, data = h.post(h.body("2 plus 2?"))
+            self.assertEqual(status, 200)
+            content = data["choices"][0]["message"]["content"]
+            self.assertEqual(content, "2 plus 2 equals 4.")
+            self.assertNotIn("[[TURN:", json.dumps(data))
+        finally:
+            h.stop()
+
+    def test_stream_cleans_leading_turn_tag(self):
+        h = ServerHarness("turn_tag")
+        try:
+            status, body = h.post(h.body("2 plus 2?", stream=True), raw=True)
+            self.assertEqual(status, 200)
+            self.assertIn("2 plus 2 equals 4.", body)
+            self.assertNotIn("[[TURN:", body)
         finally:
             h.stop()
 
