@@ -1,0 +1,66 @@
+"""Turn the raw pi RPC record stream into learner-facing text.
+
+The whole point of this module is the buffering rule the Phase 0 spike forced:
+`message_update` deltas carry the *pre-verification* draft (the spike watched a
+withheld teaching draft stream in full before the gate replaced it at
+`message_end`). So the bridge never forwards deltas. It emits only the text of a
+completed, non-tool assistant message — the post-gate turn (verified text, or a
+withheld/`unverified` banner that the gate wrote into the message itself).
+
+Kept free of I/O so it can be unit-tested against synthetic records.
+"""
+from __future__ import annotations
+
+from typing import Optional
+
+# stopReasons that are not a completed, learner-facing turn:
+#   toolUse  -> the gate skips it (it has a tool call); any text is narration.
+#   error/aborted/length -> a partial the gate passes through untagged.
+_NON_FINAL = {"toolUse", "error", "aborted", "length"}
+
+
+def text_of_content(content) -> str:
+    """Extract text from a pi message `content` (string or part list)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for p in content:
+            if isinstance(p, str):
+                parts.append(p)
+            elif isinstance(p, dict) and p.get("type") == "text" and isinstance(p.get("text"), str):
+                parts.append(p["text"])
+        return "".join(parts)
+    return ""
+
+
+class TurnStream:
+    """Accumulate one prompt's records and expose the learner-facing text."""
+
+    def __init__(self) -> None:
+        self.text: str = ""
+        self.tool_events: list[str] = []
+
+    def feed(self, rec: dict) -> None:
+        t = rec.get("type")
+        if t == "message_end":
+            m = rec.get("message") or {}
+            if m.get("role") != "assistant":
+                return
+            if m.get("stopReason") in _NON_FINAL:
+                return
+            text = text_of_content(m.get("content"))
+            if text.strip():
+                self.text = text
+        elif t == "tool_execution_start":
+            name = rec.get("toolName")
+            if name:
+                self.tool_events.append(f"start:{name}")
+        elif t == "tool_execution_end":
+            name = rec.get("toolName")
+            state = "error" if rec.get("isError") else "done"
+            if name:
+                self.tool_events.append(f"{state}:{name}")
+
+    def final_text(self) -> str:
+        return self.text

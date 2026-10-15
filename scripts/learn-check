@@ -139,6 +139,27 @@ if [ "${#PY_FILES[@]}" -gt 0 ]; then
   fi
 fi
 
+# 4b. bridge (OpenAI-compatible face over pi) -----------------------------
+shopt -s nullglob
+BRIDGE_PY=("$LAYER"/bridge/*.py)
+shopt -u nullglob
+if [ "${#BRIDGE_PY[@]}" -gt 0 ]; then
+  if python3 -m py_compile "${BRIDGE_PY[@]}" 2>"$TMP/bridge.compile.err"; then
+    echo "PASS py_compile (${#BRIDGE_PY[@]} bridge files)"
+  else
+    echo "FAIL bridge py_compile:"
+    cat "$TMP/bridge.compile.err"
+    FAILED=1
+  fi
+  if (cd "$LAYER" && python3 -m unittest discover -s test/bridge -p 'test_*.py') >"$TMP/bridge.out" 2>&1; then
+    echo "PASS bridge tests ($(grep -Eo 'Ran [0-9]+ tests?' "$TMP/bridge.out" | head -1))"
+  else
+    echo "FAIL bridge tests:"
+    tail -30 "$TMP/bridge.out"
+    FAILED=1
+  fi
+fi
+
 # 5. optional sidecar suite (read-only, real checkout) --------------------
 if [ "$WITH_SIDECARS" = 1 ]; then
   LS="${LEARNING_SYSTEM_ROOT:-$HOME/learning-system}"
