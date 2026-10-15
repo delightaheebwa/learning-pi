@@ -7,20 +7,29 @@
 #
 # searxng is only reachable on the private pi-net network; it publishes no host
 # port. Split into its own file so the base stack never demands SEARXNG_SECRET.
+#
+# search/settings.yml enables the JSON output format Open WebUI needs (the stock
+# image allows html only, which makes Open WebUI's web search fail with 403).
 services:
   searxng:
     image: searxng/searxng:latest@sha256:b4e34a39f76b1c860bbc53a0f35b10492029b2b18ef1d868df464fe43d7e0b93
     container_name: searxng
     restart: unless-stopped
+    # searxng only needs these to drop privileges and manage its own cache.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
     environment:
       SEARXNG_BASE_URL: http://searxng:8080/
       SEARXNG_SECRET: ${SEARXNG_SECRET:?set SEARXNG_SECRET in deploy/.env to use searxng}
     volumes:
-      - searxng:/etc/searxng
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
       - searxng-cache:/var/cache/searxng
     networks:
       - pi-net
 
 volumes:
-  searxng:
   searxng-cache:

@@ -1,0 +1,20 @@
+# Minimal SearXNG override for Open WebUI.
+#
+# Mounted read-only at /etc/searxng/settings.yml by docker-compose.search.yml.
+# `use_default_settings` keeps SearXNG's built-in defaults and only overrides
+# what follows. secret_key is replaced at runtime by the SEARXNG_SECRET env var
+# (SearXNG's settings loader honours it), so no secret lives in this file.
+#
+# `search.formats` MUST include json — Open WebUI queries SearXNG as JSON and
+# gets HTTP 403 otherwise (verified: without this, format=json is Forbidden).
+use_default_settings: true
+
+server:
+  secret_key: "ultrasecretkey"
+  image_proxy: true
+  limiter: false
+
+search:
+  formats:
+    - html
+    - json

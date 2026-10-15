@@ -20,6 +20,7 @@ Files in this directory:
 |---|---|
 | `docker-compose.yml` | Open WebUI, private `pi-net`, loopback-only port |
 | `docker-compose.search.yml` | Optional searxng (web search), added on demand |
+| `searxng/settings.yml` | Enables JSON output for Open WebUI's web search |
 | `pi-bridge.service` | systemd `--user` unit for the bridge |
 | `pi-bridge.env.example` | EnvironmentFile for that unit |
 | `.env.example` | Compose secrets (key, webui secret) |
@@ -71,6 +72,7 @@ chmod 600 ~/.config/pi-bridge.env
 cp pi-bridge.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now pi-bridge.service
+sudo loginctl enable-linger "$USER"     # keep pi-bridge running after logout/reboot
 systemctl --user status pi-bridge.service
 ```
 
@@ -130,7 +132,11 @@ sudo docker compose -f docker-compose.yml -f docker-compose.search.yml up -d
 ```
 
 searxng has no host-port publish; Open WebUI reaches it at
-`http://searxng:8080/search?q=<query>` on `pi-net`.
+`http://searxng:8080/search?q=<query>` on `pi-net`. `searxng/settings.yml` is
+mounted read-only and enables the **JSON** output format Open WebUI requires
+(the stock image serves `html` only and returns HTTP 403 for `format=json`);
+`SEARXNG_SECRET` overrides its `secret_key` at runtime, so no secret is stored
+in that file.
 
 ## Back up `webui.db`
 
@@ -156,7 +162,8 @@ before starting it again. Keep these archives private — they contain the bridg
 curl -fsS http://172.17.0.1:8790/healthz && echo OK
 
 # the container can reach the bridge and sees the learning model
-sudo docker exec open-webui python3 - <<'PY'
+PI_BRIDGE_API_KEY="$(grep '^PI_BRIDGE_API_KEY=' .env | cut -d= -f2-)"
+sudo docker exec -i -e PI_BRIDGE_API_KEY="$PI_BRIDGE_API_KEY" open-webui python3 - <<'PY'
 import json, os, urllib.request
 req = urllib.request.Request(
     "http://host.docker.internal:8790/v1/models",
@@ -166,8 +173,8 @@ print([m["id"] for m in json.load(urllib.request.urlopen(req, timeout=10))["data
 PY
 ```
 
-(`PI_BRIDGE_API_KEY` must be exported in your shell for that second command, or
-replace it with a literal `Bearer <key>`.)
+(Open WebUI receives the key as `OPENAI_API_KEY`; the `-e` above passes a copy to
+the one-off `python3` so the snippet can read it as `PI_BRIDGE_API_KEY`.)
 
 ## Rollback
 
