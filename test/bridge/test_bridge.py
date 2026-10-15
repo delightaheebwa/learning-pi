@@ -329,6 +329,29 @@ class TestIntegration(unittest.TestCase):
             finally:
                 h.stop()
 
+    def test_only_newest_user_message_reaches_pi(self):
+        # B-newest-message-only, server level: with a full transcript posted,
+        # only the newest user message is forwarded to the pi runtime.
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            prompt_log = Path(d) / "prompt.log"
+            h = ServerHarness("default", env_extra={"FAKE_PI_PROMPT_LOG": str(prompt_log)})
+            try:
+                body = h.body("newest")
+                body["messages"] = [
+                    {"role": "user", "content": "oldest"},
+                    {"role": "assistant", "content": "reply"},
+                    {"role": "user", "content": "newest"},
+                ]
+                status, data = h.post(body)
+                self.assertEqual(status, 200)
+                self.assertEqual(data["choices"][0]["message"]["content"], "VERIFIED_FINAL")
+                forwarded = prompt_log.read_text()
+                self.assertIn("newest", forwarded)
+                self.assertNotIn("oldest", forwarded)
+            finally:
+                h.stop()
+
     def test_empty_body_rejected(self):
         status, _ = self.h.post({"model": "learning", "messages": []})
         self.assertEqual(status, 400)
@@ -365,6 +388,23 @@ class TestLearningLockConcurrent(unittest.TestCase):
             self.assertIn("Another learning session", data["choices"][0]["message"]["content"])
             t.join(timeout=15)
             self.assertEqual(results["a"][0], 200)
+        finally:
+            h.stop()
+
+    def test_general_chat_exempt_from_learning_lock(self):
+        # B-single-learning-writer: general (non-learning) chats are exempt —
+        # one may run while another chat holds the learning lock.
+        h = ServerHarness("slow")
+        try:
+            t = threading.Thread(target=lambda: h.post(h.body("/review now", chat_id="A")))
+            t.start()
+            time.sleep(0.4)  # let the learning turn acquire the lock
+            status, data = h.post(h.body("hello", chat_id="B"))
+            self.assertEqual(status, 200)
+            self.assertNotIn(
+                "Another learning session", data["choices"][0]["message"]["content"]
+            )
+            t.join(timeout=15)
         finally:
             h.stop()
 

@@ -528,7 +528,9 @@
       "tests": [
         "test_one_session_per_chat",
         "test_only_newest_user_message_forwarded",
-        "test_resend_forks"
+        "test_only_newest_user_message_reaches_pi",
+        "test_resend_forks",
+        "test_fork_failure_falls_back_to_append"
       ]
     },
     {
@@ -546,7 +548,8 @@
       "statement": "A single-writer learning lock admits one learning turn at a time on the shared state repo: a second learning turn in another chat is told to wait rather than overlapping the write, while general (non-learning) chats are exempt.",
       "tests": [
         "test_single_learning_writer",
-        "test_two_chats_cannot_run_learning_turns_at_once"
+        "test_two_chats_cannot_run_learning_turns_at_once",
+        "test_general_chat_exempt_from_learning_lock"
       ]
     }
   ]

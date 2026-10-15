@@ -21,7 +21,7 @@ def out(obj):
 
 
 def note(path, line):
-    """Append a line to $FAKE_PI_FORK_LOG if set, so a test can observe a fork."""
+    """Append a line to an env-named log file if set, so a test can observe it."""
     if path:
         with open(path, "a", encoding="utf-8") as fh:
             fh.write(line + "\n")
@@ -78,6 +78,7 @@ def main():
             continue
         t = rec.get("type")
         if t == "prompt":
+            note(os.environ.get("FAKE_PI_PROMPT_LOG"), str(rec.get("message", "")))
             run_prompt(rec.get("id"))
         elif t == "get_fork_messages":
             out({"id": rec.get("id"), "type": "response", "command": "get_fork_messages",
