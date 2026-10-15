@@ -20,6 +20,13 @@ def out(obj):
     sys.stdout.flush()
 
 
+def note(path, line):
+    """Append a line to an env-named log file if set, so a test can observe it."""
+    if path:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+
+
 def _final_text():
     if SCENARIO == "withhold":
         return "⛔ WITHHELD (NO_SCOUT_CONTEXT)\nRun the `scout` subagent first for a new lesson."
@@ -71,6 +78,7 @@ def main():
             continue
         t = rec.get("type")
         if t == "prompt":
+            note(os.environ.get("FAKE_PI_PROMPT_LOG"), str(rec.get("message", "")))
             run_prompt(rec.get("id"))
         elif t == "get_fork_messages":
             out({"id": rec.get("id"), "type": "response", "command": "get_fork_messages",
@@ -80,6 +88,7 @@ def main():
                 out({"id": rec.get("id"), "type": "response", "command": "fork",
                      "success": False, "error": "cannot fork"})
             else:
+                note(os.environ.get("FAKE_PI_FORK_LOG"), str(rec.get("entryId", "")))
                 out({"id": rec.get("id"), "type": "response", "command": "fork",
                      "success": True, "data": {"text": "hello", "cancelled": False}})
         elif t == "abort":

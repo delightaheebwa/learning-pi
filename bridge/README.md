@@ -71,3 +71,8 @@ wait. General (non-learning) chats are exempt. Idle pi sessions are evicted LRU
 
 `python3 -m unittest discover -s test/bridge` — deterministic, uses a fake pi
 (`test/bridge/fake_pi.py`); no models or network.
+
+`test/bridge/run_tests.py` runs the same suite and prints one `PASS <test id>`
+line per passing test, so `scripts/learn-check` binds the bridge invariants
+(`B-*` in `contracts/learning-core.json`) into the same contract-coverage check
+as the deno gate suites.
