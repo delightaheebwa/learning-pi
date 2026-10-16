@@ -234,8 +234,8 @@ Set in `~/learning-pi/.pi/settings.json` (project scope only):
 | Role | Model |
 | --- | --- |
 | Tutor (your session) | `glm-5.3-flash` |
-| Scout / Clerk / Review Scout / Review Clerk | `deepseek-v4.1-flash` |
-| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
+| Scout / Clerk / Review Scout / Review Clerk / `viz` | `deepseek-v4.1-flash` |
+| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `viz-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) / lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` |
 
 Verifiers run on preferred models for cost/availability, but this is a **default, not a guarantee** —
@@ -249,11 +249,13 @@ artifacts) but does not enforce separation. To change a default, edit that file 
 
 - The Clerk commits and pushes **state only** (`Learning System/`, `Knowledge Wiki/`) to the
   original repo, per `Learning System/AGENTS.md`.
-- The pi layer is its own repo; update it with `cd ~/learning-pi && git pull`.
-- **Open WebUI also writes this state.** Pull before a session and don't run both writers at once:
+- The pi layer is its own repo; update it with `cd ~/learning-pi && git pull`, then
+  `/reload` (or `systemctl --user restart pi-bridge` + `docker compose` restart if you run the bridge/deploy path).
+- **Open WebUI also writes this state** (via pi-bridge). Pull before a session and don't run both writers at once:
   ```bash
   cd ~/learning-system && git pull
   ```
+  See `bridge/README.md` + `deploy/README.md` for the Open WebUI → pi-bridge → pi path.
 - Never commit `.pi/` (it's in `.git/info/exclude`) or `Pending Ingest.json` / `.tmp/` (gitignored).
 
 ---
@@ -271,8 +273,8 @@ Scout-digest TTL (warns when the active lesson's `.tmp/context-*.json` is older 
 host paths. It reports; it never writes. It now runs **automatically at ingest close (Clerk)
 and review close (Tutor)**, and on demand via `/audit`. For mechanically-fixable findings it also
 prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flow fixes the error
-**or warning** findings it touched using those hints, re-runs once, and surfaces the rest. A
-`⚠️ STATE AUDIT` banner means errors or warnings remain outstanding.
+**or warning** findings it touched using those hints, re-runs once, and surfaces the rest. Errors
+surface as `STATE_AUDIT_ERRORS` (withhold); warnings-only surface as `⚠️ STATE AUDIT`.
 
 ---
 
@@ -300,11 +302,10 @@ prints a `STATE_AUDIT_FIXES:` JSON array of remediation hints; the automatic flo
   `rendered_content` = the full emitted turn (the gate accepts the turn when the grade-audit covers
   the verdicts AND the fact-check covers the prose), or split it into a verdict-only `[[TURN:grade]]`
   and a separate `[[TURN:claims]]` repair. Never re-dispatch the grade-audit to cover repair prose.
-- **`GRADE_AUDIT_STALE` on a verdict-only grade turn** → the turn presents just the graded answers
-  and wants no fact-check. This is a binding bug if it persists: the grade-audit binds the graded
-  question/answer/verdict, and a terse confirmation ("Correct on all three: W1 B, W2 C, W3 A") does
-  not repeat the question text. Diagnostic: dispatch a `fact-check` with `rendered_content` = the
-  emitted verdict text and re-emit it (or remove any teaching prose so the turn is verdict-only).
+- **`GRADE_AUDIT_STALE` on a verdict-only grade turn** → fixed by `G-grade-verdict-only-binds`
+  (`CONTRACT.md`): a verdict-only `[[TURN:grade]]` binds via a full-sentence grade envelope + deterministic
+  fallback ("every graded answer restated, turn ≤ half question text"). If it still fires, check the turn is
+  grade-only (no teaching prose — move repair to a separate `[[TURN:claims]]` with its own `fact-check`).
 - **`QUIZ_AUDIT_STALE` on a clean PASS** (or a write-gate PASS judged unsubstantiated) → the judge
   scored the PASS unsubstantiated because the verifier emitted no evidence. The verifier's verdict
   JSON must carry a non-empty `evidence` list naming what it checked (the `quiz-audit` and

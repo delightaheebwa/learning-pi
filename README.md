@@ -12,7 +12,8 @@ of truth for `Learning System/` and `Knowledge Wiki/`. Open WebUI keeps using th
 > This project is built in public.
 
 > **Roadmap:** see [`AUDIT-ROADMAP.md`](AUDIT-ROADMAP.md) for the audit verdict and the staged
-> improvement plan (P0–P3). Read it before changing teaching behavior, the gate, learner state, or
+> improvement plan (P0–P2 done, P3 deferred, plus post-cascade P4 foundation-beats, scout-audit gate,
+> teach rewrite, and bridge + deploy). Read it before changing teaching behavior, the gate, learner state, or
 > the Knowledge Wiki, and update it when a stage lands.
 
 ## Architecture
@@ -26,7 +27,111 @@ of truth for `Learning System/` and `Knowledge Wiki/`. Open WebUI keeps using th
 `.git/info/exclude`, so the overlay never enters the original repo and the original repo never
 receives pi-specific files.
 
-## Install
+## Set up (one-shot per platform)
+
+Base requirements (all platforms): `git`, `python3`, [`mise`](https://mise.jdx.dev)
+(provides the pinned `pi` binary), plus `deno` for `lpi test`. The Open WebUI face
+(`deploy/`) additionally needs Docker + Compose. Commands below are idempotent —
+re-running them is safe.
+
+### Omarchy / Arch Linux
+
+```bash
+sudo pacman -S --needed git python base-devel curl unzip mise deno docker docker-compose ufw openssl
+mkdir -p ~/.local/bin
+[ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
+[ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
+~/learning-pi/install.sh ~/learning-system
+ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
+ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
+~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
+cd ~/learning-system && pi  # approve/trust once, then /review /lesson /teach
+```
+
+Omarchy extras (bar widget + evening reminder — optional):
+
+```bash
+~/learning-pi/omarchy/install.sh
+```
+
+### Ubuntu / Debian / WSL
+
+```bash
+sudo apt-get update && sudo apt-get install -y git python3 curl unzip openssl
+command -v mise >/dev/null || curl https://mise.run | sh
+command -v deno >/dev/null || curl -fsSL https://deno.land/install.sh | sh
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.deno/bin:$PATH"
+mkdir -p ~/.local/bin
+[ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
+[ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
+~/learning-pi/install.sh ~/learning-system
+ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
+ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
+~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
+cd ~/learning-system && pi  # approve/trust once, then /review /lesson /teach
+```
+
+### Windows (via WSL2 — native Windows is not supported)
+
+Native Windows (PowerShell/`cmd.exe`) is **not** supported: every entrypoint is
+bash (`install.sh`, `bin/pi`, `scripts/learn-check`), the `.pi/` overlay uses
+Unix symlinks, and the deploy path needs systemd + `ufw` + Linux `docker0`
+networking. On Windows, run everything inside WSL2:
+
+```powershell
+# PowerShell (once): enable WSL2 + install Ubuntu, then Docker Desktop with WSL integration
+wsl --install
+```
+
+```bash
+# Inside the Ubuntu/WSL2 distro: same as Ubuntu/Debian above
+sudo apt-get update && sudo apt-get install -y git python3 curl unzip openssl
+command -v mise >/dev/null || curl https://mise.run | sh
+command -v deno >/dev/null || curl -fsSL https://deno.land/install.sh | sh
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.deno/bin:$PATH"
+mkdir -p ~/.local/bin
+[ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
+[ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
+~/learning-pi/install.sh ~/learning-system
+ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
+ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
+~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
+cd ~/learning-system && pi  # approve/trust once, then /review /lesson /teach
+```
+
+Notes: Docker Desktop runs Windows-side — the WSL checkout is the working copy
+and the UI is reached as `http://localhost:3000` from WSL/browsers (see
+`learning-system/infra/ACCESS.md`). Keep the repos on the Linux filesystem
+(`~/...`, not `/mnt/c/...`) for symlinks and performance.
+
+### macOS (Homebrew)
+
+```bash
+command -v brew >/dev/null || /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install git python mise deno openssl
+mkdir -p ~/.local/bin
+[ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
+[ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
+~/learning-pi/install.sh ~/learning-system
+ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
+ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
+~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
+cd ~/learning-system && pi  # approve/trust once, then /review /lesson /teach
+```
+
+Notes:
+
+- `pi --version` triggers `mise` to fetch the pinned version from
+  `versions.lock.json` on first run; `learn-check --no-load` verifies the gate
+  without needing the `pi` binary or network models.
+- If `~/.local/bin` is not on your `PATH`, add
+  `export PATH="$HOME/.local/bin:$PATH"` to your shell rc.
+- Open WebUI face (optional, Linux/Docker hosts): follow
+  [`deploy/README.md`](deploy/README.md) Apply steps after the base setup above.
+- If `git clone` over SSH fails (no key), use
+  `https://github.com/delightaheebwa/learning-pi.git` instead.
+
+## Install (manual)
 
 ```bash
 git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
@@ -280,25 +385,45 @@ skill gets your explicit agreement before editing `CONTRACT.md`/tests/implementa
 A weekly `learning-pi-audit.timer` runs `pi/audit_gates.py` over the last 7 days of real sessions
 (read-only) as a standing net for whatever tests miss.
 
+### Open WebUI face: pi-bridge + deploy (shipped 2026-10-15/16)
+
+`bridge/` is an OpenAI-compatible endpoint in front of the pinned pi runtime, so **Open WebUI
+can be the face while pi stays the brain** (gate, subagents, skills run unchanged; Open WebUI
+holds only chat transcripts). `deploy/` runs Open WebUI in Docker in front of a host
+`pi-bridge` systemd service. Behavior contract: `B-*` invariants in `CONTRACT.md` /
+`contracts/learning-core.json` (v6, 55 invariants). Details: [`bridge/README.md`](bridge/README.md),
+[`deploy/README.md`](deploy/README.md), [`deploy/SECURITY.md`](deploy/SECURITY.md).
+
 ### Repo layout for the gate
 
 ```
-CONTRACT.md                  declared behavior (the thing updates must not break)
+CONTRACT.md                  declared behavior (the thing updates must not break; v6, 55 invariants 2026-10-16)
 contracts/learning-core.json machine-readable invariants -> test names
+bridge/                      OpenAI-compatible pi-bridge (B-* invariants) + README
+deploy/                      Docker Open WebUI + pi-bridge.service + searxng + README/SECURITY
+.pi/agents/                  13 subagents (incl. scout-audit, viz) — see .pi/
+.pi/prompts/                 9 slash prompts (review/solo/ingest/teach/lesson/continue/pause/audit/show)
+.pi/skills/                  5 skills (incl. learning-viz)
 bin/pi                       pinned launcher (never updates)
 bin/notify-if-outdated       debounced availability check (never updates)
 bin/pi-review-status         daily /review status helper (JSON; shared by widget + reminder)
-bin/lpi                      the umbrella control command (update / test / doctor / rollback)
+bin/lpi                      the umbrella control command (update / test / doctor / rollback; `lpi e2e --list/--diff`)
 harness/pi-safe-update       update conductor (backing `lpi update`)
 harness/locktool.py          versions.lock.json / journal helper
 harness/mk-sandbox.sh         isolated duplicate harness builder
+harness/e2e-runner.py        e2e runner (--tier smoke|full)
 harness/man/                 lpi(1) man page
 harness/audit-recent-sessions.sh + systemd/  weekly provenance audit
-scripts/learn-check          the single test entrypoint
+scripts/learn-check          the single test entrypoint (8 deno suites: gate/golden/redteam/viz/judge/judge_model/judge_router/judge_dump + bridge + contract checks + load probe)
+scripts/agent-worktree       worktree helper (new/list/clean/land)
 test/gate_test.mjs           core gate behavior (mocked pi)
-test/golden/golden_test.mjs  write-gate / scout / review-delegation / retry / demotion / viz scenarios
+test/golden/                 write-gate / scout / review-delegation / retry / demotion / viz scenarios
 test/viz_test.mjs            viz-mode pure units (spec validation, expression eval, ASCII render)
+test/judge_*.mjs + live_judge_test.mjs  judge suites (live variants opt-in, need models)
+test/redteam/                adversarial suites
+test/bridge/                 bridge suite (fake_pi + run_tests.py → B-* coverage)
 test/contract/               resource checks, load probe
+test/e2e/scenarios/          8 e2e scenarios (smoke + full)
 test/fixtures/               synthetic learning-system state (never real data)
 opencode/skills/lpi/         opencode skill: gated update, diagnosis/repair, and e2e
 .pi/extensions/learning-gate/gate-core/   pure, pi-independent decision logic

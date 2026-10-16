@@ -13,6 +13,12 @@
 > conversations in [`learning-system` Discussions](https://github.com/delightaheebwa/learning-system/discussions),
 > pi bugs in [`learning-pi/issues`](https://github.com/delightaheebwa/learning-pi/issues), state/wiki
 > bugs in [`learning-system/issues`](https://github.com/delightaheebwa/learning-system/issues).
+>
+> > **Post-cascade (2026-10-12..16, after E2E 2026-10-08):** P4 foundation-beats, scout-audit
+> > lesson-start gate, teach stance rewrite (Guided Learning peer tutor), bridge Phase 1 MVP +
+> > deploy Phase 3 (Open WebUI in Docker → pi-bridge), contract v6 with 55 invariants
+> > (was 45/45 at E2E). `E2E-REPORT.md` numbers are the 2026-10-08 snapshot, not current.
+> > See `docs/roadmap/STAGE-LOG.md` for the post-cascade SHAs.
 
 ---
 

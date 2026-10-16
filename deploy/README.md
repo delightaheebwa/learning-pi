@@ -149,6 +149,7 @@ sudo docker run --rm \
   -v pi-webui_open-webui:/data:ro \
   -v "$PWD":/backup \
   alpine tar czf /backup/webui-$(date +%F).tgz -C /data .
+chmod 600 webui-$(date +%F).tgz
 sudo docker compose start open-webui
 ```
 

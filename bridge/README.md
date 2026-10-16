@@ -6,8 +6,8 @@ skills run unchanged; Open WebUI holds only chat transcripts).
 
 ```
 Open WebUI (Docker, this machine)
-      │  OpenAI API  (http://127.0.0.1:8790/v1)
-   pi-bridge  ── one `pi --mode rpc` process per chat
+      │  OpenAI API  (http://172.17.0.1:8790/v1 via host.docker.internal)
+   pi-bridge  ── one `pi --mode rpc` process per chat (host systemd, binds 172.17.0.1:8790)
       │
    pi runtime (learning-gate withholds turns before emission)
       │
