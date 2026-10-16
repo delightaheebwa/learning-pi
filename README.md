@@ -4,8 +4,22 @@ The **pi control layer** for the `learning-system` spaced-repetition system. Thi
 only pi-side resources (skills, subagents, prompts, a verification gate, and an audit script). It
 contains **no learning state**.
 
-State lives in the original repo, `delightaheebwa/learning-system`, which stays the single source
-of truth for `Learning System/` and `Knowledge Wiki/`. Open WebUI keeps using that repo unchanged.
+## What is this?
+
+An AI tutor that actually teaches you things — and remembers what you know.
+
+- **You learn real subjects** (`/teach eigenvalue decomposition`, or `/lesson`
+  for the next curriculum lesson). The tutor first checks what you already
+  know, shows you a plan, then teaches in small steps with questions along
+  the way.
+- **It can't bluff you.** Every claim the tutor makes is fact-checked by an
+  independent verifier before you see it. Anything unverified is withheld,
+  not shown.
+- **It remembers.** Everything you learn becomes review cards on a schedule
+  (`/review`), your mistakes jump the queue, and your own explanations
+  accumulate into a personal wiki.
+- **Your data is just files.** All state is Markdown + JSON in a git repo you
+  own — sessions, concepts, wiki. No database, no lock-in, history included.
 
 > **Community:** questions, ideas, show-and-tell, and the build log all live in
 > [`learning-system` Discussions](https://github.com/delightaheebwa/learning-system/discussions).
@@ -16,16 +30,17 @@ of truth for `Learning System/` and `Knowledge Wiki/`. Open WebUI keeps using th
 > teach rewrite, and bridge + deploy). Read it before changing teaching behavior, the gate, learner state, or
 > the Knowledge Wiki, and update it when a stage lands.
 
-## Architecture
+## The two repos
 
 ```
-~/learning-system   clone of the ORIGINAL repo   -> owns state (+ Open WebUI layer)
-~/learning-pi       this repo (pi layer)         -> skills/agents/prompts/gate/docs only
+~/learning-pi       this repo: the tutor program (skills, gate, prompts)
+~/my-learning       your notebook: everything you learn — or ~/learning-system,
+                    the owner's example notebook, full of real data
 ```
 
-`install.sh` symlinks this repo's `.pi/` into the state checkout and adds `.pi/` to
-`.git/info/exclude`, so the overlay never enters the original repo and the original repo never
-receives pi-specific files.
+`install.sh` plugs this repo's `.pi/` into the notebook checkout (and git-ignores
+it there), so `pi` runs the tutor inside your data. The tutor's code never enters
+your notebook repo, and your data never enters this repo.
 
 ## Set up (one-shot per platform)
 
