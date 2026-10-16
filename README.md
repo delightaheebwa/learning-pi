@@ -30,14 +30,18 @@ receives pi-specific files.
 ## Set up (one-shot per platform)
 
 Base requirements (all platforms): `git`, `python3`, [`mise`](https://mise.jdx.dev)
-(provides the pinned `pi` binary), plus `deno` for `lpi test`. The Open WebUI face
-(`deploy/`) additionally needs Docker + Compose. Commands below are idempotent —
-re-running them is safe.
+(provides the pinned `pi` binary), `deno` for `lpi test`, and `nodejs`/`npm`
+(`lpi update` checks extension versions via `npm view`). The Open WebUI face
+(`deploy/`, Linux-only) additionally needs Docker + Compose. Commands below are
+idempotent — re-running them is safe.
 
 ### Omarchy / Arch Linux
 
 ```bash
-sudo pacman -S --needed git python base-devel curl unzip mise deno docker docker-compose ufw openssl
+sudo pacman -S --needed git openssh python base-devel curl unzip mise deno nodejs npm openssl
+# optional, only for the deploy/ Open WebUI face (Linux-only): docker + firewall
+sudo pacman -S --needed docker docker-compose ufw
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 mkdir -p ~/.local/bin
 [ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
 [ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
@@ -57,10 +61,11 @@ Omarchy extras (bar widget + evening reminder — optional):
 ### Ubuntu / Debian / WSL
 
 ```bash
-sudo apt-get update && sudo apt-get install -y git python3 curl unzip openssl
-command -v mise >/dev/null || curl https://mise.run | sh
-command -v deno >/dev/null || curl -fsSL https://deno.land/install.sh | sh
+sudo apt-get update && sudo apt-get install -y git python3 curl unzip openssl ca-certificates nodejs npm
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.deno/bin:$PATH"
+command -v mise >/dev/null || curl -fsSL https://mise.run | sh
+command -v deno >/dev/null || curl -fsSL https://deno.land/install.sh | sh
+grep -qs 'mise/shims' ~/.bashrc || echo 'export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.deno/bin:$PATH"' >> ~/.bashrc
 mkdir -p ~/.local/bin
 [ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
 [ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
@@ -79,16 +84,29 @@ Unix symlinks, and the deploy path needs systemd + `ufw` + Linux `docker0`
 networking. On Windows, run everything inside WSL2:
 
 ```powershell
-# PowerShell (once): enable WSL2 + install Ubuntu, then Docker Desktop with WSL integration
+# PowerShell as Administrator (once): enable WSL2 + install Ubuntu (reboot when prompted; needs Windows 10 2004+ or 11)
 wsl --install
+# Then install Docker Desktop, enable "Use the WSL 2 based engine" + WSL integration for the Ubuntu distro
 ```
 
 ```bash
-# Inside the Ubuntu/WSL2 distro: same as Ubuntu/Debian above
-sudo apt-get update && sudo apt-get install -y git python3 curl unzip openssl
-command -v mise >/dev/null || curl https://mise.run | sh
-command -v deno >/dev/null || curl -fsSL https://deno.land/install.sh | sh
+# Inside the Ubuntu/WSL2 distro: enable systemd (needed for pi-bridge.service and the audit timer), then restart the distro
+sudo sh -c 'printf "[boot]\nsystemd=true\n" > /etc/wsl.conf'
+exit
+```
+
+```powershell
+wsl --shutdown
+```
+
+```bash
+# Re-enter the distro and verify systemd + docker, then same as Ubuntu/Debian above
+systemd-detect-virt >/dev/null; docker run --rm hello-world
+sudo apt-get update && sudo apt-get install -y git python3 curl unzip openssl ca-certificates nodejs npm
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.deno/bin:$PATH"
+command -v mise >/dev/null || curl -fsSL https://mise.run | sh
+command -v deno >/dev/null || curl -fsSL https://deno.land/install.sh | sh
+grep -qs 'mise/shims' ~/.bashrc || echo 'export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.deno/bin:$PATH"' >> ~/.bashrc
 mkdir -p ~/.local/bin
 [ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
 [ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
@@ -108,7 +126,8 @@ and the UI is reached as `http://localhost:3000` from WSL/browsers (see
 
 ```bash
 command -v brew >/dev/null || /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install git python mise deno openssl
+brew install git python mise deno node
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 mkdir -p ~/.local/bin
 [ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
 [ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
@@ -123,11 +142,17 @@ Notes:
 
 - `pi --version` triggers `mise` to fetch the pinned version from
   `versions.lock.json` on first run; `learn-check --no-load` verifies the gate
-  without needing the `pi` binary or network models.
-- If `~/.local/bin` is not on your `PATH`, add
-  `export PATH="$HOME/.local/bin:$PATH"` to your shell rc.
-- Open WebUI face (optional, Linux/Docker hosts): follow
-  [`deploy/README.md`](deploy/README.md) Apply steps after the base setup above.
+  without needing a live `pi` binary or network models.
+- If `~/.local/bin` is not on your `PATH`, persist the full export from your
+  platform's block (it covers `~/.local/bin`, the mise shims, and `~/.deno/bin`)
+  in your shell rc (`~/.bashrc`, `~/.zshrc`).
+- macOS: Homebrew requires the Xcode Command Line Tools (`xcode-select --install`;
+  also provides `/usr/bin/git` and the system `python3`). macOS ships LibreSSL,
+  whose `openssl` covers the one base-flow use (`openssl rand -hex` for deploy keys).
+- Open WebUI face (optional, **Linux-only**: needs systemd, `ufw`, and the
+  `docker0` `172.17.0.1` bridge — not available under Docker Desktop for
+  Mac/Windows): follow [`deploy/README.md`](deploy/README.md) Apply steps after
+  the base setup above. macOS/Windows users run the pi CLI path instead.
 - If `git clone` over SSH fails (no key), use
   `https://github.com/delightaheebwa/learning-pi.git` instead.
 
