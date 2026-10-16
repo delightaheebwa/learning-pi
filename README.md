@@ -29,6 +29,12 @@ receives pi-specific files.
 
 ## Set up (one-shot per platform)
 
+Two paths share the same prerequisites below. **Path A — clone the example:**
+the owner's live `learning-system` (real data, useful as a reference implementation).
+**Path B — your own fresh state (recommended for actual use):** an empty
+scaffold with the same structure and zero owner data, built by
+`init-state.sh`, ready for your own material.
+
 Base requirements (all platforms): `git`, `python3`, [`mise`](https://mise.jdx.dev)
 (provides the pinned `pi` binary), `deno` for `lpi test`, and `nodejs`/`npm`
 (`lpi update` checks extension versions via `npm view`). The Open WebUI face
@@ -44,12 +50,10 @@ sudo pacman -S --needed docker docker-compose ufw
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 mkdir -p ~/.local/bin
 [ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
-[ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
-~/learning-pi/install.sh ~/learning-system
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
-cd ~/learning-system && pi  # approve/trust once, then /review /lesson /teach
+# next: pick a state path below (A example, B fresh)
 ```
 
 Omarchy extras (bar widget + evening reminder — optional):
@@ -68,12 +72,10 @@ command -v deno >/dev/null || curl -fsSL https://deno.land/install.sh | sh
 grep -qs 'mise/shims' ~/.bashrc || echo 'export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.deno/bin:$PATH"' >> ~/.bashrc
 mkdir -p ~/.local/bin
 [ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
-[ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
-~/learning-pi/install.sh ~/learning-system
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
-cd ~/learning-system && pi  # approve/trust once, then /review /lesson /teach
+# next: pick a state path below (A example, B fresh)
 ```
 
 ### Windows (via WSL2 — native Windows is not supported)
@@ -109,12 +111,10 @@ command -v deno >/dev/null || curl -fsSL https://deno.land/install.sh | sh
 grep -qs 'mise/shims' ~/.bashrc || echo 'export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.deno/bin:$PATH"' >> ~/.bashrc
 mkdir -p ~/.local/bin
 [ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
-[ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
-~/learning-pi/install.sh ~/learning-system
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
-cd ~/learning-system && pi  # approve/trust once, then /review /lesson /teach
+# next: pick a state path below (A example, B fresh)
 ```
 
 Notes: Docker Desktop runs Windows-side — the WSL checkout is the working copy
@@ -130,13 +130,40 @@ brew install git python mise deno node
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 mkdir -p ~/.local/bin
 [ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
-[ -d ~/learning-system ] || git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system
-~/learning-pi/install.sh ~/learning-system
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
+# next: pick a state path below (A example, B fresh)
+```
+
+## State — two paths
+
+Prerequisites above give you the pi layer. Now pick your state:
+
+### Path A — clone the example (owner's live data)
+
+```bash
+git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system  # owner's data, as an example
+~/learning-pi/install.sh ~/learning-system
 cd ~/learning-system && pi  # approve/trust once, then /review /lesson /teach
 ```
+
+Read-only inspiration: start your own track rather than continuing the owner's
+schedule — and you have no write access to that repo anyway.
+
+### Path B — your own fresh state (recommended for actual use)
+
+```bash
+~/learning-pi/init-state.sh ~/my-learning   # empty scaffold, zero owner data, fresh git history
+~/learning-pi/install.sh ~/my-learning
+cd ~/my-learning && pi  # approve/trust once
+```
+
+Then: point it at your own remote
+(`git remote add origin <your-url> && git push -u origin main`), define your
+track in `Learning System/MISSION.md` + `CURRICULUM.md`, and run `/teach <topic>`
+or fill the curriculum and run `/lesson`. The scaffold passes the state audit
+with 0 errors out of the box.
 
 Notes:
 
