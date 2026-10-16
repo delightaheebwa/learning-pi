@@ -42,6 +42,17 @@ An AI tutor that actually teaches you things — and remembers what you know.
 it there), so `pi` runs the tutor inside your data. The tutor's code never enters
 your notebook repo, and your data never enters this repo.
 
+## Two ways to use it
+
+- **Open WebUI + pi (chat in your browser).** Open WebUI is the face, pi is the
+  brain: the chat UI talks to `pi-bridge`, which drives the same tutor, gate,
+  and skills. Best for long-form learning with images and history.
+- **pi only (terminal).** Run `pi` inside your notebook checkout and talk to the
+  tutor directly. Same brain, no browser, no Docker. Best for quick sessions
+  and for machines where you don't want the web stack.
+
+Both hit the same tutor and the same notebook — pick per session, or use just one.
+
 ## Set up (one-shot per platform)
 
 Two paths share the same prerequisites below. **Path A — clone the example:**
