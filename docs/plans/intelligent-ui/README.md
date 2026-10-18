@@ -22,11 +22,14 @@ less PHASE0-FINDINGS.md                       # Phase 0 results + plan deltas
 ```
 
 Phase 0 is source-confirmed against Open WebUI v0.12.2 (commit `6a18585`). To
-finish the one live click-test, put an Open WebUI API key in `~/.openwebui_key`
-and run:
+finish the one live click-test, put an Open WebUI API key in `~/.openwebui_key`,
+then run the spike against a **served** wrapper document (`data:` embeds render
+as text in v0.12.2):
 
 ```sh
-python3 spike_embeds_live.py --base-url http://127.0.0.1:3000
+python3 spike_embeds_live.py --print-html > embed.html   # host this somewhere reachable
+python3 spike_embeds_live.py --base-url http://127.0.0.1:3000 \
+  --widget-url http://127.0.0.1:3000/static/embed.html
 ```
 
 Two Phase 0 results change the plan: the plugin must **not** be vendored (no
