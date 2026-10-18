@@ -16,7 +16,7 @@ Auth: an Open WebUI API key (Settings -> Account -> API Keys), read from
 user must own the created chat.
 
 Usage:
-    python3 scripts/spike_embeds_live.py \
+    python3 docs/plans/intelligent-ui/spike_embeds_live.py \
         --base-url http://127.0.0.1:3000 [--model learning] [--dry-run]
 
 This is a throwaway diagnostic; it creates one chat and prints its URL. Nothing
@@ -173,6 +173,13 @@ def main() -> int:
     status, updated = c.call("POST", f"/api/v1/chats/{chat_id}", chat_body)
     if status != 200:
         print(f"FAIL append messages: HTTP {status}: {updated}", file=sys.stderr)
+        return 1
+    # update_chat_by_id swallows exceptions and can return None; verify the
+    # widget node actually survived before attaching the embed to it.
+    updated_msgs = ((updated or {}).get("chat") or {}).get("history", {}).get("messages", {})
+    if not isinstance(updated_msgs, dict) or widget not in updated_msgs:
+        print("FAIL append messages: widget message missing from the response "
+              "(update_chat_by_id likely failed silently)", file=sys.stderr)
         return 1
 
     status, ok = c.call("POST", f"/api/v1/chats/{chat_id}/messages/{widget}/event", embed_event)

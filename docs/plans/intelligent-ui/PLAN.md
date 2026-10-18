@@ -59,11 +59,12 @@ follow-up button → sendPrompt/input:prompt:submit (confirm dialog) → new gat
 - **Mermaid** renders inline for ` ```mermaid ` fences.
 - **thesysdev/openwebui-plugin** (`render_openui(openui_lang_code, title)`) proves the inline path,
   but as a Tool it needs OpenAI `tool_calls` — **pi-bridge cannot produce them**, so it would never
-  fire on `learning*` models. We adapt its rendering half (HTML shell + `sendPrompt`) and deliver via
-  `embeds` instead.
+  fire on `learning*` models. We **cannot vendor its code** (no license, Phase 0), so we write our own
+  rendering wrapper and deliver via `embeds` instead.
 - `input:prompt:submit` from cross-origin embeds shows a confirm dialog (works without same-origin).
   Closed bug #26912 (`input:prompt:submit` silently dropped) applied to **tool-result srcdoc iframes**;
-  message-level embeds must be verified in Phase 0.
+  Phase 0 confirmed the own-embed trust path is present in v0.12.2 and message-level embeds reach the
+  dialog (live click-through still pending an API key).
 - The bridge keeps `chat_id` in scope at turn end (`bridge/server.py:344,377`; `session_key()` `:66-84`)
   but has **no Open WebUI REST client today** (only installer scripts in `learning-system/scripts/`).
 
@@ -191,12 +192,14 @@ One reviewed commit. The update door may never touch `contracts/`, `CONTRACT.md`
 
 ## Risks / watch-items
 
-- Two-message placement may be infeasible via the public REST API → fallback: embed on the prose
-  message (above), or a tiny custom-image frontend reorder as last resort.
-- Artifact trigger heuristic may not fire on a fence inside a longer message → fallback: emit the
-  artifact on its own turn/message.
+- ~~Two-message placement may be infeasible via the public REST API~~ **Resolved in Phase 0** — it is
+  feasible; see PHASE0-FINDINGS.md §2c.
+- ~~Artifact trigger heuristic may not fire on a fence inside a longer message~~ **Resolved in
+  Phase 0** — `html`/`svg` fences trigger regardless of surrounding prose, with no size threshold.
 - OpenUI bundle is ~873KB gzipped JS + ~38KB gzipped CSS on first load at 0.2.1
   (browser-cached); self-host to avoid CDN dependency (Phase 0).
+- **Phase 2/3:** embeds are URLs — decide where the wrapper HTML is served (recommend an Open WebUI
+  static asset via `setup_openwebui.py`); see PHASE0-FINDINGS.md open question.
 - `ui-audit` adds a verifier turn per widget — watch latency; keep it single-shot with a fix loop like
   the old viz-audit.
 
