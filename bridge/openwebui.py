@@ -16,6 +16,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 
 DEFAULT_KEY_FILE = "~/.openwebui_key"
 
@@ -55,7 +56,15 @@ class OpenWebUIClient:
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 raw = resp.read()
-                return resp.status, (json.loads(raw) if raw else None)
+                if not raw:
+                    return resp.status, None
+                try:
+                    return resp.status, json.loads(raw)
+                except ValueError:
+                    # A 2xx with a non-JSON body is still a valid "call done" for
+                    # callers that only inspect `status` (the embed event returns
+                    # a bare `true`); never let it raise past this boundary.
+                    return resp.status, raw.decode("utf-8", "replace")
         except urllib.error.HTTPError as exc:
             raw = exc.read()
             try:
@@ -76,7 +85,7 @@ class OpenWebUIClient:
         to it. Returns `(parent_id, models)` or `(None, None)`.
         """
         for i in range(max(1, attempts)):
-            status, chat = self.call("GET", f"/api/v1/chats/{chat_id}")
+            status, chat = self.call("GET", f"/api/v1/chats/{quote(chat_id, safe='')}")
             if status == 200 and isinstance(chat, dict):
                 history = self._history(chat)
                 current = history.get("currentId")
@@ -108,6 +117,7 @@ class OpenWebUIClient:
         parent, models = self._wait_for_assistant_parent(chat_id, attempts, delay)
         if not parent:
             return False
+        qid = quote(chat_id, safe="")
         new_id = str(uuid.uuid4())
         node = {
             "id": new_id,
@@ -127,7 +137,7 @@ class OpenWebUIClient:
                 "history": {"messages": {new_id: node}, "currentId": new_id},
             }
         }
-        status, updated = self.call("POST", f"/api/v1/chats/{chat_id}", body)
+        status, updated = self.call("POST", f"/api/v1/chats/{qid}", body)
         if status != 200:
             raise OpenWebUIError(f"append message failed: HTTP {status}: {updated}")
         updated_msgs = self._history(updated).get("messages") if isinstance(updated, dict) else None
@@ -136,7 +146,7 @@ class OpenWebUIClient:
             raise OpenWebUIError("append message failed: widget message missing from the response")
         status, ok = self.call(
             "POST",
-            f"/api/v1/chats/{chat_id}/messages/{new_id}/event",
+            f"/api/v1/chats/{qid}/messages/{quote(new_id, safe='')}/event",
             {"type": "embeds", "data": {"embeds": urls}},
         )
         if status != 200 or ok is not True:

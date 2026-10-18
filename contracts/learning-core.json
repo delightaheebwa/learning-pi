@@ -471,9 +471,10 @@
     {
       "id": "G-ui-payload-valid",
       "severity": "hard",
-      "statement": "A [[TURN:ui]] message with no parseable ```openui payload fence is withheld (UI_PAYLOAD_INVALID).",
+      "statement": "A [[TURN:ui]] message must carry exactly one parseable ```openui payload fence; a message with none, or with a second unaudited fence riding along, is withheld (UI_PAYLOAD_INVALID).",
       "tests": [
-        "unparseable ui payload is withheld"
+        "unparseable ui payload is withheld",
+        "a second ui payload fence is withheld"
       ]
     },
     {

@@ -831,7 +831,9 @@ export function uiBinds(r: Receipt, emittedText: string): boolean {
   if (!r.hasEnvelope) return true;
   if (!r.uiPayload || !r.renderedContent) return false;
   const fences = extractUiFences(emittedText);
-  if (fences.length === 0) return false;
+  // Exactly one payload: a second, unaudited fence must not ride along on the
+  // first one's receipt (the bridge would otherwise render both).
+  if (fences.length !== 1) return false;
   let match = false;
   for (const f of fences) {
     try {

@@ -25,6 +25,9 @@ GRADE TURNS (the exception to the 100 percent rule):
 A grade turn presents the verdicts for the learner's answers. Its grade-audit receipt binds the graded question/answer/verdict, which the learner-facing confirmation rarely repeats verbatim (e.g. "Correct on all three: W1 B, W2 C, W3 A"). For a grade turn, set covers=true for the valid grade-audit receipt when the emitted text only presents verdicts — restating the graded answers/verdicts plus framing like "Correct", "all three", item labels (W1, Q2), and tick/cross marks. Do NOT list that verdict framing as uncovered.
 The exception does NOT cover teaching: if the emitted grade turn also explains why, gives the correct method, names a slip, or adds a detector or micro-check, those spans are teaching. Set covers=false for the grade receipt and list the teaching spans in "uncovered"; the turn then needs a fact-check receipt covering that prose (the grade+repair rule).
 
+UI TURNS:
+A ui turn ships a fenced OpenUI Lang widget. It needs a passing ui-audit. Set covers=true for a valid ui-audit receipt only when the emitted \`\`\`openui payload equals the receipt's audited payload AND the receipt's boundText covers the emitted text. The engine also re-checks the payload binding deterministically, so never mark a payload-swapped receipt as covering.
+
 SUBSTANTIVENESS (is a PASS real?):
 A verifier is a model and can return PASS without doing the work. Score each receipt:
 - "strong": it checked every item it was sent and shows evidence (quotes, sources, per-item checks).

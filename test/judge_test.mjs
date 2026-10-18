@@ -716,3 +716,52 @@ const mintFC = (engine, output = FC_PASS) =>
     assert('judge path: idea turn without turn_kind is withheld', blocked(res, 'FOUNDATION_INCOMPLETE'));
   }
 }
+
+// --- ui (OpenUI widget) turns on the judge path ---
+{
+  const payload = 'root = Card([t])\nt = TextContent("Hi", "large")';
+  const fence = (p) => '```openui\n' + p + '\n```';
+  const draft = `Here it is.\n${fence(payload)}\nNotice this.`;
+  const env = { gate: 'ui_audit', concept: 'c', payload, rendered_content: draft };
+  const pass = JSON.stringify({ verdict: 'PASS', evidence: ['checked payload and prose'], issues: [] });
+
+  // A bound, passing ui-audit releases the widget turn.
+  {
+    const j = stubJudge({ evaluate: () => ({ turnType: 'ui' }) });
+    const engine = createGate({ judge: j.judge });
+    engine.onBeforeAgentStart('[[FLOW:resume]] continue the lesson');
+    engine.onToolResult({ tool: 'subagent', isError: false, text: pass, dispatchCalls: [], mintCalls: [{ agent: 'ui-audit', envelope: env, output: pass }] });
+    const res = await engine.onMessageEnd({ message: msg(`[[TURN:ui]]\n${draft}`) });
+    assert('judge path: ui turn renders with a bound ui-audit', allowed(res));
+  }
+
+  // A payload-swapped receipt is withheld even if the judge marks it covering —
+  // the payload binding is deterministic, never left to the model.
+  {
+    const j = stubJudge({ evaluate: (pkg) => ({ turnType: 'ui', bindings: pkg.receipts.map((r) => ({ index: r.index, covers: true, uncovered: [] })), bestReceipt: 0 }) });
+    const engine = createGate({ judge: j.judge });
+    engine.onBeforeAgentStart('[[FLOW:resume]] continue the lesson');
+    const swapped = { ...env, payload: 'root = Card([])' };
+    engine.onToolResult({ tool: 'subagent', isError: false, text: pass, dispatchCalls: [], mintCalls: [{ agent: 'ui-audit', envelope: swapped, output: pass }] });
+    const res = await engine.onMessageEnd({ message: msg(`[[TURN:ui]]\n${draft}`) });
+    assert('judge path: a payload-swapped ui receipt does not bind', blocked(res, 'UI_AUDIT_STALE'));
+  }
+
+  // A widget fence inside a claims turn is withheld (standalone rule).
+  {
+    const j = stubJudge({ evaluate: () => ({ turnType: 'claims' }) });
+    const engine = createGate({ judge: j.judge });
+    drive(engine);
+    const res = await engine.onMessageEnd({ message: msg(`[[TURN:claims]]\n${draft}`) });
+    assert('judge path: a ui fence in a claims turn is withheld', blocked(res, 'UI_REQUIRES_OWN_TURN'));
+  }
+
+  // Solo still withholds a widget (no interactive aids in a closed-book check).
+  {
+    const j = stubJudge({ evaluate: () => ({ turnType: 'ui' }) });
+    const engine = createGate({ judge: j.judge });
+    engine.onBeforeAgentStart('[[FLOW:solo]] solo check');
+    const res = await engine.onMessageEnd({ message: msg(`[[TURN:ui]]\n${draft}`) });
+    assert('judge path withholds a solo ui widget', blocked(res, 'SOLO_NO_AIDS'));
+  }
+}

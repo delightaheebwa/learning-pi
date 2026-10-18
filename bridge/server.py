@@ -391,9 +391,10 @@ class Handler(BaseHTTPRequestHandler):
     def _deliver_widgets(self, key: str, model: str, payloads: list) -> None:
         """Deliver verified OpenUI payloads as an embed on a 2nd assistant message.
 
-        Best-effort: the prose already rendered, and a delivery failure must not
-        surface to the learner. Only chats with a real Open WebUI id (`chat:<id>`)
-        are eligible; a fingerprint-only session has no chat to attach to.
+        Best-effort and off the response path: the prose already rendered, and no
+        delivery failure may surface to the learner. Only chats with a real Open
+        WebUI id (`chat:<id>`) are eligible; a fingerprint-only session has no
+        chat to attach to.
         """
         if not payloads or not key.startswith("chat:"):
             return
@@ -402,10 +403,19 @@ class Handler(BaseHTTPRequestHandler):
             return
         bundle_base = genui.default_bundle_base(self.cfg.openwebui_base_url)
         urls = [genui.widget_embed_url(p, bundle_base=bundle_base) for p in payloads]
+        chat_id = key[len("chat:") :]
+        threading.Thread(
+            target=self._deliver_widgets_bg,
+            args=(client, chat_id, model, urls),
+            daemon=True,
+        ).start()
+
+    @staticmethod
+    def _deliver_widgets_bg(client, chat_id: str, model: str, urls: list) -> None:
         try:
-            client.append_widget(key[len("chat:") :], urls, model=model)
-        except (openwebui.OpenWebUIError, OSError):
-            pass
+            client.append_widget(chat_id, urls, model=model)
+        except Exception:
+            pass  # best-effort: the learner already has the prose
 
     # -- turn execution ----------------------------------------------------
     def _run_turn(self, entry: SessionEntry, user: str) -> TurnStream:

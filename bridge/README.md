@@ -67,7 +67,9 @@ Enable it with `--openwebui-base-url` (or `PI_BRIDGE_OPENWEBUI_BASE_URL`) and a
 user API key (Settings → Account → API Keys) in `--openwebui-key-file` /
 `PI_BRIDGE_OPENWEBUI_KEY_FILE` (default `~/.openwebui_key`, mode 600). Widget
 delivery is best-effort: the prose always renders, and an unconfigured or failing
-Open WebUI REST call is swallowed.
+Open WebUI REST call is swallowed. The fence is lifted from any flow's prose (the
+audit is pi-side correctness; the bridge only transports the already-verified
+payload).
 
 ## Single-writer policy
 

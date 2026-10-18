@@ -227,15 +227,17 @@ its tagged test, change the implementation, all in one reviewed commit.
   `UI_AUDIT_STALE`. The widget the bridge embeds is exactly the payload the
   verifier audited.
 - **G-ui-audit-binds-payload-and-prose** *(hard)* — a `ui-audit` receipt binds
-  only when the canonical emitted OpenUI Lang payload equals the audited
-  `payload` **and** its `rendered_content` covers the emitted text; a different
-  payload, or a present-but-wrong-shape envelope missing the payload or
-  `rendered_content`, authorizes no emission.
+  only when the emitted turn carries exactly one OpenUI Lang payload fence, its
+  canonical payload equals the audited `payload`, **and** its `rendered_content`
+  covers the emitted text; a different payload, a second unaudited fence, or a
+  present-but-wrong-shape envelope missing the payload or `rendered_content`,
+  authorizes no emission.
 - **G-ui-standalone-turn** *(hard)* — a ```openui payload fence may only appear
   in a `[[TURN:ui]]` message; a widget block inside a claims or transition turn
   is withheld (`UI_REQUIRES_OWN_TURN`).
 - **G-ui-payload-valid** *(hard)* — a `[[TURN:ui]]` message with no parseable
-  ```openui payload is withheld (`UI_PAYLOAD_INVALID`).
+  ```openui payload fence — or with more than one — is withheld
+  (`UI_PAYLOAD_INVALID`).
 ### The judge (model-based semantic decisions)
 
 The gate can run a **judge**: a model (Gemini `gemini-3.5-flash-lite`, with

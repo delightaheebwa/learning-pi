@@ -353,6 +353,13 @@ await setPrompt('[[FLOW:resume]] continue the lesson');
 const noPayloadUi = await msg('[[TURN:ui]]\nHere is a widget — trust me.', 'stop');
 assert('unparseable ui payload is withheld', blocked(noPayloadUi, 'UI_PAYLOAD_INVALID'));
 
+// A second, never-audited fence cannot ride along on the audited one.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('ui-audit', UENV, 'u5');
+await fg('u5', 'ui-audit', UENV, UI_PASS);
+const extraFenceUi = await msg(`[[TURN:ui]]\n${UDRAFT}\n${uiFence('root = Card([])')}`, 'stop');
+assert('a second ui payload fence is withheld', blocked(extraFenceUi, 'UI_PAYLOAD_INVALID'));
+
 // A ui fence inside a claims turn is withheld (it must be its own turn).
 await setPrompt('[[FLOW:resume]] continue the lesson');
 const claimsUi = await msg(`[[TURN:claims]]\n${UDRAFT}`, 'stop');

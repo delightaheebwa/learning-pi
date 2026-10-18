@@ -903,18 +903,10 @@ export function createGate(options: GateOptions = {}): GateEngine {
           } else blockers.push("NO_GRADE_AUDIT_PASS");
         }
       } else if (tag === "ui") {
-        // A ui turn must carry a parseable OpenUI Lang payload and bind a
+        // A ui turn must carry exactly one OpenUI Lang payload fence and bind a
         // passing ui-audit receipt whose canonical payload equals the emitted
         // one and whose rendered_content covers the emission.
-        const parseable = uiFences.some((raw) => {
-          try {
-            P.parseUiPayload(raw);
-            return true;
-          } catch {
-            return false;
-          }
-        });
-        if (!hasUiFence || !parseable) {
+        if (uiFences.length !== 1) {
           blockers.push("UI_PAYLOAD_INVALID");
           verdictNote =
             "A [[TURN:ui]] message must contain exactly one ```openui fenced OpenUI Lang payload. Re-emit the exact payload the verifier audited.";
@@ -1502,25 +1494,27 @@ export function createGate(options: GateOptions = {}): GateEngine {
         } else blocks.push("NO_GRADE_AUDIT_PASS");
       }
     } else if (turnType === "ui") {
-      const parseable = uiFences.some((raw) => {
-        try {
-          P.parseUiPayload(raw);
-          return true;
-        } catch {
-          return false;
-        }
-      });
-      if (!hasUiFence || !parseable) {
+      if (uiFences.length !== 1) {
         blocks.push("UI_PAYLOAD_INVALID");
         verdictNote =
-          "A [[TURN:ui]] message must contain one ```openui fenced OpenUI Lang payload. Re-emit the exact payload the verifier audited.";
+          "A [[TURN:ui]] message must contain exactly one ```openui fenced OpenUI Lang payload. Re-emit the exact payload the verifier audited.";
       } else {
         const idx = bindingFor("ui_audit");
-        if (idx >= 0 && R[idx].valid && substantive(idx) !== "none") toConsume.push(R[idx]);
-        else {
-          const anyValid = R.some((r) => r.gate === "ui_audit" && r.valid);
-          const issuesReceipt = R.some((r) => r.gate === "ui_audit" && r.issues);
-          blocks.push(anyValid ? "UI_AUDIT_STALE" : issuesReceipt ? "UI_AUDIT_ISSUES" : "NO_UI_AUDIT");
+        if (idx >= 0 && R[idx].valid && substantive(idx) !== "none" && P.uiBinds(R[idx], text)) {
+          toConsume.push(R[idx]);
+        } else {
+          // Deterministic fallback (mirrors the legacy path and quiz): a valid
+          // ui-audit whose canonical payload equals the emitted fence and whose
+          // rendered_content covers the turn releases it, even when the judge's
+          // binding is coarse — the payload binding is never left to the model.
+          const det = R.findIndex((r) => r.gate === "ui_audit" && r.valid && P.uiBinds(r, text));
+          if (det >= 0 && substantive(det) !== "none") {
+            toConsume.push(R[det]);
+          } else {
+            const anyValid = R.some((r) => r.gate === "ui_audit" && r.valid);
+            const issuesReceipt = R.some((r) => r.gate === "ui_audit" && r.issues);
+            blocks.push(anyValid ? "UI_AUDIT_STALE" : issuesReceipt ? "UI_AUDIT_ISSUES" : "NO_UI_AUDIT");
+          }
         }
       }
     } else {
