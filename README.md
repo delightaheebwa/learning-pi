@@ -463,8 +463,10 @@ A weekly `learning-pi-audit.timer` runs `pi/audit_gates.py` over the last 7 days
 `bridge/` is an OpenAI-compatible endpoint in front of the pinned pi runtime, so **Open WebUI
 can be the face while pi stays the brain** (gate, subagents, skills run unchanged; Open WebUI
 holds only chat transcripts). `deploy/` runs Open WebUI in Docker in front of a host
-`pi-bridge` systemd service. Behavior contract: `B-*` invariants in `CONTRACT.md` /
-`contracts/learning-core.json` (v6, 55 invariants). Details: [`bridge/README.md`](bridge/README.md),
+`pi-bridge` systemd service. A verified `[[TURN:ui]]` turn rides out as a self-hosted OpenUI
+widget embed below the prose (`bridge/genui.py` + `deploy/openui/`, served by the installer).
+Behavior contract: `B-*` invariants in `CONTRACT.md` / `contracts/learning-core.json` (v7, 54
+invariants). Details: [`bridge/README.md`](bridge/README.md),
 [`deploy/README.md`](deploy/README.md), [`deploy/SECURITY.md`](deploy/SECURITY.md).
 
 ### Repo layout for the gate
@@ -495,7 +497,7 @@ test/judge_*.mjs + live_judge_test.mjs  judge suites (live variants opt-in, need
 test/redteam/                adversarial suites
 test/bridge/                 bridge suite (fake_pi + run_tests.py → B-* coverage)
 test/contract/               resource checks, load probe
-test/e2e/scenarios/          6 e2e scenarios (smoke + full)
+test/e2e/scenarios/          7 e2e scenarios (smoke + full, incl. openui-smoke)
 test/fixtures/               synthetic learning-system state (never real data)
 opencode/skills/lpi/         opencode skill: gated update, diagnosis/repair, and e2e
 .pi/extensions/learning-gate/gate-core/   pure, pi-independent decision logic

@@ -1,8 +1,8 @@
 # Plan: Intelligent-UI-style learning in Open WebUI (OpenUI Lang + native fallbacks)
 
-Status: **Phases 0-2 done** (Phase 0 source-confirmed against Open WebUI v0.12.2,
+Status: **Phases 0-3 done** (Phase 0 source-confirmed against Open WebUI v0.12.2,
 commit `6a18585`) — see [`PHASE0-FINDINGS.md`](./PHASE0-FINDINGS.md). Phase 3
-(hardening & docs) not started.
+(hardening & docs) landed 2026-10-18.
 Goal: GPT-6 "Intelligent UI"-like answers inside the existing learning system —
 text + visuals + interactive elements composed automatically per turn, so learning
 is not a wall of white text.
@@ -154,18 +154,32 @@ One reviewed commit. The update door may never touch `contracts/`, `CONTRACT.md`
   Mermaid / html-artifact numbers stay under the existing claims rules.
 - **Prompts** — `teach.md` / `lesson.md` / `continue.md`: auto composition; delete opt-in language.
 
-## Phase 3 — Hardening & docs
+## Phase 3 — Hardening & docs (done 2026-10-18)
 
+- **Wrapper served as a static asset (the Phase 2/3 open question, resolved).** Open
+  WebUI's `FullHeightIframe` only treats `http(s)://` / `//` as a URL; a `data:` embed is
+  rendered as literal text, so Phase 2's `data:` delivery could never render a widget.
+  The bridge now embeds `…/static/openui/0.2.1/widget.html#<base64url payload>`
+  (`bridge/genui.py`); `setup_openwebui.py` writes the shell (`widget.html` + `widget.js`,
+  loopback origins baked into its CSP) and the pinned bundle into
+  `~/learning-pi/deploy/openui/`, which `docker-compose.yml` mounts read-only at
+  `/app/backend/open_webui/static/openui`.
 - `deploy/docker-compose.yml`: `IFRAME_CSP=default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;
-  connect-src 'none'` (self-hosted bundle → `'self'` suffices; **no CDN origin**). Keep **iframe Sandbox Allow Same Origin
-  OFF**.
-- `gate_pipe.py` defensive carve-out: ignore ` ```openui `/` ```mermaid `/` ```html ` fences in
-  `_normalize_for_binding` (bridge normally strips `openui` first). Edit via `setup_openwebui.py` +
-  `audit_openwebui.py` (installer-only writes; `infra/VERSIONS.md` entry).
-- Golden tests: wrapper HTML, ui-audit binding pos/neg, bridge fence extraction; e2e
-  `openui-smoke` (teach turn with widget + a follow-up turn).
-- Docs: `learning-system/OPENWEBUI.md`, `learning-system/infra/VERSIONS.md`, `learning-pi/FIELD-GUIDE.md`,
-  `learning-pi/README.md`, `learning-pi/bridge/README.md`, `learning-pi/deploy/SECURITY.md`.
+  connect-src 'none'` (**no CDN origin**; the bundle is self-hosted). `IFRAME_CSP` only
+  reaches `srcdoc` iframes (Artifacts previews) — src embeds keep their own shell CSP.
+  Sandbox **Allow Same Origin stays OFF** (documented; there is no env for it).
+- `gate_pipe.py` defensive carve-out: `_normalize_for_binding` ignores ```openui /
+  ```mermaid / ```html fences (bridge strips `openui` first). Installer-only writes via
+  `setup_openwebui.py` + `audit_openwebui.py` (which also verifies the served bundle sha);
+  `infra/VERSIONS.md` entry + `scripts/openui_test.py`.
+- Tests: `bridge/genui.py` embed-URL/fragment contract + gate carve-out
+  (`scripts/openui_test.py`); the ui-audit binding pos/neg already live in
+  `test/golden/golden_test.mjs` / `test/judge_test.mjs`; bridge fence extraction in
+  `test/bridge/test_bridge.py`; new e2e `openui-smoke` (teach turn with a widget) + its
+  `impact-map.json` rules.
+- Docs: `learning-system/OPENWEBUI.md`, `learning-system/infra/VERSIONS.md`,
+  `learning-pi/FIELD-GUIDE.md`, `learning-pi/README.md`, `learning-pi/bridge/README.md`,
+  `learning-pi/deploy/SECURITY.md`, `learning-pi/deploy/README.md`.
 
 ## Deferred / optional (documented, not built now)
 
@@ -198,8 +212,9 @@ One reviewed commit. The update door may never touch `contracts/`, `CONTRACT.md`
   Phase 0** — `html`/`svg` fences trigger regardless of surrounding prose, with no size threshold.
 - OpenUI bundle is ~873KB gzipped JS + ~38KB gzipped CSS on first load at 0.2.1
   (browser-cached); self-host to avoid CDN dependency (Phase 0).
-- **Phase 2/3:** embeds are URLs — decide where the wrapper HTML is served (recommend an Open WebUI
-  static asset via `setup_openwebui.py`); see PHASE0-FINDINGS.md open question.
+- ~~**Phase 2/3:** embeds are URLs — decide where the wrapper HTML is served~~ **Resolved in
+  Phase 3** — the wrapper is a static asset (`…/widget.html#<payload>`) + self-hosted bundle,
+  written by `setup_openwebui.py`; a `data:` URL does not render (see Phase 3 above).
 - `ui-audit` adds a verifier turn per widget — watch latency; keep it single-shot with a fix loop like
   the old viz-audit.
 

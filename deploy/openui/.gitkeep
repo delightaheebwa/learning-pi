@@ -1,0 +1,4 @@
+# Keeps deploy/openui/ present (user-owned) so the docker-compose bind mount
+# exists before the first `docker compose up`. The pinned @openuidev bundle is
+# written into subdirectories here by learning-system/scripts/setup_openwebui.py
+# (see docs/plans/intelligent-ui/PLAN.md Phase 3); the bundle itself is gitignored.

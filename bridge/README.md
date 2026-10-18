@@ -55,13 +55,21 @@ pass `--bash-guard-disabled`; not recommended headless).
 
 A verified `[[TURN:ui]]` turn carries one ` ```openui ` OpenUI Lang payload. The
 learning-gate's `ui-audit` verifies the payload and prose; the bridge then lifts
-the fence out of the prose, wraps the payload in the OpenUI HTML shell
-(`bridge/genui.py`), and — when configured — appends a second assistant message to
-the Open WebUI chat with an `embeds` event (`bridge/openwebui.py`), so the widget
-renders **below** the prose. Mermaid/HTML fences are left in the prose for Open
-WebUI's native rendering. The payload is pinned/self-hosted
-(`@openuidev/browser-bundle@0.2.1`, MIT) at Open WebUI's `/static/openui/0.2.1`; see
-`docs/plans/intelligent-ui/`.
+the fence out of the prose, builds a same-origin embed URL
+(`bridge/genui.py`: `/static/openui/<version>/widget.html#<base64url payload>`), and
+— when configured — appends a second assistant message to the Open WebUI chat with
+an `embeds` event (`bridge/openwebui.py`), so the widget renders **below** the
+prose. Mermaid/HTML fences are left in the prose for Open WebUI's native rendering.
+
+The widget cannot be a `data:` URL: Open WebUI's `FullHeightIframe` only treats
+`http(s)://` / protocol-relative strings as URLs and renders a `data:` embed as
+literal text, so the shell is a served document. The pinned, MIT
+(`@openuidev/browser-bundle@0.2.1`) bundle, the `widget.html` shell, and its
+`widget.js` are self-hosted under `deploy/openui/<version>/` (installer-written by
+`learning-system/scripts/setup_openwebui.py`, mounted read-only into Open WebUI's
+`/static/openui`). The verified payload rides in the URL fragment — never sent to a
+server, declarative OpenUI Lang only. `deploy/docker-compose.yml` pins `IFRAME_CSP`
+(`connect-src 'none'`, no CDN). See `docs/plans/intelligent-ui/`.
 
 Enable it with `--openwebui-base-url` (or `PI_BRIDGE_OPENWEBUI_BASE_URL`) and a
 user API key (Settings → Account → API Keys) in `--openwebui-key-file` /

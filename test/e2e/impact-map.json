@@ -28,7 +28,10 @@
     { "match": ".pi/agents/review-gate.md", "flows": ["ingest"] },
     { "match": ".pi/agents/review-scout.md", "flows": ["review"] },
     { "match": ".pi/agents/review-clerk.md", "flows": ["review"] },
-    { "match": ".pi/agents/review-session-audit.md", "flows": ["review"] }
+    { "match": ".pi/agents/review-session-audit.md", "flows": ["review"] },
+    { "match": ".pi/agents/ui-audit.md", "flows": ["teach", "resume"] },
+    { "match": "bridge/**", "flows": "*" },
+    { "match": "deploy/**", "flows": "*" }
   ],
   "learning_system_paths": [
     { "match": "scripts/ops.py", "flows": ["ingest", "review", "teach"] },

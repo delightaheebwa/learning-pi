@@ -38,11 +38,12 @@ license), and the OpenUI bundle must be **pinned + self-hosted** (0.2.1).
       loading, license — findings in [`PHASE0-FINDINGS.md`](./PHASE0-FINDINGS.md);
       source-confirmed, one live click-test pending `~/.openwebui_key` (run
       `spike_embeds_live.py`)
-- [ ] **Phase 1** — viz teardown (revise-door commit #1) — full removal, see PLAN.md §Phase 1
+- [x] **Phase 1** — viz teardown (revise-door commit #1) — full removal, see PLAN.md §Phase 1
 - [x] **Phase 2** — OpenUI Lang pipeline: `openui` skill, `bridge/genui.py`, bridge fence
       extraction + REST embeds, `ui-audit` agent, contract invariants (revise-door commit #2)
-- [ ] **Phase 3** — hardening & docs: `IFRAME_CSP`, sandbox settings, gate_pipe carve-out,
-      golden/e2e tests, doc updates
+- [x] **Phase 3** — hardening & docs: `IFRAME_CSP`, sandbox settings (same-origin OFF),
+      gate_pipe carve-out, static-asset widget shell + self-hosted bundle, golden/e2e tests,
+      doc updates
 - [ ] Deferred — Mercury→Clef router, progressive streaming, Open Terminal
 
 ## Non-negotiables (don't relearn these the hard way)

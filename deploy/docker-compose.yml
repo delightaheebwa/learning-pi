@@ -44,8 +44,19 @@ services:
       ENABLE_RAG_WEB_SEARCH: ${ENABLE_RAG_WEB_SEARCH:-false}
       RAG_WEB_SEARCH_ENGINE: searxng
       SEARXNG_QUERY_URL: ${SEARXNG_QUERY_URL:-http://searxng:8080/search?q=<query>}
+      # CSP injected into sandboxed iframe documents (Artifacts previews etc.).
+      # The OpenUI bundle is self-hosted same-origin, so no CDN origin is needed;
+      # `connect-src 'none'` keeps rendered widgets/artifacts offline. The bundle
+      # is served from the read-only ./openui mount below (intelligent-ui Phase 3).
+      # Keep Personal -> Interface -> "iframe Sandbox Allow Same Origin" OFF: the
+      # widget shell relies on its own opaque-origin sandbox (see SECURITY.md).
+      IFRAME_CSP: "${IFRAME_CSP:-default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src 'none'}"
     volumes:
       - open-webui:/app/backend/data
+      # Pinned @openuidev/browser-bundle for inline widgets, served same-origin at
+      # /static/openui/<version>/dist/... Installer-owned: learning-system's
+      # scripts/setup_openwebui.py writes it here; OWUI only reads it (`:ro`).
+      - ./openui:/app/backend/open_webui/static/openui:ro
     networks:
       - pi-net
     healthcheck:

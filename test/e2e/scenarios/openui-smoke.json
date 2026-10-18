@@ -1,0 +1,21 @@
+{
+  "id": "openui-smoke",
+  "tier": "smoke",
+  "flow": "teach",
+  "description": "/teach entry: the first idea renders, a standalone verified [[TURN:ui]] OpenUI widget is produced (ui-audit ran), and no turn is withheld",
+  "steps": [
+    { "prompt": "/teach Fixture Linear Algebra — teach the first idea and include ONE verified interactive widget (a standalone [[TURN:ui]] turn with a single ```openui OpenUI Lang payload) the learner can vary" }
+  ],
+  "until_agents": ["scout", "ui-audit"],
+  "until_min_messages": 2,
+  "until_clean_turn": true,
+  "until_text_any": ["```openui"],
+  "timeout_sec": 600,
+  "max_turns": 30,
+  "nudge_prompt": "Continue the lesson now. Emit one standalone verified widget turn: `[[TURN:ui]]` with 1–3 sentences of prose plus a single ```openui OpenUI Lang payload, verified by a foreground `ui-audit` dispatch before emitting.",
+  "expect": {
+    "agents": ["scout", "ui-audit"],
+    "require_all": ["```openui"],
+    "forbid": ["⛔ WITHHELD", "⛔ UNVERIFIED", "NO_UI_AUDIT", "UI_AUDIT_STALE", "UI_AUDIT_ISSUES", "UI_PAYLOAD_INVALID", "UI_REQUIRES_OWN_TURN"]
+  }
+}

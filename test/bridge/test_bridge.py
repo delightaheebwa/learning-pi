@@ -634,30 +634,31 @@ class TestOpenUiFences(unittest.TestCase):
         self.assertEqual(ts.openui_payloads(), [])
 
 
-class TestGenUiWrapper(unittest.TestCase):
-    def test_document_loads_bundle_and_bridges_events(self):
-        base = "http://127.0.0.1:3000/static/openui/0.2.1"
-        html = genui.build_widget_document('root = Card([])', bundle_base=base)
-        self.assertIn(base + "/dist/openui-styles.css", html)
-        self.assertIn("openui-bundle.min.js", html)
-        self.assertIn("iframe:height", html)
-        self.assertIn("input:prompt:submit", html)
-        self.assertIn("onAction", html)
+class TestGenUiEmbedUrl(unittest.TestCase):
+    """The widget is delivered as a same-origin static-shell URL. Open WebUI's
+    FullHeightIframe treats a `data:` embed as raw HTML, so the payload rides in
+    the URL fragment and the shell (installer-written) decodes it."""
 
-    def test_payload_cannot_break_out_of_the_script(self):
-        html = genui.build_widget_document(
-            "root = Card([])\n</script><script>alert(1)</script>",
-            bundle_base="http://x/static/openui/0.2.1",
-        )
-        self.assertNotIn("</script><script>alert(1)", html)
-        self.assertIn("\\u003c/script\\u003e", html)
+    BASE = "http://127.0.0.1:3000/static/openui/0.2.1"
 
-    def test_data_url_roundtrips(self):
-        html = "<html><body>ok</body></html>"
-        url = genui.data_url(html)
-        self.assertTrue(url.startswith("data:text/html;base64,"))
-        decoded = base64.b64decode(url.split(",", 1)[1]).decode("utf-8")
-        self.assertEqual(decoded, html)
+    def test_embed_url_targets_the_self_hosted_shell(self):
+        url = genui.widget_embed_url('root = Card([])', bundle_base=self.BASE)
+        self.assertTrue(url.startswith(self.BASE + "/widget.html#"))
+        self.assertNotIn("data:", url)
+
+    def test_payload_roundtrips_through_the_fragment(self):
+        payload = 'root = Card([t])\nt = TextContent("Unicode — ok", "large")'
+        url = genui.widget_embed_url(payload, bundle_base=self.BASE)
+        frag = url.split("#", 1)[1]
+        pad = "=" * (-len(frag) % 4)
+        decoded = base64.urlsafe_b64decode(frag + pad).decode("utf-8")
+        self.assertEqual(decoded, payload)
+
+    def test_fragment_is_unpadded_and_url_safe(self):
+        frag = genui.payload_fragment("a/b+c=?& d")
+        self.assertNotIn("=", frag)
+        self.assertNotIn("/", frag)
+        self.assertNotIn("+", frag)
 
     def test_default_bundle_base_is_pinned_same_origin(self):
         self.assertEqual(

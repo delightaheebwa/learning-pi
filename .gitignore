@@ -4,3 +4,6 @@ __pycache__/
 deploy/.env
 webui-*.tgz
 deploy/webui-*.tgz
+# Self-hosted OpenUI bundle — installer-written (learning-system setup_openwebui.py).
+deploy/openui/*
+!deploy/openui/.gitkeep

@@ -28,6 +28,13 @@ bind to a Tailscale address/interface or add a firewall rule — never a raw
   should be mode `600` and never committed. The optional widget path adds a third:
   the Open WebUI user API key at `~/.openwebui_key` (or `PI_BRIDGE_OPENWEBUI_KEY_FILE`)
   — also mode `600`; it authorizes the bridge's post-turn chat writes.
+- **Keep the widget sandbox closed.** `IFRAME_CSP` (in `docker-compose.yml`) sets
+  `connect-src 'none'`, so rendered widgets and HTML artifacts cannot reach the
+  network, and the pinned OpenUI bundle is self-hosted same-origin under
+  `deploy/openui/` (installer-written — no CDN origin). Leave Personal → Interface
+  → **"iframe Sandbox Allow Same Origin" OFF**: widgets run in an opaque-origin
+  sandbox and talk to the chat only through the confirm-dialog `input:prompt:submit`
+  path.
 - **Keep the ufw rule narrow.** The bridge is only reachable from docker subnets
   (`172.16.0.0/12`) on `172.17.0.1:8790`. Don't widen it to the LAN or to
   `0.0.0.0`, and remove it when you tear the stack down.

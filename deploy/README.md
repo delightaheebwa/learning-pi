@@ -24,6 +24,7 @@ Files in this directory:
 | `pi-bridge.service` | systemd `--user` unit for the bridge |
 | `pi-bridge.env.example` | EnvironmentFile for that unit |
 | `.env.example` | Compose secrets (key, webui secret) |
+| `openui/` | installer-written OpenUI widget assets, mounted read-only (see below) |
 | `SECURITY.md` | Threat model + hardening checklist |
 
 ## Prerequisites
@@ -102,6 +103,28 @@ appear. To add or repair it by hand in the UI:
 > normally `172.17.0.1` (confirm with `ip -4 addr show docker0`). The host's
 > `127.0.0.1` is **not** reachable from a container, which is why the bridge
 > binds that docker-bridge IP (via `PI_BRIDGE_HOST`) instead of loopback.
+
+## Self-hosted OpenUI widgets
+
+A verified `[[TURN:ui]]` widget is delivered as a same-origin embed
+(`http://127.0.0.1:3000/static/openui/0.2.1/widget.html#…`). The pinned
+`@openuidev/browser-bundle@0.2.1` (MIT) and the shell (`widget.html` + `widget.js`)
+are **not** committed — the learning-system installer writes them into `./openui/`
+(sha256-pinned; override with `--openui-static-dir`), which `docker-compose.yml`
+mounts read-only at Open WebUI's `/static/openui`:
+
+```sh
+# after the stack is up and you have an Open WebUI API key (~/.openwebui_key)
+cd ~/learning-system
+OPENWEBUI_BASE_URL=http://127.0.0.1:3000 python3 scripts/setup_openwebui.py
+python3 scripts/audit_openwebui.py        # verifies the served bundle sha256 + shell
+```
+
+`docker-compose.yml` also pins `IFRAME_CSP` (`connect-src 'none'`, no CDN origin).
+Keep Personal → Interface → **"iframe Sandbox Allow Same Origin" OFF**. The shell's
+CSP names the loopback host(s); if you reach Open WebUI through another host (Tailscale,
+reverse proxy, a domain), re-run the installer with `--base-url` set to that browser-facing
+URL so the shell allows its own scripts.
 
 ## Keep the bridge private
 

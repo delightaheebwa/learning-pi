@@ -125,6 +125,11 @@ reaches you:
 | `[[TURN:ui]]` | an interactive widget (its own turn) | a passing `ui-audit` bound to the emitted ```openui payload and covering the prose |
 | `[[TURN:none]]` | transitions, summaries | nothing |
 
+A widget is delivered as a same-origin Open WebUI embed below the prose
+(`/static/openui/<version>/widget.html#…`, with the pinned OpenUI bundle self-hosted and
+`connect-src 'none'`); Mermaid and HTML fences render natively in the client. See
+[`bridge/README.md`](bridge/README.md).
+
 If the Tutor forgets the tag in **any teaching/review flow**, the gate won't dead-end the session
 on a grade or quiz turn: an untagged grade/quiz message is accepted when a `grade-audit` /
 `quiz-audit` receipt matches that exact text (the receipt carries the question, answer, or batch),
