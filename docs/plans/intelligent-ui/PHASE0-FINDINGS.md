@@ -243,8 +243,9 @@ text in v0.12.2, so the document must be served):
 
 ```sh
 python3 docs/plans/intelligent-ui/spike_embeds_live.py --print-html > embed.html
+python3 -m http.server 8000 &          # any host the browser can reach
 python3 docs/plans/intelligent-ui/spike_embeds_live.py \
-  --base-url http://127.0.0.1:3000 --widget-url http://127.0.0.1:3000/static/embed.html
+  --base-url http://127.0.0.1:3000 --widget-url http://127.0.0.1:8000/embed.html
 ```
 
 It creates a synthetic chat with two assistant messages, attaches an embed to
