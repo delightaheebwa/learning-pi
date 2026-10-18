@@ -715,7 +715,8 @@ class TestOpenWebUIClient(unittest.TestCase):
 
     def test_append_widget_recipe(self):
         client = _RecordingClient()
-        ok = client.append_widget("c1", ["data:text/html;base64,AAAA"], model="learning")
+        url = "http://127.0.0.1:3000/static/openui/0.2.1/widget.html#AAAA"
+        ok = client.append_widget("c1", [url], model="learning")
         self.assertTrue(ok)
         self.assertEqual([c[0] for c in client.calls], ["GET", "POST", "POST"])
         self.assertEqual(client.calls[0][1], "/api/v1/chats/c1")
@@ -723,7 +724,7 @@ class TestOpenWebUIClient(unittest.TestCase):
         new_id = next(iter(client.calls[1][2]["chat"]["history"]["messages"]))
         self.assertEqual(client.calls[2][1], f"/api/v1/chats/c1/messages/{new_id}/event")
         self.assertEqual(client.calls[2][2]["type"], "embeds")
-        self.assertEqual(client.calls[2][2]["data"]["embeds"], ["data:text/html;base64,AAAA"])
+        self.assertEqual(client.calls[2][2]["data"]["embeds"], [url])
 
     def test_empty_urls_is_a_noop(self):
         client = _RecordingClient()

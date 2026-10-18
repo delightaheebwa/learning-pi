@@ -67,8 +67,9 @@ literal text, so the shell is a served document. The pinned, MIT
 (`@openuidev/browser-bundle@0.2.1`) bundle, the `widget.html` shell, and its
 `widget.js` are self-hosted under `deploy/openui/<version>/` (installer-written by
 `learning-system/scripts/setup_openwebui.py`, mounted read-only into Open WebUI's
-`/static/openui`). The verified payload rides in the URL fragment — never sent to a
-server, declarative OpenUI Lang only. `deploy/docker-compose.yml` pins `IFRAME_CSP`
+`/static/openui`). The verified payload rides in the URL fragment — not an HTTP
+request body, but persisted as chat embed metadata alongside the transcript, so it
+is declarative OpenUI Lang only. `deploy/docker-compose.yml` pins `IFRAME_CSP`
 (`connect-src 'none'`, no CDN). See `docs/plans/intelligent-ui/`.
 
 Enable it with `--openwebui-base-url` (or `PI_BRIDGE_OPENWEBUI_BASE_URL`) and a

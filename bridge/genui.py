@@ -9,8 +9,9 @@ a self-contained ``data:`` document. Instead:
     self-hosted same-origin as Open WebUI static assets (written by
     ``learning-system/scripts/setup_openwebui.py``); and
   * this module builds the embed URL ``{bundle_base}/widget.html#<payload>``. The
-    verified payload rides in the URL fragment (never sent to a server); the
-    shell decodes it, renders it with ``window.__OpenUI``, reports its height
+    verified payload rides in the URL fragment (not an HTTP request body; it is
+    persisted as chat embed metadata alongside the transcript). The shell decodes
+    it, renders it with ``window.__OpenUI``, reports its height
     (``iframe:height``) and forwards widget actions / follow-ups as
     ``input:prompt:submit`` (Open WebUI shows a confirm dialog, then starts a new
     gated learner turn).

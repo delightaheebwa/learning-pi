@@ -2,6 +2,7 @@
   "id": "openui-smoke",
   "tier": "smoke",
   "flow": "teach",
+  "_note": "The e2e runner drives pi directly (no bridge), so the assistant transcript still contains the ```openui fence; until_text_any/require_all assert on that pre-bridge layer.",
   "description": "/teach entry: the first idea renders, a standalone verified [[TURN:ui]] OpenUI widget is produced (ui-audit ran), and no turn is withheld",
   "steps": [
     { "prompt": "/teach Fixture Linear Algebra — teach the first idea and include ONE verified interactive widget (a standalone [[TURN:ui]] turn with a single ```openui OpenUI Lang payload) the learner can vary" }

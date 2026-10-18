@@ -15,9 +15,15 @@ Auth: an Open WebUI API key (Settings -> Account -> API Keys), read from
 `~/.openwebui_key` or `$OPENWEBUI_API_KEY` (or --key/--key-file). The key's
 user must own the created chat.
 
+The embed must be a **served http(s) URL**: Open WebUI v0.12.2's
+`FullHeightIframe` only treats `http(s)://` / `//` as a URL, so a `data:` embed
+renders as literal text (Phase 3 finding). Host the example document
+(`--print-html`) somewhere the browser can reach, then pass its URL.
+
 Usage:
     python3 docs/plans/intelligent-ui/spike_embeds_live.py \
-        --base-url http://127.0.0.1:3000 [--model learning] [--dry-run]
+        --base-url http://127.0.0.1:3000 --widget-url http://…/embed.html \
+        [--model learning] [--dry-run]
 
 This is a throwaway diagnostic; it creates one chat and prints its URL. Nothing
 else is written.
@@ -25,7 +31,6 @@ else is written.
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import os
 import sys
@@ -57,11 +62,6 @@ WIDGET_HTML = """<!doctype html>
   </body>
 </html>
 """
-
-
-def data_url(html: str) -> str:
-    b64 = base64.b64encode(html.encode("utf-8")).decode("ascii")
-    return "data:text/html;base64," + b64
 
 
 class Client:
@@ -115,9 +115,14 @@ def main() -> int:
     ap.add_argument("--key", default=os.environ.get("OPENWEBUI_API_KEY", ""))
     ap.add_argument("--key-file", default=os.path.expanduser("~/.openwebui_key"))
     ap.add_argument("--model", default="learning")
-    ap.add_argument("--widget-url", default="", help="hosted wrapper URL; default is an inline data: URL")
+    ap.add_argument("--widget-url", default="", help="served http(s) wrapper URL (required; data: links render as text in v0.12.2)")
+    ap.add_argument("--print-html", action="store_true", help="print the example wrapper document and exit (host it, then pass --widget-url)")
     ap.add_argument("--dry-run", action="store_true", help="print the payloads without calling the API")
     args = ap.parse_args()
+
+    if args.print_html:
+        print(WIDGET_HTML)
+        return 0
 
     key = args.key
     if not key:
@@ -131,7 +136,15 @@ def main() -> int:
         return 2
 
     uid, prose, widget = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-    widget_url = args.widget_url or data_url(WIDGET_HTML)
+    if not args.widget_url and not args.dry_run:
+        print(
+            "ERROR: pass --widget-url with a SERVED http(s) document "
+            "(--print-html emits an example). Open WebUI v0.12.2 renders a data: "
+            "embed as literal text.",
+            file=sys.stderr,
+        )
+        return 2
+    widget_url = args.widget_url or "http://127.0.0.1:3000/static/openui/0.2.1/widget.html#<payload>"
 
     chat_body = {
         "chat": {
