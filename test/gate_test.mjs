@@ -921,6 +921,11 @@ await fg('so1', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
 const soloTeach = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
 assert('solo flow withholds a teaching claims turn', blocked(soloTeach, 'SOLO_NO_TEACHING'));
 
+// A widget turn in solo is withheld (no interactive aids in a closed-book check).
+await setPrompt('[[FLOW:solo]] solo check');
+const soloUi = await msg('[[TURN:ui]]\nA widget.\n```openui\nroot = Card([])\n```', 'stop');
+assert('solo flow withholds a ui widget', blocked(soloUi, 'SOLO_NO_AIDS'));
+
 // The first solo quiz turn requires a review-scout run (deterministic queue).
 const soloQEnv = JSON.stringify({
   gate: 'quiz_audit',

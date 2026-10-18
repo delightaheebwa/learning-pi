@@ -57,7 +57,7 @@ const DISPATCH_PARAMS = {
     agent: {
       type: "string",
       description:
-        "verifier/worker agent name: fact-check, quiz-audit, grade-audit, tutor-audit, scout, scout-audit, clerk, review-scout, review-clerk, review-gate, review-session-audit",
+        "verifier/worker agent name: fact-check, quiz-audit, grade-audit, tutor-audit, ui-audit, scout, scout-audit, clerk, review-scout, review-clerk, review-gate, review-session-audit",
     },
     task: {
       description: "the JSON envelope object (or a plain string task). NOT a JSON-encoded string.",

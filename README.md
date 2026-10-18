@@ -244,7 +244,7 @@ Configured in `.pi/settings.json` (project scope only):
 | --- | --- |
 | Tutor (main session) | `glm-5.3-flash` |
 | Scout / Clerk / review-scout / review-clerk | `deepseek-v4.1-flash` |
-| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
+| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `ui-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Clerk's writes) |
 | Lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Scout digest) |
 
@@ -470,13 +470,13 @@ holds only chat transcripts). `deploy/` runs Open WebUI in Docker in front of a 
 ### Repo layout for the gate
 
 ```
-CONTRACT.md                  declared behavior (the thing updates must not break; v6, 50 invariants 2026-10-16)
+CONTRACT.md                  declared behavior (the thing updates must not break; v7, 54 invariants 2026-10-18)
 contracts/learning-core.json machine-readable invariants -> test names
 bridge/                      OpenAI-compatible pi-bridge (B-* invariants) + README
 deploy/                      Docker Open WebUI + pi-bridge.service + searxng + README/SECURITY
-.pi/agents/                  11 subagents (incl. scout-audit) — see .pi/
+.pi/agents/                  12 subagents (incl. scout-audit + ui-audit) — see .pi/
 .pi/prompts/                 8 slash prompts (review/solo/ingest/teach/lesson/continue/pause/audit)
-.pi/skills/                  4 skills
+.pi/skills/                  5 skills
 bin/pi                       pinned launcher (never updates)
 bin/notify-if-outdated       debounced availability check (never updates)
 bin/pi-review-status         daily /review status helper (JSON; shared by widget + reminder)

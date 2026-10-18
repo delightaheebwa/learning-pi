@@ -14,11 +14,13 @@ learning-system repository; its `Learning System/` and `Knowledge Wiki/` folders
 ## Routing (load the matching skill and follow it — do not improvise)
 
 - **"review"** → the `learning-system` skill, Review flow (runs in this session; `review-scout` gathers context, `review-clerk` writes).
-- **"solo" / "AI-free check" / "closed-book"** → the `learning-system` skill, Solo flow (`[[FLOW:solo]]`): a closed-book review where teaching, hints, and figures are withheld by the gate; `review-scout` builds the queue and `review-clerk` records every attempt `mode:"solo"`.
+- **"solo" / "AI-free check" / "closed-book"** → the `learning-system` skill, Solo flow (`[[FLOW:solo]]`): a closed-book review where teaching, hints, and widgets are withheld by the gate; `review-scout` builds the queue and `review-clerk` records every attempt `mode:"solo"`.
 - **"teach me X" / "learn" / "study" / "lesson" / "continue" / "pause"** → the `learning-teach` skill.
 - **"ingest"** → the `learning-system` skill, Ingest flow, delegated to the `clerk` subagent.
 - **"audit"** → run the read-only state consistency audit (`python3 "$HOME/learning-pi/pi/audit_state.py" --root .`) and report findings loudly; it never writes.
 - **wiki work** → the `llm-wiki` skill.
+
+Visuals are **automatic, never opt-in**: compose each answer as prose plus the right visual (a ` ```mermaid ` diagram inline, a free-form ` ```html ` artifact, or a standalone interactive OpenUI widget) per the `openui` skill. There is no "show me" trigger to wait for — a concept better shown than told gets shown.
 
 ## Position discipline
 
@@ -36,7 +38,7 @@ contradiction to the user** — do not guess, merge, or trust any status written
 - `review-scout` gathers context for a `/review` session and builds the due queue (digest to
   `Learning System/.tmp/`); the Reviewer runs the review interactively; `review-clerk` writes the
   Review note(s) / session note, syncs the touched rows + `Attempts.json`, runs the state audit, and commits.
-- Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate`, `review-session-audit` (read-only; separate runs on preferred models — model separation is a default, not a guarantee).
+- Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate`, `review-session-audit`, `ui-audit` (read-only; separate runs on preferred models — model separation is a default, not a guarantee).
 
 **Subagent dispatch shape:** every dispatch is `dispatch({ agent: "<name>", task: { ...envelope... } })`.
 The `task` argument is the **JSON envelope as an object**, never a JSON-encoded string: pass the
@@ -48,7 +50,8 @@ back to `workflow: true`, `args`, `subagent_supervisor`, `action: "validate"`, o
 result before emitting. Every envelope must carry the field that binds its receipt —
 `rendered_content` (fact-check), `questions_json` **plus `rendered_content` = the full batch text**
 (quiz-audit), question+learner_answer+claimed_verdict (grade-audit), `files` (tutor-audit),
-`written_files` (review-session-audit), `target_files` (review-gate). A valid verdict with no binding
+`written_files` (review-session-audit), `target_files` (review-gate), `payload` plus
+`rendered_content` = the full turn draft (ui-audit). A valid verdict with no binding
 field authorizes nothing and the turn is withheld.
 
 ## Teaching behavior
@@ -149,6 +152,9 @@ Begin **every** assistant message in a learning session with exactly one tag on 
   `fact-check` whose `rendered_content` is this message's text.
 - `[[TURN:quiz]]` — a question batch. Requires a `quiz-audit` returning PASS — a clean batch, no issues of any severity. Any issue (even a `low`) blocks: fix it and re-audit until the verifier returns PASS; there is no cycle cap. Send the envelope the structured `questions_json` **and** `rendered_content` = the exact full batch text (intro/instructions + every question + its options), then emit that text unchanged.
 - `[[TURN:grade]]` — grading a learner's answer. Requires a `grade-audit` that agrees.
+- `[[TURN:ui]]` — a standalone interactive OpenUI widget turn (prose + one ` ```openui ` payload).
+  Requires a passing `ui-audit` bound to that exact payload and covering the prose. The widget is its
+  own turn — never put a ` ```openui ` fence in a claims/none turn, and never use a widget in a solo flow.
 - `[[TURN:none]]` — anything else (transitions, summaries, ordinary clarifying questions).
   Elicitation/prediction questions are a `[[TURN:quiz]]` batch, not `none`.
 
@@ -223,6 +229,13 @@ the lesson.
   is fenced: state drift
   the review did not write is `context_notes`, never a blocking issue.
 - The plan message is a `claims` turn: send the plan text itself as `rendered_content`.
+- **Compose visuals automatically** per the `openui` skill. A ` ```mermaid ` diagram or ` ```html `
+  artifact rides inside the `claims` turn and is fact-checked with it. An interactive widget is a
+  standalone `[[TURN:ui]]` turn: dispatch ONE foreground `ui-audit` with the exact OpenUI Lang
+  `payload` AND `rendered_content` = the full turn draft (prose + the fenced payload), then emit the
+  audited draft unchanged. A different payload, or a receipt with no `payload`/`rendered_content`,
+  does not bind. Widgets carry no external assets or network fetches, and follow-up buttons must name
+  the selected values they send.
 - For a new lesson, run `scout` first via `dispatch` (a plain-string `task` is fine).
 - Ingest turns are never hard-blocked by review flags: a `PASS` renders clean; `ISSUES` renders with
   a visible `⚠️ REVIEW FLAGS SURFACED` banner. Reviewer flags are surfaced, not re-run in a loop.

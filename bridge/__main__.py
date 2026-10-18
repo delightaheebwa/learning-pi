@@ -39,6 +39,16 @@ def build_config(argv=None) -> BridgeConfig:
     ap.add_argument("--session-dir", default=os.environ.get("PI_BRIDGE_SESSION_DIR"))
     ap.add_argument("--ledger-dir", default=os.environ.get("PI_BRIDGE_LEDGER_DIR"))
     ap.add_argument(
+        "--openwebui-base-url",
+        default=os.environ.get("PI_BRIDGE_OPENWEBUI_BASE_URL", ""),
+        help="Open WebUI base URL for post-turn widget embeds (empty disables widgets)",
+    )
+    ap.add_argument(
+        "--openwebui-key-file",
+        default=os.environ.get("PI_BRIDGE_OPENWEBUI_KEY_FILE", "~/.openwebui_key"),
+        help="file holding the Open WebUI API key used for the embed REST calls",
+    )
+    ap.add_argument(
         "--allow-bash-guard",
         action="store_true",
         help="do NOT pass --bash-guard-disabled (default keeps the catastrophic floor only)",
@@ -64,6 +74,8 @@ def build_config(argv=None) -> BridgeConfig:
         ledger_dir=args.ledger_dir,
         disable_bash_guard=not args.allow_bash_guard,
         max_sessions=args.max_sessions,
+        openwebui_base_url=args.openwebui_base_url,
+        openwebui_key_file=args.openwebui_key_file,
     )
 
 

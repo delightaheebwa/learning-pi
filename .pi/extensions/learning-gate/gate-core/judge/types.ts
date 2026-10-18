@@ -17,7 +17,7 @@
  */
 import type { Flow } from "../primitives.ts";
 
-export type TurnType = "claims" | "quiz" | "grade" | "none";
+export type TurnType = "claims" | "quiz" | "grade" | "ui" | "none";
 
 /** How substantive a verifier's verdict looks: real work / thin / none. */
 export type Substantiveness = "strong" | "thin" | "none";
@@ -43,6 +43,8 @@ export interface JudgeReceipt {
   evidence?: string[];
   /** Whether a dispatch envelope was present when the receipt was minted. */
   hasEnvelope?: boolean;
+  /** Canonical OpenUI Lang payload the audit verified (ui_audit only). */
+  uiPayload?: string;
   /** Artifact paths a write gate names (files / written_files / target_files). */
   auditFiles?: string[];
   /** Whether the verdict is out-of-scope bookkeeping only (review gates). */
@@ -57,6 +59,8 @@ export interface TurnPackage {
   explicitTag?: TurnType;
   /** The emitted text, turn tag stripped. */
   text: string;
+  /** Whether the emitted turn carries a ```openui payload fence. */
+  hasUiFence: boolean;
   receipts: JudgeReceipt[];
   /** Drafts of async verifications still in flight (evasion guard). */
   pendingDrafts: string[];

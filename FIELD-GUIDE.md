@@ -122,6 +122,7 @@ reaches you:
 | `[[TURN:claims]]` | teaching / plan | a `fact-check` whose draft matches the text |
 | `[[TURN:quiz]]` | question batch | a PASS `quiz-audit` |
 | `[[TURN:grade]]` | grading your answer | an agreeing `grade-audit` |
+| `[[TURN:ui]]` | an interactive widget (its own turn) | a passing `ui-audit` bound to the emitted ```openui payload and covering the prose |
 | `[[TURN:none]]` | transitions, summaries | nothing |
 
 If the Tutor forgets the tag in **any teaching/review flow**, the gate won't dead-end the session
@@ -166,6 +167,9 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `NO_QUIZ_AUDIT_PASS` / `QUIZ_AUDIT_ISSUES` | questions not audited / leaked | fix and re-audit |
 | `QUIZ_AUDIT_STALE` / `GRADE_AUDIT_STALE` | a valid receipt exists but does not bind this message — either the emission differs from what was audited, or the dispatch envelope was the wrong shape (quiz: `items[]` instead of `questions_json`, or a questions-only envelope missing `rendered_content` = the full batch text; grade: no question/answer/verdict) so there is nothing to bind | re-emit the audited text, or re-dispatch the verifier with the correctly shaped envelope carrying the full batch in `rendered_content` (never re-audit an already-bound draft) |
 | `NO_GRADE_AUDIT_PASS` / `GRADE_MISMATCH` | grade unverified / conflicts with verifier | use the verifier's `correct_verdict` |
+| `NO_UI_AUDIT` / `UI_AUDIT_ISSUES` / `UI_AUDIT_STALE` | widget unverified / flagged / a valid receipt that does not bind this payload | re-emit the audited payload+prose, or re-dispatch `ui-audit` with the exact `payload` and `rendered_content` = the full turn draft |
+| `UI_PAYLOAD_INVALID` | a `[[TURN:ui]]` message with no parseable ```openui payload | re-emit the payload the verifier audited |
+| `UI_REQUIRES_OWN_TURN` | a ```openui fence inside a claims/transition turn | make the widget its own `[[TURN:ui]]` message |
 | `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged, or the receipt named no `target_files` | after the Clerk returns `CLERK_WRITES`, dispatch ONE independent `review-gate` with `target_files` naming the wiki pages it wrote |
 | `⚠️ INGEST GATE` | the review verdict was relayed by the Clerk's own output, not an independent `review-gate` run | dispatch a `review-gate` on the Clerk's writes before trusting the summary |
 | `⚠️ REVIEW GATE` / `⚠️ REVIEW SESSION GATE` / `⚠️ SCOUT AUDIT` | a review-family verdict carried no `evidence` list (what it read/checked) | treat the pass as unsubstantiated; re-run the gate so it names its evidence |
@@ -203,7 +207,7 @@ Set in `~/learning-pi/.pi/settings.json` (project scope only):
 | --- | --- |
 | Tutor (your session) | `glm-5.3-flash` |
 | Scout / Clerk / Review Scout / Review Clerk | `deepseek-v4.1-flash` |
-| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
+| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `ui-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) / lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` |
 
 Verifiers run on preferred models for cost/availability, but this is a **default, not a guarantee** —

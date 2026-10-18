@@ -1,8 +1,8 @@
 # Plan: Intelligent-UI-style learning in Open WebUI (OpenUI Lang + native fallbacks)
 
-Status: **Phase 0 spikes done** (source-confirmed against Open WebUI v0.12.2,
-commit `6a18585`) — see [`PHASE0-FINDINGS.md`](./PHASE0-FINDINGS.md). Phases 1-3
-not started (plan-mode output, 2026-10-18).
+Status: **Phases 0-2 done** (Phase 0 source-confirmed against Open WebUI v0.12.2,
+commit `6a18585`) — see [`PHASE0-FINDINGS.md`](./PHASE0-FINDINGS.md). Phase 3
+(hardening & docs) not started.
 Goal: GPT-6 "Intelligent UI"-like answers inside the existing learning system —
 text + visuals + interactive elements composed automatically per turn, so learning
 is not a wall of white text.

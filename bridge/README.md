@@ -47,8 +47,27 @@ with `--network host` and use `http://127.0.0.1:8790/v1`. (A bridge bound to
 the `learning` model.
 
 Options: `--host/--port`, `--models a,b,c`, `--timeout`, `--max-sessions`,
-`--agent-dir`, `--session-dir`, `--ledger-dir`, `--allow-bash-guard` (do **not**
+`--agent-dir`, `--session-dir`, `--ledger-dir`, `--openwebui-base-url`,
+`--openwebui-key-file`, `--allow-bash-guard` (do **not**
 pass `--bash-guard-disabled`; not recommended headless).
+
+## Intelligent-UI widgets
+
+A verified `[[TURN:ui]]` turn carries one ` ```openui ` OpenUI Lang payload. The
+learning-gate's `ui-audit` verifies the payload and prose; the bridge then lifts
+the fence out of the prose, wraps the payload in the OpenUI HTML shell
+(`bridge/genui.py`), and — when configured — appends a second assistant message to
+the Open WebUI chat with an `embeds` event (`bridge/openwebui.py`), so the widget
+renders **below** the prose. Mermaid/HTML fences are left in the prose for Open
+WebUI's native rendering. The payload is pinned/self-hosted
+(`@openuidev/browser-bundle@0.2.1`, MIT) at Open WebUI's `/static/openui/0.2.1`; see
+`docs/plans/intelligent-ui/`.
+
+Enable it with `--openwebui-base-url` (or `PI_BRIDGE_OPENWEBUI_BASE_URL`) and a
+user API key (Settings → Account → API Keys) in `--openwebui-key-file` /
+`PI_BRIDGE_OPENWEBUI_KEY_FILE` (default `~/.openwebui_key`, mode 600). Widget
+delivery is best-effort: the prose always renders, and an unconfigured or failing
+Open WebUI REST call is swallowed.
 
 ## Single-writer policy
 

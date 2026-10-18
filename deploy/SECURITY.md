@@ -25,7 +25,9 @@ bind to a Tailscale address/interface or add a firewall rule — never a raw
   don't add `--api-key ""` or an empty `PI_BRIDGE_API_KEY`.
 - **Turn signup off** (`ENABLE_SIGNUP=false`) after the first admin account exists.
 - **Protect the two secret files:** `deploy/.env` and `~/.config/pi-bridge.env`
-  should be mode `600` and never committed.
+  should be mode `600` and never committed. The optional widget path adds a third:
+  the Open WebUI user API key at `~/.openwebui_key` (or `PI_BRIDGE_OPENWEBUI_KEY_FILE`)
+  — also mode `600`; it authorizes the bridge's post-turn chat writes.
 - **Keep the ufw rule narrow.** The bridge is only reachable from docker subnets
   (`172.16.0.0/12`) on `172.17.0.1:8790`. Don't widen it to the LAN or to
   `0.0.0.0`, and remove it when you tear the stack down.

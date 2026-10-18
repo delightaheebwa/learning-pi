@@ -583,6 +583,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const tagMatch = rawText.match(P.TURN_TAG_RE);
       const text = (tagMatch ? rawText.replace(P.TURN_TAG_RE, "") : rawText).trim();
       const explicitTag = tagMatch ? tagMatch[1].toLowerCase() : undefined;
+      const uiFences = P.extractUiFences(text);
+      const hasUiFence = uiFences.length > 0;
       const blockers: string[] = [];
       let verdictNote = "";
       let scoutNeeded = false;
@@ -650,13 +652,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
         (run.flow === "ingest" && run.clerkCalled && P.looksLikeIngestSummary(text)) ||
         (run.flow === "review" && run.reviewSessionWrote && P.looksLikeReviewSummary(text));
 
-      // Solo (AI-free) flow: the Tutor may not teach or hint, so the learner's
-      // answers are unassisted. Only the closed-book quiz batch, grading, and
-      // transitions are allowed.
-      if (run.flow === "solo" && tag === "claims") {
-        blockers.push("SOLO_NO_TEACHING");
+      // Solo (AI-free) flow: the Tutor may not teach, hint, or show a widget, so
+      // the learner's answers are unassisted. Only the closed-book quiz batch,
+      // grading, and transitions are allowed.
+      if (run.flow === "solo" && (tag === "claims" || tag === "ui")) {
+        blockers.push(tag === "ui" ? "SOLO_NO_AIDS" : "SOLO_NO_TEACHING");
         verdictNote =
-          "This is an AI-free solo check: no teaching or hints. " +
+          "This is an AI-free solo check: no teaching, hints, or interactive widgets. " +
           "Ask the closed-book questions, grade the answers, or say this is a solo check — do not teach.";
       }
       // Solo `none`/`grade` paths also cannot smuggle teaching in. A transition
@@ -677,6 +679,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
         verdictNote =
           "This is an AI-free solo check: presenting the graded verdicts is allowed, but a teaching/repair " +
           "tail is not. Show the verdicts only.";
+      }
+
+      // A widget payload is its own turn: a ```openui block in a claims/none
+      // turn is withheld so the widget is always gated as [[TURN:ui]] (and the
+      // standalone-turn decision is enforced, not merely documented).
+      if (hasUiFence && tag && tag !== "ui" && (tag === "claims" || tag === "none")) {
+        blockers.push("UI_REQUIRES_OWN_TURN");
       }
 
       if (run.flow === "ingest") {
@@ -893,6 +902,31 @@ export function createGate(options: GateOptions = {}): GateEngine {
               "The grade-audit does not cover this turn. A verdict-only grade turn (the graded answers + verdicts only) needs no fact-check; remove any teaching prose, or split the repair into a separate `[[TURN:claims]]` turn. If the turn teaches/repairs, fact-check that prose with `rendered_content` = the full turn so both receipts cover it. Do not re-dispatch the grade-audit.";
           } else blockers.push("NO_GRADE_AUDIT_PASS");
         }
+      } else if (tag === "ui") {
+        // A ui turn must carry a parseable OpenUI Lang payload and bind a
+        // passing ui-audit receipt whose canonical payload equals the emitted
+        // one and whose rendered_content covers the emission.
+        const parseable = uiFences.some((raw) => {
+          try {
+            P.parseUiPayload(raw);
+            return true;
+          } catch {
+            return false;
+          }
+        });
+        if (!hasUiFence || !parseable) {
+          blockers.push("UI_PAYLOAD_INVALID");
+          verdictNote =
+            "A [[TURN:ui]] message must contain exactly one ```openui fenced OpenUI Lang payload. Re-emit the exact payload the verifier audited.";
+        } else {
+          const u = run.receipts.filter((r) => r.gate === "ui_audit" && r.valid && P.uiBinds(r, text))[0];
+          if (u) toConsume.push(u);
+          else {
+            const anyValid = run.receipts.some((r) => r.gate === "ui_audit" && r.valid);
+            const issuesReceipt = run.receipts.some((r) => r.gate === "ui_audit" && r.issues);
+            blockers.push(anyValid ? "UI_AUDIT_STALE" : issuesReceipt ? "UI_AUDIT_ISSUES" : "NO_UI_AUDIT");
+          }
+        }
       } else {
         // none: allowed unless an unused verification draft matches this text
         const match = run.receipts.find(
@@ -1037,7 +1071,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
 
       if (run.retries > P.MAX_RETRIES) {
         run.retries = 0;
-        const soloBlocked = codes.includes("SOLO_NO_TEACHING");
+        const soloBlocked = codes.some((c) => c === "SOLO_NO_TEACHING" || c === "SOLO_NO_AIDS");
         // M11: withhold hard facts only when verification is implicated. A
         // verified draft blocked on context alone (NO_SCOUT_CONTEXT /
         // NO_REVIEW_CONTEXT) degrades gracefully instead of being suppressed.
@@ -1081,6 +1115,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review context: run the `review-scout` subagent first; it builds the due queue and writes the review digest (`REVIEW_SCOUT_DIGEST:`). A review's first claims/quiz turn is withheld (NO_REVIEW_CONTEXT) until it has run; a partial digest banners (REVIEW CONTEXT INCOMPLETE), never withholds.",
         "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. Only a receipt with zero issues releases the summary: on an ISSUES verdict, fix the writes (re-dispatch review-clerk) and re-audit until it returns PASS — there is no cycle cap.",
+        "ui: a widget is its own `[[TURN:ui]]` message (never a ```openui block inside a claims/none turn). Dispatch ONE foreground `ui-audit` with the exact `payload` (the OpenUI Lang source) AND `rendered_content` = the full turn draft (supporting words + the fenced payload); emit the audited draft unchanged. A different payload, or a receipt with no payload/rendered_content, will not bind.",
         "verifier failed on provider errors (503/429/timeout): retry once, then re-dispatch the SAME verifier with an explicit `model:` from the alternate set (verifiers → deepseek-v4.1-flash, scout/review-scout → muse-spark-1.3-contributor); if it still fails, proceed and surface what is unverified.",
       ].join("\n");
       const scoutNote = scoutNeeded ? "Run the `scout` subagent first for a new lesson.\n" : "";
@@ -1114,7 +1149,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
   };
 
   const boundTextOf = (r: P.Receipt): string | undefined => {
-    if (r.gate === "fact_check") return r.renderedContent;
+    if (r.gate === "fact_check" || r.gate === "ui_audit") return r.renderedContent;
     if (r.gate === "quiz_audit") return r.questionsText;
     if (r.gate === "grade_audit") return r.gradeText;
     if (r.auditFiles && r.auditFiles.length > 0) return r.auditFiles.join("\n");
@@ -1149,7 +1184,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
     return undefined;
   };
 
-  const buildTurnPackage = (text: string, explicitTag: string | undefined): TurnPackage => {
+  const buildTurnPackage = (text: string, explicitTag: string | undefined, hasUiFence: boolean): TurnPackage => {
     const receipts: JudgeReceipt[] = run.receipts.map((r, index) => ({
       index,
       gate: r.gate,
@@ -1159,6 +1194,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       severityMax: r.severity,
       evidence: evidenceOf(r),
       hasEnvelope: r.hasEnvelope,
+      uiPayload: r.uiPayload,
       auditFiles: r.auditFiles,
       outOfScopeOnly: (r.gate === "review" || r.gate === "scout_audit") && !!r.flags && !r.issues,
       raw: r.raw,
@@ -1176,6 +1212,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       flow: run.flow,
       explicitTag: explicitTag as TurnPackage["explicitTag"],
       text,
+      hasUiFence,
       receipts,
       pendingDrafts,
       hasIngestSummaryHint: P.looksLikeIngestSummary(text),
@@ -1192,6 +1229,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
     message: any,
     text: string,
     explicitTag: string | undefined,
+    uiFences: string[],
+    hasUiFence: boolean,
     assessment: TurnAssessment
   ): Promise<MessageEndResult | undefined> => {
     const R = run.receipts;
@@ -1241,13 +1280,16 @@ export function createGate(options: GateOptions = {}): GateEngine {
     // Deterministic pre-checks (mirror the legacy path) so the judge cannot
     // soften P0.2/P0.5: solo teaching and unlisted hard facts are blocked by
     // code before the judge verdict is applied. (P0 review H2.)
-    if (run.flow === "solo" && turnType === "claims") {
-      blocks.push("SOLO_NO_TEACHING");
+    if (run.flow === "solo" && (turnType === "claims" || turnType === "ui")) {
+      blocks.push(turnType === "ui" ? "SOLO_NO_AIDS" : "SOLO_NO_TEACHING");
       verdictNote =
-        "This is an AI-free solo check: no teaching or hints. Ask the closed-book questions, grade the answers, or say this is a solo check — do not teach.";
+        "This is an AI-free solo check: no teaching, hints, or interactive widgets. Ask the closed-book questions, grade the answers, or say this is a solo check — do not teach.";
     } else if (run.flow === "solo" && turnType === "none" && P.extractHardFacts(text).length > 0) {
       blocks.push("SOLO_NO_TEACHING");
       verdictNote = "This is an AI-free solo check: a transition turn may not carry teaching content.";
+    } else if (hasUiFence && turnType !== "ui" && (turnType === "claims" || turnType === "none")) {
+      // A widget payload is its own turn (enforced, not merely documented).
+      blocks.push("UI_REQUIRES_OWN_TURN");
     } else if (turnType === "claims") {
       const fcIdx = bindingFor("fact_check");
       if (fcIdx >= 0 && R[fcIdx].valid && R[fcIdx].renderedContent) {
@@ -1459,6 +1501,28 @@ export function createGate(options: GateOptions = {}): GateEngine {
             "The grade-audit does not cover this turn. A verdict-only grade turn (the graded answers + verdicts only) needs no fact-check; remove any teaching prose, or split the repair into a separate `[[TURN:claims]]` turn. If the turn teaches/repairs, fact-check that prose with `rendered_content` = the full turn so both receipts cover it. Do not re-dispatch the grade-audit.";
         } else blocks.push("NO_GRADE_AUDIT_PASS");
       }
+    } else if (turnType === "ui") {
+      const parseable = uiFences.some((raw) => {
+        try {
+          P.parseUiPayload(raw);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      if (!hasUiFence || !parseable) {
+        blocks.push("UI_PAYLOAD_INVALID");
+        verdictNote =
+          "A [[TURN:ui]] message must contain one ```openui fenced OpenUI Lang payload. Re-emit the exact payload the verifier audited.";
+      } else {
+        const idx = bindingFor("ui_audit");
+        if (idx >= 0 && R[idx].valid && substantive(idx) !== "none") toConsume.push(R[idx]);
+        else {
+          const anyValid = R.some((r) => r.gate === "ui_audit" && r.valid);
+          const issuesReceipt = R.some((r) => r.gate === "ui_audit" && r.issues);
+          blocks.push(anyValid ? "UI_AUDIT_STALE" : issuesReceipt ? "UI_AUDIT_ISSUES" : "NO_UI_AUDIT");
+        }
+      }
     } else {
       const match = bindingFor("fact_check");
       // Review-flow carve-out: closing review feedback/summaries legitimately
@@ -1488,7 +1552,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
 
     const reviewSummaryish = summaryKind === "review" || P.looksLikeReviewSummary(text);
     const reviewSessionGateApplies =
-      run.reviewSessionWrote && run.flow === "review" && turnType !== "quiz" && turnType !== "grade" && reviewSummaryish;
+      run.reviewSessionWrote && run.flow === "review" && turnType !== "quiz" && turnType !== "grade" && turnType !== "ui" && reviewSummaryish;
     if (reviewSessionGateApplies) {
       const audit = R.find((r) => r.gate === "review_session" && r.valid && P.receiptAuditsArtifacts(r));
       if (audit) {
@@ -1505,7 +1569,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
     }
 
     const tutorGateApplies =
-      run.tutorWrote && (run.flow === "teach" || run.flow === "resume") && turnType !== "quiz" && turnType !== "grade";
+      run.tutorWrote && (run.flow === "teach" || run.flow === "resume") && turnType !== "quiz" && turnType !== "grade" && turnType !== "ui";
     if (tutorGateApplies) {
       const candidates = R.filter((r) => {
         if (r.gate !== "tutor_audit" || !r.valid) return false;
@@ -1639,7 +1703,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
     // never dump the content as UNVERIFIED. The cap applies to every other reason.
     if (run.retries > P.MAX_RETRIES && !remainingIssues) {
       run.retries = 0;
-      const soloBlocked = codes.includes("SOLO_NO_TEACHING");
+      const soloBlocked = codes.some((c) => c === "SOLO_NO_TEACHING" || c === "SOLO_NO_AIDS");
       const verificationBlocked = codes.some((c) => /^(FACT_CHECK|CLAIMS_INCOMPLETE|FOUNDATION_INCOMPLETE|NO_FACT_CHECK_MATCH)/.test(c));
       if (soloBlocked) {
         const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This is an AI-free solo check: teaching content is withheld rather than delivered.\n${fallbackNote}\n`;
@@ -1714,7 +1778,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const tagMatch = rawText.match(P.TURN_TAG_RE);
       const text = (tagMatch ? rawText.replace(P.TURN_TAG_RE, "") : rawText).trim();
       const explicitTag = tagMatch ? tagMatch[1].toLowerCase() : undefined;
-      const pkg = buildTurnPackage(text, explicitTag);
+      const uiFences = P.extractUiFences(text);
+      const hasUiFence = uiFences.length > 0;
+      const pkg = buildTurnPackage(text, explicitTag, hasUiFence);
       let assessment: TurnAssessment;
       try {
         assessment = await judge.assessTurn(pkg);
@@ -1730,7 +1796,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         });
         return legacyMessageEnd(input);
       }
-      return await applyAssessment(message, text, explicitTag, assessment);
+      return await applyAssessment(message, text, explicitTag, uiFences, hasUiFence, assessment);
     } catch {
       return; // fail open
     }

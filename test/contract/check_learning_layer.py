@@ -4,7 +4,7 @@
 Two jobs:
   1. Resources: the layer's own files exist and parse — APPEND_SYSTEM.md,
       .pi/settings.json, the eight prompt templates with their [[FLOW:...]]
-      markers, the eleven agent definitions, the four skills.
+      markers, the twelve agent definitions, the five skills.
    2. Contract coverage: every invariant in contracts/learning-core.json has at
       least one passing test (by name substring), and every listed test name
       matches something. This keeps the contract registry and the tests from
@@ -47,8 +47,9 @@ EXPECTED_AGENTS = {
     "tutor-audit",
     "review-gate",
     "review-session-audit",
+    "ui-audit",
 }
-EXPECTED_SKILLS = {"learning-system", "learning-teach", "learning-review", "llm-wiki"}
+EXPECTED_SKILLS = {"learning-system", "learning-teach", "learning-review", "llm-wiki", "openui"}
 
 FAILURES: list[str] = []
 
@@ -146,7 +147,7 @@ def check_resources(root: Path) -> None:
     # when the verifier shows no evidence. Verifiers whose clean verdict is an
     # empty `issues:[]` must therefore emit a mandatory `evidence` list, or every
     # clean PASS dead-ends as *_STALE (the 2026-10-05 session looped on it).
-    evidence_agents = ["quiz-audit", "tutor-audit", "review-gate", "review-session-audit", "scout-audit"]
+    evidence_agents = ["quiz-audit", "tutor-audit", "review-gate", "review-session-audit", "scout-audit", "ui-audit"]
     missing_evidence = [
         name
         for name in evidence_agents

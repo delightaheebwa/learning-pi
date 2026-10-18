@@ -5,7 +5,9 @@ network, no state — and assert the bridge's two load-bearing properties:
   1. deltas never reach the client (only the post-gate `message_end` text does);
   2. a withheld turn surfaces the gate banner, never the raw draft.
 """
+import base64
 import json
+import os
 import sys
 import threading
 import time
@@ -18,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from bridge.stream import TurnStream, text_of_content  # noqa: E402
+from bridge import genui, openwebui  # noqa: E402
 from bridge.server import (  # noqa: E402
     BridgeConfig,
     BridgeServer,
@@ -174,7 +177,7 @@ class TestTurnTagCleanup(unittest.TestCase):
         self.assertEqual(self._emit("  \n[[TURN:claims]]\n\nHello."), "Hello.")
 
     def test_each_tag_vocabulary_stripped_case_insensitively(self):
-        for tag in ("claims", "quiz", "grade", "none"):
+        for tag in ("claims", "quiz", "grade", "ui", "none"):
             self.assertEqual(self._emit(f"[[TURN:{tag}]] body"), "body")
         self.assertEqual(self._emit("[[turn:NONE]] body"), "body")
 
@@ -595,6 +598,147 @@ class TestRegistry(unittest.TestCase):
         reg.get_or_create("b")
         self.assertFalse(a.session.closed)   # overshoot rather than kill live work
         self.assertIn("a", reg._entries)
+
+
+class TestOpenUiFences(unittest.TestCase):
+    """The bridge lifts a verified ```openui payload out of the prose and keeps
+    Mermaid/HTML fences intact for Open WebUI's native rendering."""
+
+    def _turn(self, text):
+        ts = TurnStream()
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "stop",
+            "content": [{"type": "text", "text": text}]}})
+        return ts
+
+    def test_openui_fence_extracted_and_stripped_from_prose(self):
+        payload = "root = Card([title])\ntitle = TextContent(\"Hi\", \"large\")"
+        ts = self._turn(f"Here.\n```openui\n{payload}\n```\nDone.")
+        self.assertEqual(ts.openui_payloads(), [payload])
+        self.assertEqual(ts.final_text(), "Here.\n\nDone.")
+
+    def test_multiple_fences_extracted_in_order(self):
+        ts = self._turn("a\n```openui\nroot = Card([])\n```\nb\n```openui\nroot = Card([x])\n```\nc")
+        self.assertEqual(ts.openui_payloads(), ["root = Card([])", "root = Card([x])"])
+        self.assertNotIn("```openui", ts.final_text())
+
+    def test_mermaid_and_html_fences_left_intact(self):
+        text = "A\n```mermaid\ngraph TD\n```\nB\n```html\n<p>hi</p>\n```\nC"
+        ts = self._turn(text)
+        self.assertEqual(ts.openui_payloads(), [])
+        self.assertEqual(ts.final_text(), text)
+
+    def test_no_fence_leaves_text_unchanged(self):
+        ts = self._turn("[[TURN:none]] plain")
+        self.assertEqual(ts.final_text(), "plain")
+        self.assertEqual(ts.openui_payloads(), [])
+
+
+class TestGenUiWrapper(unittest.TestCase):
+    def test_document_loads_bundle_and_bridges_events(self):
+        base = "http://127.0.0.1:3000/static/openui/0.2.1"
+        html = genui.build_widget_document('root = Card([])', bundle_base=base)
+        self.assertIn(base + "/dist/openui-styles.css", html)
+        self.assertIn("openui-bundle.min.js", html)
+        self.assertIn("iframe:height", html)
+        self.assertIn("input:prompt:submit", html)
+        self.assertIn("onAction", html)
+
+    def test_payload_cannot_break_out_of_the_script(self):
+        html = genui.build_widget_document(
+            "root = Card([])\n</script><script>alert(1)</script>",
+            bundle_base="http://x/static/openui/0.2.1",
+        )
+        self.assertNotIn("</script><script>alert(1)", html)
+        self.assertIn("\\u003c/script\\u003e", html)
+
+    def test_data_url_roundtrips(self):
+        html = "<html><body>ok</body></html>"
+        url = genui.data_url(html)
+        self.assertTrue(url.startswith("data:text/html;base64,"))
+        decoded = base64.b64decode(url.split(",", 1)[1]).decode("utf-8")
+        self.assertEqual(decoded, html)
+
+    def test_default_bundle_base_is_pinned_same_origin(self):
+        self.assertEqual(
+            genui.default_bundle_base("http://127.0.0.1:3000/"),
+            "http://127.0.0.1:3000/static/openui/" + genui.OPENUI_BUNDLE_VERSION,
+        )
+
+
+class _RecordingClient(openwebui.OpenWebUIClient):
+    """Records the REST recipe and returns canned Open WebUI responses."""
+
+    def __init__(self, current_role="assistant", drop_new_node=False):
+        super().__init__("http://owui.test", "testkey")
+        self.calls = []
+        self._current = "m-user"
+        self._role = current_role
+        self._drop_new_node = drop_new_node
+
+    def call(self, method, path, body=None):
+        self.calls.append((method, path, body))
+        if method == "GET":
+            return 200, {"chat": {"models": ["learning"], "history": {
+                "currentId": self._current,
+                "messages": {self._current: {"id": self._current, "role": self._role}},
+            }}}
+        if method == "POST" and "/event" not in path:
+            new_id = next(iter(body["chat"]["history"]["messages"]))
+            self._current = new_id
+            msgs = {} if self._drop_new_node else {new_id: {"id": new_id, "role": "assistant"}}
+            return 200, {"chat": {"history": {"messages": msgs, "currentId": new_id}}}
+        if method == "POST" and "/event" in path:
+            return 200, True
+        return 404, {}
+
+    def _assistant_get_count(self):
+        return sum(1 for c in self.calls if c[0] == "GET")
+
+
+class TestOpenWebUIClient(unittest.TestCase):
+    def test_read_key_prefers_env(self):
+        os.environ["OPENWEBUI_API_KEY"] = "env-key"
+        try:
+            self.assertEqual(openwebui.read_key("/nonexistent"), "env-key")
+        finally:
+            os.environ.pop("OPENWEBUI_API_KEY", None)
+
+    def test_read_key_from_file(self):
+        path = ROOT / "test" / "bridge" / "_tmp_owui_key"
+        path.write_text("file-key\n", encoding="utf-8")
+        try:
+            self.assertEqual(openwebui.read_key(str(path)), "file-key")
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_append_widget_recipe(self):
+        client = _RecordingClient()
+        ok = client.append_widget("c1", ["data:text/html;base64,AAAA"], model="learning")
+        self.assertTrue(ok)
+        self.assertEqual([c[0] for c in client.calls], ["GET", "POST", "POST"])
+        self.assertEqual(client.calls[0][1], "/api/v1/chats/c1")
+        self.assertEqual(client.calls[1][1], "/api/v1/chats/c1")
+        new_id = next(iter(client.calls[1][2]["chat"]["history"]["messages"]))
+        self.assertEqual(client.calls[2][1], f"/api/v1/chats/c1/messages/{new_id}/event")
+        self.assertEqual(client.calls[2][2]["type"], "embeds")
+        self.assertEqual(client.calls[2][2]["data"]["embeds"], ["data:text/html;base64,AAAA"])
+
+    def test_empty_urls_is_a_noop(self):
+        client = _RecordingClient()
+        self.assertFalse(client.append_widget("c1", []))
+        self.assertEqual(client.calls, [])
+
+    def test_missing_new_node_in_response_raises(self):
+        client = _RecordingClient(drop_new_node=True)
+        with self.assertRaises(openwebui.OpenWebUIError):
+            client.append_widget("c1", ["data:1"])
+
+    def test_polls_until_the_assistant_message_is_saved(self):
+        client = _RecordingClient(current_role="user")
+        # The poll never sees an assistant node, so it gives up without a GET storm.
+        self.assertFalse(client.append_widget("c1", ["data:1"], attempts=3, delay=0.0))
+        self.assertGreaterEqual(client._assistant_get_count(), 1)
 
 
 if __name__ == "__main__":

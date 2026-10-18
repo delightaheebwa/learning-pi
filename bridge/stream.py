@@ -22,7 +22,7 @@ import re
 # and the internal protocol never leaks into the chat. Only a tag at the very
 # start is matched; a `[[TURN:…]]` later in the body is left alone.
 _TURN_TAG_RE = re.compile(
-    r"^\s*\[\[TURN:(?:claims|quiz|grade|viz|none)\]\]\s*", re.IGNORECASE
+    r"^\s*\[\[TURN:(?:claims|quiz|grade|ui|none)\]\]\s*", re.IGNORECASE
 )
 
 
@@ -31,6 +31,29 @@ def strip_turn_tag(text: str) -> str:
     if not text:
         return text
     return _TURN_TAG_RE.sub("", text, count=1)
+
+
+# Fenced ` ```openui ` payloads. The gate has already verified the payload (a
+# `[[TURN:ui]]` turn needs a passing `ui-audit` bound to it); the bridge lifts
+# the fence out of the prose and delivers it to Open WebUI as an interactive
+# widget embed below the prose. Mermaid/HTML fences are left intact for Open
+# WebUI's native rendering. Non-greedy body so several fences extract cleanly.
+_OPENUI_FENCE_RE = re.compile(r"```openui[^\n]*\n([\s\S]*?)```")
+
+
+def extract_openui_fences(text: str) -> list[str]:
+    """Return the payloads of every ` ```openui ` fence in `text` (order kept)."""
+    if not text:
+        return []
+    return [m.group(1).strip() for m in _OPENUI_FENCE_RE.finditer(text) if m.group(1).strip()]
+
+
+def strip_openui_fences(text: str) -> str:
+    """Remove every ` ```openui ` fence (opening line through closing fence)."""
+    if not text:
+        return text
+    return _OPENUI_FENCE_RE.sub("", text)
+
 
 
 # stopReasons that represent a completed learner-facing message. `error`,
@@ -86,4 +109,11 @@ class TurnStream:
                 self.tool_events.append(f"{state}:{name}")
 
     def final_text(self) -> str:
-        return strip_turn_tag(self.text)
+        text = strip_turn_tag(self.text)
+        if _OPENUI_FENCE_RE.search(text):
+            return strip_openui_fences(text).strip()
+        return text
+
+    def openui_payloads(self) -> list[str]:
+        """OpenUI Lang payloads emitted this turn (rendered via embeds)."""
+        return extract_openui_fences(strip_turn_tag(self.text))

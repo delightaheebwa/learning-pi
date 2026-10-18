@@ -304,3 +304,62 @@ await fg('rsa3', 'review-session-audit', rsaWarnEnv, JSON.stringify({ verdict: '
 const reviewStateWarned = await msg('[[TURN:none]]\nReview — mastery 4/5, next review 2026-10-01. Recap below.', 'stop');
 assert('review close with state audit warnings banners', allowed(reviewStateWarned) && outText(reviewStateWarned).includes('STATE AUDIT'));
 
+// ============================================================================
+// ui turns: a [[TURN:ui]] message carries a ```openui OpenUI Lang payload and
+// requires a passing ui-audit bound to that exact payload plus the prose.
+// ============================================================================
+const UI_PAYLOAD = 'root = Card([title])\ntitle = TextContent("Distribution", "large")';
+const UI_PAYLOAD_OTHER = 'root = Card([title])\ntitle = TextContent("Different", "large")';
+const uiFence = (p) => '```openui\n' + p + '\n```';
+const UDRAFT = `Here is the distribution.\n${uiFence(UI_PAYLOAD)}\nNotice b dominates.`;
+const UENV = JSON.stringify({ gate: 'ui_audit', concept: 'counts', payload: UI_PAYLOAD, rendered_content: UDRAFT });
+const UI_PASS = JSON.stringify({ verdict: 'PASS', evidence: ['checked the payload and prose'], issues: [] });
+
+// A bound, passing ui-audit releases the ui turn.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('ui-audit', UENV, 'u1');
+await fg('u1', 'ui-audit', UENV, UI_PASS);
+const okUi = await msg(`[[TURN:ui]]\n${UDRAFT}`, 'stop');
+assert('ui turn renders with a bound ui-audit', allowed(okUi) && stripped(okUi));
+
+// No receipt at all -> withheld.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const noUi = await msg(`[[TURN:ui]]\n${UDRAFT}`, 'stop');
+assert('ui turn without a ui-audit is withheld', blocked(noUi, 'NO_UI_AUDIT'));
+
+// The audited payload must match the emitted payload.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('ui-audit', UENV, 'u2');
+await fg('u2', 'ui-audit', UENV, UI_PASS);
+const otherPayload = await msg(`[[TURN:ui]]\nHere is the distribution.\n${uiFence(UI_PAYLOAD_OTHER)}\nNotice a dominates.`, 'stop');
+assert('ui-audit with a different payload does not bind', blocked(otherPayload, 'UI_AUDIT_STALE'));
+
+// A wrong-shape receipt (no payload / no rendered_content) binds nothing.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('ui-audit', JSON.stringify({ gate: 'ui_audit', concept: 'counts' }), 'u3');
+await fg('u3', 'ui-audit', JSON.stringify({ gate: 'ui_audit', concept: 'counts' }), UI_PASS);
+const wrongShapeUi = await msg(`[[TURN:ui]]\n${UDRAFT}`, 'stop');
+assert('wrong-shape ui receipt does not bind a ui turn', blocked(wrongShapeUi, 'UI_AUDIT_STALE'));
+
+// ISSUES withholds the ui turn.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await dispatch('ui-audit', UENV, 'u4');
+await fg('u4', 'ui-audit', UENV, JSON.stringify({ verdict: 'ISSUES', issues: [{ severity: 'high', problem: 'payload value wrong' }] }));
+const issuesUi = await msg(`[[TURN:ui]]\n${UDRAFT}`, 'stop');
+assert('ui-audit ISSUES withholds the ui turn', blocked(issuesUi, 'UI_AUDIT_ISSUES'));
+
+// A ui turn must carry a parseable payload fence.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const noPayloadUi = await msg('[[TURN:ui]]\nHere is a widget — trust me.', 'stop');
+assert('unparseable ui payload is withheld', blocked(noPayloadUi, 'UI_PAYLOAD_INVALID'));
+
+// A ui fence inside a claims turn is withheld (it must be its own turn).
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const claimsUi = await msg(`[[TURN:claims]]\n${UDRAFT}`, 'stop');
+assert('ui block in a claims turn is withheld', blocked(claimsUi, 'UI_REQUIRES_OWN_TURN'));
+
+// A ui fence inside a transition turn is withheld too.
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const noneUi = await msg(`[[TURN:none]]\n${UDRAFT}`, 'stop');
+assert('ui block in a none turn is withheld', blocked(noneUi, 'UI_REQUIRES_OWN_TURN'));
+

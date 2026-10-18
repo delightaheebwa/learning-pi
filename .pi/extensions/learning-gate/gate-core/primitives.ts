@@ -20,6 +20,7 @@ export const VERIFIER_AGENTS: Record<string, string> = {
   "tutor-audit": "tutor_audit",
   "review-session-audit": "review_session",
   "scout-audit": "scout_audit",
+  "ui-audit": "ui_audit",
 };
 
 export const MAX_RETRIES = 2;
@@ -45,7 +46,7 @@ export const LENGTH_SLACK_TOKENS = 12;
 // `VERDICT_ONLY_MAX_RATIO` of the graded question text.
 export const VERDICT_ONLY_MIN_TOKENS = 12;
 export const VERDICT_ONLY_MAX_RATIO = 0.5;
-export const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|none)\]\]\s*/i;
+export const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|ui|none)\]\]\s*/i;
 export const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest|solo)\]\]/i;
 export const STATE_AUDIT_RE = /(\d+)\s+errors?\b[^\d]*(\d+)\s+warnings?/i;
 export const WRITE_TOOLS = new Set(["write", "edit"]);
@@ -83,6 +84,9 @@ export interface Receipt {
   // `foundationGaps`). Each beat is an excerpt of prose actually present in the
   // verified draft.
   foundation?: FoundationBlock;
+  // Canonical JSON of the verified OpenUI Lang payload (ui_audit). A `[[TURN:ui]]`
+  // turn binds only when its emitted ```openui fence canonicalizes to this value.
+  uiPayload?: string;
   // Content binding so an old PASS can't satisfy a new turn.
   questionsText?: string;
   gradeText?: string;
@@ -755,6 +759,95 @@ export function verdictOnlyGradeBinds(r: Receipt, emittedText: string): boolean 
 }
 
 /**
+ * Fenced ` ```openui ` blocks in a message; returns the raw inner OpenUI Lang
+ * strings. The bridge renders these as interactive embeds; the gate uses them to
+ * bind a `ui_audit` receipt to the exact payload that was audited.
+ */
+export function extractUiFences(text: string): string[] {
+  const out: string[] = [];
+  if (typeof text !== "string") return out;
+  const re = /```openui[^\n]*\n([\s\S]*?)```/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const body = m[1].trim();
+    if (body.length > 0) out.push(body);
+  }
+  return out;
+}
+
+/** Canonical JSON (recursively sorted keys, insignificant whitespace dropped). */
+export function canonicalJson(value: unknown): string {
+  const norm = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(norm);
+    if (v && typeof v === "object") {
+      const obj = v as Record<string, unknown>;
+      const out: Record<string, unknown> = {};
+      for (const key of Object.keys(obj).sort()) {
+        if (obj[key] === undefined) continue;
+        out[key] = norm(obj[key]);
+      }
+      return out;
+    }
+    return v;
+  };
+  return JSON.stringify(norm(value));
+}
+
+/**
+ * Canonical OpenUI Lang: normalise line endings and trailing whitespace so a
+ * payload the verifier audited binds the emitted fence even when the Tutor
+ * reformats blank lines. OpenUI Lang is a statement DSL, not JSON, so equality
+ * is on this canonical text; a JSON payload (object/array) canonicalises as JSON.
+ */
+export function canonicalUiPayload(value: unknown): string {
+  if (typeof value !== "string") return canonicalJson(value);
+  return value
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+$/g, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** A fenced payload: parsed JSON when it is valid JSON, else the OpenUI Lang text. */
+export function parseUiPayload(raw: string): unknown {
+  const t = raw.trim();
+  try {
+    return JSON.parse(t);
+  } catch {
+    return t;
+  }
+}
+
+/**
+ * UI binding: a `ui_audit` receipt authorizes a `[[TURN:ui]]` only when the
+ * emitted fenced payload canonicalises to the audited payload AND the audit's
+ * `rendered_content` covers the emitted text. A present-but-wrong-shape envelope
+ * (no payload, or no rendered_content) binds nothing; only an envelope-less
+ * async completion falls back to unbound.
+ */
+export function uiBinds(r: Receipt, emittedText: string): boolean {
+  if (!r.hasEnvelope) return true;
+  if (!r.uiPayload || !r.renderedContent) return false;
+  const fences = extractUiFences(emittedText);
+  if (fences.length === 0) return false;
+  let match = false;
+  for (const f of fences) {
+    try {
+      if (canonicalUiPayload(parseUiPayload(f)) === r.uiPayload) {
+        match = true;
+        break;
+      }
+    } catch {
+      /* unparseable fence cannot bind */
+    }
+  }
+  if (!match) return false;
+  return contentMatches(r.renderedContent, emittedText);
+}
+
+/**
  * Whether a receipt names the artifacts it audited.
  *
  * The write gates (tutor-audit, review-session, review-gate) verify files, not
@@ -1077,6 +1170,10 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
       envelope && envelope.foundation && typeof envelope.foundation === "object" && !Array.isArray(envelope.foundation)
         ? (envelope.foundation as FoundationBlock)
         : undefined,
+    uiPayload:
+      gate === "ui_audit" && envelope && envelope.payload !== undefined
+        ? canonicalUiPayload(envelope.payload)
+        : undefined,
     questionsText: questionsText || undefined,
     gradeText: gradeText || undefined,
     gradeAnswers,
@@ -1321,4 +1418,5 @@ export const EXPECTED_ENVELOPE_GATE: Record<string, string> = {
   "tutor-audit": "tutor_audit",
   "review-session-audit": "review_session",
   "scout-audit": "scout_audit",
+  "ui-audit": "ui_audit",
 };

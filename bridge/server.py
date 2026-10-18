@@ -24,9 +24,10 @@ from typing import Optional
 
 from .rpc import PiSession, PiError
 from .stream import TurnStream
+from . import genui, openwebui
 
 _LEARNING_CMD_RE = re.compile(
-    r"^\s*/(review|solo|ingest|teach|lesson|continue|pause|audit|show|viz)\b",
+    r"^\s*/(review|solo|ingest|teach|lesson|continue|pause|audit)\b",
     re.IGNORECASE,
 )
 _FLOW_MARKER = "[[FLOW:"
@@ -198,6 +199,8 @@ class BridgeConfig:
         disable_bash_guard: bool = True,
         max_sessions: int = 8,
         child_env_extra: Optional[dict] = None,
+        openwebui_base_url: str = "",
+        openwebui_key_file: str = openwebui.DEFAULT_KEY_FILE,
     ) -> None:
         self.pi_bin = pi_bin
         self.state_repo = state_repo
@@ -212,6 +215,17 @@ class BridgeConfig:
         self.disable_bash_guard = disable_bash_guard
         self.max_sessions = max_sessions
         self.child_env_extra = child_env_extra or {}
+        self.openwebui_base_url = openwebui_base_url
+        self.openwebui_key_file = openwebui_key_file
+
+    def openwebui_client(self) -> Optional[openwebui.OpenWebUIClient]:
+        """A client for the post-turn widget embed, or None when unconfigured."""
+        if not self.openwebui_base_url:
+            return None
+        key = openwebui.read_key(self.openwebui_key_file)
+        if not key:
+            return None
+        return openwebui.OpenWebUIClient(self.openwebui_base_url, key)
 
     def session_args(self) -> list:
         args: list = []
@@ -372,6 +386,26 @@ class Handler(BaseHTTPRequestHandler):
             self._stream_from(model, content)
         else:
             self._send_json(200, self._completion(model, content))
+        self._deliver_widgets(key, model, turn.openui_payloads())
+
+    def _deliver_widgets(self, key: str, model: str, payloads: list) -> None:
+        """Deliver verified OpenUI payloads as an embed on a 2nd assistant message.
+
+        Best-effort: the prose already rendered, and a delivery failure must not
+        surface to the learner. Only chats with a real Open WebUI id (`chat:<id>`)
+        are eligible; a fingerprint-only session has no chat to attach to.
+        """
+        if not payloads or not key.startswith("chat:"):
+            return
+        client = self.cfg.openwebui_client()
+        if client is None:
+            return
+        bundle_base = genui.default_bundle_base(self.cfg.openwebui_base_url)
+        urls = [genui.widget_embed_url(p, bundle_base=bundle_base) for p in payloads]
+        try:
+            client.append_widget(key[len("chat:") :], urls, model=model)
+        except (openwebui.OpenWebUIError, OSError):
+            pass
 
     # -- turn execution ----------------------------------------------------
     def _run_turn(self, entry: SessionEntry, user: str) -> TurnStream:

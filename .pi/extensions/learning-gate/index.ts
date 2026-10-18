@@ -9,7 +9,7 @@
  * Turn type is explicit, not guessed:
  *   - Prompt templates carry a flow marker (`[[FLOW:teach|resume|review|ingest]]`).
  *   - Every assistant message in a learning flow must start with a turn tag
- *     `[[TURN:claims|quiz|grade|none]]`. The gate strips the tag before the learner sees it.
+ *     `[[TURN:claims|quiz|grade|ui|none]]`. The gate strips the tag before the learner sees it.
  *   - claims -> a fact-check receipt whose `rendered_content` covers the emitted text
  *     (the judge checks 100% span coverage; the legacy path approximates it with
  *     >=95% token coverage plus a bounded unverified tail) with no ISSUES.
@@ -20,6 +20,9 @@
  *   - quiz  -> a quiz-audit receipt returning PASS (zero issues). Any issue, at any
  *     severity, is an ISSUES verdict and blocks until fixed.
  *   - grade -> a grade-audit receipt that agrees (a conflicting correct_verdict is surfaced).
+ *   - ui    -> a [[TURN:ui]] message carrying one ```openui OpenUI Lang payload needs a passing
+ *     ui-audit whose canonical payload matches the emitted block and whose rendered_content
+ *     covers the turn; a ui fence in a claims/none turn is withheld (UI_REQUIRES_OWN_TURN).
  *   - none  -> allowed, unless an unused verification receipt matches the text
  *     (tag mismatch / would-be evasion).
  *   - A dropped tag is inferred from a bound verifier receipt, or from the

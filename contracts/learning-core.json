@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' \u2014 see CONTRACT.md).",
-  "version": 6,
-  "updated": "2026-10-16",
+  "version": 7,
+  "updated": "2026-10-18",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -181,9 +181,10 @@
     {
       "id": "G-solo-no-teaching",
       "severity": "hard",
-      "statement": "In an AI-free solo flow ([[FLOW:solo]]) the Tutor cannot teach: a claims turn is withheld with SOLO_NO_TEACHING, so the learner's answers are unassisted. The closed-book quiz batch and grading are allowed, the first content turn requires a review-scout run (deterministic queue), and the close uses the review-session audit like a review.",
+      "statement": "In an AI-free solo flow ([[FLOW:solo]]) the Tutor cannot teach: a claims turn is withheld with SOLO_NO_TEACHING and a widget turn with SOLO_NO_AIDS, so the learner's answers are unassisted. The closed-book quiz batch and grading are allowed, the first content turn requires a review-scout run (deterministic queue), and the close uses the review-session audit like a review.",
       "tests": [
         "solo flow withholds a teaching claims turn",
+        "solo flow withholds a ui widget",
         "solo first quiz requires a review-scout run",
         "solo flow allows the closed-book quiz batch",
         "solo retry cap withholds teaching outright",
@@ -437,6 +438,42 @@
         "dispatch accepts an object task and returns the child output",
         "dispatch-minted quiz receipt binds the emitted batch",
         "malformed subagent workflow is blocked toward dispatch"
+      ]
+    },
+    {
+      "id": "G-ui-turn-requires-audit",
+      "severity": "hard",
+      "statement": "A [[TURN:ui]] message renders only with a passing, bound ui-audit receipt: missing is withheld with NO_UI_AUDIT, an ISSUES verdict with UI_AUDIT_ISSUES, and a valid-but-unbound receipt with UI_AUDIT_STALE. The interactive widget the bridge embeds is exactly the payload the verifier audited.",
+      "tests": [
+        "ui turn renders with a bound ui-audit",
+        "ui turn without a ui-audit is withheld",
+        "ui-audit ISSUES withholds the ui turn"
+      ]
+    },
+    {
+      "id": "G-ui-audit-binds-payload-and-prose",
+      "severity": "hard",
+      "statement": "A ui-audit receipt binds only when the canonical emitted OpenUI Lang payload equals the audited payload AND its rendered_content covers the emitted text. A different payload, or a present-but-wrong-shape envelope missing the payload or rendered_content, authorizes no emission.",
+      "tests": [
+        "ui-audit with a different payload does not bind",
+        "wrong-shape ui receipt does not bind a ui turn"
+      ]
+    },
+    {
+      "id": "G-ui-standalone-turn",
+      "severity": "hard",
+      "statement": "A ```openui payload fence may only appear in a [[TURN:ui]] message; a widget block inside a claims or transition turn is withheld (UI_REQUIRES_OWN_TURN).",
+      "tests": [
+        "ui block in a claims turn is withheld",
+        "ui block in a none turn is withheld"
+      ]
+    },
+    {
+      "id": "G-ui-payload-valid",
+      "severity": "hard",
+      "statement": "A [[TURN:ui]] message with no parseable ```openui payload fence is withheld (UI_PAYLOAD_INVALID).",
+      "tests": [
+        "unparseable ui payload is withheld"
       ]
     },
     {
