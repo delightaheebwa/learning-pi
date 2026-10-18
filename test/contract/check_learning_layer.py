@@ -3,7 +3,7 @@
 
 Two jobs:
   1. Resources: the layer's own files exist and parse — APPEND_SYSTEM.md,
-      .pi/settings.json, the seven prompt templates with their [[FLOW:...]]
+      .pi/settings.json, the eight prompt templates with their [[FLOW:...]]
       markers, the eleven agent definitions, the four skills.
    2. Contract coverage: every invariant in contracts/learning-core.json has at
       least one passing test (by name substring), and every listed test name
