@@ -139,7 +139,7 @@ For a bigger change, or when the scripted tier passes but you want a real pass:
    does: env `PI_CODING_AGENT_DIR=$S/agent`, `PI_CODING_AGENT_SESSION_DIR=$S/sessions`,
    cwd `$S/state`, argv `pi --mode rpc --name e2e-<tag>`.
 3. Send real learner turns: `/lesson`, `/teach <topic>`, `/review`, `/ingest <text>`,
-   `/show <concept>`, `/pause`, `/continue`. Wait for `agent_settled`.
+   `/pause`, `/continue`. Wait for `agent_settled`.
 4. Judge the session `.jsonl`: every gated turn must carry a real verifier receipt;
    no `⛔ WITHHELD`, `NO_REVIEW_CONTEXT`, or `NO_GRADE_AUDIT_PASS` should reach the
    learner as the final turn. Check subagent runs with

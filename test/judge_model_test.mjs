@@ -9,7 +9,6 @@ const pkg = {
   flow: 'teach',
   explicitTag: undefined,
   text: 'A is B. C is D.',
-  hasVizFence: false,
   receipts: [
     { index: 0, gate: 'fact_check', verdict: 'PASS', boundText: 'A is B.', issues: [], raw: '' },
     { index: 1, gate: 'fact_check', verdict: 'ISSUES', boundText: 'A is B. C is D.', issues: [{ severity: 'high' }], raw: '' },

@@ -181,10 +181,9 @@
     {
       "id": "G-solo-no-teaching",
       "severity": "hard",
-      "statement": "In an AI-free solo flow ([[FLOW:solo]]) the Tutor cannot teach or add aids: a claims turn is withheld with SOLO_NO_TEACHING and a viz turn with SOLO_NO_AIDS, so the learner's answers are unassisted. The closed-book quiz batch and grading are allowed, the first content turn requires a review-scout run (deterministic queue), and the close uses the review-session audit like a review.",
+      "statement": "In an AI-free solo flow ([[FLOW:solo]]) the Tutor cannot teach: a claims turn is withheld with SOLO_NO_TEACHING, so the learner's answers are unassisted. The closed-book quiz batch and grading are allowed, the first content turn requires a review-scout run (deterministic queue), and the close uses the review-session audit like a review.",
       "tests": [
         "solo flow withholds a teaching claims turn",
-        "solo flow withholds a visualization",
         "solo first quiz requires a review-scout run",
         "solo flow allows the closed-book quiz batch",
         "solo retry cap withholds teaching outright",
@@ -343,50 +342,6 @@
       ]
     },
     {
-      "id": "G-viz-turn-requires-audit",
-      "severity": "hard",
-      "statement": "A [[TURN:viz]] message renders only with a passing, bound viz-audit receipt: a missing receipt is withheld NO_VIZ_AUDIT, an ISSUES verdict withholds VIZ_AUDIT_ISSUES, and a valid-but-unbound receipt withholds VIZ_AUDIT_STALE.",
-      "tests": [
-        "viz turn renders with a bound viz-audit",
-        "viz turn without a viz-audit is withheld",
-        "viz-audit ISSUES withholds the viz turn"
-      ]
-    },
-    {
-      "id": "G-viz-audit-binds-spec-and-prose",
-      "severity": "hard",
-      "statement": "A viz-audit receipt binds only when its canonical `spec` equals the emitted fenced spec AND its `rendered_content` covers the emitted text; a different spec, or a present-but-wrong-shape envelope missing the spec or rendered_content, authorizes no emission.",
-      "tests": [
-        "viz-audit with a different spec does not bind",
-        "wrong-shape viz receipt does not bind a viz turn"
-      ]
-    },
-    {
-      "id": "G-viz-standalone-turn",
-      "severity": "hard",
-      "statement": "A ```viz fence may only appear in a [[TURN:viz]] message; a viz block inside a claims or transition turn is withheld (VIZ_REQUIRES_OWN_TURN), so a figure is always gated as its own turn.",
-      "tests": [
-        "viz block in a claims turn is withheld",
-        "viz block in a none turn is withheld"
-      ]
-    },
-    {
-      "id": "G-viz-spec-valid",
-      "severity": "hard",
-      "statement": "A [[TURN:viz]] message with no parseable ```viz JSON spec block is withheld VIZ_SPEC_INVALID.",
-      "tests": [
-        "unparseable viz spec is withheld"
-      ]
-    },
-    {
-      "id": "G-viz-infer-from-bound",
-      "severity": "hard",
-      "statement": "A dropped viz tag is recovered from a bound viz-audit receipt (canonical spec match + prose coverage).",
-      "tests": [
-        "dropped viz tag recovered from a bound viz-audit"
-      ]
-    },
-    {
       "id": "G-turn-type-inferred",
       "severity": "hard",
       "statement": "When a judge is configured, a turn tag is a hint: the judge reads the turn type from the content, so an untagged claims turn whose fact-check covers it renders instead of withholding NO_TURN_TAG. Verifier/notification channels are never gated.",
@@ -406,7 +361,7 @@
     {
       "id": "G-pass-substantive",
       "severity": "hard",
-      "statement": "A verifier PASS that the judge scores as unsubstantiated (thin or none, missing items, no evidence) does not verify the turn. Verifiers whose clean verdict is an empty `issues:[]` (quiz-audit, tutor-audit, viz-audit, review-gate, review-session-audit) must emit a mandatory non-empty `evidence` list, or every clean PASS dead-ends as `*_STALE` (the 2026-10-05 session looped on the empty quiz PASS).",
+      "statement": "A verifier PASS that the judge scores as unsubstantiated (thin or none, missing items, no evidence) does not verify the turn. Verifiers whose clean verdict is an empty `issues:[]` (quiz-audit, tutor-audit, review-gate, review-session-audit) must emit a mandatory non-empty `evidence` list, or every clean PASS dead-ends as `*_STALE` (the 2026-10-05 session looped on the empty quiz PASS).",
       "tests": [
         "hollow PASS blocked as unsubstantiated"
       ]

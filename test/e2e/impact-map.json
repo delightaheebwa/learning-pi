@@ -16,7 +16,6 @@
     { "match": ".pi/prompts/teach.md", "flows": ["teach"] },
     { "match": ".pi/prompts/continue.md", "flows": ["resume"] },
     { "match": ".pi/prompts/pause.md", "flows": ["resume"] },
-    { "match": ".pi/prompts/show.md", "flows": ["resume"] },
     { "match": ".pi/prompts/review.md", "flows": ["review"] },
     { "match": ".pi/prompts/ingest.md", "flows": ["ingest"] },
     { "match": ".pi/prompts/audit.md", "flows": ["audit"] },
@@ -29,9 +28,7 @@
     { "match": ".pi/agents/review-gate.md", "flows": ["ingest"] },
     { "match": ".pi/agents/review-scout.md", "flows": ["review"] },
     { "match": ".pi/agents/review-clerk.md", "flows": ["review"] },
-    { "match": ".pi/agents/review-session-audit.md", "flows": ["review"] },
-    { "match": ".pi/agents/viz.md", "flows": ["resume"] },
-    { "match": ".pi/agents/viz-audit.md", "flows": ["resume"] }
+    { "match": ".pi/agents/review-session-audit.md", "flows": ["review"] }
   ],
   "learning_system_paths": [
     { "match": "scripts/ops.py", "flows": ["ingest", "review", "teach"] },

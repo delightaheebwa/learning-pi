@@ -222,7 +222,7 @@ cd ~/learning-system && pi        # approve/trust the project once
 
 Slash commands: `/review`, `/solo` (an AI-free closed-book check — no teaching or hints),
 `/ingest <content>`, `/teach <topic>`, `/lesson`, `/continue`, `/pause`,
-`/audit`, `/show <concept>` (a verified visualization; `/viz` reopens/controls the explorer).
+`/audit`.
 The main pi session acts as the **Tutor**; `scout`, `clerk`, and the verifier subagents run as
 children. The Tutor writes only its four handoff artifacts (lesson file, session note, learning
 record, `Pending Ingest.json`) at a pause or lesson end; the **Clerk** reconciles position/state
@@ -243,8 +243,8 @@ Configured in `.pi/settings.json` (project scope only):
 | Role | Model |
 | --- | --- |
 | Tutor (main session) | `glm-5.3-flash` |
-| Scout / Clerk / review-scout / review-clerk / `viz` | `deepseek-v4.1-flash` |
-| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `viz-audit`) | `muse-spark-1.3-contributor` (high) |
+| Scout / Clerk / review-scout / review-clerk | `deepseek-v4.1-flash` |
+| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Clerk's writes) |
 | Lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Scout digest) |
 
@@ -265,7 +265,6 @@ assistant turn unless the matching, **passing** receipt is present:
 | A new idea during teach/resume | the `fact-check` envelope carries `turn_kind` plus, for an `idea`, a four-beat `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft; a turn with no `turn_kind`, or an `idea` missing/unbinding a beat, is withheld (`FOUNDATION_INCOMPLETE`) — a factually correct "what"-only summary cannot render as if complete. The verifier also returns `omitted_foundations[]` (source theory with no trace in the draft), which is an `ISSUES` verdict. `answer`/`repair`/`hint`/`plan` need no foundation |
 | A question batch | `quiz-audit` returning `PASS` (zero issues); any issue, at any severity, blocks until fixed (uncapped — re-check until zero issues). The envelope carries `questions_json` **and** `rendered_content` = the full batch text (intro/instructions + every question + its options), which binds the whole emitted turn |
 | A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced. One batched `items[]` envelope grades every answer from a single learner reply (never one subagent per answer) |
-| A visualization (`[[TURN:viz]]` — a ` ```viz ` spec + supporting words) | `viz-audit` whose canonical `spec` matches the emitted fenced spec and whose `rendered_content` covers the turn (missing → `NO_VIZ_AUDIT`, `ISSUES` → `VIZ_AUDIT_ISSUES`, unbound/stale → `VIZ_AUDIT_STALE`). A ` ```viz ` block in any other turn is withheld (`VIZ_REQUIRES_OWN_TURN`); a missing parseable spec is withheld (`VIZ_SPEC_INVALID`). Figures are opt-in and teach/resume-only; `viz-mode` renders them inline and opens an interactive explorer overlay |
 | A `Learning System/` handoff write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` (once per handoff batch; every issue blocks at any severity; out-of-scope observations go to `context_notes`) |
 | An ingest | after the Clerk returns a `CLERK_WRITES` receipt, the Tutor dispatches an independent `review-gate` on the wiki pages written; `PASS` renders clean, `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run). A verdict relayed by the Clerk instead of a real review-gate run gets a `⚠️ INGEST GATE` banner; a review verdict with no `evidence` list gets a `⚠️ REVIEW GATE` banner |
 | The **close** of a standalone `/review` (the delegated `review-clerk` run wrote the Review notes, session note, and touched Active Concepts / Mistakes rows) | `review-session-audit` reading the writes back against the transcript + per-concept grade verdicts; `PASS` releases the summary, `ISSUES` withholds it (`REVIEW_SESSION_AUDIT_ISSUES`) until the writes are fixed and re-audited to zero issues (no cycle cap) |
@@ -361,10 +360,6 @@ They are derived, not symlinked, so re-derive and diff them if the canonical ski
 ```bash
 diff -u ~/learning-system/Skills/learning-system/SKILL.md ~/learning-pi/.pi/skills/learning-system/SKILL.md
 ```
-
-The fifth skill, `learning-viz`, is **pi-only** (the opt-in visualization flow: dispatch `viz` →
-`viz-audit` → a standalone `[[TURN:viz]]` message, rendered inline by the `viz-mode` extension). It
-has no Open WebUI counterpart and is not derived from the state repo.
 
 ## State audit (read-only)
 
@@ -475,13 +470,13 @@ holds only chat transcripts). `deploy/` runs Open WebUI in Docker in front of a 
 ### Repo layout for the gate
 
 ```
-CONTRACT.md                  declared behavior (the thing updates must not break; v6, 55 invariants 2026-10-16)
+CONTRACT.md                  declared behavior (the thing updates must not break; v6, 50 invariants 2026-10-16)
 contracts/learning-core.json machine-readable invariants -> test names
 bridge/                      OpenAI-compatible pi-bridge (B-* invariants) + README
 deploy/                      Docker Open WebUI + pi-bridge.service + searxng + README/SECURITY
-.pi/agents/                  13 subagents (incl. scout-audit, viz) — see .pi/
-.pi/prompts/                 9 slash prompts (review/solo/ingest/teach/lesson/continue/pause/audit/show)
-.pi/skills/                  5 skills (incl. learning-viz)
+.pi/agents/                  11 subagents (incl. scout-audit) — see .pi/
+.pi/prompts/                 8 slash prompts (review/solo/ingest/teach/lesson/continue/pause/audit)
+.pi/skills/                  4 skills
 bin/pi                       pinned launcher (never updates)
 bin/notify-if-outdated       debounced availability check (never updates)
 bin/pi-review-status         daily /review status helper (JSON; shared by widget + reminder)
@@ -492,21 +487,19 @@ harness/mk-sandbox.sh         isolated duplicate harness builder
 harness/e2e-runner.py        e2e runner (--tier smoke|full)
 harness/man/                 lpi(1) man page
 harness/audit-recent-sessions.sh + systemd/  weekly provenance audit
-scripts/learn-check          the single test entrypoint (8 deno suites: gate/golden/redteam/viz/judge/judge_model/judge_router/judge_dump + bridge + contract checks + load probe)
+scripts/learn-check          the single test entrypoint (7 deno suites: gate/golden/redteam/judge/judge_model/judge_router/judge_dump + bridge + contract checks + load probe)
 scripts/agent-worktree       worktree helper (new/list/clean/land)
 test/gate_test.mjs           core gate behavior (mocked pi)
-test/golden/                 write-gate / scout / review-delegation / retry / demotion / viz scenarios
-test/viz_test.mjs            viz-mode pure units (spec validation, expression eval, ASCII render)
+test/golden/                 write-gate / scout / review-delegation / retry / demotion scenarios
 test/judge_*.mjs + live_judge_test.mjs  judge suites (live variants opt-in, need models)
 test/redteam/                adversarial suites
 test/bridge/                 bridge suite (fake_pi + run_tests.py → B-* coverage)
 test/contract/               resource checks, load probe
-test/e2e/scenarios/          8 e2e scenarios (smoke + full)
+test/e2e/scenarios/          6 e2e scenarios (smoke + full)
 test/fixtures/               synthetic learning-system state (never real data)
 opencode/skills/lpi/         opencode skill: gated update, diagnosis/repair, and e2e
 .pi/extensions/learning-gate/gate-core/   pure, pi-independent decision logic
 .pi/extensions/learning-gate/pi-adapter/  the ONLY pi-version-aware file
-.pi/extensions/viz-mode/     spec/render/explorer (display + interaction; no gating)
 omarchy/                     Omarchy review integration: local.pi-review bar widget,
                              desktop reminder + systemd timer, installer
 test/pi_review_status_test.sh  status-helper boundary tests (standalone)

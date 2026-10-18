@@ -3,8 +3,8 @@
 
 This is the end-to-end companion to `learn-check`. Where `learn-check` proves
 the layer loads and the gate logic is sound, this runner *acts like a learner*:
-it sends real slash-command flows (`/teach`, `/review`, `/ingest`, `/show`,
-`/audit`) to a candidate pi in an isolated sandbox, lets the real Tutor and its
+it sends real slash-command flows (`/teach`, `/review`, `/ingest`, `/audit`) to a
+candidate pi in an isolated sandbox, lets the real Tutor and its
 subagents run with the real models, then inspects the session transcript.
 
 Assertions are structural, not prose: expected worker/verifier subagent runs
@@ -104,9 +104,9 @@ def text_of_content(content) -> str:
 def subagent_runs(path: Path) -> list[dict]:
     """Dispatched subagent runs from the session, independent of audit_gates.
 
-    Covers every agent (including viz/viz-audit, which audit_gates' fixed set
-    omits), whether it finished synchronously (in `tool_result.details.results`)
-    or asynchronously (in a `subagent-notify` completion message). Each entry:
+    Covers every agent, whether it finished synchronously (in
+    `tool_result.details.results`) or asynchronously (in a `subagent-notify`
+    completion message). Each entry:
     {agent, runId, exitCode, acceptance}. Tool-call validation failures (e.g. a
     non-string `task`) are ignored: they never launched a run.
     """
@@ -622,7 +622,7 @@ def run_scenario(scn: dict, sandbox: Sandbox, pi_bin: str, timeout: float, layer
     runs = subagent_runs(session) if session else []
     result["runs"] = runs
     # audit_gates is kept in the artifact for human triage, not for pass/fail
-    # (its fixed agent set omits viz/viz-audit and it flags missing meta files).
+    # (its fixed agent set omits some agents and it flags missing meta files).
     audit = None
     if session and (layer / "pi" / "audit_gates.py").exists():
         ap = subprocess.run(

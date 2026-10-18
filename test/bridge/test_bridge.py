@@ -174,7 +174,7 @@ class TestTurnTagCleanup(unittest.TestCase):
         self.assertEqual(self._emit("  \n[[TURN:claims]]\n\nHello."), "Hello.")
 
     def test_each_tag_vocabulary_stripped_case_insensitively(self):
-        for tag in ("claims", "quiz", "grade", "viz", "none"):
+        for tag in ("claims", "quiz", "grade", "none"):
             self.assertEqual(self._emit(f"[[TURN:{tag}]] body"), "body")
         self.assertEqual(self._emit("[[turn:NONE]] body"), "body")
 

@@ -9,7 +9,6 @@ const pkg = (over = {}) => ({
   flow: 'teach',
   explicitTag: 'claims',
   text: 'A is B. C is D.',
-  hasVizFence: false,
   receipts: [{ index: 0, gate: 'fact_check', verdict: 'PASS', boundText: 'A is B.', issues: [], raw: '' }],
   pendingDrafts: [],
   hasIngestSummaryHint: false,

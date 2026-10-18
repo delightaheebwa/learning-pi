@@ -28,7 +28,7 @@ export type CompleteFn = (req: CompleteRequest) => Promise<string>;
 
 export class JudgeModelError extends Error {}
 
-const TURN_TYPES = new Set<TurnType>(["claims", "quiz", "grade", "viz", "none"]);
+const TURN_TYPES = new Set<TurnType>(["claims", "quiz", "grade", "none"]);
 const SUBSTANTIVENESS = new Set<Substantiveness>(["strong", "thin", "none"]);
 
 /** Pull the first balanced JSON object out of free text. */

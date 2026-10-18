@@ -17,7 +17,7 @@
  */
 import type { Flow } from "../primitives.ts";
 
-export type TurnType = "claims" | "quiz" | "grade" | "viz" | "none";
+export type TurnType = "claims" | "quiz" | "grade" | "none";
 
 /** How substantive a verifier's verdict looks: real work / thin / none. */
 export type Substantiveness = "strong" | "thin" | "none";
@@ -43,8 +43,6 @@ export interface JudgeReceipt {
   evidence?: string[];
   /** Whether a dispatch envelope was present when the receipt was minted. */
   hasEnvelope?: boolean;
-  /** Canonical JSON of the audited viz spec (viz_audit only). */
-  vizSpec?: string;
   /** Artifact paths a write gate names (files / written_files / target_files). */
   auditFiles?: string[];
   /** Whether the verdict is out-of-scope bookkeeping only (review gates). */
@@ -59,7 +57,6 @@ export interface TurnPackage {
   explicitTag?: TurnType;
   /** The emitted text, turn tag stripped. */
   text: string;
-  hasVizFence: boolean;
   receipts: JudgeReceipt[];
   /** Drafts of async verifications still in flight (evasion guard). */
   pendingDrafts: string[];

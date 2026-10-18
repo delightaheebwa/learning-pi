@@ -16,7 +16,6 @@ learning-system repository; its `Learning System/` and `Knowledge Wiki/` folders
 - **"review"** → the `learning-system` skill, Review flow (runs in this session; `review-scout` gathers context, `review-clerk` writes).
 - **"solo" / "AI-free check" / "closed-book"** → the `learning-system` skill, Solo flow (`[[FLOW:solo]]`): a closed-book review where teaching, hints, and figures are withheld by the gate; `review-scout` builds the queue and `review-clerk` records every attempt `mode:"solo"`.
 - **"teach me X" / "learn" / "study" / "lesson" / "continue" / "pause"** → the `learning-teach` skill.
-- **"show me" / "visualize" / "draw" / "can I play with X" / "what does that look like"** → the `learning-viz` skill (a verified `[[TURN:viz]]` figure; opt-in, teach/resume only).
 - **"ingest"** → the `learning-system` skill, Ingest flow, delegated to the `clerk` subagent.
 - **"audit"** → run the read-only state consistency audit (`python3 "$HOME/learning-pi/pi/audit_state.py" --root .`) and report findings loudly; it never writes.
 - **wiki work** → the `llm-wiki` skill.
@@ -31,7 +30,6 @@ contradiction to the user** — do not guess, merge, or trust any status written
 ## Delegation
 
 - `scout` gathers context for a new lesson and writes the digest to `Learning System/.tmp/`.
-- `viz` authors a declarative visualization spec for a concept; `viz-audit` verifies the spec and its supporting words. A figure is a standalone `[[TURN:viz]]` message — opt-in, and never a ` ```viz ` block inside a claims/transition turn.
 - This session is the Tutor: teach, probe, quiz, and grade interactively.
 - `clerk` ingests lesson output into the wiki and Active Concepts, and reconciles all position/state
   files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at `/ingest`.
@@ -151,7 +149,6 @@ Begin **every** assistant message in a learning session with exactly one tag on 
   `fact-check` whose `rendered_content` is this message's text.
 - `[[TURN:quiz]]` — a question batch. Requires a `quiz-audit` returning PASS — a clean batch, no issues of any severity. Any issue (even a `low`) blocks: fix it and re-audit until the verifier returns PASS; there is no cycle cap. Send the envelope the structured `questions_json` **and** `rendered_content` = the exact full batch text (intro/instructions + every question + its options), then emit that text unchanged.
 - `[[TURN:grade]]` — grading a learner's answer. Requires a `grade-audit` that agrees.
-- `[[TURN:viz]]` — a visualization turn: a ` ```viz ` JSON spec plus its supporting words. Requires a passing `viz-audit` whose spec matches the emitted one and whose `rendered_content` covers the turn. Never put a ` ```viz ` block in a claims/none turn.
 - `[[TURN:none]]` — anything else (transitions, summaries, ordinary clarifying questions).
   Elicitation/prediction questions are a `[[TURN:quiz]]` batch, not `none`.
 
@@ -210,11 +207,6 @@ the lesson.
   covers the verdicts AND the fact-check covers the prose. Or split: a verdict-only `[[TURN:grade]]`,
   then the repair as `[[TURN:claims]]`. Never re-dispatch the grade-audit to make it cover repair
   prose — that loops (`GRADE_AUDIT_STALE`).
-- **For a visualization (`learning-viz`, opt-in):** `dispatch` ONE `viz` agent with a
-  `GATE:viz` envelope to author the spec, then ONE `viz-audit` with the spec AND
-  `rendered_content` = the full `[[TURN:viz]]` draft (supporting words + the fenced spec). Emit the
-  audited draft unchanged, copying the spec verbatim (the gate binds on the spec's canonical JSON).
-  A figure is always its own turn — a ` ```viz ` block in a claims/none turn is withheld.
 - After writing any `Learning System/` files (lesson file, session note, learning record,
   `Pending Ingest.json`), `dispatch` a `tutor-audit` with the written file paths; a teach/resume
   summary is withheld (`NO_TUTOR_AUDIT`) until it passes. Write these four artifacts **only** at a

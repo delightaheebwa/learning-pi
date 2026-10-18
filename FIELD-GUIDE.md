@@ -33,9 +33,8 @@ A practical guide to running your spaced-repetition learning system from the pi 
 | `/continue` | Resume a paused lesson at its next mini-checkpoint (no Scout needed) |
 | `/pause` | Stop cleanly: exit ticket, partial lesson file, bank progress via Clerk |
 | `/review` | Spaced-repetition review session (Review Scout builds the queue → up to 5 concepts → review-clerk persists) |
-| `/solo` | AI-free closed-book check (Review Scout builds the queue; teaching, hints, and figures are withheld by the gate; attempts recorded `mode:"solo"` to feed the independence gate) |
+| `/solo` | AI-free closed-book check (Review Scout builds the queue; teaching and hints are withheld by the gate; attempts recorded `mode:"solo"` to feed the independence gate) |
 | `/ingest <content or URL>` | Standalone ingest via Clerk (also used after a lesson handoff: `/ingest` with no args) |
-| `/show <concept>` | Ask for a verified visualization of a concept (or to play with one). Opt-in; teach/resume only. `/viz` reopens the interactive explorer or toggles auto-open |
 | `/audit` | Read-only state consistency audit (MISSION/CURRICULUM/Profile/Active Concepts/index); reports loudly, never writes |
 
 Skills are loaded automatically; you rarely call them by hand. If you want to force one:
@@ -113,34 +112,6 @@ Install/repair both with `~/learning-pi/omarchy/install.sh`.
 
 ---
 
-## Visualizations (opt-in)
-
-Visualizations are figures the Tutor draws in the terminal for a concept that a picture explains
-better than prose. They are **opt-in** and **teach/resume only** — the Tutor may offer once per
-mini-checkpoint ("want a picture of this?"), and you can ask anytime ("show me…", "let me play
-with…", or `/show <concept>`).
-
-- The `viz` subagent authors a **declarative spec** (data + labels only — plots, bars, tables,
-  diagrams), the `viz-audit` subagent verifies the spec *and* the words around it, and the figure is
-  emitted as its own `[[TURN:viz]]` message.
-- **There are two surfaces, both in the same terminal — no separate window or process:**
-  1. the **inline figure** — on an image-capable terminal (Ghostty/Kitty/WezTerm/iTerm2; the
-     `SUPER+SHIFT+L` launcher uses Ghostty) it is a **real image** rendered in the message, part of the
-     transcript you scroll back through. On foot/tmux it falls back to Unicode/braille art; and
-  2. the **explorer** — when the spec is interactive, a live panel `viz-mode` draws *centered over*
-     the chat, already running, no command to type. Drive it with the keyboard *or the mouse*: drag a
-     parameter slider, click the frame arrows, or click the plot to read a data point. `Esc` closes it
-     and returns you to the prompt; `/viz` reopens it. (Mouse events reach the panel in fullscreen TUI
-     mode, which the learning settings enable; every action also has a keyboard path.)
-- A `viz` spec can carry `params` + a `formula` (an arithmetic expression in `x` and the params) for
-  a relationship you can vary, `frames` for an algorithm stepped one stage at a time, and `arrows`
-  for vectors (e.g. eigenvectors). A spec with neither `params`+`formula` nor `frames` is static and
-  only shows the inline figure.
-- The spec travels as a ` ```viz ` JSON block in the message; the raw JSON is what gets stored, the
-  rendered figure is what you see. `/viz svg` exports the last figure as SVG and `/viz png` as PNG
-  under `Learning System/.tmp/viz/`; `/viz open` also opens the PNG in the desktop viewer.
-- In a `/review`, a visualization request is parked until the review's grading is done.
-
 ## 5. What the model emits (and why you won't see it)
 
 The Tutor is required to start every message with a **turn tag**, which the gate strips before it
@@ -151,7 +122,6 @@ reaches you:
 | `[[TURN:claims]]` | teaching / plan | a `fact-check` whose draft matches the text |
 | `[[TURN:quiz]]` | question batch | a PASS `quiz-audit` |
 | `[[TURN:grade]]` | grading your answer | an agreeing `grade-audit` |
-| `[[TURN:viz]]` | a visualization (a ` ```viz ` spec + supporting words) | a `viz-audit` whose spec matches the emitted block and whose draft covers the turn (missing → `NO_VIZ_AUDIT`) |
 | `[[TURN:none]]` | transitions, summaries | nothing |
 
 If the Tutor forgets the tag in **any teaching/review flow**, the gate won't dead-end the session
@@ -196,8 +166,6 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `NO_QUIZ_AUDIT_PASS` / `QUIZ_AUDIT_ISSUES` | questions not audited / leaked | fix and re-audit |
 | `QUIZ_AUDIT_STALE` / `GRADE_AUDIT_STALE` | a valid receipt exists but does not bind this message — either the emission differs from what was audited, or the dispatch envelope was the wrong shape (quiz: `items[]` instead of `questions_json`, or a questions-only envelope missing `rendered_content` = the full batch text; grade: no question/answer/verdict) so there is nothing to bind | re-emit the audited text, or re-dispatch the verifier with the correctly shaped envelope carrying the full batch in `rendered_content` (never re-audit an already-bound draft) |
 | `NO_GRADE_AUDIT_PASS` / `GRADE_MISMATCH` | grade unverified / conflicts with verifier | use the verifier's `correct_verdict` |
-| `NO_VIZ_AUDIT` / `VIZ_AUDIT_ISSUES` / `VIZ_AUDIT_STALE` | a viz turn's audit is missing / flagged / not bound to the emitted spec+words | dispatch ONE foreground `viz-audit` with `spec` + `rendered_content` = the full turn draft, then emit the audited draft unchanged |
-| `VIZ_SPEC_INVALID` / `VIZ_REQUIRES_OWN_TURN` | a viz turn has no parseable ` ```viz ` spec, or a viz block sits in a claims/none turn | re-emit as a standalone `[[TURN:viz]]` message with one valid spec |
 | `NO_REVIEW_GATE_PASS` / `REVIEW_GATE_ISSUES` | ingest review missing/flagged, or the receipt named no `target_files` | after the Clerk returns `CLERK_WRITES`, dispatch ONE independent `review-gate` with `target_files` naming the wiki pages it wrote |
 | `⚠️ INGEST GATE` | the review verdict was relayed by the Clerk's own output, not an independent `review-gate` run | dispatch a `review-gate` on the Clerk's writes before trusting the summary |
 | `⚠️ REVIEW GATE` / `⚠️ REVIEW SESSION GATE` / `⚠️ SCOUT AUDIT` | a review-family verdict carried no `evidence` list (what it read/checked) | treat the pass as unsubstantiated; re-run the gate so it names its evidence |
@@ -234,8 +202,8 @@ Set in `~/learning-pi/.pi/settings.json` (project scope only):
 | Role | Model |
 | --- | --- |
 | Tutor (your session) | `glm-5.3-flash` |
-| Scout / Clerk / Review Scout / Review Clerk / `viz` | `deepseek-v4.1-flash` |
-| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `viz-audit`) | `muse-spark-1.3-contributor` (high) |
+| Scout / Clerk / Review Scout / Review Clerk | `deepseek-v4.1-flash` |
+| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) / lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` |
 
 Verifiers run on preferred models for cost/availability, but this is a **default, not a guarantee** —

@@ -921,12 +921,6 @@ await fg('so1', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
 const soloTeach = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
 assert('solo flow withholds a teaching claims turn', blocked(soloTeach, 'SOLO_NO_TEACHING'));
 
-// A visualization in solo is withheld.
-await setPrompt('[[FLOW:solo]] solo check');
-const soloFence = '```viz\n{"viz":"1","kind":"bar","bars":[]}\n```';
-const soloViz = await msg(`[[TURN:viz]]\nA figure.\n${soloFence}`, 'stop');
-assert('solo flow withholds a visualization', blocked(soloViz, 'SOLO_NO_AIDS'));
-
 // The first solo quiz turn requires a review-scout run (deterministic queue).
 const soloQEnv = JSON.stringify({
   gate: 'quiz_audit',

@@ -121,11 +121,10 @@ its tagged test, change the implementation, all in one reviewed commit.
   naming a non-empty `omitted_foundations[]` (load-bearing theory in the sources
   with no trace in the draft) is an `ISSUES` verdict even when it also says PASS.
 - **G-solo-no-teaching** *(hard)* — in an AI-free solo flow (`[[FLOW:solo]]`) the
-  Tutor cannot teach or add aids: a claims turn is withheld (`SOLO_NO_TEACHING`)
-  and a viz turn is withheld (`SOLO_NO_AIDS`), so the learner's answers are
-  unassisted. A `none` transition carrying hard facts and a `grade` turn carrying
-  a fact-checked teaching/repair tail are withheld too, and `SOLO_*` is exempt
-  from the retry-cap dump (withheld outright, never delivered as `UNVERIFIED`).
+  Tutor cannot teach: a claims turn is withheld (`SOLO_NO_TEACHING`), so the
+  learner's answers are unassisted. A `none` transition carrying hard facts and a
+  `grade` turn carrying a fact-checked teaching/repair tail are withheld too, and
+  `SOLO_*` is exempt from the retry-cap dump (withheld outright, never delivered as `UNVERIFIED`).
   The block is enforced deterministically on both the legacy and judge paths. The
   closed-book quiz batch and grading render; the first content turn requires a
   `review-scout` run (deterministic queue); the close uses the same
@@ -221,23 +220,6 @@ its tagged test, change the implementation, all in one reviewed commit.
   `task: must be string` — still gets a bound receipt. The legacy `subagent`
   `workflow`/`args` forms are blocked and redirected to `dispatch`. Nothing in
   the prompt resources may spell a `subagent(` dispatch call.
-- **G-viz-turn-requires-audit** *(hard)* — a `[[TURN:viz]]` message renders only
-  with a passing, bound `viz-audit` receipt: missing → `NO_VIZ_AUDIT`, an
-  `ISSUES` verdict → `VIZ_AUDIT_ISSUES`, a valid-but-unbound receipt →
-  `VIZ_AUDIT_STALE`.
-- **G-viz-audit-binds-spec-and-prose** *(hard)* — a `viz-audit` receipt binds
-  only when its canonical `spec` equals the emitted fenced spec **and** its
-  `rendered_content` covers the emitted text; a different spec, or a
-  present-but-wrong-shape envelope missing the spec/`rendered_content`,
-  authorizes no emission.
-- **G-viz-standalone-turn** *(hard)* — a ```viz fence may only appear in a
-  `[[TURN:viz]]` message; a viz block inside a claims or transition turn is
-  withheld (`VIZ_REQUIRES_OWN_TURN`).
-- **G-viz-spec-valid** *(hard)* — a `[[TURN:viz]]` message with no parseable
-  ```viz JSON spec is withheld (`VIZ_SPEC_INVALID`).
-- **G-viz-infer-from-bound** *(hard)* — a dropped viz tag is recovered from a
-  bound `viz-audit` receipt (canonical spec match + prose coverage).
-
 ### The judge (model-based semantic decisions)
 
 The gate can run a **judge**: a model (Gemini `gemini-3.5-flash-lite`, with

@@ -24,7 +24,7 @@ import subprocess
 import sys
 import time
 
-EXPECTED_PROMPTS = {"teach", "lesson", "continue", "pause", "review", "ingest", "audit", "show"}
+EXPECTED_PROMPTS = {"teach", "lesson", "continue", "pause", "review", "ingest", "audit"}
 SENTINEL = "lp-load-probe"
 
 

@@ -19,7 +19,6 @@ export const VERIFIER_AGENTS: Record<string, string> = {
   "review-gate": "review",
   "tutor-audit": "tutor_audit",
   "review-session-audit": "review_session",
-  "viz-audit": "viz_audit",
   "scout-audit": "scout_audit",
 };
 
@@ -46,7 +45,7 @@ export const LENGTH_SLACK_TOKENS = 12;
 // `VERDICT_ONLY_MAX_RATIO` of the graded question text.
 export const VERDICT_ONLY_MIN_TOKENS = 12;
 export const VERDICT_ONLY_MAX_RATIO = 0.5;
-export const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|viz|none)\]\]\s*/i;
+export const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|none)\]\]\s*/i;
 export const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest|solo)\]\]/i;
 export const STATE_AUDIT_RE = /(\d+)\s+errors?\b[^\d]*(\d+)\s+warnings?/i;
 export const WRITE_TOOLS = new Set(["write", "edit"]);
@@ -84,9 +83,6 @@ export interface Receipt {
   // `foundationGaps`). Each beat is an excerpt of prose actually present in the
   // verified draft.
   foundation?: FoundationBlock;
-  // Canonical JSON of the verified visualization spec (viz_audit). A viz turn
-  // binds only when its emitted fenced spec canonicalizes to this value.
-  vizSpec?: string;
   // Content binding so an old PASS can't satisfy a new turn.
   questionsText?: string;
   gradeText?: string;
@@ -759,68 +755,6 @@ export function verdictOnlyGradeBinds(r: Receipt, emittedText: string): boolean 
 }
 
 /**
- * Fenced ` ```viz ` blocks in a message; returns the raw inner JSON strings.
- * The viz-mode extension renders these at display time; the gate uses them to
- * bind a `viz_audit` receipt to the exact spec that was audited.
- */
-export function extractVizFences(text: string): string[] {
-  const out: string[] = [];
-  if (typeof text !== "string") return out;
-  const re = /```viz[^\n]*\n([\s\S]*?)```/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    const body = m[1].trim();
-    if (body.length > 0) out.push(body);
-  }
-  return out;
-}
-
-/** Canonical JSON (recursively sorted keys, insignificant whitespace dropped). */
-export function canonicalJson(value: unknown): string {
-  const norm = (v: unknown): unknown => {
-    if (Array.isArray(v)) return v.map(norm);
-    if (v && typeof v === "object") {
-      const obj = v as Record<string, unknown>;
-      const out: Record<string, unknown> = {};
-      for (const key of Object.keys(obj).sort()) {
-        if (obj[key] === undefined) continue;
-        out[key] = norm(obj[key]);
-      }
-      return out;
-    }
-    return v;
-  };
-  return JSON.stringify(norm(value));
-}
-
-/**
- * Viz binding: a `viz_audit` receipt authorizes a `[[TURN:viz]]` only when the
- * emitted fenced spec canonicalizes to the audited spec AND the audit's
- * `rendered_content` covers the emitted text. A present-but-wrong-shape
- * envelope (no spec, or no rendered_content) binds nothing; only an
- * envelope-less async completion falls back to unbound.
- */
-export function vizBinds(r: Receipt, emittedText: string): boolean {
-  if (!r.hasEnvelope) return true;
-  if (!r.vizSpec || !r.renderedContent) return false;
-  const fences = extractVizFences(emittedText);
-  if (fences.length === 0) return false;
-  let match = false;
-  for (const f of fences) {
-    try {
-      if (canonicalJson(JSON.parse(f)) === r.vizSpec) {
-        match = true;
-        break;
-      }
-    } catch {
-      /* unparseable fence cannot bind */
-    }
-  }
-  if (!match) return false;
-  return contentMatches(r.renderedContent, emittedText);
-}
-
-/**
  * Whether a receipt names the artifacts it audited.
  *
  * The write gates (tutor-audit, review-session, review-gate) verify files, not
@@ -1083,7 +1017,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
   const cm = text.match(/"correct_verdict"\s*:\s*"(pass|fail)"/i);
   const am = text.match(/"agrees"\s*:\s*(true|false)/i);
   // Quiz binding: prefer the exact full batch text (`rendered_content`, mirroring
-  // the fact-check/viz full-draft rule) so the intro/instructions and options the
+  // the fact-check full-draft rule) so the intro/instructions and options the
   // learner sees are covered too. Fall back to the structured `questions_json`
   // for envelopes that omit it.
   const quizRendered =
@@ -1142,10 +1076,6 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     foundation:
       envelope && envelope.foundation && typeof envelope.foundation === "object" && !Array.isArray(envelope.foundation)
         ? (envelope.foundation as FoundationBlock)
-        : undefined,
-    vizSpec:
-      gate === "viz_audit" && envelope && envelope.spec && typeof envelope.spec === "object"
-        ? canonicalJson(envelope.spec)
         : undefined,
     questionsText: questionsText || undefined,
     gradeText: gradeText || undefined,
@@ -1390,6 +1320,5 @@ export const EXPECTED_ENVELOPE_GATE: Record<string, string> = {
   "review-gate": "review",
   "tutor-audit": "tutor_audit",
   "review-session-audit": "review_session",
-  "viz-audit": "viz_audit",
   "scout-audit": "scout_audit",
 };

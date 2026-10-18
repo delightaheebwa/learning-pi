@@ -28,7 +28,7 @@ and
 .BR e2e " [" \-\-scenario " " ID "] [" \-\-tier " smoke|full] [" \-\-flows " " a,b "] [" \-\-list "] [" \-\-keep "]"
 Replay short learner journeys against a sandboxed pi with the real models.
 Each scenario sends a real flow command
-.RB ( /teach ", " /review ", " /ingest ", " /show ", " /audit )
+.RB ( /teach ", " /review ", " /ingest ", " /audit )
 to an isolated copy of the layer, then checks the session transcript: the
 expected worker/verifier subagents must have run and finished clean, required
 receipts must appear, and the final turn must not be withheld. The real
