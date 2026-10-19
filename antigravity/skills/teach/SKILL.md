@@ -58,7 +58,7 @@ Teach an active curriculum topic or requested concept using the Guided Learning 
    Pause and wait for `verifier`'s `PASS` receipt before presenting the probe to the learner.
 4. When the learner answers:
    - Verify grades via `verifier` (`mode: "grade_audit"`).
-   - Log attempts via `python3 scripts/ops.py attempt ...`.
+   - Retain attempt records in conversation context for Clerk to log at lesson conclusion.
 
 ---
 
@@ -84,7 +84,7 @@ Follow the procedures in [pedagogy.md](./references/pedagogy.md):
 3. **Practice**:
    - At the end of each checkpoint, deliver a single practice item.
    - Grade the learner's reply using `verifier` (`mode: "grade_audit"`).
-   - Log attempts via `ops.py attempt --qtype <enum> --confidence <tag> --hints <count>`.
+   - Retain attempt metadata (qtype, confidence, hints) in conversation context.
    - Pause again after grading.
 
 ---
@@ -92,12 +92,19 @@ Follow the procedures in [pedagogy.md](./references/pedagogy.md):
 ## Step 4: Lesson End & Handoff
 
 1. **Cumulative Assessment**: Deliver a short 3–4 question quiz plus a mandatory Feynman explain-back for all `concept`/`design` types. Audit via `verifier` (`quiz_audit` and `grade_audit`).
-2. **Write Handoff Batch**: Write the 4 handoff files in a single pass:
-   - `Learning System/Lessons/Lesson — <slug> — <date>.md`
-   - `Learning System/Sessions/Session — <topic> — <date>.md`
-   - `Learning System/Learning Records/Record — <topic> — <date>.md`
-   - `Learning System/Core/Pending Ingest.json` (with `partial: false`, `status: "done"`, `concepts: [...]`, `mistakes: [...]`)
-3. **Handoff Audit**: Dispatch **`auditor`**:
+2. **Delegate Handoff Batch to Clerk**:
+   The Tutor focuses purely on teaching and writes no files to `Learning System/`. Dispatch **`clerk`**:
+   ```python
+   invoke_subagent(
+       Subagents=[{
+           "TypeName": "clerk",
+           "Role": "State Clerk",
+           "Prompt": "mode: 'lesson_handoff', topic: '<topic>', slug: '<slug>', concepts: [...], mistakes: [...], learner_quotes: {...}, attempts: [...], session_summary: '...'"
+       }]
+   )
+   ```
+   Wait for `CLERK_RECEIPT`.
+3. **Handoff Audit**: Dispatch **`auditor`** to verify Clerk's handoff files:
    ```python
    invoke_subagent(
        Subagents=[{

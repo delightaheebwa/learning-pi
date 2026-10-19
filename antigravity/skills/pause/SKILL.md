@@ -17,21 +17,19 @@ Stop a lesson cleanly at any mini-checkpoint, banking progress to disk without l
 
 ---
 
-## Step 1: Write Handoff Batch
+## Step 1: Delegate Handoff to Clerk
 
-Write the 4 partial handoff artifacts in a single pass:
-1. `Learning System/Lessons/Lesson — <slug> — <date>.md`:
-   - Keep status as `in-progress`.
-   - Record exact resume position: `Checkpoint N/M, mini K/L`.
-2. `Learning System/Sessions/Session — <topic> — <date>.md`:
-   - Summarize what was covered today, learner phrasings, and open questions.
-3. `Learning System/Learning Records/Record — <topic> — <date>.md`:
-   - Update concept mastery notes and attempt history.
-4. `Learning System/Core/Pending Ingest.json`:
-   - Set `"partial": true`.
-   - Set `"status": "in-progress"`.
-   - Set `"resume_from": "Checkpoint N/M, mini K/L"`.
-   - List touched concepts and recorded mistakes.
+The Tutor focuses purely on teaching and writes no files to `Learning System/`. Dispatch **`clerk`**:
+```python
+invoke_subagent(
+    Subagents=[{
+        "TypeName": "clerk",
+        "Role": "State Clerk",
+        "Prompt": "mode: 'pause_handoff', topic: '<topic>', slug: '<slug>', resume_from: 'Checkpoint N/M, mini K/L', partial: true, concepts: [...], mistakes: [...], attempts: [...]"
+    }]
+)
+```
+Wait for `CLERK_RECEIPT`.
 
 ---
 

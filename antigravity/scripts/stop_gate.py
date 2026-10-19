@@ -169,9 +169,11 @@ def main() -> None:
             )
             return
 
-    # Check 2: Handoff Writes (Lessons/, Sessions/, Pending Ingest.json)
+    # Check 2: Handoff Writes (Lessons/, Sessions/, Pending Ingest.json) via Clerk or direct
+    clerk_receipt = latest_receipts.get("CLERK_RECEIPT", {})
+    clerk_handoff = clerk_receipt.get("mode") in ("lesson_handoff", "pause_handoff")
     handoff_files = [f for f in written_files if any(p in f for p in ["Learning System/Lessons/", "Learning System/Sessions/", "Pending Ingest.json"])]
-    if handoff_files:
+    if handoff_files or clerk_handoff:
         auditor_receipt = latest_receipts.get("AUDITOR_RECEIPT")
         if not auditor_receipt or auditor_receipt.get("mode") != "tutor_audit":
             print(
@@ -179,7 +181,7 @@ def main() -> None:
                     {
                         "decision": "continue",
                         "reason": (
-                            "GATE: Handoff files were written. You must invoke the auditor subagent "
+                            "GATE: Lesson handoff writes completed. You must invoke the auditor subagent "
                             "(mode: 'tutor_audit') to verify file consistency before finishing this handoff."
                         ),
                     }
@@ -193,7 +195,7 @@ def main() -> None:
                         "decision": "continue",
                         "reason": (
                             "GATE: Tutor audit reported issues in handoff files. "
-                            "Correct the handoff files and re-audit before finishing."
+                            "Correct the handoff files with clerk and re-audit before finishing."
                         ),
                     }
                 )

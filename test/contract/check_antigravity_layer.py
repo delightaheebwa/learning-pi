@@ -117,6 +117,10 @@ def check_resources(root: Path) -> None:
             fail(f"resources: subagent {name}.md must have 'subagent: true'")
         if meta.get("mainAgent") is not False:
             fail(f"resources: subagent {name}.md must have 'mainAgent: false'")
+        if meta.get("model") != "flash":
+            fail(f"resources: subagent {name}.md must specify model: flash, got '{meta.get('model')}'")
+        else:
+            ok(f"resources: subagent {name}.md specifies model: flash")
 
         # Extract tools list
         tools = []
@@ -235,7 +239,7 @@ def test_hook_behaviors(root: Path) -> None:
         else:
             fail(f"behavior: pre_tool_gate should deny verifier write, got {res}")
 
-        # --- Test 2: pre_tool_gate denies Tutor writing Clerk-owned MISSION.md ---
+        # --- Test 2: pre_tool_gate denies Tutor writing to Learning System (pure teaching stance) ---
         transcript_tutor = tmp_path / "trans_tutor.jsonl"
         with open(transcript_tutor, "w") as f:
             f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach eigen"}) + "\n")
@@ -244,14 +248,27 @@ def test_hook_behaviors(root: Path) -> None:
         res = run_hook(
             pre_tool_script,
             {
-                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/Learning System/MISSION.md"}},
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/Learning System/Lessons/Lesson — 1.md"}},
                 "transcriptPath": str(transcript_tutor),
             },
         )
-        if res.get("decision") == "deny":
-            ok("behavior: pre_tool_gate denies Tutor writing Clerk-owned MISSION.md")
+        if res.get("decision") == "deny" and "TUTOR_PURE_TEACHING" in res.get("reason", ""):
+            ok("behavior: pre_tool_gate denies Tutor writing to Learning System (TUTOR_PURE_TEACHING)")
         else:
-            fail(f"behavior: pre_tool_gate should deny Tutor writing MISSION.md, got {res}")
+            fail(f"behavior: pre_tool_gate should deny Tutor writing lesson file, got {res}")
+
+        # --- Test 2b: pre_tool_gate denies Tutor running ops.py attempt ---
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "run_command", "args": {"CommandLine": "python3 scripts/ops.py attempt 'concept' pass"}},
+                "transcriptPath": str(transcript_tutor),
+            },
+        )
+        if res.get("decision") == "deny" and "TUTOR_PURE_TEACHING" in res.get("reason", ""):
+            ok("behavior: pre_tool_gate denies Tutor running ops.py attempt (TUTOR_PURE_TEACHING)")
+        else:
+            fail(f"behavior: pre_tool_gate should deny Tutor running attempt logging, got {res}")
 
         # --- Test 3: pre_tool_gate denies HTML widgets during solo flow ---
         transcript_solo = tmp_path / "trans_solo.jsonl"
@@ -351,6 +368,26 @@ def test_hook_behaviors(root: Path) -> None:
             ok("behavior: stop_gate requires auditor (tutor_audit) after handoff writes")
         else:
             fail(f"behavior: stop_gate should require tutor_audit on handoff writes, got {res}")
+
+        # --- Test 8b: stop_gate requires tutor_audit when clerk completes lesson_handoff ---
+        transcript_clerk_handoff = tmp_path / "trans_clerk_handoff.jsonl"
+        with open(transcript_clerk_handoff, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "finish lesson"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "[[FLOW:teach]] CLERK_RECEIPT: {\"mode\": \"lesson_handoff\", \"written_files\": [\"Learning System/Lessons/Lesson — 1.md\"], \"status\": \"done\"}\n"
+                    "Lesson completed and progress saved."
+                ),
+                "tool_calls": [],
+            }) + "\n")
+
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_clerk_handoff)})
+        if res.get("decision") == "continue":
+            ok("behavior: stop_gate requires auditor (tutor_audit) after clerk lesson_handoff receipt")
+        else:
+            fail(f"behavior: stop_gate should require tutor_audit on clerk handoff, got {res}")
 
         # --- Test 9: pre_tool_gate denies replace_file_content HTML widgets during solo flow ---
         res = run_hook(

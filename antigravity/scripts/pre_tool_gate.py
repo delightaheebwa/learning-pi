@@ -95,45 +95,32 @@ def main() -> None:
             )
             return
 
-    # Rule 3: Main Tutor/Reviewer session write discipline
+    # Rule 3: Main Tutor pure teaching stance (delegates all repository writes to Clerk)
     if agent_role == "tutor" and is_learning_flow:
-        clerk_owned_markers = [
-            "Learning System/MISSION.md",
-            "Learning System/CURRICULUM.md",
-            "Learning System/Core/📚 Active Concepts.md",
-            "Learning System/Core/🧯 Mistakes.md",
-            "Learning System/Core/Learner History.md",
-            "Learning System/Core/💡 Learning Profile.md",
-            "Knowledge Wiki/wiki/",
-            "Knowledge Wiki/index.md",
-            "Knowledge Wiki/log.md",
-            "Learning System/Reviews/",
-        ]
         if tool_name in ("write_to_file", "replace_file_content"):
             target = tool_args.get("TargetFile", "")
-            for marker in clerk_owned_markers:
-                if marker in target:
-                    print(
-                        json.dumps(
-                            {
-                                "decision": "deny",
-                                "reason": (
-                                    f"Tutor write discipline: '{marker}' is owned exclusively by the clerk subagent. "
-                                    "Mid-lesson state lives in conversation context; durable persistence must be delegated to clerk."
-                                ),
-                            }
-                        )
-                    )
-                    return
-
-        if tool_name == "run_command":
-            cmd = tool_args.get("CommandLine", "")
-            if "ops.py apply" in cmd or ("git commit" in cmd and "Learning System" in cmd):
+            if "Learning System/" in target or "Knowledge Wiki/" in target:
                 print(
                     json.dumps(
                         {
                             "decision": "deny",
-                            "reason": "Tutor write discipline: Direct state application and git commits are owned by the clerk subagent.",
+                            "reason": (
+                                "TUTOR_PURE_TEACHING: Tutor focuses purely on teaching and does not write to the learning repository. "
+                                "All lesson notes, sessions, records, pending ingest files, and state updates must be delegated to the 'clerk' subagent."
+                            ),
+                        }
+                    )
+                )
+                return
+
+        if tool_name == "run_command":
+            cmd = tool_args.get("CommandLine", "")
+            if "ops.py attempt" in cmd or "ops.py apply" in cmd or "git commit" in cmd:
+                print(
+                    json.dumps(
+                        {
+                            "decision": "deny",
+                            "reason": "TUTOR_PURE_TEACHING: Attempt logging, state mutation, and git commits are owned exclusively by the clerk subagent.",
                         }
                     )
                 )
