@@ -40,9 +40,11 @@ Write the 4 partial handoff artifacts in a single pass:
 1. Dispatch the **`auditor`** subagent to inspect the handoff writes:
    ```python
    invoke_subagent(
-       TypeName="auditor",
-       Role="Tutor Auditor",
-       Prompt="mode: 'tutor_audit', flow: 'pause', files: ['Learning System/Lessons/...', 'Learning System/Sessions/...', 'Learning System/Learning Records/...', 'Learning System/Core/Pending Ingest.json']"
+       Subagents=[{
+           "TypeName": "auditor",
+           "Role": "Tutor Auditor",
+           "Prompt": "mode: 'tutor_audit', flow: 'pause', files: ['Learning System/Lessons/...', 'Learning System/Sessions/...', 'Learning System/Learning Records/...', 'Learning System/Core/Pending Ingest.json']"
+       }]
    )
    ```
 2. Wait for a passing `AUDITOR_RECEIPT`.

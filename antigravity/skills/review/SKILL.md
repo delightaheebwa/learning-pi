@@ -16,9 +16,11 @@ Conduct a spaced-repetition review session on your active learning track using t
 3. Dispatch the **`scout`** subagent to build the due queue:
    ```python
    invoke_subagent(
-       TypeName="scout",
-       Role="Review Scout",
-       Prompt="mode: 'review', track: '<track>'"
+       Subagents=[{
+           "TypeName": "scout",
+           "Role": "Review Scout",
+           "Prompt": "mode: 'review', track: '<track>'"
+       }]
    )
    ```
    Pause and await `scout`'s wakeup response with `REVIEW_SCOUT_RECEIPT`.
@@ -36,9 +38,11 @@ Conduct a spaced-repetition review session on your active learning track using t
 3. **Verify Batch**:
    ```python
    invoke_subagent(
-       TypeName="verifier",
-       Role="Quiz Auditor",
-       Prompt="mode: 'quiz_audit', purpose: 'review', questions: [...], draft: '...'"
+       Subagents=[{
+           "TypeName": "verifier",
+           "Role": "Quiz Auditor",
+           "Prompt": "mode: 'quiz_audit', purpose: 'review', questions: [...], draft: '...'"
+       }]
    )
    ```
    Pause and wait for `verifier`'s `PASS` receipt before presenting the questions.
@@ -55,9 +59,11 @@ Conduct a spaced-repetition review session on your active learning track using t
 2. **Verify Grades**:
    ```python
    invoke_subagent(
-       TypeName="verifier",
-       Role="Grade Verifier",
-       Prompt="mode: 'grade_audit', items: [ {id: 1, concept: '...', question: '...', learner_answer: '...', claimed_verdict: 'pass|fail', source_excerpt: '...'}, ... ]"
+       Subagents=[{
+           "TypeName": "verifier",
+           "Role": "Grade Verifier",
+           "Prompt": "mode: 'grade_audit', items: [ {id: 1, concept: '...', question: '...', learner_answer: '...', claimed_verdict: 'pass|fail', source_excerpt: '...'}, ... ]"
+       }]
    )
    ```
    Pause and await the verifier's `correct_verdict`. If the verifier disagrees, use the verifier's verdict.
@@ -72,18 +78,22 @@ The Reviewer session writes **no state files directly**.
 1. **Dispatch Clerk**:
    ```python
    invoke_subagent(
-       TypeName="clerk",
-       Role="State Clerk",
-       Prompt="mode: 'review_close', track: '<track>', grade_verdicts: [...], transcript: '...'"
+       Subagents=[{
+           "TypeName": "clerk",
+           "Role": "State Clerk",
+           "Prompt": "mode: 'review_close', track: '<track>', grade_verdicts: [...], transcript: '...'"
+       }]
    )
    ```
    Wait for `clerk` to log attempts, update `Active Concepts.md` and `Mistakes.md`, write `Reviews/` and `Sessions/` notes, run `audit_state.py`, and commit state.
 2. **Dispatch Auditor**:
    ```python
    invoke_subagent(
-       TypeName="auditor",
-       Role="Session Auditor",
-       Prompt="mode: 'review_session_audit', concepts: [...], grade_verdicts: [...], written_files: [...]"
+       Subagents=[{
+           "TypeName": "auditor",
+           "Role": "Session Auditor",
+           "Prompt": "mode: 'review_session_audit', concepts: [...], grade_verdicts: [...], written_files: [...]"
+       }]
    )
    ```
    Wait for `auditor`'s `PASS` receipt.

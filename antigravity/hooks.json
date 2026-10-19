@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ./scripts/pre_tool_gate.py",
+            "command": "[ -f ./.agents/scripts/pre_tool_gate.py ] && python3 ./.agents/scripts/pre_tool_gate.py || python3 ./scripts/pre_tool_gate.py",
             "timeout": 10
           }
         ]
@@ -17,7 +17,7 @@
     "Stop": [
       {
         "type": "command",
-        "command": "python3 ./scripts/stop_gate.py",
+        "command": "[ -f ./.agents/scripts/stop_gate.py ] && python3 ./.agents/scripts/stop_gate.py || python3 ./scripts/stop_gate.py",
         "timeout": 15
       }
     ]

@@ -18,9 +18,11 @@ Teach an active curriculum topic or requested concept using the Guided Learning 
    - If no valid digest exists, dispatch the **`scout`** subagent:
      ```python
      invoke_subagent(
-         TypeName="scout",
-         Role="Source Scout",
-         Prompt="mode: 'lesson', topic: '<topic>', slug: '<slug>'"
+         Subagents=[{
+             "TypeName": "scout",
+             "Role": "Source Scout",
+             "Prompt": "mode: 'lesson', topic: '<topic>', slug: '<slug>'"
+         }]
      )
      ```
    - End your turn and wait for `scout`'s wakeup response.
@@ -28,9 +30,11 @@ Teach an active curriculum topic or requested concept using the Guided Learning 
    - When `scout` returns with `SCOUT_RECEIPT`, dispatch **`auditor`** to verify source completeness:
      ```python
      invoke_subagent(
-         TypeName="auditor",
-         Role="Scout Auditor",
-         Prompt="mode: 'scout_audit', digest: '<path>', raw_files: [...]"
+         Subagents=[{
+             "TypeName": "auditor",
+             "Role": "Scout Auditor",
+             "Prompt": "mode: 'scout_audit', digest: '<path>', raw_files: [...]"
+         }]
      )
      ```
    - If `auditor` flags issues, surface them with `⚠️ SCOUT AUDIT FLAGS SURFACED` and proceed with the lesson context.
@@ -44,9 +48,11 @@ Teach an active curriculum topic or requested concept using the Guided Learning 
 3. **Verify with Subagent**:
    ```python
    invoke_subagent(
-       TypeName="verifier",
-       Role="Quiz Verifier",
-       Prompt="mode: 'quiz_audit', purpose: 'probe', questions: [...], draft: '...'"
+       Subagents=[{
+           "TypeName": "verifier",
+           "Role": "Quiz Verifier",
+           "Prompt": "mode: 'quiz_audit', purpose: 'probe', questions: [...], draft: '...'"
+       }]
    )
    ```
    Pause and wait for `verifier`'s `PASS` receipt before presenting the probe to the learner.
@@ -94,9 +100,11 @@ Follow the procedures in [pedagogy.md](./references/pedagogy.md):
 3. **Handoff Audit**: Dispatch **`auditor`**:
    ```python
    invoke_subagent(
-       TypeName="auditor",
-       Role="Tutor Auditor",
-       Prompt="mode: 'tutor_audit', flow: 'lesson-end', files: [...]"
+       Subagents=[{
+           "TypeName": "auditor",
+           "Role": "Tutor Auditor",
+           "Prompt": "mode: 'tutor_audit', flow: 'lesson-end', files: [...]"
+       }]
    )
    ```
    Wait for a passing receipt.

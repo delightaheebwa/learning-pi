@@ -26,11 +26,12 @@ def main() -> None:
         return
 
     # If background tasks or subagents are actively running, allow yielding to wait
-    if payload.get("fullyIdle") is False:
+    fully_idle = payload.get("fullyIdle") if "fullyIdle" in payload else payload.get("fully_idle", True)
+    if fully_idle is False:
         print(json.dumps({"decision": "allow"}))
         return
 
-    transcript_path = payload.get("transcriptPath", "")
+    transcript_path = payload.get("transcriptPath") or payload.get("transcript_path") or ""
     if not transcript_path or not os.path.isfile(transcript_path):
         print(json.dumps({"decision": "allow"}))
         return
@@ -105,9 +106,11 @@ def main() -> None:
             name = tc.get("name", "")
             args = tc.get("args", {})
             if name == "invoke_subagent":
-                subagents = args.get("Subagents", [])
-                for sa in subagents:
-                    invoked_subagents.add(sa.get("TypeName"))
+                if "TypeName" in args:
+                    invoked_subagents.add(args["TypeName"])
+                for sa in args.get("Subagents", []):
+                    if isinstance(sa, dict) and "TypeName" in sa:
+                        invoked_subagents.add(sa.get("TypeName"))
             elif name in ("write_to_file", "replace_file_content"):
                 tf = args.get("TargetFile", "")
                 if tf:

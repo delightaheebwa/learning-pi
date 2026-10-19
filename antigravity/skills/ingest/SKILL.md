@@ -26,9 +26,11 @@ Ingest notes, articles, or lesson handoffs into your personal Knowledge Wiki and
 1. Dispatch the **`clerk`** subagent:
    ```python
    invoke_subagent(
-       TypeName="clerk",
-       Role="State Clerk",
-       Prompt="mode: 'ingest', source: 'Pending Ingest.json' /* or raw content */"
+       Subagents=[{
+           "TypeName": "clerk",
+           "Role": "State Clerk",
+           "Prompt": "mode: 'ingest', source: 'Pending Ingest.json' /* or raw content */"
+       }]
    )
    ```
    Pause and await `clerk`'s completion.
@@ -41,9 +43,11 @@ Ingest notes, articles, or lesson handoffs into your personal Knowledge Wiki and
 1. When `clerk` returns `CLERK_RECEIPT`, dispatch **`auditor`** to review the newly written wiki pages:
    ```python
    invoke_subagent(
-       TypeName="auditor",
-       Role="Wiki Auditor",
-       Prompt="mode: 'review_gate', target_files: ['Knowledge Wiki/wiki/<page>.md', ...]"
+       Subagents=[{
+           "TypeName": "auditor",
+           "Role": "Wiki Auditor",
+           "Prompt": "mode: 'review_gate', target_files: ['Knowledge Wiki/wiki/<page>.md', ...]"
+       }]
    )
    ```
    Pause and await `auditor`'s verdict.

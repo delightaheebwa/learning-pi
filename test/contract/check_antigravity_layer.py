@@ -352,6 +352,26 @@ def test_hook_behaviors(root: Path) -> None:
         else:
             fail(f"behavior: stop_gate should require tutor_audit on handoff writes, got {res}")
 
+        # --- Test 9: pre_tool_gate denies replace_file_content HTML widgets during solo flow ---
+        res = run_hook(
+            pre_tool_script,
+            {
+                "tool_call": {"name": "replace_file_content", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcript_path": str(transcript_solo),
+            },
+        )
+        if res.get("decision") == "deny":
+            ok("behavior: pre_tool_gate denies replace_file_content HTML widget in /solo mode (snake_case payload)")
+        else:
+            fail(f"behavior: pre_tool_gate should deny replace_file_content widgets in solo mode, got {res}")
+
+        # --- Test 10: stop_gate allows when fully_idle=false (snake_case payload) ---
+        res = run_hook(stop_script, {"fully_idle": False, "transcript_path": str(transcript_tutor)})
+        if res.get("decision") == "allow":
+            ok("behavior: stop_gate allows yielding turn when fully_idle=false (snake_case payload)")
+        else:
+            fail(f"behavior: stop_gate should allow when fully_idle=false, got {res}")
+
 
 def main() -> None:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()

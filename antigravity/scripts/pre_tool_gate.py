@@ -25,10 +25,10 @@ def main() -> None:
         print(json.dumps({"decision": "allow", "reason": f"hook error: {exc}"}))
         return
 
-    tool_call = payload.get("toolCall", {})
+    tool_call = payload.get("toolCall") or payload.get("tool_call") or {}
     tool_name = tool_call.get("name", "")
     tool_args = tool_call.get("args", {})
-    transcript_path = payload.get("transcriptPath", "")
+    transcript_path = payload.get("transcriptPath") or payload.get("transcript_path") or ""
 
     if not transcript_path or not os.path.isfile(transcript_path):
         print(json.dumps({"decision": "allow"}))
@@ -82,7 +82,7 @@ def main() -> None:
             return
 
     # Rule 2: In solo mode, no HTML widgets may be created
-    if is_solo and tool_name == "write_to_file":
+    if is_solo and tool_name in ("write_to_file", "replace_file_content"):
         target = tool_args.get("TargetFile", "")
         if target.endswith(".html"):
             print(

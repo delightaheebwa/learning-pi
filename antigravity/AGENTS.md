@@ -45,7 +45,7 @@ To guarantee that the learner is never bluffed or shown unverified claims, quest
 ### Phase 1: Dispatch Verifier (Silent Pause)
 Before emitting any teaching explanation, Socratic hint, question batch, grade verdict, or interactive widget:
 1. Formulate your draft internally.
-2. Call `invoke_subagent(TypeName="verifier", Role="Content Verifier", Prompt=...)` with the structured verification task (mode, draft text, claims, foundation beats, source URLs, raw files, or question items/grades).
+2. Call `invoke_subagent(Subagents=[{"TypeName": "verifier", "Role": "Content Verifier", "Prompt": ...}])` with the structured verification task (mode, draft text, claims, foundation beats, source URLs, raw files, or question items/grades).
 3. **Stop calling tools immediately to end your turn without outputting the unverified lesson content.** You may emit only a brief status line (e.g. *"Verifying step against sources..."*) while the subagent runs.
 
 ### Phase 2: Deliver Verified Content (On Wakeup)

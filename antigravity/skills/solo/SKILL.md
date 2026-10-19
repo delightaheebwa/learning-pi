@@ -25,9 +25,11 @@ An AI-free closed-book assessment. Evaluates your true retention and independent
 2. Dispatch **`scout`** to compute the due queue:
    ```python
    invoke_subagent(
-       TypeName="scout",
-       Role="Review Scout",
-       Prompt="mode: 'review', track: '<track>'"
+       Subagents=[{
+           "TypeName": "scout",
+           "Role": "Review Scout",
+           "Prompt": "mode: 'review', track: '<track>'"
+       }]
    )
    ```
    Wait for `REVIEW_SCOUT_RECEIPT`.
@@ -57,9 +59,11 @@ An AI-free closed-book assessment. Evaluates your true retention and independent
 1. Dispatch **`clerk`** with the verdicts, instructing it to log attempts with `--mode solo`:
    ```python
    invoke_subagent(
-       TypeName="clerk",
-       Role="State Clerk",
-       Prompt="mode: 'review_close', track: '<track>', grade_verdicts: [...], solo_mode: true"
+       Subagents=[{
+           "TypeName": "clerk",
+           "Role": "State Clerk",
+           "Prompt": "mode: 'review_close', track: '<track>', grade_verdicts: [...], solo_mode: true"
+       }]
    )
    ```
    This ensures passed attempts feed the concept's independence score in `ops.py mastery`.
