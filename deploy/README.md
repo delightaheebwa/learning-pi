@@ -164,14 +164,23 @@ cache the old shell until a hard refresh.
   `deploy/.env` and restart Open WebUI so no one else can self-register.
 - Keep `WEBUI_SECRET_KEY` long, random, and stable (rotating it logs everyone out).
 
-## Optional: searxng web search
+## Web search
+
+The base stack enables Open WebUI's web-search toggle with the keyless
+**DuckDuckGo** engine, so search works without another container. Queries leave
+the machine to DuckDuckGo; set `ENABLE_RAG_WEB_SEARCH=false` in `deploy/.env` to
+turn the feature off.
+
+For private search, run the optional searxng profile instead:
 
 ```sh
-# in deploy/.env: set SEARXNG_SECRET (openssl rand -hex 32) and ENABLE_RAG_WEB_SEARCH=true
+# in deploy/.env: set SEARXNG_SECRET (openssl rand -hex 32)
 sudo docker compose -f docker-compose.yml -f docker-compose.search.yml up -d
 ```
 
-searxng has no host-port publish; Open WebUI reaches it at
+`docker-compose.search.yml` overrides `RAG_WEB_SEARCH_ENGINE` to `searxng`
+(service-level environment wins over the base default). searxng has no
+host-port publish; Open WebUI reaches it at
 `http://searxng:8080/search?q=<query>` on `pi-net`. `searxng/settings.yml` is
 mounted read-only and enables the **JSON** output format Open WebUI requires
 (the stock image serves `html` only and returns HTTP 403 for `format=json`);

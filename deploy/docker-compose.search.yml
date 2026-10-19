@@ -1,16 +1,24 @@
-# Optional searxng web search for Open WebUI (Phase 3).
+# Private searxng web search for Open WebUI (Phase 3).
 #
-# Not started by default. Launch it alongside the base stack:
+# The base stack already enables web search with keyless DuckDuckGo; start this
+# profile to switch that engine to the private, self-hosted searxng instance:
 #   1. set SEARXNG_SECRET in deploy/.env        (openssl rand -hex 32)
-#   2. set ENABLE_RAG_WEB_SEARCH=true in deploy/.env (or via the UI)
-#   3. docker compose -f docker-compose.yml -f docker-compose.search.yml up -d
+#   2. docker compose -f docker-compose.yml -f docker-compose.search.yml up -d
 #
+# Note: set ENABLE_RAG_WEB_SEARCH=false in deploy/.env to turn web search off.
 # searxng is only reachable on the private pi-net network; it publishes no host
 # port. Split into its own file so the base stack never demands SEARXNG_SECRET.
 #
 # search/settings.yml enables the JSON output format Open WebUI needs (the stock
 # image allows html only, which makes Open WebUI's web search fail with 403).
 services:
+  # Switch Open WebUI's search engine to the private instance by default. This
+  # service block is merged into the base compose file; an explicit
+  # RAG_WEB_SEARCH_ENGINE in deploy/.env still wins.
+  open-webui:
+    environment:
+      RAG_WEB_SEARCH_ENGINE: ${RAG_WEB_SEARCH_ENGINE:-searxng}
+
   searxng:
     image: searxng/searxng:latest@sha256:b4e34a39f76b1c860bbc53a0f35b10492029b2b18ef1d868df464fe43d7e0b93
     container_name: searxng

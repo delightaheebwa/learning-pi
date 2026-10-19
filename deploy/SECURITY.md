@@ -12,6 +12,12 @@ your login. This deployment is built to keep the blast radius local.
 | pi-bridge | `172.17.0.1:8790` (Docker default bridge gateway) | host + local containers |
 | searxng (optional) | private `pi-net` address, no host port | `pi-net` containers |
 
+Web search is enabled by default with keyless DuckDuckGo: search queries leave
+this machine to DuckDuckGo. Set `ENABLE_RAG_WEB_SEARCH=false` in `deploy/.env`
+to disable it, or run the searxng profile to proxy queries through the
+self-hosted searxng instance on `pi-net` (upstream engines are still queried,
+but the browser no longer talks to them directly).
+
 Neither the bridge nor Open WebUI is published to the LAN. Do not bind either to
 `0.0.0.0`. ufw (enabled by default on this machine) denies incoming traffic from
 the LAN; the only opening is the narrow rule in the README that lets docker
