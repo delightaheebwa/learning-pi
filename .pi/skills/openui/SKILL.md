@@ -91,17 +91,17 @@ Hard widget rules:
 
 When the topic rewards exploration, compose one small surface instead of a single element:
 
-- **Dashboard**: a `Card` with a `CardHeader`, a one-line `TextContent` or `Callout` summary, one
-  chart (`BarChart`/`LineChart`), and optionally a `Table` for exact values. Pair the chart with the
-  one number that matters — do not stack every chart the data could support.
+- **Summary + chart**: a single root `Card` with a `CardHeader`, a one-line `TextContent` or
+  `Callout` summary, one chart (`BarChart`/`LineChart`), and optionally a `Table` for exact values.
+  Pair the chart with the one number that matters — do not stack every chart the data could support.
 - **Progressive disclosure**: `Tabs` for parallel views (overview / detail / edge cases),
   `Accordion` for optional depth, `SectionBlock(sections, true)` for a long appendix. Default to the
   summary; depth on demand. Never hide the idea being taught.
 - **Form → one follow-up**: put the fields in a `Form` with one submit `Button`. The shell appends
-  the submitted values to the message as `Form data:`, so the learner answers once and the next turn
-  receives every choice.
-- **Comparison**: put the two options in one `Table`, or in two `Card`s under a shared `CardHeader`,
-  with identical columns/units so the difference is the only variable.
+  the submitted values to the message as `Form data:` (or `Form data (<name>):` when the `Form` is
+  named), so the learner answers once and the next turn receives every choice.
+- **Comparison**: put the two options in one `Table`, or in two nested `Card`s inside the single root
+  `Card`, below one `CardHeader`, with identical columns/units so the difference is the only variable.
 - **Drill-down**: `FollowUpBlock` items that name the selected value, so each click opens a narrower
   explanation.
 
