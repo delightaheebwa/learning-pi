@@ -78,7 +78,10 @@ literal text, so the shell is a served document. The pinned, MIT
 `/static/openui`). The verified payload rides in the URL fragment — not an HTTP
 request body, but persisted as chat embed metadata alongside the transcript, so it
 is declarative OpenUI Lang only. `deploy/docker-compose.yml` pins `IFRAME_CSP`
-(`connect-src 'none'`, no CDN). See `docs/plans/intelligent-ui/`.
+(`connect-src 'none'`, no CDN). The shell follows OS light/dark (the opaque-origin
+iframe cannot read Open WebUI's in-app theme), re-measures on resize/fonts/disclosure,
+and falls back to `execCommand` when the sandbox denies the Clipboard API. See
+`docs/plans/intelligent-ui/`.
 
 Enable it with `--openwebui-base-url` (or `PI_BRIDGE_OPENWEBUI_BASE_URL`) and a
 user API key (Settings → Account → API Keys) in `--openwebui-key-file` /

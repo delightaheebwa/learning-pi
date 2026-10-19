@@ -135,6 +135,14 @@ CSP names the loopback host(s); if you reach Open WebUI through another host (Ta
 reverse proxy, a domain), re-run the installer with `--base-url` set to that browser-facing
 URL so the shell allows its own scripts.
 
+Because the iframe is opaque-origin, the shell cannot read Open WebUI's in-app theme; it
+follows the OS `prefers-color-scheme` instead (`data-openui-theme` is set from
+`matchMedia`). It also re-measures height on resize, font load, disclosure toggles and
+chart changes, gives the bundle's copy buttons an `execCommand` fallback, and ships
+keyboard-focus and invalid-input styles. Re-running the installer rewrites
+`widget.html`/`widget.js` in place; the pinned bundle is untouched, but a browser may
+cache the old shell until a hard refresh.
+
 ## Keep the bridge private
 
 - `pi-bridge.env` sets `PI_BRIDGE_HOST=172.17.0.1` (Docker's default bridge

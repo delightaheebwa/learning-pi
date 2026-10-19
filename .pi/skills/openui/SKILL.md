@@ -87,6 +87,28 @@ Hard widget rules:
 - **Deterministic.** Same payload renders the same thing; no randomness.
 - **One widget per turn.** A second figure is a second turn.
 
+## Composition patterns
+
+When the topic rewards exploration, compose one small surface instead of a single element:
+
+- **Dashboard**: a `Card` with a `CardHeader`, a one-line `TextContent` or `Callout` summary, one
+  chart (`BarChart`/`LineChart`), and optionally a `Table` for exact values. Pair the chart with the
+  one number that matters — do not stack every chart the data could support.
+- **Progressive disclosure**: `Tabs` for parallel views (overview / detail / edge cases),
+  `Accordion` for optional depth, `SectionBlock(sections, true)` for a long appendix. Default to the
+  summary; depth on demand. Never hide the idea being taught.
+- **Form → one follow-up**: put the fields in a `Form` with one submit `Button`. The shell appends
+  the submitted values to the message as `Form data:`, so the learner answers once and the next turn
+  receives every choice.
+- **Comparison**: put the two options in one `Table`, or in two `Card`s under a shared `CardHeader`,
+  with identical columns/units so the difference is the only variable.
+- **Drill-down**: `FollowUpBlock` items that name the selected value, so each click opens a narrower
+  explanation.
+
+State does not survive a reload: tabs, sliders, and form entries reset because the payload is
+re-parsed. Anything the learner must keep has to ride in the follow-up text. The iframe follows the
+OS light/dark preference; do not assume a white background.
+
 ## Hard rules
 
 - The emitted ` ```openui ` payload must be **byte-for-byte** the payload the `ui-audit` audited (the
