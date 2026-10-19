@@ -40,9 +40,12 @@ services:
       # Pre-wire the pi-bridge as the OpenAI connection (same key as the bridge).
       OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-http://host.docker.internal:8790/v1}
       OPENAI_API_KEY: ${PI_BRIDGE_API_KEY:?set PI_BRIDGE_API_KEY in deploy/.env}
-      # searxng web search — only meaningful when started with docker-compose.search.yml
-      ENABLE_RAG_WEB_SEARCH: ${ENABLE_RAG_WEB_SEARCH:-false}
-      RAG_WEB_SEARCH_ENGINE: searxng
+      # Web search for the chat UI. Defaults to keyless DuckDuckGo so the
+      # search toggle works out of the box; start docker-compose.search.yml to
+      # switch to the private self-hosted searxng engine (that file overrides
+      # RAG_WEB_SEARCH_ENGINE). Set ENABLE_RAG_WEB_SEARCH=false to disable.
+      ENABLE_RAG_WEB_SEARCH: ${ENABLE_RAG_WEB_SEARCH:-true}
+      RAG_WEB_SEARCH_ENGINE: ${RAG_WEB_SEARCH_ENGINE:-duckduckgo}
       SEARXNG_QUERY_URL: ${SEARXNG_QUERY_URL:-http://searxng:8080/search?q=<query>}
       # CSP injected into sandboxed iframe documents (Artifacts previews etc.).
       # The OpenUI bundle is self-hosted same-origin, so no CDN origin is needed;
