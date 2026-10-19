@@ -42,10 +42,10 @@ All workflows are available as native slash commands in the Antigravity Desktop 
 
 When running in Antigravity Desktop, 4 custom subagents are defined in `.agents/agents/` and invoked via `invoke_subagent`:
 
-1. **`scout`** (`model: flash`): Fetches live curriculum docs + Further Reading URLs, persists raw text under `Knowledge Wiki/raw/sources/` with SHA-256 headers, scans contradictions, and builds the deterministic `ops.py queue`.
-2. **`verifier`** (`model: pro`): Independent read-only gatekeeper. Checks teaching claims against raw sources, verifies the 4 theoretical foundation beats (`problem`, `where_from`, `conditions`, `contrast`), flags omitted source theory (`omitted_foundations`), audits MCQ distractor subtlety, verifies grades against the Feynman rubric, and audits interactive HTML widgets.
-3. **`clerk`** (`model: flash`): Owns all durable state writes (`Knowledge Wiki/wiki/`, `Active Concepts.md`, `Attempts.json`, `Mistakes.md`), preserves learner understanding notes verbatim (`status=learner-note`), runs `audit_state.py`, and commits state files to git.
-4. **`auditor`** (`model: pro`): Independent read-only post-write auditor. Validates scout digests (`scout_audit`), handoff file batches (`tutor_audit`), wiki ingests (`review_gate`), and review session closes (`review_session_audit`).
+1. **`scout`** (`model: flash` - Gemini 3.8 Flash, medium effort): Fetches live curriculum docs + Further Reading URLs, persists raw text under `Knowledge Wiki/raw/sources/` with SHA-256 headers, scans contradictions, and builds the deterministic `ops.py queue`.
+2. **`verifier`** (`model: flash` - Gemini 3.8 Flash, medium effort): Independent read-only gatekeeper. Checks teaching claims against raw sources, verifies the 4 theoretical foundation beats (`problem`, `where_from`, `conditions`, `contrast`), flags omitted source theory (`omitted_foundations`), audits MCQ distractor subtlety, verifies grades against the Feynman rubric, and audits interactive HTML widgets.
+3. **`clerk`** (`model: flash` - Gemini 3.8 Flash, medium effort): Owns all repository writes: writes lesson and pause handoffs (`lesson_handoff`, `pause_handoff`), updates `Knowledge Wiki/wiki/`, `Active Concepts.md`, `Attempts.json`, and `Mistakes.md`, preserves learner understanding notes verbatim (`status=learner-note`), runs `audit_state.py`, and commits state files to git so Tutor stays focused purely on teaching.
+4. **`auditor`** (`model: flash` - Gemini 3.8 Flash, medium effort): Independent read-only post-write auditor. Validates scout digests (`scout_audit`), clerk handoff file batches (`tutor_audit`), wiki ingests (`review_gate`), and review session closes (`review_session_audit`).
 
 You can monitor subagent execution in real time by clicking into the **Subagents** panel on the right side of Antigravity Desktop.
 

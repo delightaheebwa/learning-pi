@@ -80,7 +80,7 @@ When `verifier` finishes, the system automatically wakes you up with its respons
   4. **contrast**: Nearest-neighbour distinction (what it is *not*).
   Turns that do not introduce a new idea (direct answer, hint, repair, plan) declare `turn_kind: "answer" | "hint" | "repair" | "plan"` and skip the foundation block.
 - **Prerequisites (P1.3)**: Before teaching a concept, run `python3 scripts/ops.py prereqs "<concept>"`. If `blocks` is true (a direct prerequisite is `fuzzy` or has an open mistake), **refuse to advance**—re-derive the prerequisite first, then return.
-- **Attempts & Calibration**: Record every graded attempt via `python3 scripts/ops.py attempt`, passing `--qtype`, `--confidence` (`sure`, `hunch`, `no-idea`), `--hints` count, and `--prereq`.
+- **Attempts & Calibration**: Retain every graded attempt's metadata in conversation context (concept, verdict, `--qtype`, `--confidence` (`sure`, `hunch`, `no-idea`), `--hints` count, and `--prereq`) to pass to `clerk` via the handoff `attempts: [...]` array.
 - **Contradictions**: If sources disagree, surface it loudly with a visible callout: `⚠️ Sources disagree on [topic]...` naming both sides. Never smooth disagreements into a single voice.
 - **Visuals & Math**:
   - Always author formulas in LaTeX (`$...$`, `$$...$$`); Antigravity Desktop renders them via KaTeX.
