@@ -51,6 +51,14 @@ Options: `--host/--port`, `--models a,b,c`, `--timeout`, `--max-sessions`,
 `--openwebui-key-file`, `--allow-bash-guard` (do **not**
 pass `--bash-guard-disabled`; not recommended headless).
 
+## Math
+
+Open WebUI renders standard LaTeX with KaTeX (`$...$`, `$$...$$`, `\(...\)`,
+`\[...\]`), so the bridge sets `PI_MATH_MODE=latex` for its pi sessions. That
+overrides `math-mode`'s terminal detection: headless pi has no image protocol, so
+without it the Tutor would fall back to plain Unicode. Set `PI_MATH_MODE=unicode`
+(or `auto`) only when pointing a text-only client at the bridge.
+
 ## Intelligent-UI widgets
 
 A verified `[[TURN:ui]]` turn carries one ` ```openui ` OpenUI Lang payload. The

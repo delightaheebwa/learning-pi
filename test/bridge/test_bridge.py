@@ -15,6 +15,7 @@ import unittest
 import urllib.request
 import urllib.error
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -264,6 +265,27 @@ class TestLearningLock(unittest.TestCase):
         self.assertTrue(lock.acquire("B"))
         lock.release("B")
         self.assertIsNone(lock.owner())
+
+
+class TestChildEnv(unittest.TestCase):
+    def test_forces_latex_math_for_openwebui(self):
+        # Open WebUI renders KaTeX; headless pi sees no terminal image protocol,
+        # so the bridge must opt into LaTeX authoring explicitly.
+        with mock.patch.dict(os.environ, {}, clear=True):
+            cfg = BridgeConfig(pi_bin=FAKE_PI, state_repo=str(ROOT), api_key="k")
+            self.assertEqual(cfg.child_env().get("PI_MATH_MODE"), "latex")
+
+    def test_process_env_math_mode_override_wins(self):
+        # The production override: the operator sets PI_MATH_MODE in the
+        # systemd EnvironmentFile, which the bridge inherits via os.environ.
+        with mock.patch.dict(os.environ, {"PI_MATH_MODE": "unicode"}):
+            cfg = BridgeConfig(pi_bin=FAKE_PI, state_repo=str(ROOT), api_key="k")
+            self.assertEqual(cfg.child_env().get("PI_MATH_MODE"), "unicode")
+
+    def test_child_env_extra_math_mode_override_wins(self):
+        cfg = BridgeConfig(pi_bin=FAKE_PI, state_repo=str(ROOT), api_key="k",
+                           child_env_extra={"PI_MATH_MODE": "unicode"})
+        self.assertEqual(cfg.child_env().get("PI_MATH_MODE"), "unicode")
 
 
 class TestSessionArgs(unittest.TestCase):

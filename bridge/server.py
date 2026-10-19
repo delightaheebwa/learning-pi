@@ -248,6 +248,11 @@ class BridgeConfig:
             env["PI_CODING_AGENT_SESSION_DIR"] = self.session_dir
         if self.ledger_dir:
             env["LEARNING_GATE_LEDGER_DIR"] = self.ledger_dir
+        # The bridge's front-end is Open WebUI, which renders LaTeX with
+        # KaTeX/MathJax even though the headless pi process has no terminal
+        # image protocol. Force LaTeX authoring unless the operator overrides it
+        # (PI_MATH_MODE=unicode for a text-only client).
+        env.setdefault("PI_MATH_MODE", "latex")
         env.update(self.child_env_extra)
         return env
 
