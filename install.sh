@@ -31,27 +31,49 @@ for entry in "${ENTRIES[@]}"; do
   echo "linked .pi/$entry"
 done
 
-# Keep the overlay out of the state repo without touching its tracked .gitignore.
+# Wire Antigravity Desktop layer (.agents/) if antigravity/ exists
+AGY_ROOT="$PI_ROOT/antigravity"
+if [ -d "$AGY_ROOT" ]; then
+  mkdir -p "$STATE_ROOT/.agents"
+  AGY_ENTRIES=(AGENTS.md hooks.json scripts agents skills)
+  for entry in "${AGY_ENTRIES[@]}"; do
+    src="$AGY_ROOT/$entry"
+    dst="$STATE_ROOT/.agents/$entry"
+    [ -e "$src" ] || { echo "skip (missing): $entry"; continue; }
+    rm -rf "$dst"
+    ln -s "$src" "$dst"
+    echo "linked .agents/$entry"
+  done
+fi
+
+# Keep overlays out of the state repo without touching its tracked .gitignore.
 EXCLUDE="$STATE_ROOT/.git/info/exclude"
 if [ -d "$STATE_ROOT/.git/info" ]; then
-  if ! grep -qxF ".pi/" "$EXCLUDE" 2>/dev/null; then
-    printf "\n# pi learning layer (local-only)\n.pi/\n" >> "$EXCLUDE"
-    echo "excluded .pi/ in .git/info/exclude"
-  else
-    echo ".pi/ already excluded"
-  fi
+  for excl in ".pi/" ".agents/"; do
+    if ! grep -qxF "$excl" "$EXCLUDE" 2>/dev/null; then
+      printf "\n# learning overlays (local-only)\n%s\n" "$excl" >> "$EXCLUDE"
+      echo "excluded $excl in .git/info/exclude"
+    else
+      echo "$excl already excluded"
+    fi
+  done
 else
-  echo "warning: no .git/info/exclude (not a git repo?) — .pi/ will show as untracked"
+  echo "warning: no .git/info/exclude (not a git repo?) — overlays will show as untracked"
 fi
 
 cat <<EOF
 
 Installed. Next:
-  1) cd "$STATE_ROOT"
-  2) run: pi
-  3) approve/trust the project once when prompted (.pi resources load after trust)
-  4) try: /review, /lesson, /continue, /teach <topic>, /ingest <content>
+  CLI (pi):
+    1) cd "$STATE_ROOT"
+    2) run: pi (approve/trust once)
+    3) try: /review, /lesson, /continue, /teach <topic>, /ingest <content>
 
-State repo:  $STATE_ROOT  (untouched except for the untracked .pi/ symlinks)
-Pi layer:    $PI_ROOT
+  Antigravity Desktop:
+    1) Open "$STATE_ROOT" as a project/workspace in Antigravity Desktop
+    2) Slash commands: /teach, /lesson, /continue, /pause, /review, /solo, /ingest, /audit
+    3) Subagents (scout, verifier, clerk, auditor) run via invoke_subagent and monitor in the Subagents panel
+
+State repo:  $STATE_ROOT  (untouched except for untracked .pi/ & .agents/ symlinks)
+Control repo: $PI_ROOT
 EOF

@@ -1,0 +1,25 @@
+{
+  "learning-write-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ./scripts/pre_tool_gate.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "learning-turn-gate": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 ./scripts/stop_gate.py",
+        "timeout": 15
+      }
+    ]
+  }
+}

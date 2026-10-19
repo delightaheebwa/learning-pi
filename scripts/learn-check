@@ -127,6 +127,14 @@ else
   FAILED=1
 fi
 
+if [ -f "$LAYER/test/contract/check_antigravity_layer.py" ]; then
+  if python3 "$LAYER/test/contract/check_antigravity_layer.py" "$LAYER"; then
+    :
+  else
+    FAILED=1
+  fi
+fi
+
 # 4. load probe -----------------------------------------------------------
 SANDBOX_DIR=""
 if [ "$NO_LOAD" = 1 ]; then
