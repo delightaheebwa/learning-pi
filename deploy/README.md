@@ -104,6 +104,15 @@ appear. To add or repair it by hand in the UI:
 > `127.0.0.1` is **not** reachable from a container, which is why the bridge
 > binds that docker-bridge IP (via `PI_BRIDGE_HOST`) instead of loopback.
 
+## Math rendering
+
+Open WebUI renders standard LaTeX with KaTeX, so no add-on is needed: the bridge
+sets `PI_MATH_MODE=latex` for its pi sessions (headless pi otherwise sees no
+terminal image protocol and writes plain Unicode). KaTeX is active whenever
+**Settings → Interface → Chat → Render Markdown in Assistant Messages** is on.
+Inline `$...$` needs whitespace or punctuation on both sides (`foo $x$ bar`, not
+`foo$x$bar`).
+
 ## Self-hosted OpenUI widgets
 
 A verified `[[TURN:ui]]` widget is delivered as a same-origin embed

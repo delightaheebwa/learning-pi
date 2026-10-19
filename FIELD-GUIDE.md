@@ -78,9 +78,10 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
    `review-gate` on the wiki pages Clerk wrote (the Clerk does not gate itself).
 
 **Math:** work on paper. Reply with just the final number or the letter (A–D). The Tutor won't ask
-you to type LaTeX. It *will* now write its own math as LaTeX when your terminal can render it —
-run learning sessions in **Ghostty** (or Kitty) and `pi-math` draws real formula images. In foot
-or tmux, where pi-math can't draw, the Tutor falls back to plain Unicode.
+you to type LaTeX. It *will* now write its own math as LaTeX when the front-end can render it —
+run learning sessions in **Ghostty** (or Kitty) and `pi-math` draws real formula images, or use
+the **Open WebUI** face, where KaTeX renders the LaTeX. In foot or tmux, where pi-math can't draw,
+the Tutor falls back to plain Unicode.
 
 ---
 
