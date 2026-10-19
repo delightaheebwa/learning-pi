@@ -187,11 +187,13 @@ class TestTurnStream(unittest.TestCase):
         self.assertEqual(ts.final_text(), "VERIFIED_FINAL")
 
     def test_error_without_message_still_surfaces_something(self):
-        ts = TurnStream()
-        ts.feed({"type": "message_end", "message": {
-            "role": "assistant", "stopReason": "error", "content": []}})
-        self.assertIn("pi runtime error", ts.final_text())
-        self.assertIn("unknown provider error", ts.final_text())
+        for bad in (None, "", "   "):
+            ts = TurnStream()
+            ts.feed({"type": "message_end", "message": {
+                "role": "assistant", "stopReason": "error", "content": [],
+                "errorMessage": bad}})
+            self.assertIn("pi runtime error", ts.final_text())
+            self.assertIn("unknown provider error", ts.final_text())
 
 
 class TestTurnTagCleanup(unittest.TestCase):
