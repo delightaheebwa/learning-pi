@@ -176,6 +176,23 @@ class TestTurnStream(unittest.TestCase):
             "errorMessage": "transient"}})
         self.assertEqual(ts.final_text(), "VERIFIED_FINAL")
 
+    def test_later_successful_message_wins_over_earlier_error(self):
+        ts = TurnStream()
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "error", "content": [],
+            "errorMessage": "transient"}})
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "stop",
+            "content": [{"type": "text", "text": "VERIFIED_FINAL"}]}})
+        self.assertEqual(ts.final_text(), "VERIFIED_FINAL")
+
+    def test_error_without_message_still_surfaces_something(self):
+        ts = TurnStream()
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "error", "content": []}})
+        self.assertIn("pi runtime error", ts.final_text())
+        self.assertIn("unknown provider error", ts.final_text())
+
 
 class TestTurnTagCleanup(unittest.TestCase):
     """B-clean-turn-tag: the bridge strips one leading turn tag from its output.
@@ -561,6 +578,7 @@ class TestProviderError(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertIn("pi runtime error", body)
             self.assertIn("[DONE]", body)
+            self.assertNotIn(SECRET, body)
         finally:
             h.stop()
 

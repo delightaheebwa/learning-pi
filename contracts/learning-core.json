@@ -521,6 +521,8 @@
       "tests": [
         "test_provider_error_with_no_content_surfaces_message",
         "test_provider_error_does_not_replace_real_text",
+        "test_later_successful_message_wins_over_earlier_error",
+        "test_error_without_message_still_surfaces_something",
         "test_provider_error_returns_actionable_text_not_empty_bubble",
         "test_provider_error_stream_carries_the_message"
       ]

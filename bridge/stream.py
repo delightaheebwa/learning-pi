@@ -100,12 +100,13 @@ class TurnStream:
             if text.strip():
                 self.text = text
                 self.error = ""
-            elif m.get("stopReason") == "error" and isinstance(m.get("errorMessage"), str):
+            elif m.get("stopReason") == "error":
                 # A provider failure (expired key, quota, outage) arrives as an
                 # assistant message with no content and stopReason=error. Record
                 # it so the bridge can tell the learner instead of streaming an
                 # empty bubble they cannot act on.
-                self.error = m["errorMessage"].strip()
+                message = m.get("errorMessage")
+                self.error = message.strip() if isinstance(message, str) and message.strip() else "unknown provider error"
         elif t == "tool_execution_start":
             name = rec.get("toolName")
             if name:
