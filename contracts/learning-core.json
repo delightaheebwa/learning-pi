@@ -515,6 +515,17 @@
       ]
     },
     {
+      "id": "B-provider-error-surfaced",
+      "severity": "hard",
+      "statement": "A provider failure (expired API key, quota, outage) reaches the bridge as an assistant message with empty content, stopReason=error, and an errorMessage. The bridge surfaces that reason as `\u26a0\ufe0f pi runtime error: <message>` instead of streaming an empty completion, so the learner can act on it rather than seeing a blank bubble (the 2026-10-19 Open WebUI session where chat and the Tutor preset both returned nothing). A later successful message in the same turn still wins.",
+      "tests": [
+        "test_provider_error_with_no_content_surfaces_message",
+        "test_provider_error_does_not_replace_real_text",
+        "test_provider_error_returns_actionable_text_not_empty_bubble",
+        "test_provider_error_stream_carries_the_message"
+      ]
+    },
+    {
       "id": "B-newest-message-only",
       "severity": "hard",
       "statement": "One pi RPC session per chat, reused across turns; only the newest user message of each posted transcript is forwarded (pi owns its context). A resend of the same message is a regenerate: the bridge forks the session back to that user message before re-prompting, and falls back to appending if the fork fails.",

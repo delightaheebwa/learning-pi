@@ -85,6 +85,7 @@ class TurnStream:
 
     def __init__(self) -> None:
         self.text: str = ""
+        self.error: str = ""
         self.tool_events: list[str] = []
 
     def feed(self, rec: dict) -> None:
@@ -98,6 +99,13 @@ class TurnStream:
             text = text_of_content(m.get("content"))
             if text.strip():
                 self.text = text
+                self.error = ""
+            elif m.get("stopReason") == "error" and isinstance(m.get("errorMessage"), str):
+                # A provider failure (expired key, quota, outage) arrives as an
+                # assistant message with no content and stopReason=error. Record
+                # it so the bridge can tell the learner instead of streaming an
+                # empty bubble they cannot act on.
+                self.error = m["errorMessage"].strip()
         elif t == "tool_execution_start":
             name = rec.get("toolName")
             if name:
@@ -111,7 +119,9 @@ class TurnStream:
     def final_text(self) -> str:
         text = strip_turn_tag(self.text)
         if _OPENUI_FENCE_RE.search(text):
-            return strip_openui_fences(text).strip()
+            text = strip_openui_fences(text).strip()
+        if not text.strip() and self.error:
+            return f"⚠️ pi runtime error: {self.error}"
         return text
 
     def openui_payloads(self) -> list[str]:

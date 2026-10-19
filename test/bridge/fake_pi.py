@@ -28,6 +28,9 @@ def note(path, line):
 
 
 def _final_text():
+    if SCENARIO == "provider_error":
+        # A provider failure: no content, stopReason=error, errorMessage set.
+        return ""
     if SCENARIO == "withhold":
         return "⛔ WITHHELD (NO_SCOUT_CONTEXT)\nRun the `scout` subagent first for a new lesson."
     if SCENARIO == "turn_tag":
@@ -60,9 +63,15 @@ def run_prompt(cid):
          "assistantMessageEvent": {"type": "thinking_delta", "delta": "thinking " + SECRET}})
     out({"type": "tool_execution_start", "toolName": "bash"})
     out({"type": "tool_execution_end", "toolName": "bash", "isError": False})
-    out({"type": "message_end",
-         "message": {"role": "assistant", "stopReason": "stop",
-                     "content": [{"type": "text", "text": _final_text()}]}})
+    if SCENARIO == "provider_error":
+        out({"type": "message_end",
+             "message": {"role": "assistant", "stopReason": "error",
+                         "content": [],
+                         "errorMessage": "401: {\"code\":\"api_key_expired\"}"}})
+    else:
+        out({"type": "message_end",
+             "message": {"role": "assistant", "stopReason": "stop",
+                         "content": [{"type": "text", "text": _final_text()}]}})
     out({"type": "turn_end"})
     out({"type": "agent_end"})
     out({"type": "agent_settled"})

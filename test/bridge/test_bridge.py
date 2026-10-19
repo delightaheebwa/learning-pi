@@ -154,6 +154,28 @@ class TestTurnStream(unittest.TestCase):
             "content": [{"type": "text", "text": "nope"}]}})
         self.assertEqual(ts.final_text(), "")
 
+    def test_provider_error_with_no_content_surfaces_message(self):
+        # B-provider-error-surfaced: an expired key / provider outage arrives as
+        # an empty assistant message with stopReason=error. The bridge must show
+        # the reason instead of streaming an empty bubble the learner cannot act
+        # on (the 2026-10-19 "chat shows nothing" session).
+        ts = TurnStream()
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "error", "content": [],
+            "errorMessage": "401: {\"code\":\"api_key_expired\"}"}})
+        self.assertIn("pi runtime error", ts.final_text())
+        self.assertIn("api_key_expired", ts.final_text())
+
+    def test_provider_error_does_not_replace_real_text(self):
+        ts = TurnStream()
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "stop",
+            "content": [{"type": "text", "text": "VERIFIED_FINAL"}]}})
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "error", "content": [],
+            "errorMessage": "transient"}})
+        self.assertEqual(ts.final_text(), "VERIFIED_FINAL")
+
 
 class TestTurnTagCleanup(unittest.TestCase):
     """B-clean-turn-tag: the bridge strips one leading turn tag from its output.
@@ -515,6 +537,30 @@ class TestForkFallback(unittest.TestCase):
             status, data = h.post(h.body("hello"))  # same text -> fork, which fails
             self.assertEqual(status, 200)
             self.assertEqual(data["choices"][0]["message"]["content"], "VERIFIED_FINAL")
+        finally:
+            h.stop()
+
+
+class TestProviderError(unittest.TestCase):
+    def test_provider_error_returns_actionable_text_not_empty_bubble(self):
+        h = ServerHarness("provider_error")
+        try:
+            status, data = h.post(h.body("hello"))
+            self.assertEqual(status, 200)
+            content = data["choices"][0]["message"]["content"]
+            self.assertIn("pi runtime error", content)
+            self.assertIn("api_key_expired", content)
+            self.assertNotIn(SECRET, content)
+        finally:
+            h.stop()
+
+    def test_provider_error_stream_carries_the_message(self):
+        h = ServerHarness("provider_error")
+        try:
+            status, body = h.post(h.body("hello", stream=True), raw=True)
+            self.assertEqual(status, 200)
+            self.assertIn("pi runtime error", body)
+            self.assertIn("[DONE]", body)
         finally:
             h.stop()
 
