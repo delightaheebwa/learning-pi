@@ -45,7 +45,7 @@ Envelope: `{"flow": "pause | lesson-end", "files": ["Learning System/Lessons/...
    - Checkpoint numbers and mini-checkpoint counts in the lesson file match the session note and `Pending Ingest.json` (`resume_from`).
    - Concept names and mistake attributions in `Pending Ingest.json` match the lesson notes and learning record.
    - For `/pause`, `Pending Ingest.json` has `partial: true` and names the exact next mini-checkpoint to resume from.
-3. **Pedagogy Artifacts**: The lesson file records the versioned learner understanding (v1 quote → falsifying counterexample → hardened quote) for concepts that went through the ladder, and the proof-of-work outcomes (`perturbation`/`sabotage`/`clone` with verdicts). A completed lesson with zero recorded falsification events or zero proof-of-work outcomes is an `ISSUES` finding.
+3. **Pedagogy Artifacts** (lesson-end flow only): For concepts that went through the full ladder, the lesson file records EITHER versioned learner understanding (v1 quote → falsifying counterexample → hardened quote) OR — when the learner's first statement survived falsification unharmed — an explicit note that the v1 statement was tight, possibly plus autopsy+twin evidence. The lesson file also records proof-of-work outcomes (`perturbation`/`sabotage`/`clone` with verdicts). A completed lesson (`flow: "lesson-end"`) with zero falsification events, zero tight-v1 notes, and zero proof-of-work outcomes is an `ISSUES` finding.
 4. Ensure the Tutor did not write any out-of-scope files (e.g. `Active Concepts.md` or `MISSION.md`).
 
 ---
@@ -65,7 +65,7 @@ Envelope: `{"target_files": ["Knowledge Wiki/wiki/<page>.md", ...], "out_of_scop
 
 ## 4. Review Session Audit (`mode: "review_session_audit"`)
 
-Envelope: `{"concepts": [...], "transcript": "...", "grade_verdicts": [...], "written_files": ["Learning System/Reviews/...md", ...]}`
+Envelope: `{"concepts": [...], "transcript": "...", "grade_verdicts": [...], "pow_outcomes": [...], "written_files": ["Learning System/Reviews/...md", ...]}`
 
 ### Audit Criteria:
 1. Read the written Review note, Session note, and state files from disk.

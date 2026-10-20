@@ -88,7 +88,7 @@ def check_resources(root: Path) -> None:
             fail(f"resources: antigravity/hooks.json invalid JSON: {exc}")
 
     # 3. Subagents
-    expected_agents = {"scout", "verifier", "clerk", "auditor"}
+    expected_agents = {"scout", "verifier", "clerk", "auditor", "naive-student"}
     valid_tool_names = {
         "view_file",
         "grep_search",
@@ -106,7 +106,7 @@ def check_resources(root: Path) -> None:
     if missing:
         fail(f"resources: subagents missing: {missing}")
     else:
-        ok(f"resources: all 4 subagents present: {', '.join(sorted(expected_agents))}")
+        ok(f"resources: all 5 subagents present: {', '.join(sorted(expected_agents))}")
 
     for name, path in found_agents.items():
         text = path.read_text(encoding="utf-8")
@@ -142,7 +142,7 @@ def check_resources(root: Path) -> None:
         else:
             ok(f"resources: subagent {name}.md tools valid ({', '.join(tools)})")
 
-        if name in ("verifier", "auditor"):
+        if name in ("verifier", "auditor", "naive-student"):
             if "write_to_file" in tools or "replace_file_content" in tools:
                 fail(f"resources: read-only subagent {name}.md must not include write tools")
             else:
@@ -408,6 +408,95 @@ def test_hook_behaviors(root: Path) -> None:
             ok("behavior: stop_gate allows yielding turn when fully_idle=false (snake_case payload)")
         else:
             fail(f"behavior: stop_gate should allow when fully_idle=false, got {res}")
+
+        # --- Test 11: pre_tool_gate does not stick a stale verifier role after wakeup ---
+        # Verifier runs (role marker + closing receipt), then the Tutor resumes and
+        # writes a widget artifact. The stale role must NOT deny the Tutor's write.
+        transcript_stale = tmp_path / "trans_stale.jsonl"
+        with open(transcript_stale, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] VERIFIER_RECEIPT: {\"mode\": \"ui_audit\", \"verdict\": \"PASS\", \"issues\": []}",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "Embedding the verified widget for the learner.",
+            }) + "\n")
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_stale),
+            },
+        )
+        if res.get("decision") == "allow":
+            ok("behavior: pre_tool_gate resets stale subagent role after closing receipt (tutor may write artifacts)")
+        else:
+            fail(f"behavior: pre_tool_gate should allow tutor write after verifier receipt, got {res}")
+
+        # --- Test 12: pre_tool_gate denies verifier writes DURING an open run ---
+        transcript_open = tmp_path / "trans_open.jsonl"
+        with open(transcript_open, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "verify"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] dispatching verifier",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"Subagents": [{"TypeName": "verifier"}]}}],
+            }) + "\n")
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_open),
+            },
+        )
+        if res.get("decision") == "deny":
+            ok("behavior: pre_tool_gate denies writes while a verifier run is open (no closing receipt yet)")
+        else:
+            fail(f"behavior: pre_tool_gate should deny writes during open verifier run, got {res}")
+
+        # --- Test 13: stop_gate critical tier escalates to a visible UNVERIFIED banner ---
+        transcript_critical = tmp_path / "trans_critical.jsonl"
+        with open(transcript_critical, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "go on"}) + "\n")
+            for _ in range(6):
+                f.write(json.dumps({"source": "MODEL", "type": "PLANNER_RESPONSE", "content": "GATE-CRIT: retry block"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:solo]] Here is the closed-book assessment with the full answer worked out in detail for the learner.",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_critical)})
+        if res.get("decision") == "allow" and "UNVERIFIED" in res.get("reason", ""):
+            ok("behavior: stop_gate critical tier never silently fails open (requires UNVERIFIED banner after cap)")
+        else:
+            fail(f"behavior: stop_gate critical tier should demand UNVERIFIED banner at cap, got {res}")
+
+        # --- Test 14: stop_gate schema tier fails open after 2 blocks (housekeeping only) ---
+        transcript_schema = tmp_path / "trans_schema.jsonl"
+        with open(transcript_schema, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "finish lesson"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] CLERK_RECEIPT: {\"mode\": \"lesson_handoff\", \"written_files\": [\"Learning System/Lessons/Lesson — 1.md\"], \"status\": \"done\"}",
+            }) + "\n")
+            f.write(json.dumps({"source": "MODEL", "type": "PLANNER_RESPONSE", "content": "GATE: retry block one"}) + "\n")
+            f.write(json.dumps({"source": "MODEL", "type": "PLANNER_RESPONSE", "content": "GATE: retry block two"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "Lesson completed and progress saved, the handoff files are consistent across the batch.",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_schema)})
+        if res.get("decision") == "allow":
+            ok("behavior: stop_gate schema tier fails open after 2 blocks (deadlock prevention)")
+        else:
+            fail(f"behavior: stop_gate schema tier should fail open after 2 blocks, got {res}")
 
 
 def main() -> None:

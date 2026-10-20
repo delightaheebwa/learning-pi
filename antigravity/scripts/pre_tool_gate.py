@@ -2,7 +2,10 @@
 """pre_tool_gate.py — PreToolUse lifecycle hook for Antigravity Desktop learning layer.
 
 Enforces:
-1. Read-only subagents (verifier, auditor, naive-student) cannot modify files.
+1. Read-only subagents (verifier, auditor, naive-student) cannot modify files —
+   detected by a state machine over the transcript so a role never sticks after
+   the subagent's run closes with its receipt (stale roles would deadlock the
+   Tutor's widget writes or bypass the pure-teaching stance).
 2. Tutor/Reviewer main session cannot directly overwrite Clerk-owned state files
    (MISSION, CURRICULUM, Active Concepts, Mistakes, Learner History, wiki pages).
 3. Solo mode (FLOW:solo) cannot create HTML widget artifacts (SOLO_NO_AIDS).
@@ -10,7 +13,67 @@ Enforces:
 import json
 import os
 import sys
-from pathlib import Path
+
+ROLE_MARKERS = {
+    "[SUBAGENT_ROLE:verifier]": "verifier",
+    "[SUBAGENT_ROLE:auditor]": "auditor",
+    "[SUBAGENT_ROLE:clerk]": "clerk",
+    "[SUBAGENT_ROLE:scout]": "scout",
+    "[SUBAGENT_ROLE:naive-student]": "naive-student",
+}
+# Receipt that closes (ends) a subagent run: the Tutor resumes on its wakeup.
+ROLE_RECEIPT = {
+    "verifier": "VERIFIER_RECEIPT",
+    "auditor": "AUDITOR_RECEIPT",
+    "naive-student": "NAIVE_STUDENT_RECEIPT",
+    "scout": "SCOUT_RECEIPT",
+    "clerk": "CLERK_RECEIPT",
+}
+
+
+def infer_role(steps):
+    """State machine over transcript steps.
+
+    - invoke_subagent(TypeName=verifier|auditor|naive-student|...) opens that
+      subagent's run.
+    - The subagent's run closes when its receipt marker appears; afterwards the
+      Tutor is speaking again (role back to "tutor").
+    - A role-marked output step also opens the role (covers subagent turns whose
+      invocation wasn't tracked in tool_calls).
+    - Any explicit user input resets to "tutor".
+    Returns the role in effect at the END of the transcript.
+    """
+    role = "tutor"
+    for step in steps:
+        if step.get("source") == "USER_EXPLICIT" and step.get("type") == "USER_INPUT":
+            role = "tutor"
+            continue
+
+        # Opening calls (tutor dispatching subagents)
+        for tc in step.get("tool_calls", []) or []:
+            if tc.get("name") == "invoke_subagent":
+                args = tc.get("args", {}) or {}
+                type_names = set()
+                if "TypeName" in args:
+                    type_names.add(args["TypeName"])
+                for sa in args.get("Subagents", []) or []:
+                    if isinstance(sa, dict) and "TypeName" in sa:
+                        type_names.add(sa.get("TypeName"))
+                for sub_role in ("verifier", "auditor", "naive-student", "scout", "clerk"):
+                    if sub_role in type_names:
+                        role = sub_role
+
+        content = str(step.get("content", ""))
+
+        # Role-marked output step: that subagent is speaking
+        for marker, sub_role in ROLE_MARKERS.items():
+            if marker in content:
+                role = sub_role
+
+        # Closing receipt: the named subagent's run ends; Tutor resumes
+        if role in ROLE_RECEIPT and ROLE_RECEIPT[role] + ":" in content:
+            role = "tutor"
+    return role
 
 
 def main() -> None:
@@ -34,10 +97,10 @@ def main() -> None:
         print(json.dumps({"decision": "allow"}))
         return
 
-    # Inspect transcript to identify active flow and agent role
+    # Inspect transcript to identify active flow and the role in effect now
     is_learning_flow = False
     is_solo = False
-    agent_role = "tutor"  # default main session
+    steps = []
 
     try:
         with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
@@ -45,25 +108,16 @@ def main() -> None:
                 if not line.strip():
                     continue
                 step = json.loads(line)
+                steps.append(step)
                 content = str(step.get("content", ""))
-
-                if "[SUBAGENT_ROLE:verifier]" in content:
-                    agent_role = "verifier"
-                elif "[SUBAGENT_ROLE:auditor]" in content:
-                    agent_role = "auditor"
-                elif "[SUBAGENT_ROLE:clerk]" in content:
-                    agent_role = "clerk"
-                elif "[SUBAGENT_ROLE:scout]" in content:
-                    agent_role = "scout"
-                elif "[SUBAGENT_ROLE:naive-student]" in content:
-                    agent_role = "naive-student"
-
                 if "[[FLOW:" in content:
                     is_learning_flow = True
                     if "[[FLOW:solo]]" in content:
                         is_solo = True
     except Exception:
-        pass
+        steps = []
+
+    agent_role = infer_role(steps) if steps else "tutor"
 
     # Non-learning sessions are never gated
     if not is_learning_flow and agent_role == "tutor":

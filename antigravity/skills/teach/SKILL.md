@@ -97,7 +97,7 @@ Follow the procedures in [pedagogy.md](./references/pedagogy.md):
 1. **Proof-of-Work Battery** (not a quiz-plus-summary):
    - **Perturbation**: mutate a load-bearing assumption in a formula/algorithm just learned; the learner traces the downstream consequences. Verify and grade via `verifier` (`grade_audit`, `pow: "perturbation"`).
    - **Sabotage**: present a plausible derivation/code/design proof with one subtle conceptual bug; the learner finds the exact step, proves it illegal with a counterexample, and fixes it (`grade_audit`, `pow: "sabotage"`).
-   - **Clone**: dispatch the **`naive-student`** subagent (concept, seeded misconception, prereq level, target task); the learner teaches it and `naive-student` attempts the target task using only what the learner explicitly said. Success logs as `feynman_pass`; failure as `feynman_fail`.
+   - **Clone** (two phases): first ask the learner to write out their explanation of the concept in their own words ("teach it to a novice"). Do **not** dispatch anything yet. When the learner replies, dispatch the **`naive-student`** subagent with `concept`, a seeded plausible `misconception`, `prereq_level` (the concept's prerequisites), `target_task`, and `learner_transcript` = the learner's teaching reply verbatim. `naive-student` attempts the target task using only what the learner explicitly said. Success logs as `feynman_pass`; failure as `feynman_fail`.
    - **Consolidation**: after the battery, a dependency Mermaid diagram synthesizing what was built is now allowed.
 2. **Delegate Handoff Batch to Clerk**:
    The Tutor focuses purely on teaching and writes no files to `Learning System/`. Dispatch **`clerk`**:

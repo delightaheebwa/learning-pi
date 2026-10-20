@@ -43,7 +43,7 @@ An AI-free closed-book assessment. Evaluates your true retention and independent
    - Derivation / calculation items requiring the 3-line reasoning trace (governing principle → setup/crux → result + sanity check).
    - At least one **perturbation** item (mutate a load-bearing assumption; trace the downstream consequences).
    - At least one **decoy / near-miss** item (surface resembles a due concept, but violates its `conditions`; requires an older tool).
-   - One `concept`/`design` item closed out via the **clone protocol**: dispatch `naive-student` with the concept, seeded misconception, prereq level, and target task. This is solo's Feynman replacement and is logged as `feynman_pass`/`feynman_fail`.
+   - One `concept`/`design` item closed out via the **clone protocol**, in two phases: in this batch, add a "teach the clone" item asking the learner to write out their explanation of the (unlabeled) concept. Do **not** dispatch `naive-student` yet — there is nothing to teach it until the learner answers. This is solo's Feynman replacement and is logged as `feynman_pass`/`feynman_fail`.
 2. Verify the batch with **`verifier`** (`mode: "quiz_audit", context: "solo"`).
 3. Present the batch with explicit instructions:
    *"Closed-book check. Work independently without hints or references. For derivations, include your 3-line reasoning trace. Reply with your final answers."*
@@ -53,8 +53,11 @@ An AI-free closed-book assessment. Evaluates your true retention and independent
 ## Step 2: Independent Grading
 
 1. When the learner answers, build grade items including each learner trace.
-2. Dispatch **`verifier`** (`mode: "grade_audit"`) to verify all verdicts — it grades setup and sanity checks, not just final scalars, and flags shallow passes.
-3. Report the verified verdicts (Pass/Fail) directly without providing teaching repairs.
+2. **Run the Clone Phase (if the batch contained a teach-the-clone item)**:
+   - Dispatch **`naive-student`** now, with `concept`, a seeded plausible `misconception`, `prereq_level` (the concept's prerequisites), `target_task`, and `learner_transcript` = the learner's teaching reply verbatim.
+   - Await `NAIVE_STUDENT_RECEIPT` (it attempts the target task using only what the learner explicitly taught).
+3. Dispatch **`verifier`** (`mode: "grade_audit"`, with `naive_student_receipt` on clone items) to verify all verdicts — it grades setup and sanity checks, not just final scalars, flags shallow passes, and audits the clone receipt against the claimed verdict.
+4. Report the verified verdicts (Pass/Fail) directly without providing teaching repairs.
 
 ---
 

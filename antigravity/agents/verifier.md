@@ -41,24 +41,25 @@ Envelope fields:
 - `source_urls` / `raw_files`: File paths under `Knowledge Wiki/raw/sources/` or live URLs.
 
 ### Verification Checklist:
-1. **Source Grounding**: Read the specified `raw_files` on disk using `view_file`. Verify each claim in `claims` and all hard facts in `draft` (numbers, formulas, mechanisms, boundary conditions) against the source passages. Recompute mathematical steps; do not rely on reading alone.
-2. **Foundation-Beat Production Order (for `idea` / `invention` / `autopsy`)**:
+1. **Plan = Scope, Not Roadmap (for `turn_kind: "plan"`)**: The plan may state scope, what is skipped/expanded/reframed, and prerequisite status. It must NOT include a pre-lesson dependency Mermaid roadmap, name the mechanisms of upcoming concepts, or preview how upcoming concepts connect — a roadmap pre-biases every checkpoint answer and pre-solves each Collision. Any dependency graph or mechanism preview in a pre-lesson plan is `CUE_LEAKAGE` (`ISSUES`). (A consolidated dependency diagram is legal at lesson-end synthesis, not in a plan turn.)
+2. **Source Grounding**: Read the specified `raw_files` on disk using `view_file`. Verify each claim in `claims` and all hard facts in `draft` (numbers, formulas, mechanisms, boundary conditions) against the source passages. Recompute mathematical steps; do not rely on reading alone.
+3. **Foundation-Beat Production Order (for `idea` / `invention` / `autopsy`)**:
    - On `idea` or `invention`: if the draft states `conditions` or `contrast` that the learner has not yet attempted (`learner_attempted_conditions` / `learner_attempted_contrast` false), flag `PREMATURE_SYNTHESIS_LEAK` as an issue. The learner extracts these beats; the Tutor only confirms or sharpens after the attempt.
    - On `idea`/`invention`, `where_from` is allowed only if the draft leaves at least one critical bridging step for the learner to complete, or the learner already produced the patch. A draft that delivers the full derivation end-to-end with zero learner gaps is `SPOONFEEDING_DETECTED`.
    - On `autopsy` (post-"just tell me" reveal), all four beats may be delivered compressed — but the draft must close by demanding the isomorphic twin problem before the checkpoint can advance.
-3. **Collision Integrity (for `turn_kind: "collision"`)**:
+4. **Collision Integrity (for `turn_kind: "collision"`)**:
    - The draft must present a concrete anomaly grounded in a source or digest `anomalies[]` entry where the learner's existing toolkit fails.
    - It must NOT name the new concept, state its mechanism, or telegraph which prior tool applies. Naming the concept or previewing the fix is `CUE_LEAKAGE`.
-4. **Turn-Kind Consistency**: If `turn_kind` is not `"idea"` but the draft introduces a new definition, formula, or worked micro-step, flag as `ISSUES` (mislabeled idea turn).
-5. **Omission Check (`omitted_foundations`)**:
+5. **Turn-Kind Consistency**: If `turn_kind` is `"collision"`, `"hint"`, `"plan"`, `"answer"`, `"repair"`, or `"boundary_hunt"` but the draft introduces a NEW definition, formula, or worked mechanism (beyond what the learner already produced), flag as `ISSUES` (mislabeled idea turn). Note the ladder exceptions: `"invention"` turns MAY name the concept and supply the mechanism (with a learner bridging step left), `"autopsy"` turns MAY deliver all beats compressed, and `"falsify"` turns MAY present the counterexample itself — these never count as mislabeled idea turns.
+6. **Omission Check (`omitted_foundations`)**:
    - Independently examine the raw source passages for the core concept being taught.
    - If the source teaches load-bearing theoretical derivation, necessary assumptions, or key mechanisms that the draft silently drops, list them in `omitted_foundations`. A non-empty `omitted_foundations` is an `ISSUES` verdict even if stated claims are factually true.
-6. **Contradictions Check**:
+7. **Contradictions Check**:
    - If sources disagree on a point and the draft conceals the disagreement instead of surfacing a visible `⚠️ Sources disagree` callout, flag as `ISSUES`.
 
 ### Pedagogy Audit (applies to every substantive draft):
-7. **`SPOONFEEDING_DETECTED`**: The draft states a conclusion, boundary condition, nearest-neighbour contrast, or bridge step that the learner could plausibly derive from the immediately preceding turns (their own collision diagnosis, their own invented patch, their own falsification). If the learner is one inference away, the Tutor must ask, not tell.
-8. **`CUE_LEAKAGE`**: The draft's question phrasing, framing, or vocabulary telegraphs the expected answer — e.g. naming the theorem to apply, echoing the answer's key term in the stem, or narrowing the search space to the answer. Rewrite to neutral phrasing.
+8. **`SPOONFEEDING_DETECTED`**: The draft states a conclusion, boundary condition, nearest-neighbour contrast, or bridge step that the learner could plausibly derive from the immediately preceding turns (their own collision diagnosis, their own invented patch, their own falsification). If the learner is one inference away, the Tutor must ask, not tell.
+9. **`CUE_LEAKAGE`**: The draft's question phrasing, framing, or vocabulary telegraphs the expected answer — e.g. naming the theorem to apply, echoing the answer's key term in the stem, or narrowing the search space to the answer. Rewrite to neutral phrasing.
 
 ---
 
@@ -81,10 +82,11 @@ Envelope fields:
 ## 3. Grade Audit (`mode: "grade_audit"`)
 
 Envelope fields:
-- `items`: `[{"id": 1, "concept": "...", "pow": "perturbation|sabotage|clone|none", "question": "...", "learner_answer": "...", "trace": "...", "claimed_verdict": "pass|fail", "source_excerpt": "...", "tutor_turns": ["..."]}]`
+- `items`: `[{"id": 1, "concept": "...", "pow": "perturbation|sabotage|clone|none", "question": "...", "learner_answer": "...", "trace": "...", "claimed_verdict": "pass|fail", "source_excerpt": "...", "tutor_turns": ["..."], "naive_student_receipt": {...}}]`
   - `pow` names the proof-of-work protocol when applicable.
   - `trace` is the learner's 3-line reasoning trace for derivation items.
   - `tutor_turns` carries the Tutor's recent substantive turns for shallow-pass detection.
+  - `naive_student_receipt` (required when `pow` is `"clone"`): the parsed `NAIVE_STUDENT_RECEIPT` from the `naive-student` subagent run.
 
 ### Verification Checklist:
 1. **Independent Evaluation**: Compare the learner's raw answer against the question and `source_excerpt`. Determine your own `correct_verdict` (`"pass"` or `"fail"`). Recompute any math.
@@ -93,7 +95,7 @@ Envelope fields:
 4. **Proof-of-Work Rubric (when `pow` is set)**:
    - `perturbation`: pass requires the learner to trace the *downstream consequence of the mutated assumption* correctly (what fails, what diverges, what special case survives) — not merely to restate the unmutated rule.
    - `sabotage`: pass requires the learner to identify the exact flawed step, demonstrate its illegality with a concrete counterexample, and supply the fix. "Something is off" without the step and the counterexample is a `fail`.
-   - `clone`: pass requires the naive-student persona to have succeeded on the target task using only what the learner explicitly taught. Log the outcome as `feynman_pass`/`feynman_fail`.
+   - `clone`: pass requires the `naive_student_receipt` to exist, to name the same concept, to report `task_succeeded: true` with no unresolved `questions_unanswered` caused by untaught material, AND the claimed verdict to match. If `task_succeeded` is `false`, the clone failed and the item is a `fail` regardless of `claimed_verdict`. A missing `naive_student_receipt` on a `pow: "clone"` item is an `ISSUES` verdict — the Tutor must actually dispatch `naive-student`, not assert the outcome. Log the outcome as `feynman_pass`/`feynman_fail`.
 5. **Agreement**: Set `agrees: true` if your evaluation matches `claimed_verdict` across all items, or `agrees: false` with the corrected verdict.
 
 ---

@@ -11,6 +11,8 @@ Enforces:
    foundations — and anything in /solo) never silently fail open. A critical gate is
    re-issued up to 6 times; if still unresolved, the turn may proceed ONLY with a visible
    `⚠️ UNVERIFIED` banner so the learner is never bluffed by a silent fail-open.
+4. Substantiveness is judged over the WHOLE turn text (receipts stripped), so a long
+   substantive emission cannot hide behind a short closing line.
 """
 import json
 import os
@@ -26,6 +28,22 @@ SUBAGENT_ROLE_MARKERS = [
     "[SUBAGENT_ROLE:auditor]",
     "[SUBAGENT_ROLE:naive-student]",
 ]
+RECEIPT_NAMES = [
+    "SCOUT_RECEIPT",
+    "REVIEW_SCOUT_RECEIPT",
+    "VERIFIER_RECEIPT",
+    "CLERK_RECEIPT",
+    "AUDITOR_RECEIPT",
+    "NAIVE_STUDENT_RECEIPT",
+]
+# Receipt that marks the END of a subagent run (tutor resumes on wakeup)
+ROLE_RECEIPT = {
+    "verifier": "VERIFIER_RECEIPT",
+    "auditor": "AUDITOR_RECEIPT",
+    "naive-student": "NAIVE_STUDENT_RECEIPT",
+    "scout": "SCOUT_RECEIPT",
+    "clerk": "CLERK_RECEIPT",
+}
 
 
 def emit(decision, reason=None):
@@ -33,6 +51,81 @@ def emit(decision, reason=None):
     if reason:
         payload["reason"] = reason
     print(json.dumps(payload))
+
+
+def detect_subagents_in_call(name, args, invoked_subagents):
+    if name == "invoke_subagent":
+        if "TypeName" in args:
+            invoked_subagents.add(args["TypeName"])
+        for sa in args.get("Subagents", []) or []:
+            if isinstance(sa, dict) and "TypeName" in sa:
+                invoked_subagents.add(sa.get("TypeName"))
+
+
+def collect_receipts(content, latest_receipts, decoder):
+    """Parse receipt JSON objects out of a step's text."""
+    for receipt_name in RECEIPT_NAMES:
+        marker = f"{receipt_name}:"
+        idx = content.find(marker)
+        while idx != -1:
+            brace_idx = content.find("{", idx + len(marker))
+            if brace_idx != -1:
+                try:
+                    obj, end_pos = decoder.raw_decode(content[brace_idx:])
+                    latest_receipts[receipt_name] = obj
+                    idx = content.find(marker, brace_idx + end_pos)
+                    continue
+                except Exception:
+                    pass
+            idx = content.find(marker, idx + len(marker))
+
+
+def strip_receipts(content, decoder):
+    """Return step text with embedded receipt JSON objects removed, so
+    substantiveness is judged on learner-facing prose only."""
+    out = content
+    for receipt_name in RECEIPT_NAMES:
+        marker = f"{receipt_name}:"
+        while True:
+            idx = out.find(marker)
+            if idx == -1:
+                break
+            brace_idx = out.find("{", idx + len(marker))
+            if brace_idx == -1:
+                break
+            try:
+                _obj, end_pos = decoder.raw_decode(out[brace_idx:])
+            except Exception:
+                break
+            out = out[:idx] + out[brace_idx + end_pos:]
+    return out
+
+
+def is_active_subagent(steps, decoder):
+    """State machine over the transcript: a subagent is 'active' at the END of the
+    transcript if its invocation has not yet been closed by its receipt. Used to
+    exempt a Stop event that belongs to the subagent's own turn."""
+    active = None
+    for step in steps:
+        for tc in step.get("tool_calls", []) or []:
+            called = set()
+            detect_subagents_in_call(tc.get("name", ""), tc.get("args", {}) or {}, called)
+            for role in ("verifier", "auditor", "naive-student", "scout", "clerk"):
+                if role in called:
+                    active = role
+        content = str(step.get("content", ""))
+        if active is not None and ROLE_RECEIPT[active] + ":" in content:
+            active = None
+        elif active is None and any(role in content for role in SUBAGENT_ROLE_MARKERS):
+            # A subagent output step without a preceding tracked call: the subagent
+            # is speaking (its own turn). It stays active until its receipt closes it.
+            for role, receipt in ROLE_RECEIPT.items():
+                if f"[SUBAGENT_ROLE:{role}]" in content:
+                    active = role
+                    break
+        if active is not None and ROLE_RECEIPT[active] + ":" in content:
+            active = None
+    return active
 
 
 def main() -> None:
@@ -72,9 +165,12 @@ def main() -> None:
         emit("allow")
         return
 
-    # If the step ending this turn is a subagent's own output, it is not gated on Stop.
-    last_content = str(steps[-1].get("content", ""))
-    if any(role in last_content for role in SUBAGENT_ROLE_MARKERS):
+    decoder = json.JSONDecoder()
+
+    # If this Stop belongs to a subagent's own turn, it is not gated. A subagent is
+    # active when its invocation (or its own role-marked output) has not yet been
+    # closed by its receipt.
+    if is_active_subagent(steps, decoder) is not None:
         emit("allow")
         return
 
@@ -99,16 +195,42 @@ def main() -> None:
 
     current_turn_steps = steps[last_user_idx:]
 
-    # Retry accounting. Critical gate reasons carry the "GATE-CRIT:" marker so they are
-    # counted separately from schema gates and are never silently failed open.
-    schema_retries = 0
-    critical_retries = 0
+    # Aggregate tool calls and receipts in current turn
+    invoked_subagents = set()
+    written_files = set()
+    latest_receipts = {}
+
     for step in current_turn_steps:
+        for tc in step.get("tool_calls", []) or []:
+            detect_subagents_in_call(tc.get("name", ""), tc.get("args", {}) or {}, invoked_subagents)
+            name = tc.get("name", "")
+            if name in ("write_to_file", "replace_file_content"):
+                tf = (tc.get("args", {}) or {}).get("TargetFile", "")
+                if tf:
+                    written_files.add(tf)
+
         content = str(step.get("content", ""))
-        if "GATE-CRIT:" in content:
-            critical_retries += 1
-        elif "GATE:" in content:
-            schema_retries += 1
+        collect_receipts(content, latest_receipts, decoder)
+
+    # Retry accounting. Hook "continue" reasons may or may not persist as transcript
+    # steps, so count BOTH explicit GATE markers and unresolved ISSUES receipts:
+    # each ISSUES verifier receipt counts as a critical retry; each ISSUES auditor
+    # receipt counts as a schema retry.
+    marker_critical = sum(1 for s in current_turn_steps if "GATE-CRIT:" in str(s.get("content", "")))
+    marker_schema = sum(
+        1 for s in current_turn_steps
+        if "GATE:" in str(s.get("content", "")) and "GATE-CRIT:" not in str(s.get("content", ""))
+    )
+    verifier_issues = sum(
+        1 for s in current_turn_steps
+        if "VERIFIER_RECEIPT" in str(s.get("content", "")) and re.search(r'"verdict"\s*:\s*"ISSUES"', str(s.get("content", "")))
+    )
+    auditor_issues = sum(
+        1 for s in current_turn_steps
+        if "AUDITOR_RECEIPT" in str(s.get("content", "")) and re.search(r'"verdict"\s*:\s*"ISSUES"', str(s.get("content", "")))
+    )
+    critical_retries = max(marker_critical, verifier_issues)
+    schema_retries = max(marker_schema, auditor_issues)
 
     def schema_block(reason):
         if schema_retries >= SCHEMA_CAP:
@@ -116,76 +238,46 @@ def main() -> None:
             return
         emit("continue", reason)
 
-    def critical_block(reason):
-        if critical_retries >= CRITICAL_CAP:
-            emit(
-                "allow",
-                reason
-                + " GATE-CRIT-ESCALATION: Verification could not be completed after repeated attempts. "
-                "Proceed ONLY if you prepend a visible '⚠️ UNVERIFIED — this step failed independent verification' "
-                "banner to the learner-facing text. Never present unverified content as verified.",
-            )
-            return
-        emit("continue", reason)
+    def tier_block(reason, is_critical):
+        if is_critical:
+            if critical_retries >= CRITICAL_CAP:
+                emit(
+                    "allow",
+                    reason
+                    + " GATE-CRIT-ESCALATION: Verification could not be completed after repeated attempts. "
+                    "Proceed ONLY if you prepend a visible '⚠️ UNVERIFIED — this step failed independent verification' "
+                    "banner to the learner-facing text. Never present unverified content as verified.",
+                )
+                return
+            emit("continue", reason)
+        else:
+            schema_block(reason)
 
-    # Aggregate text and tool calls in current turn
-    turn_text = []
-    invoked_subagents = set()
-    written_files = set()
-    latest_receipts = {}
+    # Substantiveness is judged over the whole turn (receipts stripped): a substantive
+    # emission cannot escape the gate by hiding behind a short closing line.
+    stripped_text = "\n".join(strip_receipts(str(step.get("content", "")), decoder) for step in current_turn_steps)
+    last_content = str(steps[-1].get("content", ""))
+    turn_is_substantive = len(stripped_text.strip()) > 80 and not any(
+        kw in last_content for kw in ["Verifying step", "Checking draft", "Running scout"]
+    )
 
-    for step in current_turn_steps:
-        # Check tool calls
-        for tc in step.get("tool_calls", []):
-            name = tc.get("name", "")
-            args = tc.get("args", {})
-            if name == "invoke_subagent":
-                if "TypeName" in args:
-                    invoked_subagents.add(args["TypeName"])
-                for sa in args.get("Subagents", []):
-                    if isinstance(sa, dict) and "TypeName" in sa:
-                        invoked_subagents.add(sa.get("TypeName"))
-            elif name in ("write_to_file", "replace_file_content"):
-                tf = args.get("TargetFile", "")
-                if tf:
-                    written_files.add(tf)
-
-        content = str(step.get("content", ""))
-        turn_text.append(content)
-
-        # Detect receipts in tool results or incoming subagent messages
-        decoder = json.JSONDecoder()
-        for receipt_name in ["SCOUT_RECEIPT", "REVIEW_SCOUT_RECEIPT", "VERIFIER_RECEIPT", "CLERK_RECEIPT", "AUDITOR_RECEIPT"]:
-            marker = f"{receipt_name}:"
-            idx = content.find(marker)
-            while idx != -1:
-                brace_idx = content.find("{", idx + len(marker))
-                if brace_idx != -1:
-                    try:
-                        obj, end_pos = decoder.raw_decode(content[brace_idx:])
-                        latest_receipts[receipt_name] = obj
-                        idx = content.find(marker, brace_idx + end_pos)
-                        continue
-                    except Exception:
-                        pass
-                idx = content.find(marker, idx + len(marker))
-
-    full_turn_text = "\n".join(turn_text)
-
-    # Check 1: Ingest or Review Close
+    # Check 1: Ingest or Review Close. In /solo these are critical (closed-book integrity).
     if active_flow in ("ingest", "review", "solo") and ("CLERK_RECEIPT" in latest_receipts or "clerk" in invoked_subagents):
         # Once clerk has persisted state, auditor must audit writes before closing
         auditor_receipt = latest_receipts.get("AUDITOR_RECEIPT")
+        solo_critical = active_flow == "solo"
         if not auditor_receipt:
-            schema_block(
+            tier_block(
                 "GATE: State persistence complete. You must invoke the auditor subagent "
-                "(review_gate or review_session_audit) to verify writes before finishing the closing summary."
+                "(review_gate or review_session_audit) to verify writes before finishing the closing summary.",
+                solo_critical,
             )
             return
         if auditor_receipt.get("verdict") == "ISSUES":
-            schema_block(
+            tier_block(
                 "GATE: Auditor reported issues with state or wiki writes. "
-                "Fix the issues with clerk and re-audit before finalizing."
+                "Fix the issues with clerk and re-audit before finalizing.",
+                solo_critical,
             )
             return
 
@@ -195,54 +287,49 @@ def main() -> None:
     handoff_files = [f for f in written_files if any(p in f for p in ["Learning System/Lessons/", "Learning System/Sessions/", "Pending Ingest.json"])]
     if handoff_files or clerk_handoff:
         auditor_receipt = latest_receipts.get("AUDITOR_RECEIPT")
+        solo_critical = active_flow == "solo"
         if not auditor_receipt or auditor_receipt.get("mode") != "tutor_audit":
-            schema_block(
+            tier_block(
                 "GATE: Lesson handoff writes completed. You must invoke the auditor subagent "
-                "(mode: 'tutor_audit') to verify file consistency before finishing this handoff."
+                "(mode: 'tutor_audit') to verify file consistency before finishing this handoff.",
+                solo_critical,
             )
             return
         if auditor_receipt.get("verdict") == "ISSUES":
-            schema_block(
+            tier_block(
                 "GATE: Tutor audit reported issues in handoff files. "
-                "Correct the handoff files with clerk and re-audit before finishing."
+                "Correct the handoff files with clerk and re-audit before finishing.",
+                solo_critical,
             )
             return
 
     # Check 3: Every-Turn Verifier Check for Teaching / Review Turns
-    # If the turn generated substantial text to the learner (outside of a short status or slash command routing)
-    if active_flow in ("teach", "resume", "review", "solo"):
-        # Did the assistant formulate a substantive response?
-        last_step = steps[-1] if steps else {}
-        last_content = str(last_step.get("content", ""))
+    if active_flow in ("teach", "resume", "review", "solo") and turn_is_substantive:
+        verifier_receipt = latest_receipts.get("VERIFIER_RECEIPT")
+        if not verifier_receipt:
+            tier_block(
+                "GATE-CRIT: Every-turn verification required. Before presenting teaching claims, hints, "
+                "quizzes, or grades to the learner, you must invoke the verifier subagent with your proposed draft.",
+                True,
+            )
+            return
 
-        # Exclude purely procedural transitions
-        is_substantive = len(last_content.strip()) > 80 and not any(
-            kw in last_content for kw in ["Verifying step", "Checking draft", "Running scout"]
-        )
+        if verifier_receipt.get("verdict") == "ISSUES" or verifier_receipt.get("agrees") is False:
+            tier_block(
+                "GATE-CRIT: Verifier returned ISSUES or grading disagreement "
+                "(this includes spoonfeeding, cue leakage, premature synthesis, and shallow passes). "
+                "You must apply the corrections and re-verify until obtaining a PASS receipt.",
+                True,
+            )
+            return
 
-        if is_substantive:
-            verifier_receipt = latest_receipts.get("VERIFIER_RECEIPT")
-            if not verifier_receipt:
-                critical_block(
-                    "GATE-CRIT: Every-turn verification required. Before presenting teaching claims, hints, "
-                    "quizzes, or grades to the learner, you must invoke the verifier subagent with your proposed draft."
-                )
-                return
-
-            if verifier_receipt.get("verdict") == "ISSUES" or verifier_receipt.get("agrees") is False:
-                critical_block(
-                    "GATE-CRIT: Verifier returned ISSUES or grading disagreement "
-                    "(this includes spoonfeeding, cue leakage, premature synthesis, and shallow passes). "
-                    "You must apply the corrections and re-verify until obtaining a PASS receipt."
-                )
-                return
-
-            if verifier_receipt.get("omitted_foundations"):
-                critical_block(
-                    "GATE-CRIT: Verifier reported omitted foundational theory from the sources. "
-                    "Integrate the missing theoretical mechanism into your draft and re-verify."
-                )
-                return
+        if verifier_receipt.get("omitted_foundations"):
+            tier_block(
+                "GATE-CRIT: Verifier reported omitted foundational theory from the sources. "
+                "Integrate the missing theoretical mechanism into your draft and re-verify.",
+                True,
+            )
+            return
 
     emit("allow")
 

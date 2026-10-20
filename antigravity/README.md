@@ -30,7 +30,7 @@ All workflows are available as native slash commands in the Antigravity Desktop 
 | **`/lesson`** | Resume or teach the next sequential curriculum lesson | `scout`, `verifier`, `auditor`, `naive-student` |
 | **`/continue`** | Resume an in-progress lesson at its exact mini-checkpoint | `verifier` |
 | **`/pause`** | Bank progress cleanly, write partial handoff files, and exit ticket | `verifier`, `auditor` |
-| **`/review`** | Daily spaced-repetition review: unlabeled interleaved + synthesis + decoy items, trace-graded (no MCQs) | `scout`, `verifier`, `clerk`, `auditor` |
+| **`/review`** | Daily spaced-repetition review: unlabeled interleaved + synthesis + decoy items, trace-graded (no MCQs) | `scout`, `verifier`, `clerk`, `auditor`, `naive-student` |
 | **`/solo`** | AI-free closed-book assessment (no hints/teaching/widgets/MCQs; operational items only; feeds independence gate) | `scout`, `verifier`, `clerk`, `auditor`, `naive-student` |
 | **`/ingest [content]`** | Reconcile lesson handoffs or raw notes into Knowledge Wiki + Active Concepts | `clerk`, `auditor` |
 | **`/audit`** | Read-only state consistency audit + wiki provenance check | None (runs local python scripts) |
