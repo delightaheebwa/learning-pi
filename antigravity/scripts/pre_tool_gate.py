@@ -31,6 +31,18 @@ ROLE_RECEIPT = {
 }
 
 
+def get_arg(args, *names):
+    """Fetch an arg by any of the given key spellings (PascalCase or snake_case)."""
+    for n in names:
+        if n in args:
+            return args[n]
+    lowered = {k.lower(): v for k, v in args.items()}
+    for n in names:
+        if n.lower() in lowered:
+            return lowered[n.lower()]
+    return None
+
+
 def infer_role(steps):
     """State machine over transcript steps, tracked as a LIFO stack so parallel
     dispatches (Subagents=[verifier, scout]) don't orphan a role.
@@ -55,11 +67,15 @@ def infer_role(steps):
             if tc.get("name") == "invoke_subagent":
                 args = tc.get("args", {}) or {}
                 type_names = set()
-                if "TypeName" in args:
-                    type_names.add(args["TypeName"])
-                for sa in args.get("Subagents", []) or []:
-                    if isinstance(sa, dict) and "TypeName" in sa:
-                        type_names.add(sa.get("TypeName"))
+                type_name = get_arg(args, "TypeName", "typeName", "type_name")
+                if type_name:
+                    type_names.add(type_name)
+                subagents = get_arg(args, "Subagents", "subagents") or []
+                for sa in subagents:
+                    if isinstance(sa, dict):
+                        sa_type = get_arg(sa, "TypeName", "typeName", "type_name")
+                        if sa_type:
+                            type_names.add(sa_type)
                 for sub_role in ("verifier", "auditor", "naive-student", "scout", "clerk"):
                     if sub_role in type_names:
                         stack.append(sub_role)

@@ -21,20 +21,15 @@ import sys
 
 SCHEMA_CAP = 2
 CRITICAL_CAP = 6
-SUBAGENT_ROLE_MARKERS = [
-    "[SUBAGENT_ROLE:scout]",
-    "[SUBAGENT_ROLE:verifier]",
-    "[SUBAGENT_ROLE:clerk]",
-    "[SUBAGENT_ROLE:auditor]",
-    "[SUBAGENT_ROLE:naive-student]",
-]
+# Longest-first: "REVIEW_SCOUT_RECEIPT:" contains "SCOUT_RECEIPT:" as a substring,
+# so matching order matters to avoid aliasing.
 RECEIPT_NAMES = [
-    "SCOUT_RECEIPT",
+    "NAIVE_STUDENT_RECEIPT",
     "REVIEW_SCOUT_RECEIPT",
     "VERIFIER_RECEIPT",
-    "CLERK_RECEIPT",
     "AUDITOR_RECEIPT",
-    "NAIVE_STUDENT_RECEIPT",
+    "SCOUT_RECEIPT",
+    "CLERK_RECEIPT",
 ]
 # Receipt that marks the END of a subagent run (tutor resumes on wakeup)
 ROLE_RECEIPT = {
@@ -53,17 +48,34 @@ def emit(decision, reason=None):
     print(json.dumps(payload))
 
 
+def get_arg(args, *names):
+    """Fetch an arg by any of the given key spellings (PascalCase or snake_case)."""
+    for n in names:
+        if n in args:
+            return args[n]
+    lowered = {k.lower(): v for k, v in args.items()}
+    for n in names:
+        if n.lower() in lowered:
+            return lowered[n.lower()]
+    return None
+
+
 def detect_subagents_in_call(name, args, invoked_subagents):
     if name == "invoke_subagent":
-        if "TypeName" in args:
-            invoked_subagents.add(args["TypeName"])
-        for sa in args.get("Subagents", []) or []:
-            if isinstance(sa, dict) and "TypeName" in sa:
-                invoked_subagents.add(sa.get("TypeName"))
+        type_name = get_arg(args, "TypeName", "typeName", "type_name")
+        if type_name:
+            invoked_subagents.add(type_name)
+        subagents = get_arg(args, "Subagents", "subagents") or []
+        for sa in subagents:
+            if isinstance(sa, dict):
+                sa_type = get_arg(sa, "TypeName", "typeName", "type_name")
+                if sa_type:
+                    invoked_subagents.add(sa_type)
 
 
-def collect_receipts(content, latest_receipts, decoder):
-    """Parse receipt JSON objects out of a step's text."""
+def collect_receipts(content, latest_receipts, all_receipts, decoder):
+    """Parse receipt JSON objects out of a step's text: keep the latest per name
+    for gate checks, and every occurrence (name, obj) for retry accounting."""
     for receipt_name in RECEIPT_NAMES:
         marker = f"{receipt_name}:"
         idx = content.find(marker)
@@ -73,6 +85,7 @@ def collect_receipts(content, latest_receipts, decoder):
                 try:
                     obj, end_pos = decoder.raw_decode(content[brace_idx:])
                     latest_receipts[receipt_name] = obj
+                    all_receipts.append((receipt_name, obj))
                     idx = content.find(marker, brace_idx + end_pos)
                     continue
                 except Exception:
@@ -102,26 +115,29 @@ def strip_receipts(content, decoder):
 
 
 def is_active_subagent(steps, decoder):
-    """State machine over the transcript: a set of subagent runs is 'active' at the
-    END of the transcript if their invocations have not yet been closed by their
-    receipts. Used to exempt a Stop event that belongs to a subagent's own turn.
-    Tracks a set so parallel dispatches (Subagents=[verifier, scout]) are each
-    closed by their own receipt instead of orphaning one."""
-    active = set()
+    """State machine over the transcript: subagent runs are 'active' at the END of
+    the transcript if their invocations have not yet been closed by their receipts.
+    Used to exempt a Stop event that belongs to a subagent's own turn. Tracked as a
+    LIFO stack (pop-most-recent) so duplicate same-role parallel dispatches each
+    close with their own receipt."""
+    active = []
     for step in steps:
         for tc in step.get("tool_calls", []) or []:
             called = set()
             detect_subagents_in_call(tc.get("name", ""), tc.get("args", {}) or {}, called)
-            active.update(role for role in called if role in ROLE_RECEIPT)
+            active.extend(role for role in called if role in ROLE_RECEIPT)
         content = str(step.get("content", ""))
         # A role-marked output step (re)opens that subagent's run...
         for role, receipt in ROLE_RECEIPT.items():
             if f"[SUBAGENT_ROLE:{role}]" in content:
-                active.add(role)
-        # ...and each role's own receipt closes exactly that role's run.
+                active.append(role)
+        # ...and each role's own receipt closes the most recent run of that role.
         for role, receipt in ROLE_RECEIPT.items():
             if role in active and receipt + ":" in content:
-                active.discard(role)
+                for i in range(len(active) - 1, -1, -1):
+                    if active[i] == role:
+                        active.pop(i)
+                        break
     return active
 
 
@@ -171,13 +187,14 @@ def main() -> None:
         emit("allow")
         return
 
-    # Identify active learning flow
+    # Identify active learning flow: LAST marker in the transcript, matched the same
+    # way pre_tool_gate does (so the two hooks never disagree on solo-ness).
     active_flow = None
     for step in steps:
         content = str(step.get("content", ""))
-        m = re.search(r"\[\[FLOW:([a-z]+)\]\]", content)
-        if m:
-            active_flow = m.group(1)
+        matches = re.findall(r"\[\[FLOW:([A-Za-z]+)\]\]", content)
+        if matches:
+            active_flow = matches[-1].lower()
 
     # Non-learning conversations are never gated
     if not active_flow:
@@ -196,6 +213,7 @@ def main() -> None:
     invoked_subagents = set()
     written_files = set()
     latest_receipts = {}
+    all_receipts = []
 
     for step in current_turn_steps:
         for tc in step.get("tool_calls", []) or []:
@@ -207,10 +225,11 @@ def main() -> None:
                     written_files.add(tf)
 
         content = str(step.get("content", ""))
-        collect_receipts(content, latest_receipts, decoder)
+        collect_receipts(content, latest_receipts, all_receipts, decoder)
 
     # Retry accounting. Hook "continue" reasons may or may not persist as transcript
-    # steps, so count BOTH explicit GATE markers and unresolved ISSUES receipts:
+    # steps, so count BOTH explicit GATE markers and unresolved ISSUES receipts
+    # (parsed, so receipts split across steps still count):
     # each ISSUES verifier receipt counts as a critical retry; each ISSUES auditor
     # receipt counts as a schema retry — except in /solo, where the whole close is
     # critical-tier (closed-book integrity).
@@ -219,14 +238,8 @@ def main() -> None:
         1 for s in current_turn_steps
         if "GATE:" in str(s.get("content", "")) and "GATE-CRIT:" not in str(s.get("content", ""))
     )
-    verifier_issues = sum(
-        1 for s in current_turn_steps
-        if "VERIFIER_RECEIPT" in str(s.get("content", "")) and re.search(r'"verdict"\s*:\s*"ISSUES"', str(s.get("content", "")))
-    )
-    auditor_issues = sum(
-        1 for s in current_turn_steps
-        if "AUDITOR_RECEIPT" in str(s.get("content", "")) and re.search(r'"verdict"\s*:\s*"ISSUES"', str(s.get("content", "")))
-    )
+    verifier_issues = sum(1 for name, obj in all_receipts if name == "VERIFIER_RECEIPT" and obj.get("verdict") == "ISSUES")
+    auditor_issues = sum(1 for name, obj in all_receipts if name == "AUDITOR_RECEIPT" and obj.get("verdict") == "ISSUES")
     critical_retries = max(marker_critical, verifier_issues + (auditor_issues if active_flow == "solo" else 0))
     schema_retries = 0 if active_flow == "solo" else max(marker_schema, auditor_issues)
 
