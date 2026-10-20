@@ -102,29 +102,26 @@ def strip_receipts(content, decoder):
 
 
 def is_active_subagent(steps, decoder):
-    """State machine over the transcript: a subagent is 'active' at the END of the
-    transcript if its invocation has not yet been closed by its receipt. Used to
-    exempt a Stop event that belongs to the subagent's own turn."""
-    active = None
+    """State machine over the transcript: a set of subagent runs is 'active' at the
+    END of the transcript if their invocations have not yet been closed by their
+    receipts. Used to exempt a Stop event that belongs to a subagent's own turn.
+    Tracks a set so parallel dispatches (Subagents=[verifier, scout]) are each
+    closed by their own receipt instead of orphaning one."""
+    active = set()
     for step in steps:
         for tc in step.get("tool_calls", []) or []:
             called = set()
             detect_subagents_in_call(tc.get("name", ""), tc.get("args", {}) or {}, called)
-            for role in ("verifier", "auditor", "naive-student", "scout", "clerk"):
-                if role in called:
-                    active = role
+            active.update(role for role in called if role in ROLE_RECEIPT)
         content = str(step.get("content", ""))
-        if active is not None and ROLE_RECEIPT[active] + ":" in content:
-            active = None
-        elif active is None and any(role in content for role in SUBAGENT_ROLE_MARKERS):
-            # A subagent output step without a preceding tracked call: the subagent
-            # is speaking (its own turn). It stays active until its receipt closes it.
-            for role, receipt in ROLE_RECEIPT.items():
-                if f"[SUBAGENT_ROLE:{role}]" in content:
-                    active = role
-                    break
-        if active is not None and ROLE_RECEIPT[active] + ":" in content:
-            active = None
+        # A role-marked output step (re)opens that subagent's run...
+        for role, receipt in ROLE_RECEIPT.items():
+            if f"[SUBAGENT_ROLE:{role}]" in content:
+                active.add(role)
+        # ...and each role's own receipt closes exactly that role's run.
+        for role, receipt in ROLE_RECEIPT.items():
+            if role in active and receipt + ":" in content:
+                active.discard(role)
     return active
 
 
@@ -170,7 +167,7 @@ def main() -> None:
     # If this Stop belongs to a subagent's own turn, it is not gated. A subagent is
     # active when its invocation (or its own role-marked output) has not yet been
     # closed by its receipt.
-    if is_active_subagent(steps, decoder) is not None:
+    if is_active_subagent(steps, decoder):
         emit("allow")
         return
 
@@ -215,7 +212,8 @@ def main() -> None:
     # Retry accounting. Hook "continue" reasons may or may not persist as transcript
     # steps, so count BOTH explicit GATE markers and unresolved ISSUES receipts:
     # each ISSUES verifier receipt counts as a critical retry; each ISSUES auditor
-    # receipt counts as a schema retry.
+    # receipt counts as a schema retry — except in /solo, where the whole close is
+    # critical-tier (closed-book integrity).
     marker_critical = sum(1 for s in current_turn_steps if "GATE-CRIT:" in str(s.get("content", "")))
     marker_schema = sum(
         1 for s in current_turn_steps
@@ -229,16 +227,13 @@ def main() -> None:
         1 for s in current_turn_steps
         if "AUDITOR_RECEIPT" in str(s.get("content", "")) and re.search(r'"verdict"\s*:\s*"ISSUES"', str(s.get("content", "")))
     )
-    critical_retries = max(marker_critical, verifier_issues)
-    schema_retries = max(marker_schema, auditor_issues)
+    critical_retries = max(marker_critical, verifier_issues + (auditor_issues if active_flow == "solo" else 0))
+    schema_retries = 0 if active_flow == "solo" else max(marker_schema, auditor_issues)
 
-    def schema_block(reason):
-        if schema_retries >= SCHEMA_CAP:
-            emit("allow", "Retry cap reached; failing open.")
-            return
-        emit("continue", reason)
-
-    def tier_block(reason, is_critical):
+    def tier_block(reason_body, is_critical):
+        """Emit a retry block. The tier marker is added HERE so the emitted reason
+        carries the same tier the retry counter will count on the next Stop."""
+        reason = ("GATE-CRIT: " if is_critical else "GATE: ") + reason_body
         if is_critical:
             if critical_retries >= CRITICAL_CAP:
                 emit(
@@ -251,15 +246,16 @@ def main() -> None:
                 return
             emit("continue", reason)
         else:
-            schema_block(reason)
+            if schema_retries >= SCHEMA_CAP:
+                emit("allow", "Retry cap reached; failing open.")
+                return
+            emit("continue", reason)
 
     # Substantiveness is judged over the whole turn (receipts stripped): a substantive
-    # emission cannot escape the gate by hiding behind a short closing line.
+    # emission cannot escape the gate by hiding behind a short closing line. No
+    # procedural-phrase exemption — a status line is short, and anything long is gated.
     stripped_text = "\n".join(strip_receipts(str(step.get("content", "")), decoder) for step in current_turn_steps)
-    last_content = str(steps[-1].get("content", ""))
-    turn_is_substantive = len(stripped_text.strip()) > 80 and not any(
-        kw in last_content for kw in ["Verifying step", "Checking draft", "Running scout"]
-    )
+    turn_is_substantive = len(stripped_text.strip()) > 80
 
     # Check 1: Ingest or Review Close. In /solo these are critical (closed-book integrity).
     if active_flow in ("ingest", "review", "solo") and ("CLERK_RECEIPT" in latest_receipts or "clerk" in invoked_subagents):
@@ -268,14 +264,14 @@ def main() -> None:
         solo_critical = active_flow == "solo"
         if not auditor_receipt:
             tier_block(
-                "GATE: State persistence complete. You must invoke the auditor subagent "
+                "State persistence complete. You must invoke the auditor subagent "
                 "(review_gate or review_session_audit) to verify writes before finishing the closing summary.",
                 solo_critical,
             )
             return
         if auditor_receipt.get("verdict") == "ISSUES":
             tier_block(
-                "GATE: Auditor reported issues with state or wiki writes. "
+                "Auditor reported issues with state or wiki writes. "
                 "Fix the issues with clerk and re-audit before finalizing.",
                 solo_critical,
             )
@@ -290,14 +286,14 @@ def main() -> None:
         solo_critical = active_flow == "solo"
         if not auditor_receipt or auditor_receipt.get("mode") != "tutor_audit":
             tier_block(
-                "GATE: Lesson handoff writes completed. You must invoke the auditor subagent "
+                "Lesson handoff writes completed. You must invoke the auditor subagent "
                 "(mode: 'tutor_audit') to verify file consistency before finishing this handoff.",
                 solo_critical,
             )
             return
         if auditor_receipt.get("verdict") == "ISSUES":
             tier_block(
-                "GATE: Tutor audit reported issues in handoff files. "
+                "Tutor audit reported issues in handoff files. "
                 "Correct the handoff files with clerk and re-audit before finishing.",
                 solo_critical,
             )
@@ -308,7 +304,7 @@ def main() -> None:
         verifier_receipt = latest_receipts.get("VERIFIER_RECEIPT")
         if not verifier_receipt:
             tier_block(
-                "GATE-CRIT: Every-turn verification required. Before presenting teaching claims, hints, "
+                "Every-turn verification required. Before presenting teaching claims, hints, "
                 "quizzes, or grades to the learner, you must invoke the verifier subagent with your proposed draft.",
                 True,
             )
@@ -316,7 +312,7 @@ def main() -> None:
 
         if verifier_receipt.get("verdict") == "ISSUES" or verifier_receipt.get("agrees") is False:
             tier_block(
-                "GATE-CRIT: Verifier returned ISSUES or grading disagreement "
+                "Verifier returned ISSUES or grading disagreement "
                 "(this includes spoonfeeding, cue leakage, premature synthesis, and shallow passes). "
                 "You must apply the corrections and re-verify until obtaining a PASS receipt.",
                 True,
@@ -325,7 +321,7 @@ def main() -> None:
 
         if verifier_receipt.get("omitted_foundations"):
             tier_block(
-                "GATE-CRIT: Verifier reported omitted foundational theory from the sources. "
+                "Verifier reported omitted foundational theory from the sources. "
                 "Integrate the missing theoretical mechanism into your draft and re-verify.",
                 True,
             )

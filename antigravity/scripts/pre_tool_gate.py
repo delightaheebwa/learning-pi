@@ -32,21 +32,22 @@ ROLE_RECEIPT = {
 
 
 def infer_role(steps):
-    """State machine over transcript steps.
+    """State machine over transcript steps, tracked as a LIFO stack so parallel
+    dispatches (Subagents=[verifier, scout]) don't orphan a role.
 
     - invoke_subagent(TypeName=verifier|auditor|naive-student|...) opens that
-      subagent's run.
-    - The subagent's run closes when its receipt marker appears; afterwards the
-      Tutor is speaking again (role back to "tutor").
+      subagent's run (pushed).
+    - The subagent's run closes when its receipt marker appears (popped); the
+      Tutor resumes speaking.
     - A role-marked output step also opens the role (covers subagent turns whose
       invocation wasn't tracked in tool_calls).
     - Any explicit user input resets to "tutor".
-    Returns the role in effect at the END of the transcript.
+    Returns the role in effect at the END of the transcript ("tutor" when none).
     """
-    role = "tutor"
+    stack = []
     for step in steps:
         if step.get("source") == "USER_EXPLICIT" and step.get("type") == "USER_INPUT":
-            role = "tutor"
+            stack = []
             continue
 
         # Opening calls (tutor dispatching subagents)
@@ -61,19 +62,25 @@ def infer_role(steps):
                         type_names.add(sa.get("TypeName"))
                 for sub_role in ("verifier", "auditor", "naive-student", "scout", "clerk"):
                     if sub_role in type_names:
-                        role = sub_role
+                        stack.append(sub_role)
 
         content = str(step.get("content", ""))
 
         # Role-marked output step: that subagent is speaking
         for marker, sub_role in ROLE_MARKERS.items():
             if marker in content:
-                role = sub_role
+                stack.append(sub_role)
 
-        # Closing receipt: the named subagent's run ends; Tutor resumes
-        if role in ROLE_RECEIPT and ROLE_RECEIPT[role] + ":" in content:
-            role = "tutor"
-    return role
+        # Closing receipt: that subagent's run ends
+        for sub_role, receipt in ROLE_RECEIPT.items():
+            if sub_role in stack and receipt + ":" in content:
+                # Pop the most recent occurrence of this role
+                for i in range(len(stack) - 1, -1, -1):
+                    if stack[i] == sub_role:
+                        stack.pop(i)
+                        break
+
+    return stack[-1] if stack else "tutor"
 
 
 def main() -> None:
@@ -97,9 +104,9 @@ def main() -> None:
         print(json.dumps({"decision": "allow"}))
         return
 
-    # Inspect transcript to identify active flow and the role in effect now
-    is_learning_flow = False
-    is_solo = False
+    # Inspect transcript to identify the ACTIVE flow (last [[FLOW:...]] marker, not a
+    # historical one) and the role in effect now
+    last_flow = None
     steps = []
 
     try:
@@ -110,12 +117,19 @@ def main() -> None:
                 step = json.loads(line)
                 steps.append(step)
                 content = str(step.get("content", ""))
-                if "[[FLOW:" in content:
-                    is_learning_flow = True
-                    if "[[FLOW:solo]]" in content:
-                        is_solo = True
+                idx = content.find("[[FLOW:")
+                while idx != -1:
+                    end = content.find("]]", idx)
+                    if end != -1:
+                        last_flow = content[idx + len("[[FLOW:") : end]
+                        idx = content.find("[[FLOW:", end)
+                    else:
+                        break
     except Exception:
         steps = []
+
+    is_learning_flow = last_flow is not None
+    is_solo = last_flow == "solo"
 
     agent_role = infer_role(steps) if steps else "tutor"
 
