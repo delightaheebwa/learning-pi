@@ -12,8 +12,8 @@ Stop a lesson cleanly at any mini-checkpoint, banking progress to disk without l
 ## Step 0: Exit Ticket
 
 1. **Flow Marker**: Include `[[FLOW:resume]]` in your internal thought/context.
-2. Ask 1 quick exit ticket question summarizing today's key takeaways or self-reflection.
-3. Verify question and answer with `verifier` (`mode: "quiz_audit"` and `mode: "grade_audit"`).
+2. Ask 1 quick exit ticket question summarizing today's key takeaways or self-reflection. (Unlabeled — do not name the concepts in the stem; ask the learner to name what they learned.)
+3. Verify question and answer with `verifier` (`mode: "quiz_audit", context: "practice"` and `mode: "grade_audit"`).
 
 ---
 
