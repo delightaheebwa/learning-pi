@@ -6,34 +6,55 @@ Enforces:
 2. In active learning flows (teach, resume, review, solo), ensures required subagents
    (scout for lesson context, verifier for claims/quizzes/grades, auditor for handoffs/close)
    have returned passing receipts before the turn completes.
-3. Implements the 2-retry safety cap to prevent deadlocks.
+3. Two retry classes: schema gates (auditor housekeeping) fail open after 2 blocks to
+   prevent deadlocks; CRITICAL gates (unverified teaching, grading disagreements, omitted
+   foundations — and anything in /solo) never silently fail open. A critical gate is
+   re-issued up to 6 times; if still unresolved, the turn may proceed ONLY with a visible
+   `⚠️ UNVERIFIED` banner so the learner is never bluffed by a silent fail-open.
 """
 import json
 import os
 import re
 import sys
 
+SCHEMA_CAP = 2
+CRITICAL_CAP = 6
+SUBAGENT_ROLE_MARKERS = [
+    "[SUBAGENT_ROLE:scout]",
+    "[SUBAGENT_ROLE:verifier]",
+    "[SUBAGENT_ROLE:clerk]",
+    "[SUBAGENT_ROLE:auditor]",
+    "[SUBAGENT_ROLE:naive-student]",
+]
+
+
+def emit(decision, reason=None):
+    payload = {"decision": decision}
+    if reason:
+        payload["reason"] = reason
+    print(json.dumps(payload))
+
 
 def main() -> None:
     try:
         raw_input = sys.stdin.read()
         if not raw_input.strip():
-            print(json.dumps({"decision": "allow"}))
+            emit("allow")
             return
         payload = json.loads(raw_input)
     except Exception as exc:
-        print(json.dumps({"decision": "allow", "reason": f"hook error: {exc}"}))
+        emit("allow", f"hook error: {exc}")
         return
 
     # If background tasks or subagents are actively running, allow yielding to wait
     fully_idle = payload.get("fullyIdle") if "fullyIdle" in payload else payload.get("fully_idle", True)
     if fully_idle is False:
-        print(json.dumps({"decision": "allow"}))
+        emit("allow")
         return
 
     transcript_path = payload.get("transcriptPath") or payload.get("transcript_path") or ""
     if not transcript_path or not os.path.isfile(transcript_path):
-        print(json.dumps({"decision": "allow"}))
+        emit("allow")
         return
 
     # Parse transcript steps
@@ -44,24 +65,18 @@ def main() -> None:
                 if line.strip():
                     steps.append(json.loads(line))
     except Exception:
-        print(json.dumps({"decision": "allow"}))
+        emit("allow")
         return
 
     if not steps:
-        print(json.dumps({"decision": "allow"}))
+        emit("allow")
         return
 
-    # Check for subagent role. Subagents are not gated on Stop.
-    for step in steps:
-        content = str(step.get("content", ""))
-        if any(role in content for role in [
-            "[SUBAGENT_ROLE:scout]",
-            "[SUBAGENT_ROLE:verifier]",
-            "[SUBAGENT_ROLE:clerk]",
-            "[SUBAGENT_ROLE:auditor]",
-        ]):
-            print(json.dumps({"decision": "allow"}))
-            return
+    # If the step ending this turn is a subagent's own output, it is not gated on Stop.
+    last_content = str(steps[-1].get("content", ""))
+    if any(role in last_content for role in SUBAGENT_ROLE_MARKERS):
+        emit("allow")
+        return
 
     # Identify active learning flow
     active_flow = None
@@ -73,7 +88,7 @@ def main() -> None:
 
     # Non-learning conversations are never gated
     if not active_flow:
-        print(json.dumps({"decision": "allow"}))
+        emit("allow")
         return
 
     # Locate the start of the current user turn
@@ -84,15 +99,34 @@ def main() -> None:
 
     current_turn_steps = steps[last_user_idx:]
 
-    # Check retry cap to prevent infinite loop
-    retry_count = 0
+    # Retry accounting. Critical gate reasons carry the "GATE-CRIT:" marker so they are
+    # counted separately from schema gates and are never silently failed open.
+    schema_retries = 0
+    critical_retries = 0
     for step in current_turn_steps:
         content = str(step.get("content", ""))
-        if "GATE:" in content:
-            retry_count += 1
-    if retry_count >= 2:
-        print(json.dumps({"decision": "allow", "reason": "Retry cap reached; failing open."}))
-        return
+        if "GATE-CRIT:" in content:
+            critical_retries += 1
+        elif "GATE:" in content:
+            schema_retries += 1
+
+    def schema_block(reason):
+        if schema_retries >= SCHEMA_CAP:
+            emit("allow", "Retry cap reached; failing open.")
+            return
+        emit("continue", reason)
+
+    def critical_block(reason):
+        if critical_retries >= CRITICAL_CAP:
+            emit(
+                "allow",
+                reason
+                + " GATE-CRIT-ESCALATION: Verification could not be completed after repeated attempts. "
+                "Proceed ONLY if you prepend a visible '⚠️ UNVERIFIED — this step failed independent verification' "
+                "banner to the learner-facing text. Never present unverified content as verified.",
+            )
+            return
+        emit("continue", reason)
 
     # Aggregate text and tool calls in current turn
     turn_text = []
@@ -143,29 +177,15 @@ def main() -> None:
         # Once clerk has persisted state, auditor must audit writes before closing
         auditor_receipt = latest_receipts.get("AUDITOR_RECEIPT")
         if not auditor_receipt:
-            print(
-                json.dumps(
-                    {
-                        "decision": "continue",
-                        "reason": (
-                            "GATE: State persistence complete. You must invoke the auditor subagent "
-                            "(review_gate or review_session_audit) to verify writes before finishing the closing summary."
-                        ),
-                    }
-                )
+            schema_block(
+                "GATE: State persistence complete. You must invoke the auditor subagent "
+                "(review_gate or review_session_audit) to verify writes before finishing the closing summary."
             )
             return
         if auditor_receipt.get("verdict") == "ISSUES":
-            print(
-                json.dumps(
-                    {
-                        "decision": "continue",
-                        "reason": (
-                            "GATE: Auditor reported issues with state or wiki writes. "
-                            "Fix the issues with clerk and re-audit before finalizing."
-                        ),
-                    }
-                )
+            schema_block(
+                "GATE: Auditor reported issues with state or wiki writes. "
+                "Fix the issues with clerk and re-audit before finalizing."
             )
             return
 
@@ -176,29 +196,15 @@ def main() -> None:
     if handoff_files or clerk_handoff:
         auditor_receipt = latest_receipts.get("AUDITOR_RECEIPT")
         if not auditor_receipt or auditor_receipt.get("mode") != "tutor_audit":
-            print(
-                json.dumps(
-                    {
-                        "decision": "continue",
-                        "reason": (
-                            "GATE: Lesson handoff writes completed. You must invoke the auditor subagent "
-                            "(mode: 'tutor_audit') to verify file consistency before finishing this handoff."
-                        ),
-                    }
-                )
+            schema_block(
+                "GATE: Lesson handoff writes completed. You must invoke the auditor subagent "
+                "(mode: 'tutor_audit') to verify file consistency before finishing this handoff."
             )
             return
         if auditor_receipt.get("verdict") == "ISSUES":
-            print(
-                json.dumps(
-                    {
-                        "decision": "continue",
-                        "reason": (
-                            "GATE: Tutor audit reported issues in handoff files. "
-                            "Correct the handoff files with clerk and re-audit before finishing."
-                        ),
-                    }
-                )
+            schema_block(
+                "GATE: Tutor audit reported issues in handoff files. "
+                "Correct the handoff files with clerk and re-audit before finishing."
             )
             return
 
@@ -210,53 +216,35 @@ def main() -> None:
         last_content = str(last_step.get("content", ""))
 
         # Exclude purely procedural transitions
-        is_substantive = len(last_content.strip()) > 80 and not any(kw in last_content for kw in ["Verifying step", "Checking draft", "Running scout"])
+        is_substantive = len(last_content.strip()) > 80 and not any(
+            kw in last_content for kw in ["Verifying step", "Checking draft", "Running scout"]
+        )
 
         if is_substantive:
             verifier_receipt = latest_receipts.get("VERIFIER_RECEIPT")
             if not verifier_receipt:
-                print(
-                    json.dumps(
-                        {
-                            "decision": "continue",
-                            "reason": (
-                                "GATE: Every-turn verification required. Before presenting teaching claims, hints, "
-                                "quizzes, or grades to the learner, you must invoke the verifier subagent with your proposed draft."
-                            ),
-                        }
-                    )
+                critical_block(
+                    "GATE-CRIT: Every-turn verification required. Before presenting teaching claims, hints, "
+                    "quizzes, or grades to the learner, you must invoke the verifier subagent with your proposed draft."
                 )
                 return
 
             if verifier_receipt.get("verdict") == "ISSUES" or verifier_receipt.get("agrees") is False:
-                print(
-                    json.dumps(
-                        {
-                            "decision": "continue",
-                            "reason": (
-                                "GATE: Verifier returned ISSUES or grading disagreement. "
-                                "You must apply the corrections and re-verify until obtaining a PASS receipt."
-                            ),
-                        }
-                    )
+                critical_block(
+                    "GATE-CRIT: Verifier returned ISSUES or grading disagreement "
+                    "(this includes spoonfeeding, cue leakage, premature synthesis, and shallow passes). "
+                    "You must apply the corrections and re-verify until obtaining a PASS receipt."
                 )
                 return
 
             if verifier_receipt.get("omitted_foundations"):
-                print(
-                    json.dumps(
-                        {
-                            "decision": "continue",
-                            "reason": (
-                                "GATE: Verifier reported omitted foundational theory from the sources. "
-                                "Integrate the missing theoretical mechanism into your draft and re-verify."
-                            ),
-                        }
-                    )
+                critical_block(
+                    "GATE-CRIT: Verifier reported omitted foundational theory from the sources. "
+                    "Integrate the missing theoretical mechanism into your draft and re-verify."
                 )
                 return
 
-    print(json.dumps({"decision": "allow"}))
+    emit("allow")
 
 
 if __name__ == "__main__":

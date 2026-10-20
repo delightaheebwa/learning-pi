@@ -42,12 +42,16 @@ When invoked for a new lesson topic or curriculum slug:
 4. **Contradiction Scan**:
    - Compare the primary curriculum source against external references and externals against each other.
    - For every load-bearing claim, classify disagreements as `real` (sources genuinely conflict) or `apparent` (notation/context differences), recording both positions and a resolution or marking it `open`.
-5. **Write Ephemeral Digest**:
+5. **Anomaly Harvest (Broken Worlds)**:
+   - From the fetched sources, extract 2–4 **anomaly candidates** per concept: concrete problems, systems, or datasets where the learner's current (pre-lesson) toolkit fails, blows up computationally, or yields a contradiction.
+   - Each entry: `{concept, breakdown_case (≤300 chars, concrete), why_prior_tools_fail, source_ref}` where `source_ref` points at a saved raw file.
+   - Prefer anomalies that connect to the learner's past mistakes or examples when `Active Concepts.md` / lesson metadata hint at them.
+6. **Write Ephemeral Digest**:
    - Write to `Learning System/.tmp/context-<session_id>-<slug>.json`.
-   - Include `{goal, slug, tracks, concept_rows, prereqs, source_refs, failed_refs, contradictions, lang_recommendation, synthesis}`.
+   - Include `{goal, slug, tracks, concept_rows, prereqs, source_refs, failed_refs, anomalies, contradictions, lang_recommendation, synthesis}`.
    - Each entry in `source_refs` must include: `label`, `url`, `file`, `hash`, `excerpt` (≤500 chars), `theory_excerpt` (≤500 chars of derivation/mechanism/assumptions), `takeaways`, and `adds_vs_rohit`.
-   - Top-level `synthesis` includes a `theory` line per strand for the Tutor's 4 foundation beats.
-6. **Receipt Output**:
+   - Top-level `synthesis` includes a `theory` line per strand for the Tutor's foundation beats.
+7. **Receipt Output**:
    End your response with a machine-readable JSON receipt block:
    ```json
    SCOUT_RECEIPT: {

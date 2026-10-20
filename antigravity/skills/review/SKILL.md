@@ -1,11 +1,11 @@
 ---
 name: review
-description: Run a spaced-repetition review session on the active track. Gathers the deterministic due queue, audits questions, verifies grades, and delegates state updates to clerk and auditor. Trigger with /review.
+description: Run a spaced-repetition review session on the active track. Gathers the deterministic due queue, composes unlabeled interleaved and synthesis questions, audits them, verifies grades (traces included), and delegates state updates to clerk and auditor. Trigger with /review.
 ---
 
 # Review Flow (`/review`)
 
-Conduct a spaced-repetition review session on your active learning track using the deterministic due queue.
+Conduct a spaced-repetition review session on your active learning track using the deterministic due queue. Reviews test **cue selection and transfer**, not recognition: questions are unlabeled, interleaved, and graded on reasoning traces.
 
 ---
 
@@ -24,49 +24,49 @@ Conduct a spaced-repetition review session on your active learning track using t
    )
    ```
    Pause and await `scout`'s wakeup response with `REVIEW_SCOUT_RECEIPT`.
-4. The digest's `queue` (up to 2 due mistakes + due concepts) is **authoritative**: use it verbatim without re-sorting, re-filtering, or expanding beyond due items.
+4. The digest's `queue` (up to 2 due mistakes + due concepts) is **authoritative** for scheduling: every due entry must be covered by the session's questions, and no non-due concept may be tested in isolation — but presentation (Step 1) composes entries into scenarios rather than one question per row.
 
 ---
 
-## Step 1: Question Batching & Quiz Audit
+## Step 1: Scenario Composition & Quiz Audit
 
 1. **Prerequisite Check**: For each queued concept, run `python3 scripts/ops.py prereqs "<concept>"`. If `blocks: true`, re-derive the blocked prerequisite rather than treating the concept as independent.
-2. **Formulate Questions**:
-   - Write 1 targeted question per entry, numbered, matching the entry's `question_type` and grounded in `source_excerpt`.
-   - **Math on Paper**: For derivations or calculations, instruct the learner to work on paper and reply with only the final number or option letter.
-   - For `concept` or `design` types, include a Feynman explain-back item.
-3. **Verify Batch**:
+2. **Compose Unlabeled Items (no MCQs)**:
+   - **Never name the concept** a question is testing in the stem. The learner must select the tool, not be handed it.
+   - **Multi-concept collisions**: when the queue has 3+ entries, compose 1–2 composite scenarios that chain concepts from different weeks (plus one known mistake) instead of asking one isolated question per concept. Grade each component concept separately within the scenario so scheduling stays per-concept; record the scenario→concept mapping in the handoff, never shown to the learner.
+   - **Decoy / near-miss items**: include at least one item whose surface vocabulary resembles a due concept but violates one of its `conditions`, so that blindly applying the due concept fails. It actually requires an older tool.
+   - **Perturbation items**: for at least one due concept, mutate a load-bearing assumption and ask the learner to trace the downstream consequences.
+   - For `concept`/`design` types, the Feynman check is the **clone protocol**: dispatch `naive-student` with the concept, a seeded misconception, prereq level, and a target task.
+3. **Reasoning Trace Requirement**: For derivations and calculations, instruct the learner to reply with the 3-line trace — governing principle (and why it applies) → setup/crux → result + sanity check — not only the final number. Learners may still work the algebra on paper; the trace is what gets graded.
+4. **Verify Batch**:
    ```python
    invoke_subagent(
        Subagents=[{
            "TypeName": "verifier",
            "Role": "Quiz Auditor",
-           "Prompt": "mode: 'quiz_audit', purpose: 'review', questions: [...], draft: '...'"
+           "Prompt": "mode: 'quiz_audit', context: 'review', questions: [...], draft: '...'"
        }]
    )
    ```
    Pause and wait for `verifier`'s `PASS` receipt before presenting the questions.
-4. Present the full batch in a single turn so the learner can reply in one message.
+5. Present the full batch in a single turn so the learner can reply in one message.
 
 ---
 
 ## Step 2: Evaluation & Grade Audit
 
-1. When the learner replies:
-   - For MCQs with known keys, grade mechanically first:
-     `python3 scripts/ops.py grade-mcq --key A,B,C --answers <learner-answers>`
-   - For free-recall and Feynman explain-backs, grade against the 4-point Feynman rubric.
+1. When the learner replies, build the grade items with the learner's **trace** included per item.
 2. **Verify Grades**:
    ```python
    invoke_subagent(
        Subagents=[{
            "TypeName": "verifier",
            "Role": "Grade Verifier",
-           "Prompt": "mode: 'grade_audit', items: [ {id: 1, concept: '...', question: '...', learner_answer: '...', claimed_verdict: 'pass|fail', source_excerpt: '...'}, ... ]"
+           "Prompt": "mode: 'grade_audit', items: [ {id: 1, concept: '...', pow: '...', question: '...', learner_answer: '...', trace: '...', claimed_verdict: 'pass|fail', source_excerpt: '...', tutor_turns: [...]}, ... ]"
        }]
    )
    ```
-   Pause and await the verifier's `correct_verdict`. If the verifier disagrees, use the verifier's verdict.
+   Pause and await the verifier's `correct_verdict` (it grades setup and sanity check, not just the final scalar, and detects shallow passes against your recent turns). If the verifier disagrees, use the verifier's verdict.
 3. Present the graded feedback. If repair is needed, explain the slip and provide a micro-check.
 
 ---
@@ -81,18 +81,18 @@ The Reviewer session writes **no state files directly**.
        Subagents=[{
            "TypeName": "clerk",
            "Role": "State Clerk",
-           "Prompt": "mode: 'review_close', track: '<track>', grade_verdicts: [...], transcript: '...'"
+           "Prompt": "mode: 'review_close', track: '<track>', grade_verdicts: [...], pow_outcomes: [...], transcript: '...'"
        }]
    )
    ```
-   Wait for `clerk` to log attempts, update `Active Concepts.md` and `Mistakes.md`, write `Reviews/` and `Sessions/` notes, run `audit_state.py`, and commit state.
+   Wait for `clerk` to log attempts (with `pow` types noted), update `Active Concepts.md` and `Mistakes.md`, write `Reviews/` and `Sessions/` notes, run `audit_state.py`, and commit state.
 2. **Dispatch Auditor**:
    ```python
    invoke_subagent(
        Subagents=[{
            "TypeName": "auditor",
            "Role": "Session Auditor",
-           "Prompt": "mode: 'review_session_audit', concepts: [...], grade_verdicts: [...], written_files: [...]"
+           "Prompt": "mode: 'review_session_audit', concepts: [...], grade_verdicts: [...], pow_outcomes: [...], written_files: [...]"
        }]
    )
    ```

@@ -2,7 +2,7 @@
 """pre_tool_gate.py — PreToolUse lifecycle hook for Antigravity Desktop learning layer.
 
 Enforces:
-1. Read-only subagents (verifier, auditor) cannot modify files.
+1. Read-only subagents (verifier, auditor, naive-student) cannot modify files.
 2. Tutor/Reviewer main session cannot directly overwrite Clerk-owned state files
    (MISSION, CURRICULUM, Active Concepts, Mistakes, Learner History, wiki pages).
 3. Solo mode (FLOW:solo) cannot create HTML widget artifacts (SOLO_NO_AIDS).
@@ -55,6 +55,8 @@ def main() -> None:
                     agent_role = "clerk"
                 elif "[SUBAGENT_ROLE:scout]" in content:
                     agent_role = "scout"
+                elif "[SUBAGENT_ROLE:naive-student]" in content:
+                    agent_role = "naive-student"
 
                 if "[[FLOW:" in content:
                     is_learning_flow = True
@@ -69,7 +71,7 @@ def main() -> None:
         return
 
     # Rule 1: Read-only subagents cannot call file modification tools
-    if agent_role in ("verifier", "auditor"):
+    if agent_role in ("verifier", "auditor", "naive-student"):
         if tool_name in ("write_to_file", "replace_file_content"):
             print(
                 json.dumps(

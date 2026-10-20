@@ -36,6 +36,7 @@ When invoked after a lesson handoff or with standalone content:
    - **New Concept**: Create a new wiki page with provenance metadata, add entry to `Knowledge Wiki/index.md`, append to `Knowledge Wiki/log.md`, and add to `Active Concepts.md` (`status: developing`, `last_reviewed: today`, `next_review: +3d`, `Last Q Type: definitional`).
 3. **Learner Understanding Preservation**:
    - When updating or creating a wiki page, ensure the learner's own stated words from the lesson are recorded under `## My understanding` with `status=learner-note`. **Never rewrite, edit, or replace the learner's words with polished AI prose.**
+   - If the handoff carries **versioned understanding** (v1 quote → falsifying counterexample → hardened v2+ quote), preserve **each version verbatim** in order, with the falsifying counterexample noted between them as a labeled annotation (e.g. `Source framing: falsified by <counterexample>`) — never merged into one polished sentence. The evolution scar is the point.
    - Run `python3 scripts/wiki_provenance.py --root .` to verify provenance markers.
 4. **Position Reconciliation**:
    - Align `Learning System/MISSION.md`, `Learning System/CURRICULUM.md`, `Learning System/Core/💡 Learning Profile.md` (Current Focus / Current Position), and `Learning System/Core/📚 Active Concepts.md` track header with the handoff `status` and `resume_from` markers.
@@ -68,6 +69,8 @@ When invoked after a lesson handoff or with standalone content:
 When invoked at the conclusion of a review session:
 1. **Record Attempts**:
    - For every entry in `grade_verdicts[]`, run `python3 scripts/ops.py attempt "<concept>" <pass|fail> [feynman_pass|feynman_fail] --qtype <type> --confidence <confidence> --hints <hints> [--mode solo]`.
+   - `feynman_pass`/`feynman_fail` records the clone protocol (naive-student) outcome. When the handoff entry carries a `pow` type (`perturbation`|`sabotage`|`clone`), note the proof-of-work verdict in the Review note next to the attempt.
+   - `just_tell_me` reveals: the revealed concept is marked `contaminated_by_reveal` in the review note until its isomorphic twin problem passes.
 2. **Write Review Notes**:
    - Write `Learning System/Reviews/Review — <track> — <YYYY-MM-DD>.md` summarizing the reviewed concepts, questions, answers, and verifier verdicts.
    - Write the corresponding `Learning System/Sessions/Session — Review — <date>.md` note.
@@ -99,8 +102,9 @@ When invoked at the conclusion of a review session:
 When invoked at lesson conclusion so the Tutor stays 100% focused on teaching:
 1. **Record Attempts**:
    - For every entry in `attempts[]`, run `python3 scripts/ops.py attempt "<concept>" <pass|fail> [feynman_pass|feynman_fail] --qtype <type> --confidence <confidence> --hints <hints>`.
+   - When an entry carries a `pow` type (`perturbation`|`sabotage`|`clone`), record the proof-of-work verdict alongside the attempt in the lesson and learning-record notes.
 2. **Write Handoff Batch**: Write the 4 handoff files in a single pass:
-   - `Learning System/Lessons/Lesson — <slug> — <date>.md`: Full lesson narrative, derivation beats, Socratic dialogues, Feynman explanations, and verbatim learner quotes.
+   - `Learning System/Lessons/Lesson — <slug> — <date>.md`: Full lesson narrative (collisions, invented patches, boundary hunts, falsification events), the **versioned learner understanding** (v1 quote → falsifying counterexample → hardened quote, verbatim), proof-of-work transcripts and verdicts, dependency events (including `just_tell_me` + `contaminated_by_reveal` + isomorphic twin results), and verbatim learner quotes.
    - `Learning System/Sessions/Session — <topic> — <date>.md`: Session transcript metadata, duration, covered checkpoints, and confidence calibration.
    - `Learning System/Learning Records/Record — <topic> — <date>.md`: Quantitative metrics, mastery updates, mistakes, and prerequisite checks.
    - `Learning System/Core/Pending Ingest.json`:
