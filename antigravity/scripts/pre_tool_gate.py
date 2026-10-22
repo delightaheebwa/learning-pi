@@ -117,6 +117,7 @@ def infer_role(steps):
                 ("fact_check", "verifier"),
                 ("quiz_audit", "verifier"),
                 ("grade_audit", "verifier"),
+                ("ui_audit", "verifier"),
                 ("tutor_audit", "auditor"),
                 ("scout_audit", "auditor"),
                 ("review_gate", "auditor"),

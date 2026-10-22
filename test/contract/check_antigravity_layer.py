@@ -661,26 +661,27 @@ def test_hook_behaviors(root: Path) -> None:
             fail(f"behavior: GENERIC output should not gate role/flow, got {res}")
 
         # --- Test 22: SYSTEM_MESSAGE mode opens a read-only role without invocation ---
-        transcript_sysmsg = tmp_path / "trans_sysmsg.jsonl"
-        with open(transcript_sysmsg, "w") as f:
-            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
-            f.write(json.dumps({"source": "MODEL", "type": "PLANNER_RESPONSE", "content": "[[FLOW:teach]] verifying"}) + "\n")
-            f.write(json.dumps({
-                "source": "SYSTEM",
-                "type": "SYSTEM_MESSAGE",
-                "content": "mode: 'grade_audit', items: [...]",
-            }) + "\n")
-        res = run_hook(
-            pre_tool_script,
-            {
-                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
-                "transcriptPath": str(transcript_sysmsg),
-            },
-        )
-        if res.get("decision") == "deny":
-            ok("behavior: SYSTEM_MESSAGE mode opens the matching read-only role")
-        else:
-            fail(f"behavior: SYSTEM_MESSAGE mode should open read-only role, got {res}")
+        for sysmsg_mode in ("grade_audit", "ui_audit"):
+            transcript_sysmsg = tmp_path / f"trans_sysmsg_{sysmsg_mode}.jsonl"
+            with open(transcript_sysmsg, "w") as f:
+                f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
+                f.write(json.dumps({"source": "MODEL", "type": "PLANNER_RESPONSE", "content": "[[FLOW:teach]] verifying"}) + "\n")
+                f.write(json.dumps({
+                    "source": "SYSTEM",
+                    "type": "SYSTEM_MESSAGE",
+                    "content": f"mode: '{sysmsg_mode}', items: [...]",
+                }) + "\n")
+            res = run_hook(
+                pre_tool_script,
+                {
+                    "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                    "transcriptPath": str(transcript_sysmsg),
+                },
+            )
+            if res.get("decision") == "deny":
+                ok(f"behavior: SYSTEM_MESSAGE mode '{sysmsg_mode}' opens the matching read-only role")
+            else:
+                fail(f"behavior: SYSTEM_MESSAGE mode '{sysmsg_mode}' should open read-only role, got {res}")
 
         # --- Test 23: a receipt inside GENERIC output cannot close an open role ---
         transcript_generic_receipt = tmp_path / "trans_generic_receipt.jsonl"
