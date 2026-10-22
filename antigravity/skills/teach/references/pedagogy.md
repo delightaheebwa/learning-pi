@@ -1,8 +1,8 @@
 # Learning System Pedagogy & Protocols Reference
 
-This document defines the core pedagogical procedures, struggle mechanics, proof-of-work gates, and assessment rubrics for the Antigravity learning system.
+This document defines the core pedagogical procedures, struggle mechanics, the Operational Intuition Battery, and assessment rubrics for the Antigravity learning system.
 
-**Design stance**: the AI does not explain clearly so the learner can nod along. The AI builds *broken worlds* and adversarial tests so the learner must construct, defend, and repair their own mental model. Whoever does the synthesis does the learning. The Tutor is a Reality Simulator and Socratic Prosecutor, not a narrator.
+**Design stance**: the AI does not explain clearly so the learner can nod along, and it does not grind the learner through symbols either. The AI builds *broken worlds* so the learner feels why an idea is needed, then co-builds a **playable mental model** — the mechanism in words, an anatomical read of the formula, the extreme regimes, and the boundaries. Whoever does the synthesis does the learning: the learner sketches the move and owns the boundary conditions; the Tutor supplies the formalism openly. The Tutor is a Reality Simulator and Socratic partner, not a narrator and not a symbolic calculator.
 
 ---
 
@@ -10,105 +10,109 @@ This document defines the core pedagogical procedures, struggle mechanics, proof
 
 Checkpoints are never dumped as monolithic lectures. Each checkpoint is partitioned into **mini-checkpoints**:
 
-1. **One Atomic Idea Per Message**: A mini-checkpoint works exactly one definition, formula, mechanism, or micro-step — and it is *extracted from the learner*, not delivered.
+1. **One Atomic Idea Per Message**: A mini-checkpoint works exactly one definition, formula, mechanism, or micro-step — and it is *co-built with the learner* (sketched first, then formalised), not delivered as a lecture.
 2. **Mandatory Post-Idea Pause**: After the learner has stated (and hardened) the idea, **pause and invite the learner's questions, doubts, or tangents**. Do not proceed to practice or the next mini-checkpoint until the learner is satisfied.
-3. **Practice at Checkpoint End**: Only after all mini-checkpoints for the checkpoint are complete do you deliver the checkpoint's practice problem — **unlabeled** (the stem never names the concept being practiced) and answered with a reasoning trace (§7).
+3. **Practice at Checkpoint End**: Only after all mini-checkpoints for the checkpoint are complete do you deliver the checkpoint's practice problem — **unlabeled** (the stem never names the concept being practiced) and answered with a qualitative trace (§6).
 4. **Post-Grading Pause**: After grading the practice problem, **pause again** to invite questions before advancing to the next checkpoint.
 
 ---
 
-## 2. Collision → Invention → Boundary Hunt → Falsify Ladder
+## 2. Collision → Sketch the Move → Read the Formula & Hunt the Boundary → Counterexample Test
 
-Every mini-checkpoint idea follows this 4-stage ladder. The four theoretical foundation beats (`problem`, `where_from`, `conditions`, `contrast`) are **produced by the learner under pressure**; the Tutor only supplies what the learner demonstrably cannot produce (§3).
+Every mini-checkpoint idea follows this 4-stage ladder. The four foundation beats (`problem`, `where_from`, `conditions`, `contrast`) are split by producer: `problem` and `where_from` are **co-built** (learner sketches first, Tutor supplies the formalism), while `conditions` and `contrast` are **learner-produced** (§3).
 
 ### Stage 1: Collision (Broken World)
 - Open the mini-checkpoint with a **concrete anomaly**: a problem, system, or dataset where the learner's *existing* toolkit (prior lessons and concepts only) fails, blows up computationally, or yields a contradiction. Ground it in the scout digest (`anomalies[]`).
 - Do **not** name the new concept, do not preview the mechanism, and do not telegraph which tool applies (`turn_kind: "collision"`). The `verifier` rejects any leak (`CUE_LEAKAGE`).
 - Scale the collision to the learner's history from `Learning System/Core/Learner History.md` — use their own past examples and past mistakes where possible.
 
-### Stage 2: Invention (Forced Patch)
-- Ask the learner: *"Why did your old tool break here? What constraint is being violated? What property would a fix have to have?"*
-- The learner must propose a rough fix or identify the bottleneck themselves (`turn_kind: "invention"` when the Tutor evaluates the attempt).
-- Only after the learner has articulated the shape of the hole may the Tutor name the formal concept and supply the **mechanism** (`where_from`) — and even then a critical bridging step is left for the learner to complete.
-- If the learner's invented patch is already the real mechanism, say so and let them own it. If it is wrong, run a fast falsification on their patch (Stage 4 mechanics) before supplying the mechanism.
+### Stage 2: Sketch the Move (Qualitative Invention) + Anatomical Read
+- Before any jargon or formula, ask the learner to propose the *intuitive* fix: *"What kind of move would get us out of this hole? Which way should the behaviour go? If you had one more dimension / one more knob, what would you use it for?"* A plain-words or sketched answer is the goal — no algebra required.
+- Only **after** the learner has sketched the shape of the fix may the Tutor name the formal concept and put the **formula openly on screen** (`turn_kind: "invention"`). Never withhold the formula to force symbolic derivation.
+- Then guide an **Anatomical Read**, not a derivation: walk what each term is doing as a knob — what grows, what shrinks, what cancels, why a term sits in the numerator vs. the denominator, and what happens as a term $\to 0$ or $\to \infty$. Anchor it on a toy case ($N=2$, a $2\times2$ matrix, a 2-point cloud) rather than a general proof.
+- The learner then restates the **mechanism in their own words** (`where_from`). That restatement — a causal story plus a term-by-term read — is the acceptance bar. **A derivation is never required and is never a substitute.**
+- If the learner's sketch is already the real move, say so and let them own it.
 
 ### Stage 3: Boundary Hunt (Learner-Extracted `conditions` and `contrast`)
 - **Never hand the learner the boundary conditions or the nearest-neighbour contrast.** Instead, ask:
   - *"Give me an input, regime, or dataset where this mechanism fails or lies to you."* (the learner derives `conditions`)
   - *"When would a competent engineer reach for [Concept X] here when they should have used [nearest neighbour]?"* (the learner derives `contrast`)
-- The Tutor records what the learner produced; whatever they miss is handled by Falsify, not by announcement.
+- The Tutor records what the learner produced; whatever they miss is handled by the Counterexample Test, not by announcement.
 
-### Stage 4: Falsify-Until-Tight (replaces Check-and-Extend)
+### Stage 4: Counterexample Test (replaces Falsify-Until-Tight)
 - The learner states the idea in their own words (1–2 lines). **Capture those exact words verbatim as version 1** for the wiki's `## My understanding` section (`status=learner-note`).
 - **Forbidden**: politely appending what the learner missed (`Source framing: ...`) and moving on. That patches the statement *for* them and buries the failure.
-- **Mandatory**: if the learner's statement omits a load-bearing condition or overgeneralizes, construct a **concrete counterexample that satisfies their statement as written** and produces an absurd or false result (`turn_kind: "falsify"`). The learner must diagnose why their rule let the counterexample through and patch the statement themselves.
-- Repeat until the statement survives the counterexamples the Tutor can construct. Then capture the **final version verbatim as version 2** (or later).
+- **Mandatory (one round)**: if the learner's statement omits a load-bearing condition or overgeneralises, construct **one** concrete counterexample that satisfies their statement as written and produces an absurd or false result (`turn_kind: "falsify"`). The learner diagnoses why their rule let the counterexample through and patches the statement themselves. Capture the hardened version verbatim as version 2.
+- **Stop after one round.** This tests the *mental picture*, not mathematical airtightness — never run a compiler-style nitpick loop over the learner's wording.
 - The handoff to `clerk` records the **versioned understanding**: v1 quote → falsifying counterexample → hardened quote. The wiki shows the scar, not just the survivor. AI annotations around the learner's words are still labeled (`Source framing:`, `External angle:`, `⚠️ Sources disagree`) and never rewrite the quotes.
 
 ---
 
-## 3. Foundation Beats: Tutor-Delivery Is a Verifier Violation
+## 3. Foundation Beats: Split Producer
 
-The four beats still define mastery, but their **producer inverts**:
+The four beats still define mastery, but their producer splits — two are co-built, two stay learner-owned:
 
-| Beat | Old (violated) | New (enforced) |
+| Beat | Producer | What satisfies it |
 | :--- | :--- | :--- |
-| `problem` | Tutor states what the concept is for. | Emerged from the Collision — the learner experienced the breakdown first. |
-| `where_from` | Tutor delivers derivation/mechanism. | Learner invents a patch (Stage 2); Tutor supplies only the gap the learner cannot bridge, leaving a bridging step for the learner. |
-| `conditions` | Tutor lists assumptions. | Learner must produce a failure regime (Stage 3) before the Tutor confirms or sharpens it. |
-| `contrast` | Tutor names the nearest neighbour. | Learner must name when the neighbour would be wrongly chosen (Stage 3). |
+| `problem` | Emerged from the Collision — the learner experienced the breakdown first. | The learner can say what question the idea answers and why the old toolkit failed. |
+| `where_from` | Co-built: learner **sketches the move** (Stage 2) first; Tutor then names the concept and reads the formula anatomically; learner **restates the mechanism in their own words**. | A causal story in words + a term-by-term read of the formula. **Never a derivation or proof.** |
+| `conditions` | Learner-produced (Stage 3). | The learner names a regime where the mechanism fails or lies. |
+| `contrast` | Learner-produced (Stage 3). | The learner names when the nearest neighbour would be wrongly chosen. |
 
-**Verifier rule (`PREMATURE_SYNTHESIS_LEAK`)**: on `turn_kind: "idea"` or `"invention"`, if the draft states `conditions` or `contrast` that the learner has not yet attempted (envelope flags `learner_attempted_conditions` / `learner_attempted_contrast` false), the verifier returns `ISSUES`. Delivery-order exceptions exist only for `turn_kind: "autopsy"` (§6).
+**Verifier rules:**
+- `PREMATURE_SYNTHESIS_LEAK`: on `turn_kind: "idea"` or `"invention"`, if the draft states `conditions` or `contrast` that the learner has not yet attempted (envelope flags `learner_attempted_conditions` / `learner_attempted_contrast` false), the verifier returns `ISSUES`. Delivery-order exceptions exist only for `turn_kind: "autopsy"` (§5).
+- `SPOONFEEDING_DETECTED` (narrow): fires only when the Tutor hands over the *intuitive move* before the learner has sketched it (`learner_attempted_move` false), or answers its own qualitative/knob-turn question. **Showing the formula, defining its symbols, and reading its terms is explicitly NOT spoonfeeding** — that is the intended delivery of `where_from`.
+- `omitted_foundations` (narrow): flags only a **load-bearing conceptual** omission — a causal mechanism, the anatomical role of a core formula term, a necessary assumption, or a failure/misapplication regime. **Skipping algebraic derivations, formal proofs, and Hilbert/measure-theoretic manipulation is required by this pedagogy and must never be flagged as an omission.**
 
 ---
 
-## 4. Proof-of-Work Graduation (replaces the declarative Feynman checklist)
+## 4. Operational Intuition Battery (Graduation)
 
-Reciting a 4-sentence summary is not mastery. A concept cannot reach `solid` without passing **operational proof-of-work** across three protocols. All three must eventually pass (across lesson + reviews); the lesson-end battery requires at least `perturbation` and one of `sabotage`/`clone`.
+Reciting a summary is not mastery, and neither is reproducing a derivation. A concept cannot reach `solid` without passing the **Operational Intuition Battery** across three protocols. All three must eventually pass (across lesson + reviews); the lesson-end battery requires at least `perturbation` and one of `sabotage`/`clone`. The internal `pow` tokens are unchanged (`perturbation` / `sabotage` / `clone`) so state scripts and receipts stay stable — only the rubrics change.
 
-### Protocol A — Perturbation (`pow: "perturbation"`)
-- Mutate a load-bearing assumption inside the formula, algorithm, or system the learner just learned: change `<` to `<=`, drop a normalization term, make noise non-Gaussian, remove an independence assumption.
-- The learner must trace the exact downstream consequence: does it fail silently, diverge, or still work in a special case? A memorized summary cannot answer this; only a running causal model can.
+### Protocol A — Directional Perturbation (`pow: "perturbation"`)
+- Mutate a load-bearing assumption or term in the formula/system the learner just learned: drop a normalization term, flip a sign, push $\gamma \to \infty$, make features correlated, remove an independence assumption.
+- The learner must predict the **qualitative downstream behaviour**: which way does it move, what breaks, what still works in a special case? No algebra required — a running causal model answers this; a memorized summary cannot.
 
-### Protocol B — Sabotage (`pow: "sabotage"`)
-- Present a plausible derivation, code snippet, or design proof (written by "a peer") containing **one subtle conceptual bug**: an illegal exchange of limit and integral, an unstated assumption, a leaky abstraction.
-- No multiple choice, no hint about which line. The learner must find the exact step where the reasoning cheats, prove it is illegal with a counterexample, and fix it.
+### Protocol B — Misapplication Spotter (`pow: "sabotage"`)
+- Present a plausible real-world *use* of the concept (or a look-alike) in a scenario where one of its `conditions` is violated — e.g. someone applies PCA to concentric rings, or reads "high variance" as "important signal" on a ferris wheel.
+- The learner must identify **which assumption broke**, what will actually happen, and which tool/conclusion was needed instead. This is not algebraic bug-hunting: no derivation is shown and none is required.
 
-### Protocol C — Clone (executable Feynman; `pow: "clone"`)
-- The Tutor dispatches the **`naive-student`** subagent: a literal-minded persona that knows only the prerequisites and carries a specific seeded misconception.
-- The learner must teach the concept to `naive-student` in their own words.
-- `naive-student` never fills gaps charitably: jargon without grounding is misread literally, terse fragments are executed as stated, and it then attempts a target task using **only** what the learner explicitly said.
-- If `naive-student` fails the target task with the learner's explanation, the learner failed the test.
-- Outcome is logged as `feynman_pass` / `feynman_fail` (the `ops.py` token now records this clone protocol).
+### Protocol C — Intuitive Clone (`pow: "clone"`)
+- The Tutor dispatches the **`naive-student`** subagent: a literal-minded novice that knows only the prerequisites and carries a specific seeded misconception.
+- The learner teaches the concept in their own words.
+- `naive-student` never fills gaps charitably: it misreads unexplained causal leaps and vague buzzwords literally, then makes a **qualitative prediction or tool choice** on a fresh scenario using **only** what the learner explicitly said.
+- If `naive-student` gets the qualitative task wrong, the learner failed the test.
+- Outcome is logged as `feynman_pass` / `feynman_fail`.
 
 ### Recording
-- Every proof-of-work attempt retains metadata: concept, `pow` type, verdict, `--qtype`, `--confidence`, `--hints`.
+- Every battery attempt retains metadata: concept, `pow` type, verdict, `--qtype`, `--confidence`, `--hints`.
 - A failed protocol generates a repair loop (a new isomorphic instance of the same protocol), not a repeated identical item.
 
 ---
 
-## 5. Struggle Mechanics: Hints, "Just Tell Me", and Precision
+## 5. Struggle Mechanics: Hints, "Just Tell Me", and Causal Clarity
 
-### Hint Taxonomy (slot equations are banned)
-A hint may **never** disclose: the method's name, a formula or "slot equation", which theorem to apply, or the final answer. Allowed hint forms (`turn_kind: "hint"`):
-1. **Toy-Scale Reduction**: *"Forget $N$ dimensions — write down the $N=2$ case with actual numbers."*
-2. **Extreme-Regime Probe**: *"What must happen when $\alpha \to 0$? When $\alpha \to \infty$?"*
-3. **Invariant Reminder**: *"What quantity cannot change across this step?"*
-4. **Error-Location Probe**: point at *where* the learner's own work first went wrong, without giving the correction.
-- **Hint Budget** still fades with measured independence (`ops.py mastery <track>`): no independence evidence → up to **2** hints; neutral / untested-solid → **1**; passed solo (`independence ≥ 2`) → **0** (ask the learner to re-check directly). Hint 2 is a *sharper diagnostic question*, not a method disclosure.
+### Hint Taxonomy (formulas are allowed)
+A hint **may** disclose: the formula, the meaning of every symbol, a toy/2D picture, and an extreme-regime probe. A hint may **never** disclose: which concept applies on an unlabeled problem, or the directional/qualitative outcome the learner is meant to predict. Allowed hint forms (`turn_kind: "hint"`):
+1. **Formula-on-screen, point at a term**: *"Look at the $\exp(-\gamma\|x-x'\|^2)$ part — what happens to it as the distance grows?"*
+2. **Extreme-Regime Probe**: *"What must happen when $\gamma \to 0$? When $\gamma \to \infty$?"*
+3. **Toy-Scale Reduction**: *"Forget $N$ dimensions — draw the $N=2$ case."*
+4. **Contrasting Pair**: *"Compare what happens in case A against case B — what differs?"*
+- **Hint Budget** still fades with measured independence (`ops.py mastery <track>`): no independence evidence → up to **2** hints; neutral / untested-solid → **1**; passed solo (`independence ≥ 2`) → **0** (ask the learner to re-check directly).
 - Record the number of hints provided (`--hints N`).
 
-### "Just Tell Me" → Diagnostic Autopsy Tax
+### "Just Tell Me" → Clean Reveal + Immediate Knob Check
 If the learner says "just tell me", "skip", or "give me the answer":
-1. **No lecture, no refusal** — but the learner must first file a one-line autopsy: what they know, what they tried, where the wall is (a bare "no-idea" is recorded as `no-idea` confidence and honored).
-2. The Tutor delivers the idea compressed (this is the only turn kind allowed to state `conditions`/`contrast` outright: `turn_kind: "autopsy"`).
-3. The concept is marked **`contaminated_by_reveal`** in the handoff `dependency_events[]`.
-4. The checkpoint is **not passed**. Before advancing, the Tutor serves an **isomorphic twin problem** — different surface domain, identical underlying structure — with **0 hints allowed**. The twin's verdict is logged as its own attempt. You do not advance a checkpoint on borrowed eyesight.
+1. **No lecture, no refusal, no tax** — ask only where the wall is (a bare "no-idea" is recorded as `no-idea` confidence and honored).
+2. The Tutor delivers the full intuitive model + anatomical formula read immediately (this is the one turn kind allowed to state `conditions`/`contrast` outright: `turn_kind: "autopsy"`).
+3. Log `just_tell_me` in the handoff `dependency_events[]`. No `contaminated_by_reveal` marking and no mandatory zero-hint twin — the reveal is legitimate.
+4. Ask **one** immediate qualitative prediction on a slightly altered case (e.g. *"now if we double $\gamma$, which way does this move?"*). Its verdict is logged as its own attempt. This confirms the explanation landed before advancing — you still do not advance on borrowed eyesight.
 
-### Precision Enforcement (no context-charity)
-- When the learner answers tersely or in fragments ("1", "sure", "x^2", "idk"), the Tutor does **not** charitably infer the qualifiers, domain constraints, or causal links from context.
-- Treat the fragment like a strict compiler or a malicious genie: show how the statement as written is incomplete or ambiguous (ideally by running it literally on a case where it breaks), and require the learner to state the complete claim.
-- Terse *acknowledgements* of a just-made point ("sure", "got it") may be accepted at face value; terse *technical answers* get precision treatment.
+### Causal Clarity Check (no context-charity on causation)
+- Terse answers with clear causal content ("up", "0", "it separates them") are **accepted**; the learner is never treated like a strict compiler over notation.
+- What is rejected is an ungrounded buzzword or an unexplained causal leap ("it captures the information", "variance = importance"). Run it on a case where it breaks and ask the learner to state the *causal* claim completely (what moves, which way, why).
+- Terse *acknowledgements* of a just-made point ("sure", "got it") are accepted at face value.
 
 ---
 
@@ -116,24 +120,24 @@ If the learner says "just tell me", "skip", or "give me the answer":
 
 ### MCQ Policy
 - MCQs are **diagnostic probes only** (Step 1 of `/teach`). They are **banned** in checkpoint practice, `/review`, and `/solo` — recognition is not retrieval.
-- Where MCQs remain legal: **4 options**, parallel grammatical structure and comparable lengths; distractors represent genuine conceptual slips (right in another regime, one algebraic step off), never nonsense or "all of the above"; randomized positions; zero leakage in stems or intro text.
+- Where MCQs remain legal: **4 options**, parallel grammatical structure and comparable lengths; distractors represent genuine conceptual slips (right in another regime, one step off), never nonsense or "all of the above"; randomized positions; zero leakage in stems or intro text.
 
-### Reasoning Trace Requirement (derivations & calculations)
-- The learner replies with a **3-line skeleton trace**, not a bare final answer:
-  1. **Governing principle**: which invariant / law / concept governs this, and why does it apply here (precondition check)?
-  2. **Setup / crux**: the setup equation or key structural transformation *before* algebra.
-  3. **Result + sanity check**: the result plus a limiting-case, dimensional, or order-of-magnitude check.
-- Grades weigh the **setup and sanity check**, not just the terminal scalar. A correct number with a broken setup is a `fail`.
+### Qualitative Trace Requirement (practice, review, solo)
+- The learner replies with a **3-line qualitative trace**, not a bare final answer:
+  1. **Cue & principle**: which concept governs this, which assumption holds or breaks, and why it applies here.
+  2. **Mechanism / knob-turn**: looking at the mechanism or the formula, which piece is being pushed and how does it transmit the effect.
+  3. **Direction & extreme check**: which way the behaviour moves (up/down/zero/$\infty$/collapses/separates) and does that match a toy or extreme case.
+- Grades weigh the **mechanism and the direction/extreme check**, not any scalar. A correct-looking conclusion with a broken mechanism is a `fail`. **Derivation and calculation prompts are banned** in practice, review, and solo.
 
 ### Cue-Selection Hygiene (transfer)
-- **Never name the concept** a practice/review/solo question is testing in the stem.
+- **Never name the concept** when the item tests *tool selection or application* (the learner must choose the tool, not be handed it). For an item that directly tests a concept's *meaning or anatomy* (read this formula / explain this mechanism), naming it is allowed — the label ban protects the selection skill, not the meaning skill.
 - **Interleave**: reviews mix due concepts with older ones; problems are drawn from unlabeled, interleaved sets.
 - **Decoy / near-miss problems**: include items whose surface vocabulary *looks* like a due concept but violates one of its `conditions` and actually requires an older tool. Applying the due concept without checking preconditions fails the item.
 - **Multi-concept collisions (`k-way synthesis`)**: instead of one isolated question per due concept, compose 1–2 composite scenarios chaining concepts from different weeks (plus one known mistake). Expertise lives at the *interfaces* between concepts; grade each component concept separately within the scenario so `ops.py` scheduling stays per-concept.
 - These scenarios must be composed during the session from the scout digest and `Active Concepts.md` rows; the scenario→concept mapping is recorded in the handoff for grading, never shown to the learner.
 
 ### Feynman Explain-Back
-- Replaced operationally by **Protocol C (Clone)** for `concept`/`design` items at lesson end and in reviews. The legacy 4-point checklist (what / when-why / nearest-neighbour / example) may be used by the Tutor as a *coverage checklist while listening to the clone dialogue*, but pass/fail is decided by whether `naive-student` succeeds on the target task.
+- For `concept`/`design` items at lesson end and in reviews, the explain-back is the **clone protocol (Protocol C)** — the learner teaches `naive-student`, which then makes a **qualitative prediction or tool choice**. The legacy 4-point checklist (what / when-why / nearest-neighbour / example) may be used as a *coverage checklist while listening*, but pass/fail is decided by whether `naive-student` succeeds on the qualitative task.
 
 ---
 

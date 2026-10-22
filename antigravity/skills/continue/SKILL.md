@@ -27,6 +27,6 @@ Resume a paused or in-progress lesson directly at its next atomic mini-checkpoin
 ## Step 1: Resume Teaching
 
 1. State clearly to the learner which topic and mini-checkpoint is resuming.
-2. Follow the **mini-checkpoint pause protocol** and the Collision → Invention → Boundary Hunt → Falsify ladder from [pedagogy.md](../teach/references/pedagogy.md).
-3. **Verify Every Turn**: Before presenting each collision, Socratic hint, boundary-hunt question, falsification, practice item, or grade, dispatch **`verifier`** and await `PASS`.
-4. At lesson end, execute the proof-of-work battery (perturbation, sabotage, naive-student clone), delegate the final handoff write batch to **`clerk`** (`mode: 'lesson_handoff'`), dispatch **`auditor`** (`mode: 'tutor_audit'`) to verify the handoff files, and prompt `/ingest`.
+2. Follow the **mini-checkpoint pause protocol** and the Collision → Sketch the Move → Read the Formula & Hunt the Boundary → Counterexample Test ladder from [pedagogy.md](../teach/references/pedagogy.md).
+3. **Verify Every Turn**: Before presenting each collision, Socratic hint, boundary-hunt question, counterexample, practice item, or grade, dispatch **`verifier`** and await `PASS`.
+4. At lesson end, execute the Operational Intuition Battery (perturbation, misapplication-spotter, naive-student clone), delegate the final handoff write batch to **`clerk`** (`mode: 'lesson_handoff'`), dispatch **`auditor`** (`mode: 'tutor_audit'`) to verify the handoff files, and prompt `/ingest`.

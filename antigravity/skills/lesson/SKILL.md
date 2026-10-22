@@ -27,4 +27,4 @@ Initiate or resume the next sequential curriculum lesson defined in your learnin
    - If starting fresh, invoke the **`teach`** skill for the resolved topic:
      - Dispatch `scout` (`mode: "lesson"`) for curriculum and Further Reading sources.
      - Dispatch `auditor` (`mode: "scout_audit"`).
-      - Run the probe → scope contract → Collision/Invention/Boundary-Hunt/Falsify teaching loop with every-turn `verifier` verification.
+      - Run the probe → scope contract → Collision/Sketch-the-Move/Anatomical-Read/Boundary-Hunt/Counterexample teaching loop with every-turn `verifier` verification.

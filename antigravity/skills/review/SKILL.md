@@ -1,11 +1,11 @@
 ---
 name: review
-description: Run a spaced-repetition review session on the active track. Gathers the deterministic due queue, composes unlabeled interleaved and synthesis questions, audits them, verifies grades (traces included), and delegates state updates to clerk and auditor. Trigger with /review.
+description: Run a spaced-repetition review session on the active track. Gathers the deterministic due queue, composes unlabeled interleaved and synthesis questions, audits them, verifies grades (qualitative traces included), and delegates state updates to clerk and auditor. Trigger with /review.
 ---
 
 # Review Flow (`/review`)
 
-Conduct a spaced-repetition review session on your active learning track using the deterministic due queue. Reviews test **cue selection and transfer**, not recognition: questions are unlabeled, interleaved, and graded on reasoning traces.
+Conduct a spaced-repetition review session on your active learning track using the deterministic due queue. Reviews test **cue selection and transfer**, not recognition: questions are unlabeled, interleaved, and graded on qualitative traces.
 
 ---
 
@@ -30,14 +30,15 @@ Conduct a spaced-repetition review session on your active learning track using t
 
 ## Step 1: Scenario Composition & Quiz Audit
 
-1. **Prerequisite Check**: For each queued concept, run `python3 scripts/ops.py prereqs "<concept>"`. If `blocks: true`, re-derive the blocked prerequisite rather than treating the concept as independent.
+1. **Prerequisite Check**: For each queued concept, run `python3 scripts/ops.py prereqs "<concept>"`. If `blocks: true`, re-establish the blocked prerequisite's intuition rather than treating the concept as independent.
 2. **Compose Unlabeled Items (no MCQs)**:
-   - **Never name the concept** a question is testing in the stem. The learner must select the tool, not be handed it.
+   - **Never name the concept** when the item tests *tool selection or application* (the learner must select the tool, not be handed it). For an item that directly tests a concept's *meaning or anatomy*, naming it is allowed.
    - **Multi-concept collisions**: when the queue has 3+ entries, compose 1–2 composite scenarios that chain concepts from different weeks (plus one known mistake) instead of asking one isolated question per concept. Grade each component concept separately within the scenario so scheduling stays per-concept; record the scenario→concept mapping in the handoff, never shown to the learner.
    - **Decoy / near-miss items**: include at least one item whose surface vocabulary resembles a due concept but violates one of its `conditions`, so that blindly applying the due concept fails. It actually requires an older tool.
-   - **Perturbation items**: for at least one due concept, mutate a load-bearing assumption and ask the learner to trace the downstream consequences.
-   - For `concept`/`design` types, the Feynman check is the **clone protocol**, run in two phases: in this batch, add a "teach the clone" item asking the learner to write out their explanation of the (unlabeled) concept in their reply. Do **not** dispatch `naive-student` yet — there is nothing to teach it until the learner answers.
-3. **Reasoning Trace Requirement**: For derivations and calculations, instruct the learner to reply with the 3-line trace — governing principle (and why it applies) → setup/crux → result + sanity check — not only the final number. Learners may still work the algebra on paper; the trace is what gets graded.
+   - **Perturbation items**: for at least one due concept, mutate a load-bearing assumption and ask the learner to predict the qualitative downstream behaviour (which way it moves, what breaks).
+   - **Misapplication items**: include an item presenting a plausible real-world use where a `condition` is violated; the learner names the broken assumption and what should have been done instead.
+   - For `concept`/`design` types, the Feynman check is the **clone protocol**, run in two phases: in this batch, add a "teach the clone" item asking the learner to explain the (unlabeled) concept in their reply. Do **not** dispatch `naive-student` yet — there is nothing to teach it until the learner answers.
+3. **Qualitative Trace Requirement**: Instruct the learner to reply with the 3-line qualitative trace — cue & principle (why it applies) → mechanism/knob-turn → direction & extreme check — not only a final answer. No derivation or calculation prompts: this review tests the mental model.
 4. **Verify Batch**:
    ```python
    invoke_subagent(
@@ -57,7 +58,7 @@ Conduct a spaced-repetition review session on your active learning track using t
 
 1. When the learner replies, build the grade items with the learner's **trace** included per item.
 2. **Run the Clone Phase (if the batch contained a teach-the-clone item)**:
-   - Dispatch **`naive-student`** now, with `concept`, a seeded plausible `misconception`, `prereq_level` (the concept's prerequisites), `target_task`, and `learner_transcript` = the learner's teaching reply verbatim.
+   - Dispatch **`naive-student`** now, with `concept`, a seeded plausible `misconception`, `prereq_level` (the concept's prerequisites), a **qualitative** `target_task` (a prediction or tool choice), and `learner_transcript` = the learner's teaching reply verbatim.
    - Await `NAIVE_STUDENT_RECEIPT` (it attempts the target task using only what the learner explicitly taught).
 3. **Verify Grades**:
    ```python
@@ -69,7 +70,7 @@ Conduct a spaced-repetition review session on your active learning track using t
        }]
    )
    ```
-   Pause and await the verifier's `correct_verdict` (it grades setup and sanity check, not just the final scalar; it flags shallow passes against your recent turns; and for clone items it audits the `NAIVE_STUDENT_RECEIPT` against the claimed verdict). If the verifier disagrees, use the verifier's verdict.
+   Pause and await the verifier's `correct_verdict` (it grades the mechanism and the direction/extreme check, not a scalar, and never requires algebra; it flags shallow passes against your recent turns; and for clone items it audits the `NAIVE_STUDENT_RECEIPT` against the claimed verdict). If the verifier disagrees, use the verifier's verdict.
 3. Present the graded feedback. If repair is needed, explain the slip and provide a micro-check.
 
 ---

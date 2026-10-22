@@ -69,8 +69,8 @@ When invoked after a lesson handoff or with standalone content:
 When invoked at the conclusion of a review session:
 1. **Record Attempts**:
    - For every entry in `grade_verdicts[]`, run `python3 scripts/ops.py attempt "<concept>" <pass|fail> [feynman_pass|feynman_fail] --qtype <type> --confidence <confidence> --hints <hints> [--mode solo]`.
-   - `feynman_pass`/`feynman_fail` records the clone protocol (naive-student) outcome. When the handoff entry carries a `pow` type (`perturbation`|`sabotage`|`clone`), note the proof-of-work verdict in the Review note next to the attempt.
-   - `just_tell_me` reveals: the revealed concept is marked `contaminated_by_reveal` in the review note until its isomorphic twin problem passes.
+   - `feynman_pass`/`feynman_fail` records the clone protocol (naive-student) outcome. When the handoff entry carries a `pow` type (`perturbation`|`sabotage`|`clone`), note the Operational Intuition Battery verdict in the Review note next to the attempt.
+   - `just_tell_me` reveals: log the reveal in the review note together with the verdict of the immediate knob-check that followed it (no `contaminated_by_reveal` marking).
 2. **Write Review Notes**:
    - Write `Learning System/Reviews/Review — <track> — <YYYY-MM-DD>.md` summarizing the reviewed concepts, questions, answers, and verifier verdicts.
    - Write the corresponding `Learning System/Sessions/Session — Review — <date>.md` note.
@@ -102,9 +102,9 @@ When invoked at the conclusion of a review session:
 When invoked at lesson conclusion so the Tutor stays 100% focused on teaching:
 1. **Record Attempts**:
    - For every entry in `attempts[]`, run `python3 scripts/ops.py attempt "<concept>" <pass|fail> [feynman_pass|feynman_fail] --qtype <type> --confidence <confidence> --hints <hints>`.
-   - When an entry carries a `pow` type (`perturbation`|`sabotage`|`clone`), record the proof-of-work verdict alongside the attempt in the lesson and learning-record notes.
+   - When an entry carries a `pow` type (`perturbation`|`sabotage`|`clone`), record the Operational Intuition Battery verdict alongside the attempt in the lesson and learning-record notes.
 2. **Write Handoff Batch**: Write the 4 handoff files in a single pass:
-   - `Learning System/Lessons/Lesson — <slug> — <date>.md`: Full lesson narrative (collisions, invented patches, boundary hunts, falsification events), the **versioned learner understanding** (v1 quote → falsifying counterexample → hardened quote, verbatim), proof-of-work transcripts and verdicts, dependency events (including `just_tell_me` + `contaminated_by_reveal` + isomorphic twin results), and verbatim learner quotes.
+   - `Learning System/Lessons/Lesson — <slug> — <date>.md`: Full lesson narrative (collisions, the learner's sketches, anatomical formula reads, boundary hunts, counterexample events), the **versioned learner understanding** (v1 quote → counterexample → hardened quote, verbatim), Operational Intuition Battery transcripts and verdicts, dependency events (including `just_tell_me` + the knob-check verdict), and verbatim learner quotes.
    - `Learning System/Sessions/Session — <topic> — <date>.md`: Session transcript metadata, duration, covered checkpoints, and confidence calibration.
    - `Learning System/Learning Records/Record — <topic> — <date>.md`: Quantitative metrics, mastery updates, mistakes, and prerequisite checks.
    - `Learning System/Core/Pending Ingest.json`:

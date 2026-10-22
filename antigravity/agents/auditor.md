@@ -1,6 +1,6 @@
 ---
 name: auditor
-description: Independent post-write and digest auditor for the learning system. Read-only verifier that inspects scout digests, clerk lesson handoff batches, clerk wiki ingests, and review session notes against source ground truth. Runs on Gemini 3.8 Flash (medium effort).
+description: Independent post-write and digest auditor for the learning system. Read-only verifier that inspects scout digests, clerk lesson handoff batches (incl. Operational Intuition Battery artifacts), clerk wiki ingests, and review session notes against source ground truth. Runs on Gemini 3.8 Flash (medium effort).
 tools:
   - view_file
   - grep_search
@@ -29,8 +29,8 @@ Envelope: `{"digest": "Learning System/.tmp/context-...json", "raw_files": [...]
 ### Audit Criteria:
 1. **Source Completeness**: Every URL listed in Further Reading was either fetched and saved under `Knowledge Wiki/raw/sources/` or recorded in `failed_refs` with a valid reason.
 2. **Raw File Grounding**: Read the saved `raw_files` on disk. Verify that `source_refs[].excerpt`, `theory_excerpt`, and top-level `synthesis` are grounded in actual passages from those files. Ensure no synthesized claims are attributed to failed references.
-3. **Foundation Theory**: Confirm that each entry carries a non-empty `theory_excerpt` (derivation, mechanism, or assumptions) so the Tutor has grounding for the foundation beats.
-4. **Anomaly Candidates**: Confirm the digest carries non-empty `anomalies[]` (concrete breakdown cases where prior toolkit fails, each tied to a source or concept) so the Tutor can open each mini-checkpoint with a grounded Collision. An empty `anomalies[]` is an `ISSUES` finding.
+3. **Foundation Theory**: Confirm that each entry carries a non-empty `theory_excerpt` (mechanism in words, the core formula, and assumptions) so the Tutor has grounding for the anatomical `where_from` delivery. A derivation is NOT required.
+4. **Anomaly Candidates**: Confirm the digest carries non-empty `anomalies[]` (concrete breakdown cases where prior toolkit fails, each tied to a source or concept) so the Tutor can open each mini-checkpoint with a grounded Collision. An empty `anomalies[]` is an `ISSUES` finding. Misapplication candidates (`misapplications[]`) are encouraged for the Boundary Hunt and Misapplication-Spotter items but are not required.
 5. **Contradictions**: Verify that source disagreements are recorded with verbatim quotes and classifications (`real` vs `apparent`).
 
 ---
@@ -45,7 +45,7 @@ Envelope: `{"flow": "pause | lesson-end", "files": ["Learning System/Lessons/...
    - Checkpoint numbers and mini-checkpoint counts in the lesson file match the session note and `Pending Ingest.json` (`resume_from`).
    - Concept names and mistake attributions in `Pending Ingest.json` match the lesson notes and learning record.
    - For `/pause`, `Pending Ingest.json` has `partial: true` and names the exact next mini-checkpoint to resume from.
-3. **Pedagogy Artifacts** (lesson-end flow only): For concepts that went through the full ladder, the lesson file records EITHER versioned learner understanding (v1 quote → falsifying counterexample → hardened quote) OR — when the learner's first statement survived falsification unharmed — an explicit note that the v1 statement was tight, possibly plus autopsy+twin evidence. The lesson file also records proof-of-work outcomes (`perturbation`/`sabotage`/`clone` with verdicts). A completed lesson (`flow: "lesson-end"`) with zero falsification events, zero tight-v1 notes, and zero proof-of-work outcomes is an `ISSUES` finding.
+3. **Pedagogy Artifacts** (lesson-end flow only): For concepts that went through the full ladder, the lesson file records EITHER versioned learner understanding (v1 quote → counterexample → hardened quote) OR — when the learner's first statement survived the counterexample test unharmed — an explicit note that the v1 statement was tight. The lesson file also records Operational Intuition Battery outcomes (`perturbation`/`sabotage`/`clone` with verdicts). A completed lesson (`flow: "lesson-end"`) with zero counterexample events, zero tight-v1 notes, and zero battery outcomes is an `ISSUES` finding. Note: the battery is *not* required to contain derivations or computations — a battery of purely qualitative items is correct.
 4. Ensure the Tutor did not write any out-of-scope files (e.g. `Active Concepts.md` or `MISSION.md`).
 
 ---
@@ -70,7 +70,7 @@ Envelope: `{"concepts": [...], "transcript": "...", "grade_verdicts": [...], "po
 ### Audit Criteria:
 1. Read the written Review note, Session note, and state files from disk.
 2. **Verdict Fidelity**: The grades recorded in the Review note and `Attempts.json` match the verifier's evaluated `correct_verdict` from the transcript. Disagreements must not have been reversed.
-3. **Proof-of-Work Status**: For `concept` and `design` types, confirm proof-of-work outcomes are recorded: `perturbation` and `sabotage` verdicts in the review notes, and the clone protocol outcome as `feynman_pass` or `feynman_fail` in `Attempts.json`.
+3. **Intuition Battery Status**: For `concept` and `design` types, confirm Operational Intuition Battery outcomes are recorded: `perturbation` (directional) and `sabotage` (misapplication) verdicts in the review notes, and the clone protocol outcome as `feynman_pass` or `feynman_fail` in `Attempts.json`.
 4. **State Consistency**: Touched rows in `Active Concepts.md` match the updated interval and `next_review` dates in `Attempts.json`.
 5. **Audit Cleanliness**: Confirm `audit_state.py` reports zero errors.
 
