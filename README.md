@@ -75,7 +75,7 @@ sudo pacman -S --needed git openssh python base-devel curl unzip mise deno nodej
 sudo pacman -S --needed docker docker-compose ufw
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 mkdir -p ~/.local/bin
-[ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
+[ -d ~/learning-pi ] || git clone https://github.com/delightaheebwa/learning-pi.git ~/learning-pi
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
@@ -97,7 +97,7 @@ command -v mise >/dev/null || curl -fsSL https://mise.run | sh
 command -v deno >/dev/null || curl -fsSL https://deno.land/install.sh | sh
 grep -qs 'mise/shims' ~/.bashrc || echo 'export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.deno/bin:$PATH"' >> ~/.bashrc
 mkdir -p ~/.local/bin
-[ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
+[ -d ~/learning-pi ] || git clone https://github.com/delightaheebwa/learning-pi.git ~/learning-pi
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
@@ -136,7 +136,7 @@ command -v mise >/dev/null || curl -fsSL https://mise.run | sh
 command -v deno >/dev/null || curl -fsSL https://deno.land/install.sh | sh
 grep -qs 'mise/shims' ~/.bashrc || echo 'export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.deno/bin:$PATH"' >> ~/.bashrc
 mkdir -p ~/.local/bin
-[ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
+[ -d ~/learning-pi ] || git clone https://github.com/delightaheebwa/learning-pi.git ~/learning-pi
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
@@ -155,7 +155,7 @@ command -v brew >/dev/null || /bin/bash -c "$(curl -fsSL https://raw.githubuserc
 brew install git python mise deno node
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 mkdir -p ~/.local/bin
-[ -d ~/learning-pi ] || git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
+[ -d ~/learning-pi ] || git clone https://github.com/delightaheebwa/learning-pi.git ~/learning-pi
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
@@ -206,13 +206,20 @@ Notes:
   `docker0` `172.17.0.1` bridge — not available under Docker Desktop for
   Mac/Windows): follow [`deploy/README.md`](deploy/README.md) Apply steps after
   the base setup above. macOS/Windows users run the pi CLI path instead.
-- If `git clone` over SSH fails (no key), use
-  `https://github.com/delightaheebwa/learning-pi.git` instead.
+- Clones use **HTTPS**, not SSH: the repo is public, so no key or GitHub
+  account is needed. On a network that blocks outbound SSH, the old
+  `git@github.com:` form fails with `ssh: connect to host github.com port 22:
+  Connection timed out` plus git's misleading "Please make sure you have the
+  correct access rights" — the blocked port, not permissions, is the cause.
+  To push over SSH anyway, register a key and
+  `git remote set-url origin git@github.com:delightaheebwa/learning-pi.git`;
+  if port 22 is blocked, map `github.com` to `ssh.github.com:443` in
+  `~/.ssh/config`.
 
 ## Install (manual)
 
 ```bash
-git clone git@github.com:delightaheebwa/learning-pi.git ~/learning-pi
+git clone https://github.com/delightaheebwa/learning-pi.git ~/learning-pi
 git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system   # if not present
 ~/learning-pi/install.sh ~/learning-system
 cd ~/learning-system && pi        # approve/trust the project once
