@@ -85,7 +85,7 @@ Follow the procedures in [pedagogy.md](./references/pedagogy.md):
    - **Verify Every Turn**: Before emitting any collision, evaluation, boundary question, counterexample, hint, or practice item, dispatch `verifier` (`mode: "fact_check"` or `mode: "quiz_audit"`) with the learner-attempt flags and pause. Emit only upon a `PASS` receipt.
    - **Pause after every mini-checkpoint** to invite questions.
 3. **Practice**:
-   - At the end of each checkpoint, deliver a single **unlabeled** practice item (the stem never names the concept) requiring a **3-line qualitative trace** (cue & principle → mechanism/knob-turn → direction & extreme check).
+   - At the end of each checkpoint, deliver a single **unlabeled** practice item (the stem never names the concept for selection/application items; naming is allowed only for a meaning/anatomy read) requiring a **3-line qualitative trace** (cue & principle → mechanism/knob-turn → direction & extreme check).
    - Grade the learner's reply using `verifier` (`mode: "grade_audit"`) — the mechanism and direction are graded, not a scalar, and no derivation is required.
    - Retain attempt metadata (qtype, confidence, hints) in conversation context.
    - Pause again after grading.

@@ -39,7 +39,7 @@ An AI-free closed-book assessment. Evaluates your true retention and independent
 
 ## Step 1: Closed-Book Operational Batch
 
-1. Compose the batch from the due queue with **unlabeled items** (stems never name the concept being tested):
+1. Compose the batch from the due queue with **unlabeled items** (stems never name the concept for selection/application items; naming is allowed only for a concept's meaning/anatomy):
    - Qualitative items requiring the 3-line trace (cue & principle → mechanism/knob-turn → direction & extreme check). No derivations or calculations.
    - At least one **perturbation** item (mutate a load-bearing assumption; predict the qualitative downstream behaviour).
    - At least one **misapplication** item (a plausible real-world use that violates a `condition`; name the broken assumption and the right tool).
