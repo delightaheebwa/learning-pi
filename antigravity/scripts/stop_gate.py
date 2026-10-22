@@ -270,25 +270,46 @@ def main() -> None:
     stripped_text = "\n".join(strip_receipts(str(step.get("content", "")), decoder) for step in current_turn_steps)
     turn_is_substantive = len(stripped_text.strip()) > 80
 
-    # Check 1: Ingest or Review Close. In /solo these are critical (closed-book integrity).
-    if active_flow in ("ingest", "review", "solo") and ("CLERK_RECEIPT" in latest_receipts or "clerk" in invoked_subagents):
-        # Once clerk has persisted state, auditor must audit writes before closing
-        auditor_receipt = latest_receipts.get("AUDITOR_RECEIPT")
+    # Check 1: Clerk persistence requires a matching auditor AFTER it.
+    # Ingest is gated in every flow (teach/resume ingest inline at lesson end);
+    # review_close is gated in ingest/review/solo. Ordering matters: an auditor
+    # receipt from an earlier phase must not satisfy a later clerk write.
+    clerk_receipts = [(i, obj) for i, (name, obj) in enumerate(all_receipts) if name == "CLERK_RECEIPT"]
+    last_clerk_idx, last_clerk = clerk_receipts[-1] if clerk_receipts else (-1, {})
+    clerk_mode = last_clerk.get("mode", "")
+    clerk_gated = bool(clerk_receipts) and (
+        clerk_mode == "ingest" or active_flow in ("ingest", "review", "solo")
+    )
+    if clerk_gated:
+        expected_audit_mode = "review_gate" if clerk_mode == "ingest" else "review_session_audit"
+        auditor_after = [
+            obj for i, (name, obj) in enumerate(all_receipts)
+            if i > last_clerk_idx
+            and name == "AUDITOR_RECEIPT"
+            and obj.get("mode") == expected_audit_mode
+        ]
         solo_critical = active_flow == "solo"
-        if not auditor_receipt:
+        if not auditor_after:
             tier_block(
-                "State persistence complete. You must invoke the auditor subagent "
-                "(review_gate or review_session_audit) to verify writes before finishing the closing summary.",
+                f"State persistence via clerk ({clerk_mode}) complete. You must invoke the auditor "
+                f"subagent (mode: '{expected_audit_mode}') to verify the writes before finishing the closing summary.",
                 solo_critical,
             )
             return
-        if auditor_receipt.get("verdict") == "ISSUES":
+        if auditor_after[-1].get("verdict") == "ISSUES":
             tier_block(
                 "Auditor reported issues with state or wiki writes. "
                 "Fix the issues with clerk and re-audit before finalizing.",
                 solo_critical,
             )
             return
+    elif "clerk" in invoked_subagents and not clerk_receipts:
+        # Clerk was dispatched but returned no receipt (failed or hung).
+        tier_block(
+            "Clerk was invoked but no CLERK_RECEIPT was returned. Wait for clerk or re-dispatch it before finishing.",
+            active_flow == "solo",
+        )
+        return
 
     # Check 2: Handoff Writes (Lessons/, Sessions/, Pending Ingest.json) via Clerk or direct
     clerk_receipt = latest_receipts.get("CLERK_RECEIPT", {})

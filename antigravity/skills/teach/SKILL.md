@@ -145,4 +145,4 @@ Follow the procedures in [pedagogy.md](./references/pedagogy.md):
       )
       ```
       On in-scope `ISSUES` (unverified claims, missing provenance, broken links), re-dispatch `clerk` with the corrections and re-audit until a clean `PASS`. State/bookkeeping findings stay as context notes and do not block.
-5. **Completion Summary**: Present the lesson completion summary (concepts mastered, wiki pages written/enriched, next review dates, state audit 0 errors). Verify the rendered summary with `verifier` (`mode: 'fact_check'`) when it is substantive. Never leave the learner with a pending `/ingest` step.
+5. **Completion Summary**: Present the lesson completion summary (concepts mastered, wiki pages written/enriched, next review dates, state audit 0 errors). Verify the rendered summary with `verifier` (`mode: 'fact_check', turn_kind: 'answer', draft: '<exact summary>', claims: [...], raw_files: [...]`) when it is substantive. Never leave the learner with a pending `/ingest` step.

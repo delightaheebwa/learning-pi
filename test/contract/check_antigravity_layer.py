@@ -498,6 +498,81 @@ def test_hook_behaviors(root: Path) -> None:
         else:
             fail(f"behavior: stop_gate schema tier should fail open after 2 blocks, got {res}")
 
+        # --- Test 15: teach flow requires review_gate after inline ingest clerk ---
+        transcript_teach_ingest = tmp_path / "trans_teach_ingest.jsonl"
+        with open(transcript_teach_ingest, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "finish lesson"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] CLERK_RECEIPT: {\"mode\": \"ingest\", \"wiki\": [\"Knowledge Wiki/wiki/page.md\"], \"status\": \"done\"}\nHandoff ingested.",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_teach_ingest)})
+        if res.get("decision") == "continue" and "review_gate" in res.get("reason", ""):
+            ok("behavior: teach flow requires auditor (review_gate) after inline ingest clerk")
+        else:
+            fail(f"behavior: teach flow should require review_gate after inline ingest, got {res}")
+
+        # --- Test 16: an older auditor receipt cannot satisfy a later ingest clerk ---
+        transcript_stale_audit = tmp_path / "trans_stale_audit.jsonl"
+        with open(transcript_stale_audit, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "finish lesson"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] AUDITOR_RECEIPT: {\"mode\": \"tutor_audit\", \"verdict\": \"PASS\", \"issues\": []}",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] CLERK_RECEIPT: {\"mode\": \"ingest\", \"wiki\": [\"Knowledge Wiki/wiki/page.md\"], \"status\": \"done\"}\nIngested.",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_stale_audit)})
+        if res.get("decision") == "continue" and "review_gate" in res.get("reason", ""):
+            ok("behavior: ingest gate requires review_gate AFTER the clerk receipt (ordering)")
+        else:
+            fail(f"behavior: ingest gate should reject an older auditor receipt, got {res}")
+
+        # --- Test 17: review close requires review_session_audit, not a mismatched gate ---
+        transcript_review_close = tmp_path / "trans_review_close.jsonl"
+        with open(transcript_review_close, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "done"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:review]] CLERK_RECEIPT: {\"mode\": \"review_close\", \"reviews\": [\"Learning System/Reviews/Review.md\"], \"status\": \"done\"}\nReview saved.",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:review]] AUDITOR_RECEIPT: {\"mode\": \"review_gate\", \"verdict\": \"PASS\", \"issues\": []}",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_review_close)})
+        if res.get("decision") == "continue" and "review_session_audit" in res.get("reason", ""):
+            ok("behavior: review close requires review_session_audit, not a mismatched auditor mode")
+        else:
+            fail(f"behavior: review close should require review_session_audit, got {res}")
+
+        # --- Test 18: inline ingest + matching review_gate PASS is allowed ---
+        transcript_ingest_pass = tmp_path / "trans_ingest_pass.jsonl"
+        with open(transcript_ingest_pass, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "finish lesson"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] CLERK_RECEIPT: {\"mode\": \"ingest\", \"wiki\": [\"Knowledge Wiki/wiki/page.md\"], \"status\": \"done\"}",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] AUDITOR_RECEIPT: {\"mode\": \"review_gate\", \"verdict\": \"PASS\", \"issues\": []}\nIngested.",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_ingest_pass)})
+        if res.get("decision") == "allow":
+            ok("behavior: inline ingest with matching review_gate PASS is allowed")
+        else:
+            fail(f"behavior: inline ingest with review_gate PASS should allow, got {res}")
+
 
 def main() -> None:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()

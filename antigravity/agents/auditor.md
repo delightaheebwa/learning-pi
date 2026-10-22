@@ -32,6 +32,7 @@ Envelope: `{"digest": "Learning System/.tmp/context-...json", "raw_files": [...]
 3. **Foundation Theory**: Confirm that each entry carries a non-empty `theory_excerpt` (derivation, mechanism, or assumptions) so the Tutor has grounding for the foundation beats.
 4. **Anomaly Candidates**: Confirm the digest carries non-empty `anomalies[]` (concrete breakdown cases where prior toolkit fails, each tied to a source or concept) so the Tutor can open each mini-checkpoint with a grounded Collision. An empty `anomalies[]` is an `ISSUES` finding.
 5. **Contradictions**: Verify that source disagreements are recorded with verbatim quotes and classifications (`real` vs `apparent`).
+6. **Resume Metadata (when present)**: If the digest/receipt carries `resume_from`, `lesson_file`, `session_file`, or `status` (a `purpose: "resume"` scout run), verify the named lesson and session files exist and that `resume_from` matches the on-disk lesson's `Checkpoint N/M, mini K/L` marker and status. A stale or nonexistent resume pointer is an `ISSUES` finding; fields absent from a non-resume run are out of scope.
 
 ---
 

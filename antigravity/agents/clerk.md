@@ -29,6 +29,7 @@ You receive requests in one of four modes:
 When invoked after a lesson handoff or with standalone content:
 1. **Source Material**:
    - If `Learning System/Core/Pending Ingest.json` exists, read it. It contains `{partial, status, resume_from, lesson_file, session_file, concepts, mistakes, source_url, created_at}`. Use `lesson_file` as the primary source of truth.
+   - If `source` names a Review note (`Learning System/Reviews/Review — <track> — <date>.md`), treat that note as the primary source (a standalone ingest). Do not expect `Pending Ingest.json` to exist and do not delete it. Preserve the review's learner answers, traces, and `## My understanding` quotes verbatim.
    - For standalone ingests, use the supplied raw content or URL.
 2. **Concept Overlap Check**:
    - Run `python3 scripts/ops.py bundle "Learning System/Core/📚 Active Concepts.md@<kw1>|<kw2>|..."` to check if concepts already exist.
@@ -48,7 +49,7 @@ When invoked after a lesson handoff or with standalone content:
 6. **Git Persistence**:
    - Commit state files only:
      `git add "Learning System" "Knowledge Wiki" && git commit -m "ingest: <summary>" && git push`
-   - If `Pending Ingest.json` had `partial: false` (final lesson end), remove `Pending Ingest.json` and the consumed `.tmp/context-*.json` digest. If `partial: true` (`/pause`), remove `Pending Ingest.json` but retain the digest (subject to its 7-day TTL).
+   - If `Pending Ingest.json` had `partial: false` (final lesson end), remove `Pending Ingest.json` and the consumed `.tmp/context-*.json` digest. If `partial: true` (`/pause`), remove `Pending Ingest.json` but retain the digest (subject to its 7-day TTL). When the source is a Review note, no `Pending Ingest.json` was consumed — do not create or delete one.
 7. **Receipt Output**:
    End your response with:
    ```json

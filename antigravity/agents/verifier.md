@@ -32,7 +32,8 @@ You receive requests with a structured envelope containing one or more verificat
 ## 1. Fact-Check (`mode: "fact_check"`)
 
 Envelope fields:
-- `turn_kind`: `"collision" | "invention" | "boundary_hunt" | "falsify" | "idea" | "autopsy" | "answer" | "repair" | "hint" | "plan"`
+- `turn_kind`: `"collision" | "invention" | "boundary_hunt" | "falsify" | "idea" | "autopsy" | "answer" | "repair" | "hint" | "plan" | "grade_feedback"`
+- `grade_verdicts`: `[{"id": 1, "concept": "...", "verdict": "pass|fail", "trace_step": "..."}]` (required when `turn_kind` is `"grade_feedback"`)
 - `foundation`: `{"problem": "...", "where_from": "...", "conditions": "...", "contrast": "..."}` (present on `idea`/`invention`/`autopsy` turns)
 - `learner_attempted_conditions`: bool — has the learner produced a failure regime for this concept yet?
 - `learner_attempted_contrast`: bool — has the learner produced the nearest-neighbour distinction yet?
@@ -60,6 +61,7 @@ Envelope fields:
 ### Pedagogy Audit (applies to every substantive draft):
 8. **`SPOONFEEDING_DETECTED`**: The draft states a conclusion, boundary condition, nearest-neighbour contrast, or bridge step that the learner could plausibly derive from the immediately preceding turns (their own collision diagnosis, their own invented patch, their own falsification). If the learner is one inference away, the Tutor must ask, not tell.
 9. **`CUE_LEAKAGE`**: The draft's question phrasing, framing, or vocabulary telegraphs the expected answer — e.g. naming the theorem to apply, echoing the answer's key term in the stem, or narrowing the search space to the answer. Rewrite to neutral phrasing.
+10. **Grade Feedback Fidelity (for `turn_kind: "grade_feedback"`)**: The rendered feedback must match the audited `grade_verdicts` exactly (same verdict per item, no upgraded or softened passes), cite the actual failed step from the learner's `trace`, and never expose verifier receipts, prompts, or audit mechanics. A verdict that contradicts the audited verdict is `ISSUES`. A repair suggestion may restate the relevant mechanism but must not hand over the solution to an ungraded twin problem.
 
 ---
 

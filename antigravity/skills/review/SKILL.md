@@ -85,7 +85,7 @@ The session closes in three phases: **verified feedback → learner Q&A pause �
        Subagents=[{
            "TypeName": "verifier",
            "Role": "Feedback Verifier",
-           "Prompt": "mode: 'fact_check', turn_kind: 'grade_feedback', draft: '<exact rendered feedback>', grade_verdicts: [...], source_excerpts: [...]"
+           "Prompt": "mode: 'fact_check', turn_kind: 'grade_feedback', draft: '<exact rendered feedback>', grade_verdicts: [...], claims: [...], raw_files: [...]"
        }]
    )
    ```
@@ -100,7 +100,7 @@ The session closes in three phases: **verified feedback → learner Q&A pause �
 
 1. For every learner message that contains a question:
    - Answer it as a normal tutoring turn: repair the slip, explain the relevant mechanism, or correct a misread of the feedback.
-   - Every explanatory turn goes through `verifier` (`mode: 'fact_check'`) with the exact draft before you emit it; if the inquiry challenges a verdict, re-run `verifier` (`mode: 'grade_audit'`) on that item and adopt the verifier's `correct_verdict`.
+   - Every explanatory turn goes through `verifier` (`mode: 'fact_check'`, `turn_kind: 'answer'` — or `'repair'` when correcting the slip — with the exact `draft`, `claims: [...]`, and `raw_files`/`source_urls: [...]`) before you emit it; if the inquiry challenges a verdict, re-run `verifier` (`mode: 'grade_audit'`) on that item and adopt the verifier's `correct_verdict`.
    - Honor hint discipline and the AGENTS.md **Diagnostic Autopsy Tax**: if the learner asks to be told the answer outright, require their current understanding first, deliver the compressed idea, and record `just_tell_me` + `contaminated_by_reveal` as a `dependency_events[]` entry for the Step 5 handoff.
    - After answering, **pause again** with the same invitation. Do not persist state while questions remain.
 2. Advance to Step 5 only when the learner explicitly signals they have no questions ("no questions", "none", "all clear", "go ahead"). If the signal is ambiguous, ask once more; never assume.
@@ -167,7 +167,7 @@ Ingest runs automatically in this same turn sequence — the learner never has t
 
 ## Step 7: Completion Summary
 
-1. Verify the rendered closing summary with `verifier` (`mode: 'fact_check'`) when it is substantive, then present it concisely:
+1. Verify the rendered closing summary with `verifier` (`mode: 'fact_check', turn_kind: 'answer', draft: '<exact summary>', claims: [...], raw_files: [...]`) when it is substantive, then present it concisely:
    - Per-concept verdicts and mastery movement.
    - Ingested / enriched wiki pages and their links.
    - New concepts added to `Active Concepts.md` and their next review dates.
