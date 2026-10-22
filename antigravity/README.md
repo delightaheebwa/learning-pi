@@ -26,11 +26,11 @@ All workflows are available as native slash commands in the Antigravity Desktop 
 
 | Command | Action | Backing Agents |
 | :--- | :--- | :--- |
-| **`/teach <topic>`** | Teach a topic: scout sources -> probe -> scope contract -> Collision/Sketch-the-Move/Anatomical-Read/Boundary-Hunt/Counterexample ladder | `scout`, `verifier`, `auditor`, `naive-student` |
-| **`/lesson`** | Resume or teach the next sequential curriculum lesson | `scout`, `verifier`, `auditor`, `naive-student` |
-| **`/continue`** | Resume an in-progress lesson at its exact mini-checkpoint | `verifier` |
+| **`/teach <topic>`** | Teach a topic: scout sources -> probe -> scope contract -> Collision/Sketch-the-Move/Anatomical-Read/Boundary-Hunt/Counterexample ladder -> auto-ingest at lesson end | `scout`, `verifier`, `clerk`, `auditor`, `naive-student` |
+| **`/lesson`** | Resume or teach the next sequential curriculum lesson (auto-ingests at lesson end) | `scout`, `verifier`, `clerk`, `auditor`, `naive-student` |
+| **`/continue`** | Resume an in-progress lesson at its exact mini-checkpoint (scout always recovers the resume pointer) | `scout`, `verifier`, `clerk`, `auditor`, `naive-student` |
 | **`/pause`** | Bank progress cleanly, write partial handoff files, and exit ticket | `verifier`, `auditor` |
-| **`/review`** | Daily spaced-repetition review: unlabeled interleaved + synthesis + decoy items, trace-graded (no MCQs) | `scout`, `verifier`, `clerk`, `auditor`, `naive-student` |
+| **`/review`** | Daily spaced-repetition review: unlabeled interleaved + synthesis + decoy items, trace-graded (no MCQs), then a learner Q&A pause before auto-persisting and auto-ingesting | `scout`, `verifier`, `clerk`, `auditor`, `naive-student` |
 | **`/solo`** | AI-free closed-book assessment (no hints/teaching/widgets/MCQs; operational items only; feeds independence gate) | `scout`, `verifier`, `clerk`, `auditor`, `naive-student` |
 | **`/ingest [content]`** | Reconcile lesson handoffs or raw notes into Knowledge Wiki + Active Concepts | `clerk`, `auditor` |
 | **`/audit`** | Read-only state consistency audit + wiki provenance check | None (runs local python scripts) |

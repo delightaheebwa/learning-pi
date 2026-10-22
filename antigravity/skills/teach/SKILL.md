@@ -122,4 +122,27 @@ Follow the procedures in [pedagogy.md](./references/pedagogy.md):
    )
    ```
    Wait for a passing receipt.
-4. **Prompt Ingest**: Present the lesson completion summary and instruct the learner to run `/ingest` to reconcile wiki and state records.
+4. **Auto-Ingest (Inline)**: Do not stop after the handoff and do not tell the learner to run `/ingest` — the lesson end ingests automatically, in this same turn sequence.
+   1. Dispatch **`clerk`** (`mode: 'ingest'`) with the handoff as the source of truth:
+      ```python
+      invoke_subagent(
+          Subagents=[{
+              "TypeName": "clerk",
+              "Role": "State Clerk",
+              "Prompt": "mode: 'ingest', source: 'Learning System/Core/Pending Ingest.json', topic: '<topic>', slug: '<slug>', concepts: [...]"
+          }]
+      )
+      ```
+      Wait for the `CLERK_RECEIPT` with `mode: 'ingest'` (wiki pages written or enriched, `Active Concepts.md` / `CURRICULUM.md` updated, `audit_state.py` run, state committed).
+   2. Dispatch **`auditor`** (`mode: 'review_gate'`) on the written wiki pages:
+      ```python
+      invoke_subagent(
+          Subagents=[{
+              "TypeName": "auditor",
+              "Role": "Wiki Auditor",
+              "Prompt": "mode: 'review_gate', target_files: ['Knowledge Wiki/wiki/<page>.md', ...]"
+          }]
+      )
+      ```
+      On in-scope `ISSUES` (unverified claims, missing provenance, broken links), re-dispatch `clerk` with the corrections and re-audit until a clean `PASS`. State/bookkeeping findings stay as context notes and do not block.
+5. **Completion Summary**: Present the lesson completion summary (concepts mastered, wiki pages written/enriched, next review dates, state audit 0 errors). Verify the rendered summary with `verifier` (`mode: 'fact_check', turn_kind: 'answer', draft: '<exact summary>', claims: [...], raw_files: [...]`) when it is substantive. Never leave the learner with a pending `/ingest` step.

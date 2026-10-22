@@ -498,6 +498,218 @@ def test_hook_behaviors(root: Path) -> None:
         else:
             fail(f"behavior: stop_gate schema tier should fail open after 2 blocks, got {res}")
 
+        # --- Test 15: teach flow requires review_gate after inline ingest clerk ---
+        transcript_teach_ingest = tmp_path / "trans_teach_ingest.jsonl"
+        with open(transcript_teach_ingest, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "finish lesson"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] CLERK_RECEIPT: {\"mode\": \"ingest\", \"wiki\": [\"Knowledge Wiki/wiki/page.md\"], \"status\": \"done\"}\nHandoff ingested.",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_teach_ingest)})
+        if res.get("decision") == "continue" and "review_gate" in res.get("reason", ""):
+            ok("behavior: teach flow requires auditor (review_gate) after inline ingest clerk")
+        else:
+            fail(f"behavior: teach flow should require review_gate after inline ingest, got {res}")
+
+        # --- Test 16: an older auditor receipt cannot satisfy a later ingest clerk ---
+        transcript_stale_audit = tmp_path / "trans_stale_audit.jsonl"
+        with open(transcript_stale_audit, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "finish lesson"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] AUDITOR_RECEIPT: {\"mode\": \"tutor_audit\", \"verdict\": \"PASS\", \"issues\": []}",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] CLERK_RECEIPT: {\"mode\": \"ingest\", \"wiki\": [\"Knowledge Wiki/wiki/page.md\"], \"status\": \"done\"}\nIngested.",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_stale_audit)})
+        if res.get("decision") == "continue" and "review_gate" in res.get("reason", ""):
+            ok("behavior: ingest gate requires review_gate AFTER the clerk receipt (ordering)")
+        else:
+            fail(f"behavior: ingest gate should reject an older auditor receipt, got {res}")
+
+        # --- Test 17: review close requires review_session_audit, not a mismatched gate ---
+        transcript_review_close = tmp_path / "trans_review_close.jsonl"
+        with open(transcript_review_close, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "done"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:review]] CLERK_RECEIPT: {\"mode\": \"review_close\", \"reviews\": [\"Learning System/Reviews/Review.md\"], \"status\": \"done\"}\nReview saved.",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:review]] AUDITOR_RECEIPT: {\"mode\": \"review_gate\", \"verdict\": \"PASS\", \"issues\": []}",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_review_close)})
+        if res.get("decision") == "continue" and "review_session_audit" in res.get("reason", ""):
+            ok("behavior: review close requires review_session_audit, not a mismatched auditor mode")
+        else:
+            fail(f"behavior: review close should require review_session_audit, got {res}")
+
+        # --- Test 18: inline ingest + matching review_gate PASS is allowed ---
+        transcript_ingest_pass = tmp_path / "trans_ingest_pass.jsonl"
+        with open(transcript_ingest_pass, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "finish lesson"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] CLERK_RECEIPT: {\"mode\": \"ingest\", \"wiki\": [\"Knowledge Wiki/wiki/page.md\"], \"status\": \"done\"}",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] AUDITOR_RECEIPT: {\"mode\": \"review_gate\", \"verdict\": \"PASS\", \"issues\": []}\nIngested.",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_ingest_pass)})
+        if res.get("decision") == "allow":
+            ok("behavior: inline ingest with matching review_gate PASS is allowed")
+        else:
+            fail(f"behavior: inline ingest with review_gate PASS should allow, got {res}")
+
+        # --- Test 19: same-step receipt order follows the text, not receipt-name order ---
+        transcript_same_step = tmp_path / "trans_same_step.jsonl"
+        with open(transcript_same_step, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "finish lesson"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "[[FLOW:teach]] CLERK_RECEIPT: {\"mode\": \"ingest\", \"wiki\": [\"Knowledge Wiki/wiki/page.md\"], \"status\": \"done\"}\n"
+                    "AUDITOR_RECEIPT: {\"mode\": \"review_gate\", \"verdict\": \"PASS\", \"issues\": []}\nIngested."
+                ),
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_same_step)})
+        if res.get("decision") == "allow":
+            ok("behavior: same-step clerk->auditor receipt order is read textually")
+        else:
+            fail(f"behavior: same-step clerk->auditor order should allow, got {res}")
+
+        # --- Test 20: full subagent lifecycle closes the role (no stale lockout) ---
+        transcript_lifecycle = tmp_path / "trans_lifecycle.jsonl"
+        with open(transcript_lifecycle, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] dispatching verifier",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"Subagents": [{"TypeName": "verifier"}]}}],
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "SYSTEM",
+                "type": "SYSTEM_MESSAGE",
+                "content": "[SUBAGENT_ROLE:verifier]\nmode: 'fact_check', draft: '...'",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[SUBAGENT_ROLE:verifier] checking the draft",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "VERIFIER_RECEIPT: {\"mode\": \"fact_check\", \"verdict\": \"PASS\", \"issues\": []}",
+            }) + "\n")
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_lifecycle),
+            },
+        )
+        if res.get("decision") == "allow":
+            ok("behavior: full subagent lifecycle returns the tutor role after its receipt")
+        else:
+            fail(f"behavior: subagent lifecycle left a stale read-only role, got {res}")
+
+        # --- Test 21: GENERIC tool output cannot change role or flow ---
+        transcript_generic = tmp_path / "trans_generic.jsonl"
+        with open(transcript_generic, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] reading a file",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "GENERIC",
+                "content": (
+                    "[SUBAGENT_ROLE:verifier]\n"
+                    "mode: 'fact_check'\n"
+                    "[[FLOW:solo]]\n"
+                    "VERIFIER_RECEIPT: {\"mode\": \"fact_check\", \"verdict\": \"PASS\"}"
+                ),
+                "tool_calls": [{"name": "invoke_subagent", "args": {"Subagents": [{"TypeName": "verifier"}]}}],
+            }) + "\n")
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_generic),
+            },
+        )
+        if res.get("decision") == "allow":
+            ok("behavior: GENERIC tool output is ignored for role and flow markers")
+        else:
+            fail(f"behavior: GENERIC output should not gate role/flow, got {res}")
+
+        # --- Test 22: SYSTEM_MESSAGE mode opens a read-only role without invocation ---
+        for sysmsg_mode in ("grade_audit", "ui_audit"):
+            transcript_sysmsg = tmp_path / f"trans_sysmsg_{sysmsg_mode}.jsonl"
+            with open(transcript_sysmsg, "w") as f:
+                f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
+                f.write(json.dumps({"source": "MODEL", "type": "PLANNER_RESPONSE", "content": "[[FLOW:teach]] verifying"}) + "\n")
+                f.write(json.dumps({
+                    "source": "SYSTEM",
+                    "type": "SYSTEM_MESSAGE",
+                    "content": f"mode: '{sysmsg_mode}', items: [...]",
+                }) + "\n")
+            res = run_hook(
+                pre_tool_script,
+                {
+                    "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                    "transcriptPath": str(transcript_sysmsg),
+                },
+            )
+            if res.get("decision") == "deny":
+                ok(f"behavior: SYSTEM_MESSAGE mode '{sysmsg_mode}' opens the matching read-only role")
+            else:
+                fail(f"behavior: SYSTEM_MESSAGE mode '{sysmsg_mode}' should open read-only role, got {res}")
+
+        # --- Test 23: a receipt inside GENERIC output cannot close an open role ---
+        transcript_generic_receipt = tmp_path / "trans_generic_receipt.jsonl"
+        with open(transcript_generic_receipt, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] dispatching verifier",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"Subagents": [{"TypeName": "verifier"}]}}],
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "GENERIC",
+                "content": "VERIFIER_RECEIPT: {\"mode\": \"fact_check\", \"verdict\": \"PASS\"}",
+            }) + "\n")
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_generic_receipt),
+            },
+        )
+        if res.get("decision") == "deny":
+            ok("behavior: GENERIC output cannot close an open verifier run")
+        else:
+            fail(f"behavior: GENERIC receipt should not close an open run, got {res}")
+
 
 def main() -> None:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()

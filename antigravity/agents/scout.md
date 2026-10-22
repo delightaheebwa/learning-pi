@@ -27,7 +27,14 @@ You receive requests in one of two modes:
 
 ## Mode 1: Lesson Scouting (`mode: "lesson"`)
 
-When invoked for a new lesson topic or curriculum slug:
+When invoked for a new lesson topic or curriculum slug, or to re-ground an in-progress lesson:
+
+0. **Resume Pointer (when `purpose: "resume"`)**: If the request says `purpose: "resume"`, locate the active lesson yourself — the Tutor must not search `Learning System/Lessons/` or `Learning System/Sessions/`:
+   - Find the newest file in `Learning System/Lessons/` not marked `done` (or the lesson named by `lesson_file`, if supplied) and the latest matching note in `Learning System/Sessions/`.
+   - Extract `status`, `lesson_file`, `session_file`, and `resume_from` (`Checkpoint N/M, mini K/L`). If no in-progress lesson exists, set `resume_from: null` and `status: "none"`.
+   - If `topic`/`slug` are omitted, derive them from the lesson filename.
+   - If the existing digest is older than 7 days or missing, re-ground the sources per steps 2–3; if it is fresh, still refresh the digest's core metadata and source refs so the resume never runs on stale context.
+   - Add `resume_from`, `lesson_file`, `session_file`, and `status` to the `SCOUT_RECEIPT` below.
 1. **Read Core Metadata**: Read `Learning System/MISSION.md`, `Learning System/CURRICULUM.md`, `Learning System/RESOURCES.md`, and relevant rows from `Learning System/Core/📚 Active Concepts.md`. (Do NOT grep `📦 Concept Archive.md` — archived concepts are out of scope).
 2. **Fetch Curriculum & Further Reading**:
    - Primary curriculum source: `phases/<phase>/<lesson>/docs/en.md`.
@@ -60,7 +67,11 @@ When invoked for a new lesson topic or curriculum slug:
      "digest": "Learning System/.tmp/context-<session_id>-<slug>.json",
      "raw_files": ["Knowledge Wiki/raw/sources/..."],
      "failed_refs": [],
-     "contradictions": []
+     "contradictions": [],
+     "resume_from": "Checkpoint N/M, mini K/L",
+     "lesson_file": "Learning System/Lessons/...",
+     "session_file": "Learning System/Sessions/...",
+     "status": "in-progress|paused|none"
    }
    ```
 

@@ -53,13 +53,33 @@ def infer_role(steps):
       Tutor resumes speaking.
     - A role-marked output step also opens the role (covers subagent turns whose
       invocation wasn't tracked in tool_calls).
+    - A SYSTEM_MESSAGE carrying a subagent `mode: '...'` payload also opens that
+      role (idempotently — it is evidence of an already-open run, never a second
+      push, so the role still closes on its receipt).
+    - GENERIC tool-output steps are skipped entirely: a file read or grep that
+      happens to contain role markers, receipt text, modes, or flow markers must
+      not open/close a role or change the flow.
     - Any explicit user input resets to "tutor".
     Returns the role in effect at the END of the transcript ("tutor" when none).
     """
     stack = []
+
+    def push_role(sub_role):
+        """Open a role at most once while it is already active. Invocation calls
+        may push the same role twice (parallel same-role dispatches each get a
+        receipt); prompt/marker detection is only evidence of an already-open
+        run, so it must not double-push or the role survives its receipt."""
+        if sub_role not in stack:
+            stack.append(sub_role)
+
     for step in steps:
         if step.get("source") == "USER_EXPLICIT" and step.get("type") == "USER_INPUT":
             stack = []
+            continue
+
+        # Ignore tool outputs (type == "GENERIC") so reading/grepping files doesn't
+        # trigger role changes, receipts, or flow changes.
+        if step.get("type") == "GENERIC":
             continue
 
         # Opening calls (tutor dispatching subagents)
@@ -85,7 +105,29 @@ def infer_role(steps):
         # Role-marked output step: that subagent is speaking
         for marker, sub_role in ROLE_MARKERS.items():
             if marker in content:
-                stack.append(sub_role)
+                push_role(sub_role)
+
+        # Detect subagent prompt in system message or mode payload
+        if step.get("source") == "SYSTEM" and step.get("type") == "SYSTEM_MESSAGE":
+            for mode, sub_role in [
+                ("pause_handoff", "clerk"),
+                ("lesson_handoff", "clerk"),
+                ("ingest", "clerk"),
+                ("review_close", "clerk"),
+                ("fact_check", "verifier"),
+                ("quiz_audit", "verifier"),
+                ("grade_audit", "verifier"),
+                ("ui_audit", "verifier"),
+                ("tutor_audit", "auditor"),
+                ("scout_audit", "auditor"),
+                ("review_gate", "auditor"),
+                ("review_session_audit", "auditor"),
+                ("lesson", "scout"),
+                ("review", "scout"),
+            ]:
+                if f"mode: '{mode}'" in content or f'mode: "{mode}"' in content or f'"mode": "{mode}"' in content:
+                    push_role(sub_role)
+                    break
 
         # Closing receipt: that subagent's run ends
         for sub_role, receipt in ROLE_RECEIPT.items():
@@ -132,6 +174,8 @@ def main() -> None:
                     continue
                 step = json.loads(line)
                 steps.append(step)
+                if step.get("type") == "GENERIC":
+                    continue
                 content = str(step.get("content", ""))
                 idx = content.find("[[FLOW:")
                 while idx != -1:

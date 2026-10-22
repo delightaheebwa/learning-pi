@@ -1,11 +1,13 @@
 ---
 name: review
-description: Run a spaced-repetition review session on the active track. Gathers the deterministic due queue, composes unlabeled interleaved and synthesis questions, audits them, verifies grades (qualitative traces included), and delegates state updates to clerk and auditor. Trigger with /review.
+description: Run a spaced-repetition review session on the active track. Gathers the deterministic due queue, composes unlabeled interleaved and synthesis questions, audits them, verifies grades (qualitative traces included), pauses for learner questions on the feedback, then auto-persists the review state and auto-ingests into the Knowledge Wiki. Trigger with /review.
 ---
 
 # Review Flow (`/review`)
 
 Conduct a spaced-repetition review session on your active learning track using the deterministic due queue. Reviews test **cue selection and transfer**, not recognition: questions are unlabeled, interleaved, and graded on qualitative traces.
+
+The session closes in three phases: **verified feedback → learner Q&A pause → automatic persistence and ingest**. Nothing is written and nothing is ingested until the learner has had the chance to question the feedback and explicitly says they have no questions.
 
 ---
 
@@ -71,25 +73,56 @@ Conduct a spaced-repetition review session on your active learning track using t
    )
    ```
    Pause and await the verifier's `correct_verdict` (it grades the mechanism and the direction/extreme check, not a scalar, and never requires algebra; it flags shallow passes against your recent turns; and for clone items it audits the `NAIVE_STUDENT_RECEIPT` against the claimed verdict). If the verifier disagrees, use the verifier's verdict.
-3. Present the graded feedback. If repair is needed, explain the slip and provide a micro-check.
+4. Keep the audited verdicts, pow outcomes, and learner traces verbatim in conversation context — they are the source for the feedback in Step 3 and the persistence batch in Step 5. Do **not** present the verdicts yet.
 
 ---
 
-## Step 3: State Persistence via Clerk & Auditor
+## Step 3: Feedback & Mandatory Question Pause
+
+1. **Compose the learner-facing feedback**: for each item, the verified verdict and *why* the trace passed or slipped (the exact step that failed), plus the pow outcome and — when a repair is needed — one concrete micro-check. Never expose verifier receipts, prompts, or audit mechanics.
+2. **Verify the rendered feedback** before emitting it:
+   ```python
+   invoke_subagent(
+       Subagents=[{
+           "TypeName": "verifier",
+           "Role": "Feedback Verifier",
+           "Prompt": "mode: 'fact_check', turn_kind: 'grade_feedback', draft: '<exact rendered feedback>', grade_verdicts: [...], claims: [...], raw_files: [...]"
+       }]
+   )
+   ```
+   Await `PASS`; apply any `ISSUES` corrections silently and re-verify until `PASS`.
+3. **Present the feedback and pause in the same turn.** End with an explicit invitation, e.g.:
+   > *"Anything here that isn't clear — a verdict, the step you slipped on, or the repair? Ask now. If it's all clear, say 'no questions' and I'll save the session and ingest the results."*
+4. **Stop the turn.** Do not dispatch `clerk`, do not ingest, and do not present the completion summary while the question pause is open. Silence or a bare acknowledgement is **not** an explicit "no questions" — if the learner does not clearly signal it, ask once for confirmation.
+
+---
+
+## Step 4: Inquiry Loop (Until the Learner Has No Questions)
+
+1. For every learner message that contains a question:
+   - Answer it as a normal tutoring turn: repair the slip, explain the relevant mechanism, or correct a misread of the feedback.
+   - Every explanatory turn goes through `verifier` (`mode: 'fact_check'`, `turn_kind: 'answer'` — or `'repair'` when correcting the slip — with the exact `draft`, `claims: [...]`, and `raw_files`/`source_urls: [...]`) before you emit it; if the inquiry challenges a verdict, re-run `verifier` (`mode: 'grade_audit'`) on that item and adopt the verifier's `correct_verdict`.
+   - Honor hint discipline and the AGENTS.md **Clean Reveal + Immediate Knob Check**: if the learner asks to be told the answer outright, ask only where the wall is, deliver the full intuitive model + anatomical formula read immediately, record `just_tell_me` as a `dependency_events[]` entry for the Step 5 handoff, and ask one immediate qualitative prediction on an altered case.
+   - After answering, **pause again** with the same invitation. Do not persist state while questions remain.
+2. Advance to Step 5 only when the learner explicitly signals they have no questions ("no questions", "none", "all clear", "go ahead"). If the signal is ambiguous, ask once more; never assume.
+
+---
+
+## Step 5: Auto-Persist the Review State (Clerk & Auditor)
 
 The Reviewer session writes **no state files directly**.
 
-1. **Dispatch Clerk**:
+1. **Dispatch Clerk** (`mode: 'review_close'`):
    ```python
    invoke_subagent(
        Subagents=[{
            "TypeName": "clerk",
            "Role": "State Clerk",
-           "Prompt": "mode: 'review_close', track: '<track>', grade_verdicts: [...], pow_outcomes: [...], transcript: '...'"
+           "Prompt": "mode: 'review_close', track: '<track>', grade_verdicts: [...], pow_outcomes: [...], dependency_events: [...], transcript: '<exact Q/A + learner answers + verified feedback + inquiry Q/A>'"
        }]
    )
    ```
-   Wait for `clerk` to log attempts (with `pow` types noted), update `Active Concepts.md` and `Mistakes.md`, write `Reviews/` and `Sessions/` notes, run `audit_state.py`, and commit state.
+   Wait for `clerk` to log attempts (with `pow` types noted), update `Active Concepts.md` and `Mistakes.md`, write the `Reviews/` and `Sessions/` notes, run `audit_state.py`, and commit state. Confirm the receipt's `mode: 'review_close'`.
 2. **Dispatch Auditor**:
    ```python
    invoke_subagent(
@@ -100,5 +133,44 @@ The Reviewer session writes **no state files directly**.
        }]
    )
    ```
-   Wait for `auditor`'s `PASS` receipt.
-3. Present the completion summary, showing updated mastery scores and next scheduled review dates.
+   Wait for `PASS`. On `ISSUES`, re-dispatch `clerk` with the corrections and re-audit until zero blocking issues.
+
+---
+
+## Step 6: Auto-Ingest (Inline, No Manual `/ingest`)
+
+Ingest runs automatically in this same turn sequence — the learner never has to type `/ingest` for a review.
+
+1. **Dispatch Clerk** (`mode: 'ingest'`) using the review note as the source of truth:
+   ```python
+   invoke_subagent(
+       Subagents=[{
+           "TypeName": "clerk",
+           "Role": "State Clerk",
+           "Prompt": "mode: 'ingest', source: 'Learning System/Reviews/Review — <track> — <YYYY-MM-DD>.md', track: '<track>', concepts: [...]"
+       }]
+   )
+   ```
+   Wait for the `CLERK_RECEIPT` with `mode: 'ingest'` (it writes or enriches `Knowledge Wiki/wiki/<page>.md`, preserves `## My understanding`, updates `Active Concepts.md` / `CURRICULUM.md`, runs `audit_state.py`, and commits).
+2. **Dispatch the Ingest Review Gate**:
+   ```python
+   invoke_subagent(
+       Subagents=[{
+           "TypeName": "auditor",
+           "Role": "Wiki Auditor",
+           "Prompt": "mode: 'review_gate', target_files: ['Knowledge Wiki/wiki/<page>.md', ...]"
+       }]
+   )
+   ```
+   Await the verdict. On in-scope `ISSUES` (unverified claims, missing provenance, broken links), re-dispatch `clerk` with the corrections and re-audit until a clean `PASS`. State/bookkeeping findings stay as context notes and do not block.
+
+---
+
+## Step 7: Completion Summary
+
+1. Verify the rendered closing summary with `verifier` (`mode: 'fact_check', turn_kind: 'answer', draft: '<exact summary>', claims: [...], raw_files: [...]`) when it is substantive, then present it concisely:
+   - Per-concept verdicts and mastery movement.
+   - Ingested / enriched wiki pages and their links.
+   - New concepts added to `Active Concepts.md` and their next review dates.
+   - Confirmation of a clean state audit (`audit_state.py` report: 0 errors).
+2. Note any open mistakes and what clears them. Do not claim completion if the auditor has not returned `PASS`.
