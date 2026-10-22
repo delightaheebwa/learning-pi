@@ -646,6 +646,7 @@ def test_hook_behaviors(root: Path) -> None:
                     "[[FLOW:solo]]\n"
                     "VERIFIER_RECEIPT: {\"mode\": \"fact_check\", \"verdict\": \"PASS\"}"
                 ),
+                "tool_calls": [{"name": "invoke_subagent", "args": {"Subagents": [{"TypeName": "verifier"}]}}],
             }) + "\n")
         res = run_hook(
             pre_tool_script,

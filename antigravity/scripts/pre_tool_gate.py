@@ -53,6 +53,12 @@ def infer_role(steps):
       Tutor resumes speaking.
     - A role-marked output step also opens the role (covers subagent turns whose
       invocation wasn't tracked in tool_calls).
+    - A SYSTEM_MESSAGE carrying a subagent `mode: '...'` payload also opens that
+      role (idempotently — it is evidence of an already-open run, never a second
+      push, so the role still closes on its receipt).
+    - GENERIC tool-output steps are skipped entirely: a file read or grep that
+      happens to contain role markers, receipt text, modes, or flow markers must
+      not open/close a role or change the flow.
     - Any explicit user input resets to "tutor".
     Returns the role in effect at the END of the transcript ("tutor" when none).
     """
@@ -69,6 +75,11 @@ def infer_role(steps):
     for step in steps:
         if step.get("source") == "USER_EXPLICIT" and step.get("type") == "USER_INPUT":
             stack = []
+            continue
+
+        # Ignore tool outputs (type == "GENERIC") so reading/grepping files doesn't
+        # trigger role changes, receipts, or flow changes.
+        if step.get("type") == "GENERIC":
             continue
 
         # Opening calls (tutor dispatching subagents)
@@ -88,10 +99,6 @@ def infer_role(steps):
                 for sub_role in ("verifier", "auditor", "naive-student", "scout", "clerk"):
                     if sub_role in type_names:
                         stack.append(sub_role)
-
-        # Ignore tool outputs (type == "GENERIC") so reading/grepping files doesn't trigger role changes
-        if step.get("type") == "GENERIC":
-            continue
 
         content = str(step.get("content", ""))
 
@@ -114,7 +121,8 @@ def infer_role(steps):
                 ("scout_audit", "auditor"),
                 ("review_gate", "auditor"),
                 ("review_session_audit", "auditor"),
-                ("scout", "scout"),
+                ("lesson", "scout"),
+                ("review", "scout"),
             ]:
                 if f"mode: '{mode}'" in content or f'mode: "{mode}"' in content or f'"mode": "{mode}"' in content:
                     push_role(sub_role)
