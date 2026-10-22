@@ -147,8 +147,9 @@ VERIFIER_RECEIPT: {
 
 The turn gate binds the embed to that receipt: same absolute file path and the file's current
 SHA-256. A modified file, a different path, a missing hash, a non-`ui_audit` receipt, or an
-`ISSUES` verdict all block the turn. Apply fixes silently, re-run `ui_audit`, and re-embed the
-audited version.
+`ISSUES` verdict all block the turn. The hash binds the **file**; the verifier binds the **prose
+it read**. If either the file or the surrounding prose changes, re-run `ui_audit` and re-embed
+the audited version. Apply fixes silently.
 
 ## 8. Fallback chain
 

@@ -124,11 +124,11 @@ Read [generative-ui.md](./skills/teach/references/generative-ui.md) before autho
 - Write **one** self-contained `.html` file into the current Antigravity conversation's **artifact directory** — never into `Learning System/` or `Knowledge Wiki/`. Mark it user-facing (`ArtifactMetadata: {UserFacing: true, Summary: "..."}`). Write the file **before** dispatching `ui_audit` (a verifier run holds a read-only write lock).
 - The allowlisted Tailwind script plus inline CSS/JS only. No other CDN, remote font, image, or network fetch.
 - Embed as raw text (not a code fence): `<agent-embed src="file:///absolute/path/widget.html"></agent-embed>` — one `src`, absolute `file:///` path, no `height`.
-- Audit the **exact file and exact prose** with `verifier` (`mode: "ui_audit"`). The receipt carries `widget_file` + `widget_sha256`; the turn gate blocks any embed whose file has no matching passing audit. Re-audit if the file changes.
+- Audit the **exact file and exact prose** with `verifier` (`mode: "ui_audit"`). The receipt carries `widget_file` + `widget_sha256`; the turn gate blocks any embed whose file has no matching passing audit. Re-audit if the file **or the surrounding prose** changes.
 - **Fallback chain: widget → Mermaid → prose.** If a widget fails audit twice, degrade to Mermaid rather than ship an unaudited or previewing visual.
 
 ### Declared visual plan on every substantive turn
 Include `visual_plan` in every substantive `fact_check` dispatch:
 `{"kind": "prose|mermaid|widget|html|none", "why": "<why this is the smallest format that carries the idea>", "widget_file": "<path when kind is widget|html>"}`.
 
-The verifier flags `VISUAL_MISSED` when the draft carries a shape/relationship, a parameter→outcome relation, or a multi-value comparison that prose cannot carry, and `VISUAL_PLAN_MISSING` when no plan is declared. Declaring `none` with a real reason is legal; guessing prose for a dynamic relationship is not.
+The verifier flags `VISUAL_MISSED` when the draft carries a shape/relationship, a parameter→outcome relation, or a multi-value comparison that prose cannot carry, and `VISUAL_PLAN_MISSING` when no plan is declared. Declaring `none` with a real reason is legal; guessing prose for a dynamic relationship is not. The Stop hook hard-binds widgets (file + hash); the `visual_plan` decision itself is enforced by the verifier, not by the hook.

@@ -87,6 +87,7 @@ Envelope fields:
 3. **Qualitative Trace Requirement**: Instructions must request the 3-line qualitative trace (cue & principle → mechanism/knob-turn → direction & extreme check), not only a final answer. "Reply with only the final answer" phrasing is an `ISSUES` verdict, as is any **derivation or calculation prompt** in `practice`, `review`, or `solo` context.
 4. **Distractor Integrity (probe MCQs only)**: 4 options of comparable length and grammatical structure; the correct answer must not stand out; distractors plausible (right in another context, one step off), never nonsense or "all of the above"; randomized positions; zero leakage in stems or intro.
 5. **No Leaks**: Instructions, stems, and introductory prose must not give away any answer key or reference internal position numbers.
+6. **Figures**: Any diagram or chart included in the batch must be necessary to pose the item and must not cue the method, the concept label, or the answer. A cueing figure is `CUE_LEAKAGE`; a decorative one is noise. (`visual_plan` applies to `fact_check` turns; question figures are audited here.)
 
 ---
 

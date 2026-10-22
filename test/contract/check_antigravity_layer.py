@@ -415,6 +415,79 @@ def test_hook_behaviors(root: Path) -> None:
         else:
             fail(f"behavior: GENERIC receipt text must not bind a widget, got {res}")
 
+        # An embed pointing at a missing file is never renderable: block it even if a
+        # receipt claims a pass for that path.
+        missing_widget = tmp_path / "missing-widget.html"
+        transcript_missing_widget = tmp_path / "trans_missing_widget.jsonl"
+        with open(transcript_missing_widget, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "next"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "[[FLOW:teach]] VERIFIER_RECEIPT: "
+                    + json.dumps({"mode": "fact_check", "verdict": "PASS", "issues": [], "omitted_foundations": []})
+                    + "\nHere is the widget: commit your prediction before the reveal.\n"
+                    + f'<agent-embed src="file://{missing_widget}"></agent-embed>'
+                ),
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_missing_widget)})
+        if res.get("decision") == "continue" and "not readable" in res.get("reason", ""):
+            ok("behavior: stop_gate blocks an <agent-embed> whose file does not exist")
+        else:
+            fail(f"behavior: stop_gate should block a missing widget file, got {res}")
+
+        # A non-file src (the only documented embed form is file:///) is never valid.
+        transcript_remote_embed = tmp_path / "trans_remote_embed.jsonl"
+        with open(transcript_remote_embed, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "next"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "[[FLOW:teach]] VERIFIER_RECEIPT: "
+                    + json.dumps({"mode": "fact_check", "verdict": "PASS", "issues": [], "omitted_foundations": []})
+                    + "\nWidget:\n"
+                    + '<agent-embed src="https://evil.example/widget.html"></agent-embed>'
+                ),
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_remote_embed)})
+        if res.get("decision") == "continue" and "UI_AUDIT_REQUIRED" in res.get("reason", ""):
+            ok("behavior: stop_gate rejects a non-file <agent-embed> src")
+        else:
+            fail(f"behavior: stop_gate should reject a remote widget src, got {res}")
+
+        # A passing ui_audit from an earlier turn still binds while file+sha are unchanged.
+        transcript_cross_turn = tmp_path / "trans_cross_turn_widget.jsonl"
+        with open(transcript_cross_turn, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "begin"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "[[FLOW:teach]] VERIFIER_RECEIPT: "
+                    + json.dumps({"mode": "ui_audit", "verdict": "PASS", "widget_file": str(widget_file),
+                                  "widget_sha256": widget_sha, "issues": []})
+                    + "\nWidget audited."
+                ),
+            }) + "\n")
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "continue"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "[[FLOW:teach]] VERIFIER_RECEIPT: "
+                    + json.dumps({"mode": "fact_check", "verdict": "PASS", "issues": [], "omitted_foundations": []})
+                    + "\nHere is the widget: commit your prediction before the reveal.\n"
+                    + embed_tag
+                ),
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_cross_turn)})
+        if res.get("decision") == "allow":
+            ok("behavior: stop_gate keeps a widget bound across turns while file+sha are unchanged")
+        else:
+            fail(f"behavior: stop_gate should reuse an earlier bound ui_audit, got {res}")
+
         # --- Test 4: stop_gate allows when fullyIdle=false (awaiting subagent) ---
         res = run_hook(stop_script, {"fullyIdle": False, "transcriptPath": str(transcript_tutor)})
         if res.get("decision") == "allow":

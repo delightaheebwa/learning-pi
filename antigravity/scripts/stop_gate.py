@@ -26,10 +26,8 @@ import sys
 
 SCHEMA_CAP = 2
 # A rendered widget is a raw <agent-embed src="file:///absolute/path"> tag.
-EMBED_SRC_RE = re.compile(
-    r'<agent-embed\b[^>]*?\bsrc\s*=\s*["\']file://([^"\']+)["\']',
-    re.IGNORECASE,
-)
+EMBED_TAG_RE = re.compile(r"<agent-embed\b[^>]*>", re.IGNORECASE)
+EMBED_SRC_RE = re.compile(r'\bsrc\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
 CRITICAL_CAP = 6
 # Longest-first: "REVIEW_SCOUT_RECEIPT:" contains "SCOUT_RECEIPT:" as a substring,
 # so matching order matters to avoid aliasing.
@@ -305,8 +303,8 @@ def main() -> None:
     # the file's current SHA-256. /solo may never render a widget at all. This is a
     # hard block (no retry tier): an unaudited executable widget or a closed-book aid
     # must never ship, so there is nothing safe to fail open to.
-    embed_paths = [os.path.realpath(m.group(1)) for m in EMBED_SRC_RE.finditer(stripped_text)]
-    if embed_paths:
+    embed_tags = EMBED_TAG_RE.findall(stripped_text)
+    if embed_tags:
         if active_flow == "solo":
             emit(
                 "continue",
@@ -314,6 +312,20 @@ def main() -> None:
                 "Remove the <agent-embed> and every interactive aid; solo turns are text-only questions.",
             )
             return
+
+        embed_paths = []
+        for tag in embed_tags:
+            src_match = EMBED_SRC_RE.search(tag)
+            src = src_match.group(1) if src_match else ""
+            if not src.startswith("file:///") or any(c in src for c in ('"', "'", "<", ">")):
+                emit(
+                    "continue",
+                    "UI_AUDIT_REQUIRED: <agent-embed> must use exactly one absolute "
+                    'src="file:///..."> attribute pointing at an audited artifact. '
+                    f"Got: {tag}",
+                )
+                return
+            embed_paths.append(os.path.realpath(src[len("file://"):]))
 
         transcript_receipts = collect_transcript_receipts(steps, decoder)
         ui_audits = [
