@@ -73,9 +73,11 @@ def detect_subagents_in_call(name, args, invoked_subagents):
                     invoked_subagents.add(sa_type)
 
 
-def collect_receipts(content, latest_receipts, all_receipts, decoder):
+def collect_receipts(content, latest_receipts, all_receipts, decoder, step_index):
     """Parse receipt JSON objects out of a step's text: keep the latest per name
-    for gate checks, and every occurrence (name, obj) for retry accounting."""
+    for gate checks, and every occurrence (name, obj, order key) for retry
+    accounting and phase ordering. The order key is (step index, text offset) so
+    receipts inside one step keep their textual order."""
     for receipt_name in RECEIPT_NAMES:
         marker = f"{receipt_name}:"
         idx = content.find(marker)
@@ -85,7 +87,7 @@ def collect_receipts(content, latest_receipts, all_receipts, decoder):
                 try:
                     obj, end_pos = decoder.raw_decode(content[brace_idx:])
                     latest_receipts[receipt_name] = obj
-                    all_receipts.append((receipt_name, obj))
+                    all_receipts.append((receipt_name, obj, (step_index, brace_idx)))
                     idx = content.find(marker, brace_idx + end_pos)
                     continue
                 except Exception:
@@ -215,7 +217,7 @@ def main() -> None:
     latest_receipts = {}
     all_receipts = []
 
-    for step in current_turn_steps:
+    for step_index, step in enumerate(current_turn_steps):
         for tc in step.get("tool_calls", []) or []:
             detect_subagents_in_call(tc.get("name", ""), tc.get("args", {}) or {}, invoked_subagents)
             name = tc.get("name", "")
@@ -225,7 +227,11 @@ def main() -> None:
                     written_files.add(tf)
 
         content = str(step.get("content", ""))
-        collect_receipts(content, latest_receipts, all_receipts, decoder)
+        collect_receipts(content, latest_receipts, all_receipts, decoder, step_index)
+
+    # Receipts are appended per receipt name inside a step, so sort by their
+    # textual position to keep phase ordering (clerk before/after auditor) honest.
+    all_receipts.sort(key=lambda receipt: receipt[2])
 
     # Retry accounting. Hook "continue" reasons may or may not persist as transcript
     # steps, so count BOTH explicit GATE markers and unresolved ISSUES receipts
@@ -238,8 +244,8 @@ def main() -> None:
         1 for s in current_turn_steps
         if "GATE:" in str(s.get("content", "")) and "GATE-CRIT:" not in str(s.get("content", ""))
     )
-    verifier_issues = sum(1 for name, obj in all_receipts if name == "VERIFIER_RECEIPT" and obj.get("verdict") == "ISSUES")
-    auditor_issues = sum(1 for name, obj in all_receipts if name == "AUDITOR_RECEIPT" and obj.get("verdict") == "ISSUES")
+    verifier_issues = sum(1 for name, obj, _order in all_receipts if name == "VERIFIER_RECEIPT" and obj.get("verdict") == "ISSUES")
+    auditor_issues = sum(1 for name, obj, _order in all_receipts if name == "AUDITOR_RECEIPT" and obj.get("verdict") == "ISSUES")
     critical_retries = max(marker_critical, verifier_issues + (auditor_issues if active_flow == "solo" else 0))
     schema_retries = 0 if active_flow == "solo" else max(marker_schema, auditor_issues)
 
@@ -274,16 +280,17 @@ def main() -> None:
     # Ingest is gated in every flow (teach/resume ingest inline at lesson end);
     # review_close is gated in ingest/review/solo. Ordering matters: an auditor
     # receipt from an earlier phase must not satisfy a later clerk write.
-    clerk_receipts = [(i, obj) for i, (name, obj) in enumerate(all_receipts) if name == "CLERK_RECEIPT"]
+    clerk_receipts = [(i, obj) for i, (name, obj, _order) in enumerate(all_receipts) if name == "CLERK_RECEIPT"]
     last_clerk_idx, last_clerk = clerk_receipts[-1] if clerk_receipts else (-1, {})
     clerk_mode = last_clerk.get("mode", "")
-    clerk_gated = bool(clerk_receipts) and (
-        clerk_mode == "ingest" or active_flow in ("ingest", "review", "solo")
+    clerk_gated = (
+        clerk_mode == "ingest"
+        or (clerk_mode in ("", "review_close") and active_flow in ("ingest", "review", "solo"))
     )
     if clerk_gated:
         expected_audit_mode = "review_gate" if clerk_mode == "ingest" else "review_session_audit"
         auditor_after = [
-            obj for i, (name, obj) in enumerate(all_receipts)
+            obj for i, (name, obj, _order) in enumerate(all_receipts)
             if i > last_clerk_idx
             and name == "AUDITOR_RECEIPT"
             and obj.get("mode") == expected_audit_mode

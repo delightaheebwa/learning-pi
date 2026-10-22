@@ -573,6 +573,24 @@ def test_hook_behaviors(root: Path) -> None:
         else:
             fail(f"behavior: inline ingest with review_gate PASS should allow, got {res}")
 
+        # --- Test 19: same-step receipt order follows the text, not receipt-name order ---
+        transcript_same_step = tmp_path / "trans_same_step.jsonl"
+        with open(transcript_same_step, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "finish lesson"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "[[FLOW:teach]] CLERK_RECEIPT: {\"mode\": \"ingest\", \"wiki\": [\"Knowledge Wiki/wiki/page.md\"], \"status\": \"done\"}\n"
+                    "AUDITOR_RECEIPT: {\"mode\": \"review_gate\", \"verdict\": \"PASS\", \"issues\": []}\nIngested."
+                ),
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_same_step)})
+        if res.get("decision") == "allow":
+            ok("behavior: same-step clerk->auditor receipt order is read textually")
+        else:
+            fail(f"behavior: same-step clerk->auditor order should allow, got {res}")
+
 
 def main() -> None:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
