@@ -28,3 +28,4 @@ Initiate or resume the next sequential curriculum lesson defined in your learnin
      - Dispatch `scout` (`mode: "lesson"`) for curriculum and Further Reading sources.
      - Dispatch `auditor` (`mode: "scout_audit"`).
       - Run the probe → scope contract → Collision/Sketch-the-Move/Anatomical-Read/Boundary-Hunt/Counterexample teaching loop with every-turn `verifier` verification.
+2. **Compose visuals automatically**: every teaching turn uses the smallest format that carries the idea (`AGENTS.md` §6): Mermaid for structure, a Predict-Before-Render widget when the learner must vary a knob and predict the outcome. Each `verifier` dispatch carries `visual_plan`; widget turns require a passing `ui_audit` bound to the file before the `<agent-embed>` is emitted.

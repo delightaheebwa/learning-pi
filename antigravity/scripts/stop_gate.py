@@ -13,13 +13,23 @@ Enforces:
    `⚠️ UNVERIFIED` banner so the learner is never bluffed by a silent fail-open.
 4. Substantiveness is judged over the WHOLE turn text (receipts stripped), so a long
    substantive emission cannot hide behind a short closing line.
+5. Widget integrity: every raw <agent-embed> in the learner-facing text must be bound
+   to a passing ui_audit receipt for the same absolute file and the file's current
+   SHA-256. /solo may never render one. This check is a hard block (no fail-open
+   tier): an unaudited widget or a closed-book aid must never ship.
 """
+import hashlib
 import json
 import os
 import re
 import sys
 
 SCHEMA_CAP = 2
+# A rendered widget is a raw <agent-embed src="file:///absolute/path"> tag.
+EMBED_SRC_RE = re.compile(
+    r'<agent-embed\b[^>]*?\bsrc\s*=\s*["\']file://([^"\']+)["\']',
+    re.IGNORECASE,
+)
 CRITICAL_CAP = 6
 # Longest-first: "REVIEW_SCOUT_RECEIPT:" contains "SCOUT_RECEIPT:" as a substring,
 # so matching order matters to avoid aliasing.
@@ -93,6 +103,19 @@ def collect_receipts(content, latest_receipts, all_receipts, decoder, step_index
                 except Exception:
                     pass
             idx = content.find(marker, idx + len(marker))
+
+
+def collect_transcript_receipts(steps, decoder):
+    """Collect every receipt in the transcript in textual order. Used for cross-turn
+    binding: a widget audited once stays audited while its file and SHA are unchanged."""
+    receipts = []
+    for step_index, step in enumerate(steps):
+        # Ignore tool output: a file read or grep that happens to contain receipt
+        # text must not be able to bind a widget to a passing audit.
+        if step.get("type") == "GENERIC":
+            continue
+        collect_receipts(str(step.get("content", "")), {}, receipts, decoder, step_index)
+    return receipts
 
 
 def strip_receipts(content, decoder):
@@ -226,8 +249,9 @@ def main() -> None:
                 if tf:
                     written_files.add(tf)
 
-        content = str(step.get("content", ""))
-        collect_receipts(content, latest_receipts, all_receipts, decoder, step_index)
+        # Tool output is never a receipt: file contents must not mint a PASS.
+        if step.get("type") != "GENERIC":
+            collect_receipts(str(step.get("content", "")), latest_receipts, all_receipts, decoder, step_index)
 
     # Receipts are appended per receipt name inside a step, so sort by their
     # textual position to keep phase ordering (clerk before/after auditor) honest.
@@ -275,6 +299,56 @@ def main() -> None:
     # procedural-phrase exemption — a status line is short, and anything long is gated.
     stripped_text = "\n".join(strip_receipts(str(step.get("content", "")), decoder) for step in current_turn_steps)
     turn_is_substantive = len(stripped_text.strip()) > 80
+
+    # Check 0: Interactive widget integrity. Every <agent-embed> in the learner-facing
+    # text must be bound to a passing ui_audit receipt for the same absolute file and
+    # the file's current SHA-256. /solo may never render a widget at all. This is a
+    # hard block (no retry tier): an unaudited executable widget or a closed-book aid
+    # must never ship, so there is nothing safe to fail open to.
+    embed_paths = [os.path.realpath(m.group(1)) for m in EMBED_SRC_RE.finditer(stripped_text)]
+    if embed_paths:
+        if active_flow == "solo":
+            emit(
+                "continue",
+                "SOLO_NO_AIDS: this turn renders an interactive widget, but /solo is closed-book. "
+                "Remove the <agent-embed> and every interactive aid; solo turns are text-only questions.",
+            )
+            return
+
+        transcript_receipts = collect_transcript_receipts(steps, decoder)
+        ui_audits = [
+            obj
+            for name, obj, _order in transcript_receipts
+            if name == "VERIFIER_RECEIPT"
+            and obj.get("mode") == "ui_audit"
+            and obj.get("verdict") == "PASS"
+        ]
+        for path in embed_paths:
+            try:
+                with open(path, "rb") as fh:
+                    digest = hashlib.sha256(fh.read()).hexdigest()
+            except OSError:
+                emit(
+                    "continue",
+                    f"UI_AUDIT_REQUIRED: <agent-embed> points at '{path}', which is not readable. "
+                    "Write the widget into the conversation artifact directory, audit it, then embed the audited file.",
+                )
+                return
+
+            bound = any(
+                os.path.realpath(str(obj.get("widget_file", ""))) == path
+                and str(obj.get("widget_sha256", "")).lower() == digest
+                for obj in ui_audits
+            )
+            if not bound:
+                emit(
+                    "continue",
+                    "UI_AUDIT_REQUIRED: every <agent-embed> must be bound to a passing ui_audit receipt for "
+                    f"the same file and hash ({path}). Dispatch verifier (mode: 'ui_audit', widget_file: ..., "
+                    "prose_draft: <the exact turn>) and emit only after PASS; re-audit if the file changed. "
+                    "If the widget cannot pass, fall back to a Mermaid diagram.",
+                )
+                return
 
     # Check 1: Clerk persistence requires a matching auditor AFTER it.
     # Ingest is gated in every flow (teach/resume ingest inline at lesson end);

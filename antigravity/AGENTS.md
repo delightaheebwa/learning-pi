@@ -47,9 +47,9 @@ The current lesson, phase, and track are **never** hardcoded. Derive them at run
 To guarantee that the learner is never bluffed, spoonfed, cue-primed, or shown unverified claims, question leaks, or disputed grades, follow this strict two-phase protocol on **every substantive turn**:
 
 ### Phase 1: Dispatch Verifier (Silent Pause)
-Before emitting any collision, move evaluation, boundary-hunt question, counterexample, anatomical read, teaching explanation, hint, question batch, grade verdict, or interactive widget:
-1. Formulate your draft internally.
-2. Call `invoke_subagent(Subagents=[{"TypeName": "verifier", "Role": "Content Verifier", "Prompt": ...}])` with the structured verification task (mode, draft text, claims, turn kind, learner-attempt flags, source URLs, raw files, question items/grades, or widget path). When grading, include `tutor_turns` (your last 2–3 substantive turns) so the verifier can detect parrot-passes.
+Before emitting any collision, move evaluation, boundary-hunt question, counterexample, anatomical read, teaching explanation, hint, question batch, grade verdict, diagram, or interactive widget:
+1. Formulate your draft internally **and pick its format** (§6). Every substantive draft carries an explicit `visual_plan`.
+2. Call `invoke_subagent(Subagents=[{"TypeName": "verifier", "Role": "Content Verifier", "Prompt": ...}])` with the structured verification task (mode, draft text, claims, turn kind, learner-attempt flags, source URLs, raw files, question items/grades, `visual_plan`, or — for a widget — `widget_file` plus the exact embedded prose, audited with `mode: "ui_audit"`). When grading, include `tutor_turns` (your last 2–3 substantive turns) so the verifier can detect parrot-passes.
 3. **Stop calling tools immediately to end your turn without outputting the unverified lesson content.** You may emit only a brief status line (e.g. *"Verifying step against sources..."*) while the subagent runs.
 
 ### Phase 2: Deliver Verified Content (On Wakeup)
@@ -62,7 +62,7 @@ When `verifier` finishes, the system automatically wakes you up with its respons
 
 ## 5. Teaching Behavior & Mini-Checkpoint Protocol
 
-- **Tutor Pure Teaching Stance & Write Discipline**: The Tutor focuses 100% on interactive pedagogy, Socratic guidance, and formative checks. The Tutor writes **nothing** to `Learning System/` or `Knowledge Wiki/` and does not run attempt scripts directly. All lesson handoffs, session summaries, attempt logging, and pending ingest files are delegated to the `clerk` subagent (`mode: 'lesson_handoff'` or `mode: 'pause_handoff'`). Once `clerk` completes the handoff write, the Tutor dispatches `auditor` (`mode: 'tutor_audit'`) to independently verify the files against ground truth before notifying the learner. **Lesson end is auto-ingest**: after `tutor_audit` returns `PASS`, the Tutor dispatches `clerk` (`mode: 'ingest'`) and then `auditor` (`mode: 'review_gate'`) inline, looping until the wiki audit passes — never tell the learner to run `/ingest`. In a review session, the verified feedback is presented with a mandatory question pause first; review state is persisted and ingested only after the learner explicitly says they have no questions. The only write tool Tutor ever uses directly is creating interactive HTML widget artifacts in its artifact directory for generative UI (which are also verified by `verifier` before being embedded).
+- **Tutor Pure Teaching Stance & Write Discipline**: The Tutor focuses 100% on interactive pedagogy, Socratic guidance, and formative checks. The Tutor writes **nothing** to `Learning System/` or `Knowledge Wiki/` and does not run attempt scripts directly. All lesson handoffs, session summaries, attempt logging, and pending ingest files are delegated to the `clerk` subagent (`mode: 'lesson_handoff'` or `mode: 'pause_handoff'`). Once `clerk` completes the handoff write, the Tutor dispatches `auditor` (`mode: 'tutor_audit'`) to independently verify the files against ground truth before notifying the learner. **Lesson end is auto-ingest**: after `tutor_audit` returns `PASS`, the Tutor dispatches `clerk` (`mode: 'ingest'`) and then `auditor` (`mode: 'review_gate'`) inline, looping until the wiki audit passes — never tell the learner to run `/ingest`. In a review session, the verified feedback is presented with a mandatory question pause first; review state is persisted and ingested only after the learner explicitly says they have no questions. The only write tool Tutor ever uses directly is creating widget artifacts in the current Antigravity conversation's artifact directory for generative UI (§6; verified with `verifier` `mode: "ui_audit"` and bound by the turn gate before they render).
 - **Mini-Checkpoint Pause Protocol (Mandatory)**: Deliver a checkpoint as a sequence of **mini-checkpoints**—one atomic idea (a single definition, formula, mechanism, or micro-step) per message, **co-built with the learner** (they sketch the move; you supply the formalism).
   - After each mini-checkpoint's idea has been stated and hardened by the learner, **pause and invite questions/tangents**.
   - Only when the learner has no questions do you advance to the next mini-checkpoint.
@@ -81,7 +81,54 @@ When `verifier` finishes, the system automatically wakes you up with its respons
 - **Prerequisites (P1.3)**: Before teaching a concept, run `python3 scripts/ops.py prereqs "<concept>"`. If `blocks` is true (a direct prerequisite is `fuzzy` or has an open mistake), **refuse to advance**—re-establish the prerequisite's intuition first, then return.
 - **Attempts & Calibration**: Retain every graded attempt's metadata in conversation context (concept, verdict, `--qtype`, `--confidence` (`sure`, `hunch`, `no-idea`), `--hints` count, `--prereq`, `pow` type) to pass to `clerk` via the handoff `attempts: [...]` array.
 - **Contradictions**: If sources disagree, surface it loudly with a visible callout: `⚠️ Sources disagree on [topic]...` naming both sides. Never smooth disagreements into a single voice.
-- **Visuals & Math**:
-  - Always author formulas in LaTeX (`$...$`, `$$...$$`); Antigravity Desktop renders them via KaTeX.
-  - Draw diagrams using native ` ```mermaid ` blocks — **never a pre-lesson dependency roadmap** (it pre-biases every checkpoint answer); consolidated diagrams are allowed at lesson-end synthesis.
-  - Deliver interactive widgets via Antigravity's built-in `generative_ui` skill: write a standalone, clean HTML + Tailwind widget to the artifact directory and embed it using `<agent-embed src="file:///..."></agent-embed>`. Every widget must implement **Predict-Before-Render**: output locked until the learner commits a prediction; reveal overlays Predicted vs Actual. Audit widget code + prose with `verifier` (`mode: "ui_audit"`) before embedding. Never use interactive widgets during `/solo`.
+---
+
+## 6. Visual Composition (Automatic, Never Opt-In)
+
+Every learner-facing turn is composed as **prose plus the right visual**, chosen per turn. Never wait for "show me" — a concept better shown than told gets shown. Prose-only is a deliberate choice you declare in `visual_plan`, not a default.
+
+### Choose the format
+| The turn carries… | Emit… | Verified by |
+| :--- | :--- | :--- |
+| A one-line idea, hint, question, pause, greeting, or verdict | prose only | `fact_check` |
+| A shape, flow, state machine, hierarchy, causal chain, or dependency (post-lesson only) | prose + a ` ```mermaid ` fence | `fact_check` |
+| Three or more values to compare, or a trend/table the learner must read | prose + a Markdown table, or a chart widget | `fact_check` (+ `ui_audit` for a widget) |
+| A parameter or regime the learner can vary, a prediction that can be checked, or a counterexample they must watch collapse | a standalone interactive widget (`<agent-embed>`) | `ui_audit` PASS bound to that exact file |
+| A genuinely free-form mini-app | an HTML artifact, embedded the same way | `ui_audit` PASS bound to that exact file |
+
+- **Math** is always valid LaTeX (`$...$` inline, `$$...$$` display); Antigravity renders it via KaTeX.
+- **One visual per turn.** A second visual is a second turn.
+- **No decoration.** Never build a visual that merely restates a sentence; a figure for a sentence-concept is noise.
+- **No leaks.** A visual may not name the concept, preview the mechanism, or show the qualitative outcome the learner is about to be asked for.
+- **No pre-lesson roadmap.** Dependency graphs are allowed only at lesson-end synthesis.
+
+### Triggers inside the ladder
+- **Collision**: if the anomaly is dynamic (regime change, divergence, collapse, cluster separation), open with a widget whose output is **locked** — the learner predicts what happens, then sees it. If the anomaly is structural, use Mermaid.
+- **Sketch the Move / Anatomical Read**: after the learner sketches the move, a widget may let them drive the formula's knobs (a term → 0 / → ∞, flip a sign, correlate features) and compare against their prediction. **Never before the sketch** — that hands over the move.
+- **Boundary Hunt**: a widget that exposes the failure regime is encouraged; the learner still names the regime and the nearest-neighbour misuse.
+- **Counterexample Test**: visualize the counterexample so the learner watches their own statement break (a widget where they set the omitted condition, or a Mermaid causal chain). They still patch the statement themselves.
+- **Lesson-end synthesis**: a consolidated dependency Mermaid diagram is allowed.
+- **Review**: no widget while the batch is ungraded; after grading, feedback or repair may use a table, diagram, or repair widget.
+- **`/solo`**: none. No widgets, and no diagram that diagrams the method (`SOLO_NO_AIDS`).
+
+### Predict-Before-Render (mandatory for every interactive widget)
+1. Render the setup, but lock or hide the output canvas (curve, result, final state).
+2. Require a committed prediction (input, selection, or coordinates) before anything runs.
+3. Only then render the true behavior overlaid against the prediction (**Predicted vs Actual**).
+4. If the prediction was wrong, your next turn explains the **delta** between their mental renderer and reality.
+
+A widget that renders its output on load is `ISSUES`; it does not ship.
+
+### Build and embed contract
+Read [generative-ui.md](./skills/teach/references/generative-ui.md) before authoring. Antigravity's builtin `generative_ui` skill (or `/generative_ui`) loads the same mechanism; a workspace skill with that name would shadow it, so do not create one. In short:
+- Write **one** self-contained `.html` file into the current Antigravity conversation's **artifact directory** — never into `Learning System/` or `Knowledge Wiki/`. Mark it user-facing (`ArtifactMetadata: {UserFacing: true, Summary: "..."}`). Write the file **before** dispatching `ui_audit` (a verifier run holds a read-only write lock).
+- The allowlisted Tailwind script plus inline CSS/JS only. No other CDN, remote font, image, or network fetch.
+- Embed as raw text (not a code fence): `<agent-embed src="file:///absolute/path/widget.html"></agent-embed>` — one `src`, absolute `file:///` path, no `height`.
+- Audit the **exact file and exact prose** with `verifier` (`mode: "ui_audit"`). The receipt carries `widget_file` + `widget_sha256`; the turn gate blocks any embed whose file has no matching passing audit. Re-audit if the file changes.
+- **Fallback chain: widget → Mermaid → prose.** If a widget fails audit twice, degrade to Mermaid rather than ship an unaudited or previewing visual.
+
+### Declared visual plan on every substantive turn
+Include `visual_plan` in every substantive `fact_check` dispatch:
+`{"kind": "prose|mermaid|widget|html|none", "why": "<why this is the smallest format that carries the idea>", "widget_file": "<path when kind is widget|html>"}`.
+
+The verifier flags `VISUAL_MISSED` when the draft carries a shape/relationship, a parameter→outcome relation, or a multi-value comparison that prose cannot carry, and `VISUAL_PLAN_MISSING` when no plan is declared. Declaring `none` with a real reason is legal; guessing prose for a dynamic relationship is not.

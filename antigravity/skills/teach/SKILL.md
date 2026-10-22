@@ -76,13 +76,15 @@ Teach an active curriculum topic or requested concept using the intuition-first 
 
 Follow the procedures in [pedagogy.md](./references/pedagogy.md):
 
+Compose every turn as prose plus the smallest visual that carries it (`AGENTS.md` §6, [pedagogy.md](./references/pedagogy.md) §7). This is automatic: Mermaid for structure, a verified Predict-Before-Render widget when the learner must vary a knob and predict the outcome. Every `verifier` dispatch carries a `visual_plan`; a widget turn is audited with `mode: "ui_audit"` before its `<agent-embed>` is emitted.
+
 1. **Prerequisite Check**: Before each checkpoint, run `python3 scripts/ops.py prereqs "<concept>"`. If `blocks: true`, re-establish the prerequisite's intuition before proceeding.
 2. **Mini-Checkpoints** — for each atomic idea, execute the ladder:
-   - **Collision** (`turn_kind: "collision"`): open with a grounded anomaly from the digest where the learner's existing toolkit fails. Never name the concept or preview the fix.
-   - **Sketch the Move** (`turn_kind: "invention"`): the learner proposes the *intuitive* fix in plain words or a sketch. Only then name the formal concept, put the formula openly on screen, and guide an **Anatomical Read** (what each term does as a knob, extremes $\to 0$ / $\to \infty$). The learner restates the mechanism in their own words — never a derivation.
-   - **Boundary Hunt** (`turn_kind: "boundary_hunt"`): the learner produces the failure regime (`conditions`) and the nearest-neighbour misuse (`contrast`).
-   - **Counterexample Test** (`turn_kind: "falsify"`, one round): capture the learner's statement verbatim (v1); if it overgeneralizes, break it with one counterexample that satisfies it as written; the learner patches it; capture v2.
-   - **Verify Every Turn**: Before emitting any collision, evaluation, boundary question, counterexample, hint, or practice item, dispatch `verifier` (`mode: "fact_check"` or `mode: "quiz_audit"`) with the learner-attempt flags and pause. Emit only upon a `PASS` receipt.
+   - **Collision** (`turn_kind: "collision"`): open with a grounded anomaly from the digest where the learner's existing toolkit fails. Never name the concept or preview the fix. If the anomaly is dynamic, accompany it with a locked-output widget so the learner predicts the breakdown before seeing it.
+   - **Sketch the Move** (`turn_kind: "invention"`): the learner proposes the *intuitive* fix in plain words or a sketch. Only then name the formal concept, put the formula openly on screen, and guide an **Anatomical Read** (what each term does as a knob, extremes $\to 0$ / $\to \infty$). A knob widget may now let the learner drive those terms and compare against their prediction. The learner restates the mechanism in their own words — never a derivation.
+   - **Boundary Hunt** (`turn_kind: "boundary_hunt"`): the learner produces the failure regime (`conditions`) and the nearest-neighbour misuse (`contrast`). A widget may expose the regime, but the learner names it.
+   - **Counterexample Test** (`turn_kind: "falsify"`, one round): capture the learner's statement verbatim (v1); if it overgeneralizes, break it with one counterexample that satisfies it as written; visualize the break (widget or causal Mermaid chain); the learner patches it; capture v2.
+   - **Verify Every Turn**: Before emitting any collision, evaluation, boundary question, counterexample, hint, practice item, or widget, dispatch `verifier` — `mode: "fact_check"` with the learner-attempt flags and the declared `visual_plan`, or `mode: "ui_audit"` with the exact widget file and prose — and pause. Emit only upon a `PASS` receipt.
    - **Pause after every mini-checkpoint** to invite questions.
 3. **Practice**:
    - At the end of each checkpoint, deliver a single **unlabeled** practice item (the stem never names the concept for selection/application items; naming is allowed only for a meaning/anatomy read) requiring a **3-line qualitative trace** (cue & principle → mechanism/knob-turn → direction & extreme check).
@@ -98,7 +100,7 @@ Follow the procedures in [pedagogy.md](./references/pedagogy.md):
    - **Perturbation**: mutate a load-bearing assumption or term just learned; the learner predicts the qualitative downstream behaviour (which way it moves, what breaks). Verify and grade via `verifier` (`grade_audit`, `pow: "perturbation"`).
    - **Sabotage (Misapplication)**: present a plausible real-world *use* of the concept (or a look-alike) where a `condition` is violated; the learner names the broken assumption and what should have been done instead. No algebraic bug-hunting (`grade_audit`, `pow: "sabotage"`).
    - **Clone** (two phases): first ask the learner to explain the concept in their own words ("teach it to a novice"). Do **not** dispatch anything yet. When the learner replies, dispatch the **`naive-student`** subagent with `concept`, a seeded plausible `misconception`, `prereq_level` (the concept's prerequisites), a **qualitative** `target_task` (a prediction or tool choice), and `learner_transcript` = the learner's teaching reply verbatim. `naive-student` makes the qualitative call using only what the learner explicitly said. Success logs as `feynman_pass`; failure as `feynman_fail`.
-   - **Consolidation**: after the battery, a dependency Mermaid diagram synthesizing what was built is now allowed.
+   - **Consolidation**: after the battery, a dependency Mermaid diagram synthesizing what was built is now allowed — plus, where one knob still repays exploration, a verified Predict-Before-Render widget.
 2. **Delegate Handoff Batch to Clerk**:
    The Tutor focuses purely on teaching and writes no files to `Learning System/`. Dispatch **`clerk`**:
    ```python

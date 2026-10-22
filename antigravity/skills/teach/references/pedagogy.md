@@ -141,16 +141,43 @@ If the learner says "just tell me", "skip", or "give me the answer":
 
 ---
 
-## 7. Visuals, Widgets & Predict-Before-Render
+## 7. Visual Composition & Predict-Before-Render
 
-- **KaTeX**: All mathematical formulas must be authored in valid LaTeX (`$...$` inline, `$$...$$` block).
-- **Mermaid**: Use native ` ```mermaid ` fences for state diagrams and flowcharts. Dependency roadmaps are **not** drawn before teaching (they pre-bias every checkpoint answer); a consolidated dependency diagram is allowed at lesson-end synthesis, after the learner has done the work.
-- **Generative UI (`<agent-embed>`) — Predict-Before-Render (mandatory)**:
-  Every interactive widget must implement a **locked prediction gate**:
-  1. Render the setup/system state, but **lock or hide the output canvas** (curve, result, final state).
-  2. Require the learner to commit a **prediction** (input, selection, or sketch coordinates) *before* anything can run.
-  3. Only after the prediction is committed does the widget render the true behavior, overlaid against the prediction (**Predicted vs Actual**).
-  4. If the prediction was wrong, the Tutor's next turn is locked to explaining the delta between the learner's mental renderer and reality.
-  - Widgets are written to the artifact directory as standalone HTML files using Tailwind CSS (`https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js`) and embedded via `<agent-embed src="file:///..."></agent-embed>`.
-  - Always audit the HTML code and accompanying prose with `verifier` (`mode: "ui_audit"`) before embedding; a widget without a working prediction gate is an `ISSUES` verdict.
-  - Interactive widgets are strictly forbidden during `/solo` flows.
+Visuals are **automatic, never opt-in**. Each teaching turn is composed as prose plus the smallest format that carries the idea; the learner does not have to ask for a diagram or a widget. Prose-only is a declared decision, not a default.
+
+### When to visualize
+| The turn carries… | Emit… | Audit |
+| :--- | :--- | :--- |
+| A one-line idea, hint, question, pause, or verdict | prose | `fact_check` |
+| A shape, flow, state, hierarchy, causal chain, or dependency (post-lesson only) | prose + ` ```mermaid ` | `fact_check` |
+| Three or more values to compare, or a trend/table | prose + a Markdown table, or a chart widget | `fact_check` (+ `ui_audit` for a widget) |
+| A parameter/regime the learner can vary, a checkable prediction, or a counterexample they must watch break | a standalone interactive widget (`<agent-embed>`) | `ui_audit` PASS bound to the file |
+| A genuinely free-form mini-app | an HTML artifact, embedded the same way | `ui_audit` PASS bound to the file |
+
+- **One visual per turn.** No decoration; never build a visual that merely restates a sentence.
+- **No leak.** A visual may not name the concept, preview the mechanism, or show the outcome the learner is about to be asked to predict.
+- **No pre-lesson roadmap.** Dependency graphs only after the lesson-end battery, when the work is done.
+
+### Stage triggers (mapped to §2)
+- **Collision**: dynamic anomaly (regime change, divergence, collapse, cluster separation) → a widget with the output **locked**; the learner predicts, then sees. Structural anomaly → Mermaid.
+- **Sketch the Move**: after the learner sketches the move, a widget may let them drive the formula's knobs (term → 0 / → ∞, flip a sign, correlate features) and compare with their prediction. **Never before the sketch** — that hands over the move.
+- **Boundary Hunt**: a widget that exposes the failure regime is encouraged; the learner still names the regime and the nearest-neighbour misuse.
+- **Counterexample Test**: visualize the counterexample so the learner watches their own statement break (set the omitted condition, or a Mermaid causal chain). They still patch the statement.
+- **Review**: no widget while the batch is ungraded; after grading, feedback or repair may use a table, diagram, or repair widget.
+- **`/solo`**: none. No widgets, and no diagram that diagrams the method (`SOLO_NO_AIDS`).
+
+### Predict-Before-Render (mandatory for interactive widgets)
+1. Render the setup/system state, but **lock or hide the output canvas** (curve, result, final state).
+2. Require a **committed prediction** (input, selection, or sketch coordinates) before anything runs.
+3. Only after the prediction is committed, render the true behavior overlaid against the prediction (**Predicted vs Actual**).
+4. If the prediction was wrong, the next turn is locked to explaining the **delta** between the learner's mental renderer and reality.
+
+A widget that renders its output on load is `ISSUES` and does not ship.
+
+### Build, embed, audit
+- **KaTeX**: author all formulas in valid LaTeX (`$...$` inline, `$$...$$` block).
+- **Mermaid**: native ` ```mermaid ` fences for state diagrams, flowcharts, and causal chains.
+- **Widgets**: write one self-contained HTML file into the current Antigravity conversation's **artifact directory** (never the learning repository), mark it user-facing, and embed it as raw `<agent-embed src="file:///..."></agent-embed>`. Full contract: [generative-ui.md](./generative-ui.md).
+- **Audit binding**: dispatch `verifier` (`mode: "ui_audit"`) on the exact file and exact prose. The receipt carries `widget_file` + `widget_sha256`; the turn gate blocks an embed with no matching passing audit. Re-audit whenever the file changes.
+- **Fallback chain: widget → Mermaid → prose.** If a widget fails audit twice, degrade to Mermaid instead of shipping it.
+- Every substantive `fact_check` dispatch carries a declared `visual_plan` (`prose|mermaid|widget|html|none` + why); the verifier flags `VISUAL_PLAN_MISSING` or `VISUAL_MISSED` and can force the visual the turn actually needs.

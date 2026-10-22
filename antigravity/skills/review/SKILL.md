@@ -52,7 +52,7 @@ The session closes in three phases: **verified feedback → learner Q&A pause �
    )
    ```
    Pause and wait for `verifier`'s `PASS` receipt before presenting the questions.
-5. Present the full batch in a single turn so the learner can reply in one message.
+5. Present the full batch in a single turn so the learner can reply in one message. **No visuals in the batch**: no widget, and no diagram that cues the method, until the learner's answers are graded.
 
 ---
 
@@ -79,14 +79,14 @@ The session closes in three phases: **verified feedback → learner Q&A pause �
 
 ## Step 3: Feedback & Mandatory Question Pause
 
-1. **Compose the learner-facing feedback**: for each item, the verified verdict and *why* the trace passed or slipped (the exact step that failed), plus the pow outcome and — when a repair is needed — one concrete micro-check. Never expose verifier receipts, prompts, or audit mechanics.
+1. **Compose the learner-facing feedback**: for each item, the verified verdict and *why* the trace passed or slipped (the exact step that failed), plus the pow outcome and — when a repair is needed — one concrete micro-check. Compose it as prose plus the smallest visual that carries the idea (`AGENTS.md` §6): a table for per-item verdicts, a Mermaid causal chain for the slipped step, or a repair widget for the knob that was misread. Never expose verifier receipts, prompts, or audit mechanics.
 2. **Verify the rendered feedback** before emitting it:
    ```python
    invoke_subagent(
        Subagents=[{
            "TypeName": "verifier",
            "Role": "Feedback Verifier",
-           "Prompt": "mode: 'fact_check', turn_kind: 'grade_feedback', draft: '<exact rendered feedback>', grade_verdicts: [...], claims: [...], raw_files: [...]"
+           "Prompt": "mode: 'fact_check', turn_kind: 'grade_feedback', draft: '<exact rendered feedback>', grade_verdicts: [...], claims: [...], raw_files: [...], visual_plan: {kind: '...', why: '...'}"
        }]
    )
    ```
@@ -100,8 +100,8 @@ The session closes in three phases: **verified feedback → learner Q&A pause �
 ## Step 4: Inquiry Loop (Until the Learner Has No Questions)
 
 1. For every learner message that contains a question:
-   - Answer it as a normal tutoring turn: repair the slip, explain the relevant mechanism, or correct a misread of the feedback.
-   - Every explanatory turn goes through `verifier` (`mode: 'fact_check'`, `turn_kind: 'answer'` — or `'repair'` when correcting the slip — with the exact `draft`, `claims: [...]`, and `raw_files`/`source_urls: [...]`) before you emit it; if the inquiry challenges a verdict, re-run `verifier` (`mode: 'grade_audit'`) on that item and adopt the verifier's `correct_verdict`.
+   - Answer it as a normal tutoring turn: repair the slip, explain the relevant mechanism, or correct a misread of the feedback — with the smallest visual that carries it (a diagram, table, or audited repair widget).
+   - Every explanatory turn goes through `verifier` (`mode: 'fact_check'`, `turn_kind: 'answer'` — or `'repair'` when correcting the slip — with the exact `draft`, `claims: [...]`, `raw_files`/`source_urls: [...]`, and the declared `visual_plan`) before you emit it; if the inquiry challenges a verdict, re-run `verifier` (`mode: 'grade_audit'`) on that item and adopt the verifier's `correct_verdict`.
    - Honor hint discipline and the AGENTS.md **Clean Reveal + Immediate Knob Check**: if the learner asks to be told the answer outright, ask only where the wall is, deliver the full intuitive model + anatomical formula read immediately, record `just_tell_me` as a `dependency_events[]` entry for the Step 5 handoff, and ask one immediate qualitative prediction on an altered case.
    - After answering, **pause again** with the same invitation. Do not persist state while questions remain.
 2. Advance to Step 5 only when the learner explicitly signals they have no questions ("no questions", "none", "all clear", "go ahead"). If the signal is ambiguous, ask once more; never assume.
