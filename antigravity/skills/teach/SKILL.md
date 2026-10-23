@@ -1,150 +1,103 @@
 ---
 name: teach
-description: Teach a topic or concept through the probe -> scope contract -> intuition ladder loop against live curriculum sources and Further Reading, with every-turn subagent verification. Trigger with /teach <topic>.
+description: Stress-test the learner's own mental model of a topic, source, notes, code, project, or exercise. The learner reads the raw material and brings notes; the Tutor triages the model, attacks the holes, and graduates the patched model. Trigger with /teach <topic-or-source>.
 ---
 
-# Teach Flow (`/teach <topic>`)
+# Teach Flow (`/teach <topic-or-source>`)
 
-Teach an active curriculum topic or requested concept using the intuition-first pedagogy (see [pedagogy.md](./references/pedagogy.md)), backed by independent subagents for live source scouting, content verification, and handoff auditing. The learner sketches every move and owns every boundary; you supply the formalism openly and build the pressure where it counts.
+The learner has already engaged with raw written material — or is about to. Your job is **not** to teach the topic. Your job is to interrogate the mental model they built: find vague mechanisms, overgeneralised rules, omitted conditions, and false confidence, then make the learner repair them. The mechanic is **triage → targeted attack → model patch**, backed by independent subagents for source scouting, content verification, and handoff auditing.
+
+Read the full stance and attack menu in [AGENTS.md](../../AGENTS.md) §5 and [pedagogy.md](./references/pedagogy.md).
 
 ---
 
-## Step 0: Flow Initialization & Scout Dispatch
+## Step 0: Source Grounding & Entry Gate
 
 1. **Flow Marker**: Include `[[FLOW:teach]]` in your internal thought/context.
 2. **Context Check**:
-   - Check if an in-progress lesson file exists under `Learning System/Lessons/Lesson — <topic> — *.md`. If so, route to the **`/continue`** flow instead.
-   - Check if an unexpired `.tmp/context-*-<slug>.json` digest exists (within its 7-day TTL).
-   - If no valid digest exists, dispatch the **`scout`** subagent:
-     ```python
-     invoke_subagent(
-         Subagents=[{
-             "TypeName": "scout",
-             "Role": "Source Scout",
-             "Prompt": "mode: 'lesson', topic: '<topic>', slug: '<slug>'"
-         }]
-     )
-     ```
-   - End your turn and wait for `scout`'s wakeup response.
-3. **Scout Audit**:
-   - When `scout` returns with `SCOUT_RECEIPT`, dispatch **`auditor`** to verify source completeness (including `anomalies[]` candidates for Broken Worlds):
-     ```python
-     invoke_subagent(
-         Subagents=[{
-             "TypeName": "auditor",
-             "Role": "Scout Auditor",
-             "Prompt": "mode: 'scout_audit', digest: '<path>', raw_files: [...]"
-         }]
-     )
-     ```
-   - If `auditor` flags issues, surface them with `⚠️ SCOUT AUDIT FLAGS SURFACED` and proceed with the lesson context.
+   - If an in-progress lesson file exists under `Learning System/Lessons/Lesson — <topic> — *.md`, route to **`/continue`** instead.
+   - Determine the material:
+     - **Learner supplied material** (pasted notes, a URL, a code/project path, a worked exercise): use it directly. If it is a URL or curricula source not yet persisted, dispatch `scout` (`mode: "lesson", topic, slug`) to fetch and hash it; if it is a local path or supplied text, keep the reference.
+     - **Curriculum topic**: check for an unexpired `.tmp/context-*-<slug>.json` digest (7-day TTL). If none, dispatch `scout`:
+       ```python
+       invoke_subagent(
+           Subagents=[{
+               "TypeName": "scout",
+               "Role": "Source Scout",
+               "Prompt": "mode: 'lesson', topic: '<topic>', slug: '<slug>'"
+           }]
+       )
+       ```
+       End your turn and wait for the `SCOUT_RECEIPT`. Then dispatch `auditor` (`mode: "scout_audit"`) and surface any flags with `⚠️ SCOUT AUDIT FLAGS SURFACED`; proceed with the material.
+   - `scout` must **not** summarize the material for the learner. It only persists sources and surfaces contradictions.
+3. **Entry Gate (never teach cold)**: Send one short reading brief:
+   - Exactly what to read: the curriculum document and its Further Reading, or the source they named; for code/projects, the slice to review and the exercise to attempt.
+   - Exactly what to bring back: (1) their notes/material, and (2) a **closed-book model in their own words** — 3–6 lines covering the problem, the mechanism, a failure regime, and the nearest-neighbour tool.
+   - Do **not** preview the mechanism, name the "right" framing, probe with diagnostic questions, or summarize the reading. State that you will attack the model once they bring it.
+   - Verify this brief with `verifier` (`mode: "fact_check", turn_kind: "plan"`), then stop and wait.
+4. If the learner brings notes but no closed-book model, ask for the model **before** reading the notes together. A model copied while looking at the notes is not a baseline.
 
 ---
 
-## Step 1: Probe (Initial Knowledge Assessment)
+## Step 1: Closed-Book Spine Check (v1)
 
-1. Formulate a 3–4 question probe batch covering fundamental prerequisites and core concepts. MCQs are legal **only here** (diagnostic context).
-2. Ensure each question offers an explicit "I don't know" option and asks the learner to tag confidence (`sure`, `hunch`, or `no-idea`).
-3. **Verify with Subagent**:
-   ```python
-   invoke_subagent(
-       Subagents=[{
-           "TypeName": "verifier",
-           "Role": "Quiz Verifier",
-           "Prompt": "mode: 'quiz_audit', context: 'probe', questions: [...], draft: '...'"
-       }]
-   )
-   ```
-   Pause and wait for `verifier`'s `PASS` receipt before presenting the probe to the learner.
-4. When the learner answers:
-   - Verify grades via `verifier` (`mode: "grade_audit"`).
-   - Retain attempt records in conversation context for Clerk to log at lesson conclusion.
+1. When the learner states their model from memory, capture it **verbatim** as **v1**. Do not clean it, reorder it, or add missing beats.
+2. Grade it with `verifier` (`mode: "grade_audit"`) using an item with `qtype: "free-recall"` and `pow: "none"`, on mechanism and direction, not wording. If confidence was not tagged, ask once (`sure` / `hunch` / `no-idea`) and retain it.
+3. If the model is empty, or merely restates the source's headings, point back to the material and stop — there is nothing to interrogate yet. Do not fill the model for them.
+4. Retain the attempt record (concept, verdict, `qtype`, `confidence`, `hints`) for the handoff.
 
 ---
 
-## Step 2: Scope Contract (No Roadmap)
+## Step 2: Triage (Attack Only What Is Broken)
 
-1. Summarize from the probe: what is solid, what is fuzzy, what is absent.
-2. State the **scope contract**: what this lesson will cover, what will be skipped, expanded, or reframed — as prose about *scope*, not a mechanism preview.
-3. **Do not** draw a dependency roadmap or pre-teach how upcoming concepts connect: a pre-lesson Mermaid graph biases every checkpoint answer. (A consolidated dependency diagram is allowed at Step 4 synthesis, after the work is done.)
-4. **Never name the mechanisms of upcoming concepts** in the contract — naming a tool before its Collision pre-solves every mini-checkpoint.
-5. Verify contract text with `verifier` (`mode: "fact_check", turn_kind: "plan"`). Present and invite the learner's approval or adjustments.
-
----
-
-## Step 3: Interactive Teaching (Collision → Sketch the Move → Read the Formula & Hunt the Boundary → Counterexample Test)
-
-Follow the procedures in [pedagogy.md](./references/pedagogy.md):
-
-Compose every turn as prose plus the smallest visual that carries it (`AGENTS.md` §6, [pedagogy.md](./references/pedagogy.md) §7). This is automatic: Mermaid for structure, a Predict-Before-Render widget built by `ui-generator` from your spec when the learner must vary a knob and predict the outcome. Every `verifier` dispatch carries a `visual_plan`; a widget turn is audited with `mode: "ui_audit"` before its `<agent-embed>` is emitted.
-
-1. **Prerequisite Check**: Before each checkpoint, run `python3 scripts/ops.py prereqs "<concept>"`. If `blocks: true`, re-establish the prerequisite's intuition before proceeding.
-2. **Mini-Checkpoints** — for each atomic idea, execute the ladder:
-   - **Collision** (`turn_kind: "collision"`): open with a grounded anomaly from the digest where the learner's existing toolkit fails. Never name the concept or preview the fix. If the anomaly is dynamic, accompany it with a locked-output widget so the learner predicts the breakdown before seeing it.
-   - **Sketch the Move** (`turn_kind: "invention"`): the learner proposes the *intuitive* fix in plain words or a sketch. Only then name the formal concept, put the formula openly on screen, and guide an **Anatomical Read** (what each term does as a knob, extremes $\to 0$ / $\to \infty$). A knob widget may now let the learner drive those terms and compare against their prediction. The learner restates the mechanism in their own words — never a derivation.
-   - **Boundary Hunt** (`turn_kind: "boundary_hunt"`): the learner produces the failure regime (`conditions`) and the nearest-neighbour misuse (`contrast`). A widget may expose the regime, but the learner names it.
-   - **Counterexample Test** (`turn_kind: "falsify"`, one round): capture the learner's statement verbatim (v1); if it overgeneralizes, break it with one counterexample that satisfies it as written; visualize the break (widget or causal Mermaid chain); the learner patches it; capture v2.
-   - **Verify Every Turn**: Before emitting any collision, evaluation, boundary question, counterexample, hint, practice item, or widget, dispatch `verifier` — `mode: "fact_check"` with the learner-attempt flags and the declared `visual_plan`, or `mode: "ui_audit"` with the exact widget file and prose — and pause. Emit only upon a `PASS` receipt.
-   - **Pause after every mini-checkpoint** to invite questions.
-3. **Practice**:
-   - At the end of each checkpoint, deliver a single **unlabeled** practice item (the stem never names the concept for selection/application items; naming is allowed only for a meaning/anatomy read) requiring a **3-line qualitative trace** (cue & principle → mechanism/knob-turn → direction & extreme check).
-   - Grade the learner's reply using `verifier` (`mode: "grade_audit"`) — the mechanism and direction are graded, not a scalar, and no derivation is required.
-   - Retain attempt metadata (qtype, confidence, hints) in conversation context.
-   - Pause again after grading.
+1. Read the learner's notes/model against the material they brought.
+2. Classify every **load-bearing** claim as:
+   - `solid` — accurate and defended; no attack, no praise;
+   - `missing` — a load-bearing piece the material contains but the model omits or glosses; cite the source passage;
+   - `suspect` — vague, buzzwordy, overgeneralised, or contradicted (including a `sure` claim that is wrong); quote the learner's exact words.
+3. Present a compact triage table (topic, bucket, reason), then ask the learner to correct any misreading. Never pad it with trivia and never rewrite their model into cleaner prose.
+4. Verify the triage with `verifier` (`mode: "fact_check", turn_kind: "triage"`) before presenting. Every `suspect` row carries a learner quote; every `missing` row carries a source citation.
 
 ---
 
-## Step 4: Lesson End — Operational Intuition Battery & Handoff
+## Step 3: Targeted Attacks (One at a Time)
 
-1. **Operational Intuition Battery** (not a quiz-plus-summary):
-   - **Perturbation**: mutate a load-bearing assumption or term just learned; the learner predicts the qualitative downstream behaviour (which way it moves, what breaks). Verify and grade via `verifier` (`grade_audit`, `pow: "perturbation"`).
-   - **Sabotage (Misapplication)**: present a plausible real-world *use* of the concept (or a look-alike) where a `condition` is violated; the learner names the broken assumption and what should have been done instead. No algebraic bug-hunting (`grade_audit`, `pow: "sabotage"`).
-   - **Clone** (two phases): first ask the learner to explain the concept in their own words ("teach it to a novice"). Do **not** dispatch anything yet. When the learner replies, dispatch the **`naive-student`** subagent with `concept`, a seeded plausible `misconception`, `prereq_level` (the concept's prerequisites), a **qualitative** `target_task` (a prediction or tool choice), and `learner_transcript` = the learner's teaching reply verbatim. `naive-student` makes the qualitative call using only what the learner explicitly said. Success logs as `feynman_pass`; failure as `feynman_fail`.
-   - **Consolidation**: after the battery, a dependency Mermaid diagram synthesizing what was built is now allowed — plus, where one knob still repays exploration, a verified Predict-Before-Render widget.
-2. **Delegate Handoff Batch to Clerk**:
-   The Tutor focuses purely on teaching and writes no files to `Learning System/`. Dispatch **`clerk`**:
+For each `missing` or `suspect` item, choose the sharpest weapon for that flaw (full table in `AGENTS.md` §5):
+
+1. **Mechanism press** (`turn_kind: "attack"`, `attack: "mechanism"`): ask which knob moves, which way, and why. Never supply the causal chain.
+2. **Counterexample trap** (`turn_kind: "attack"`, `attack: "counterexample"`, one round): construct **one** concrete case that satisfies their statement *as written* and breaks it. Visualize the break when it helps (widget or causal Mermaid chain). The learner diagnoses why their rule let it through and patches the statement.
+3. **Perturbation / extreme probe** (`turn_kind: "attack"`, `attack: "perturbation"`): mutate a load-bearing assumption or push a term to $0$ / $\infty$; the learner predicts the qualitative downstream behaviour from their own model. A locked-output Predict-Before-Render widget is preferred when the behaviour is dynamic.
+4. **Source clash** (`turn_kind: "attack"`, `attack: "source_clash"`): put the learner's verbatim words beside the verbatim passage and ask them to reconcile. Do not announce who is right.
+5. **Sabotage / "why this line"** (`turn_kind: "attack"`, `attack: "sabotage"`): for code, projects, or worked exercises, present a plausible use or input shift where one assumption breaks; the learner names the broken assumption, what fails first, and what to change. No algebraic bug-hunting and no rewriting their code.
+6. **Synthesis clash** (`turn_kind: "attack"`, `attack: "synthesis"`): when they hop between sources, quote both and ask where the sources genuinely disagree versus merely use different words.
+
+Rules:
+- **One attack per turn.** Verify every attack with `verifier` (`mode: "fact_check"`) before emitting, carrying the learner's claim verbatim, the source/raw files, the attack subtype, and the declared `visual_plan`. Pause on `ISSUES`, fix silently, re-verify.
+- After the learner answers, grade with `verifier` (`mode: "grade_audit"`): map `qtype` (`error-detect` for counterexample/sabotage, `transfer-far` for perturbation), include the trace and `pow` where applicable, and **do not soften a fail**. A correct-looking answer with a broken mechanism is a fail.
+- **Pause after every grade** and invite questions before the next attack.
+- Never state the missing mechanism or the patched rule; the learner produces the repair.
+- **Record failures for the `/review` queue**: every failed attack adds a handoff `mistakes[]` entry — concept, canonical `error_type` (gap → `structural`, misconception → `deviation`, false confidence → `metacognitive`, unverified assumption → `application`), self-attribution from the learner's words, and evidence = the attack that exposed it. A `sure` fail is flagged as false confidence.
+- **Stuck ladder** (in order): point to the exact source location; then a taxonomy hint within the existing budget; then, on "just tell me", a compressed `autopsy` patch labeled as *a patch, not their understanding*, logged in `dependency_events[]`, immediately followed by one perturbation on the patched model.
+
+---
+
+## Step 4: Graduation — Prove the Patched Model Holds
+
+1. Ask the learner to restate their **patched** model in their own words. Capture it verbatim as **v2**; keep v1 untouched.
+2. **Clone** (`pow: "clone"`): when the concept type is `concept` or `design`, dispatch **`naive-student`** with the learner's v2 verbatim, the concept, a seeded plausible `misconception`, `prereq_level`, and a **qualitative** `target_task` (prediction or tool choice). Do not paraphrase v2 into the envelope. Success logs `feynman_pass`; failure `feynman_fail` and names the implicit leap the model still leaves.
+3. **Battery remainder**: run `perturbation` and/or `sabotage` only for dimensions not already exercised during the attacks. Grade via `verifier` (`grade_audit`). A concept cannot reach `solid` without all three across session + reviews.
+4. **Consolidation**: after the patched model survives, a dependency Mermaid diagram (or a final knob-exploration widget) is allowed.
+5. **Delegate Handoff Batch to Clerk** (the Tutor writes no files):
    ```python
    invoke_subagent(
        Subagents=[{
            "TypeName": "clerk",
            "Role": "State Clerk",
-           "Prompt": "mode: 'lesson_handoff', topic: '<topic>', slug: '<slug>', concepts: [...], mistakes: [...], learner_quotes: {v1: {...}, v2: {...}}, falsifications: [...], attempts: [...], pow_outcomes: [...], dependency_events: [...], session_summary: '...'"
+           "Prompt": "mode: 'lesson_handoff', topic: '<topic>', slug: '<slug>', material: [{kind: 'notes|url|code|exercise', ref: '...'}], learner_model: {v1: '<verbatim>', v2: '<verbatim>'}, triage: [{item: '...', bucket: 'solid|missing|suspect', evidence: '...'}], attacks: [{target: '...', attack: 'mechanism|counterexample|perturbation|source_clash|sabotage|synthesis', learner_answer: '...', verdict: 'pass|fail', source_excerpt: '...'}], learner_quotes: {v1: {...}, v2: {...}}, attempts: [...], pow_outcomes: [...], dependency_events: [...], session_summary: '...'"
        }]
    )
    ```
    Wait for `CLERK_RECEIPT`.
-3. **Handoff Audit**: Dispatch **`auditor`** to verify Clerk's handoff files:
-   ```python
-   invoke_subagent(
-       Subagents=[{
-           "TypeName": "auditor",
-           "Role": "Tutor Auditor",
-           "Prompt": "mode: 'tutor_audit', flow: 'lesson-end', files: [...]"
-       }]
-   )
-   ```
-   Wait for a passing receipt.
-4. **Auto-Ingest (Inline)**: Do not stop after the handoff and do not tell the learner to run `/ingest` — the lesson end ingests automatically, in this same turn sequence.
-   1. Dispatch **`clerk`** (`mode: 'ingest'`) with the handoff as the source of truth:
-      ```python
-      invoke_subagent(
-          Subagents=[{
-              "TypeName": "clerk",
-              "Role": "State Clerk",
-              "Prompt": "mode: 'ingest', source: 'Learning System/Core/Pending Ingest.json', topic: '<topic>', slug: '<slug>', concepts: [...]"
-          }]
-      )
-      ```
-      Wait for the `CLERK_RECEIPT` with `mode: 'ingest'` (wiki pages written or enriched, `Active Concepts.md` / `CURRICULUM.md` updated, `audit_state.py` run, state committed).
-   2. Dispatch **`auditor`** (`mode: 'review_gate'`) on the written wiki pages:
-      ```python
-      invoke_subagent(
-          Subagents=[{
-              "TypeName": "auditor",
-              "Role": "Wiki Auditor",
-              "Prompt": "mode: 'review_gate', target_files: ['Knowledge Wiki/wiki/<page>.md', ...]"
-          }]
-      )
-      ```
-      On in-scope `ISSUES` (unverified claims, missing provenance, broken links), re-dispatch `clerk` with the corrections and re-audit until a clean `PASS`. State/bookkeeping findings stay as context notes and do not block.
-5. **Completion Summary**: Present the lesson completion summary (concepts mastered, wiki pages written/enriched, next review dates, state audit 0 errors). Verify the rendered summary with `verifier` (`mode: 'fact_check', turn_kind: 'answer', draft: '<exact summary>', claims: [...], raw_files: [...]`) when it is substantive. Never leave the learner with a pending `/ingest` step.
+6. **Handoff Audit**: dispatch `auditor` (`mode: "tutor_audit", flow: "lesson-end", files: [...]`). Wait for a passing receipt.
+7. **Auto-Ingest (Inline)**: dispatch `clerk` (`mode: "ingest"`, `source: "Learning System/Core/Pending Ingest.json"`), then `auditor` (`mode: "review_gate"`) on the written wiki pages; re-dispatch and re-audit on in-scope `ISSUES` until a clean `PASS`. Never tell the learner to run `/ingest`.
+8. **Completion Summary**: state which holes were exposed and patched, the v1→v2 scar, wiki pages written/enriched, and next review dates. This is an *attack report*, not a lesson summary: list what survived, what still needs another session, and the schedule that will re-test it. Verify the rendered summary with `verifier` (`mode: "fact_check", turn_kind: "answer"`) when substantial.

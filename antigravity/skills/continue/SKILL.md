@@ -1,11 +1,11 @@
 ---
 name: continue
-description: Resume an in-progress or paused lesson at its recorded mini-checkpoint. Always delegates context recovery and the resume pointer to scout. Trigger with /continue.
+description: Resume an in-progress or paused interrogation at the recorded attack/triage state. Always delegates context recovery and the resume pointer to scout. Trigger with /continue.
 ---
 
 # Continue Flow (`/continue`)
 
-Resume a paused or in-progress lesson directly at its next atomic mini-checkpoint without re-starting the lesson from scratch.
+Resume a paused session at the next unresolved attack without re-starting the reading or re-teaching anything.
 
 ---
 
@@ -27,16 +27,16 @@ The model reading this skill **must delegate context recovery to the `scout` sub
    Pause and await `SCOUT_RECEIPT`. Scout owns the search: it locates the newest non-`done` lesson and the latest session note, extracts the resume pointer, re-reads core metadata, and re-grounds sources when the digest is older than 7 days or missing.
 3. **Read the Receipt, Not the Directories**:
    - Use the receipt's `lesson_file`, `session_file`, and `resume_from` (`Checkpoint N/M, mini K/L`). Do not re-derive or guess them from filenames.
-   - If `resume_from` is `null` or `status: "none"`, inform the learner that no in-progress lesson exists and suggest `/lesson` to start the next topic.
+   - If `resume_from` is `null` or `status: "none"`, inform the learner that no in-progress session exists and suggest `/lesson` to start the next topic.
    - If `failed_refs` or `contradictions` are non-empty, surface them with a visible `⚠️` callout before resuming; never silently resume on incomplete sources.
-4. **Read the Identified Lesson for Narrative Continuity**: Read only the `lesson_file` and `session_file` named by the receipt (not the directories, not other lessons), then proceed to Step 1.
+4. **Read the Identified Lesson for Continuity**: Read only the `lesson_file` and `session_file` named by the receipt (not the directories, not other lessons). Identify the learner's last captured model (v1 or a patch), the triage buckets still open, and the last attack that was graded.
 
 ---
 
-## Step 1: Resume Teaching
+## Step 1: Resume the Interrogation
 
-1. State clearly to the learner which topic and mini-checkpoint is resuming, using the receipt's `resume_from`.
-2. Follow the **mini-checkpoint pause protocol** and the Collision → Sketch the Move → Read the Formula & Hunt the Boundary → Counterexample Test ladder from [pedagogy.md](../teach/references/pedagogy.md).
-3. **Verify Every Turn**: Before presenting each collision, Socratic hint, boundary-hunt question, counterexample, practice item, or grade, dispatch **`verifier`** and await `PASS`. Include the declared `visual_plan` on every substantive `fact_check` dispatch.
-4. **Compose visuals automatically**: each teaching turn uses the smallest format that carries the idea (`AGENTS.md` §6) — Mermaid for structure, a Predict-Before-Render widget built by `ui-generator` from your spec when the learner must vary a knob and predict the outcome. A widget turn requires a passing `ui_audit` (`widget_file` + `widget_sha256`) before its `<agent-embed>` is emitted; fall back to Mermaid if the widget does not pass.
-5. At lesson end, execute the Operational Intuition Battery (perturbation, misapplication-spotter, naive-student clone), delegate the final handoff write batch to **`clerk`** (`mode: 'lesson_handoff'`), dispatch **`auditor`** (`mode: 'tutor_audit'`) to verify the handoff files, then **auto-ingest inline** — dispatch **`clerk`** (`mode: 'ingest'`) on `Learning System/Core/Pending Ingest.json` and **`auditor`** (`mode: 'review_gate'`) on the written wiki pages, looping until the audit returns `PASS`, before presenting the completion summary. Never instruct the learner to run `/ingest` manually.
+1. State clearly which topic and which open item is resuming, using the receipt's `resume_from`. Quote the learner's last model verbatim; do not paraphrase it in the recap.
+2. **Do not re-teach and do not re-read the material for them.** Resume at the next unresolved attack or, if the triage was complete, at graduation (patched model restatement → clone → battery remainder).
+3. **Verify Every Turn**: before presenting each attack, source-return pointer, hint, counterexample, or grade, dispatch **`verifier`** and await `PASS`. Include the declared `visual_plan` on every substantive `fact_check` dispatch.
+4. **Compose visuals automatically**: each attack turn uses the smallest format that carries the idea (`AGENTS.md` §6) — triage table, Mermaid for structure, or a Predict-Before-Render widget built by `ui-generator` from your spec when the learner must vary a knob and predict the outcome. A widget turn requires a passing `ui_audit` (`widget_file` + `widget_sha256`) before its `<agent-embed>` is emitted; fall back to Mermaid if the widget does not pass.
+5. At session end, capture the patched model v2, run the clone protocol with v2 verbatim, run any battery protocol not already exercised, then delegate the final handoff write batch to **`clerk`** (`mode: 'lesson_handoff'`), dispatch **`auditor`** (`mode: 'tutor_audit'`) to verify the handoff files, then **auto-ingest inline** — dispatch **`clerk`** (`mode: 'ingest'`) on `Learning System/Core/Pending Ingest.json` and **`auditor`** (`mode: 'review_gate'`) on the written wiki pages, looping until the audit returns `PASS`, before presenting the completion summary. Never instruct the learner to run `/ingest` manually.

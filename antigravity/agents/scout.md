@@ -52,13 +52,13 @@ When invoked for a new lesson topic or curriculum slug, or to re-ground an in-pr
 5. **Anomaly & Misapplication Harvest**:
    - From the fetched sources, extract 2–4 **anomaly candidates** per concept: concrete problems, systems, or datasets where the learner's current (pre-lesson) toolkit fails, blows up computationally, or yields a contradiction.
    - Each anomaly entry: `{concept, breakdown_case (≤300 chars, concrete), why_prior_tools_fail, source_ref}` where `source_ref` points at a saved raw file.
-   - Also extract 1–3 **misapplication candidates** per concept: plausible real-world *uses* of the concept (or a look-alike) where one of its assumptions is violated — for the Boundary Hunt and the Misapplication-Spotter battery item. Each entry: `{concept, scenario, violated_condition, what_actually_happens, source_ref}`.
+   - Also extract 1–3 **misapplication candidates** per concept: plausible real-world *uses* of the concept (or a look-alike) where one of its assumptions is violated — for source-clash and sabotage attacks. Each entry: `{concept, scenario, violated_condition, what_actually_happens, source_ref}`.
    - Prefer anomalies that connect to the learner's past mistakes or examples when `Active Concepts.md` / lesson metadata hint at them.
 6. **Write Ephemeral Digest**:
    - Write to `Learning System/.tmp/context-<session_id>-<slug>.json`.
    - Include `{goal, slug, tracks, concept_rows, prereqs, source_refs, failed_refs, anomalies, misapplications, contradictions, lang_recommendation, synthesis}`.
-   - Each entry in `source_refs` must include: `label`, `url`, `file`, `hash`, `excerpt` (≤500 chars), `theory_excerpt` (≤500 chars of **mechanism in words + the core formula + assumptions** — the anatomical read the Tutor will deliver, NOT a proof), `takeaways`, and `adds_vs_rohit`.
-   - Top-level `synthesis` includes a `theory` line per strand for the Tutor's foundation beats.
+   - Each entry in `source_refs` must include: `label`, `url`, `file`, `hash`, `excerpt` (≤500 chars), `theory_excerpt` (≤500 chars of **mechanism in words + the core formula + assumptions** — the anatomical read available for hints and source-return, NOT a proof), `takeaways`, and `adds_vs_rohit`.
+   - Top-level `synthesis` includes a `theory` line per strand to ground the completeness rubric and source-clash checks.
 7. **Receipt Output**:
    End your response with a machine-readable JSON receipt block:
    ```json

@@ -226,7 +226,61 @@ def check_resources(root: Path) -> None:
         else:
             ok("resources: generative-ui.md documents artifact, embed, and audit binding")
 
-    # 6. Scripts compile
+    # 6. Interrogation stance: the teaching flow is a validator, not a primary teacher.
+    interrogation_needles = ("sparring partner", "never teach a topic cold", "closed-book model", "triage", "model patch")
+    missing_interrogation = [n for n in interrogation_needles if n not in agents_text.lower()]
+    if missing_interrogation:
+        fail(f"resources: AGENTS.md missing interrogation-stance rule(s): {missing_interrogation}")
+    else:
+        ok("resources: AGENTS.md encodes the validator stance (bring material + closed-book model, triage, attack, model patch)")
+
+    teach_text = (skills_dir / "teach" / "SKILL.md").read_text(encoding="utf-8")
+    teach_needles = ("Closed-Book Spine Check", "Triage", "Targeted Attacks", "Patched Model", "autopsy")
+    teach_missing = [n for n in teach_needles if n.lower() not in teach_text.lower()]
+    if teach_missing:
+        fail(f"resources: teach/SKILL.md missing interrogation step(s): {teach_missing}")
+    else:
+        ok("resources: teach/SKILL.md runs spine check -> triage -> targeted attacks -> patched model")
+
+    for stale in ("Step 1: Probe", "Scope Contract", "Mini-Checkpoints"):
+        if stale.lower() in teach_text.lower():
+            fail(f"resources: teach/SKILL.md still carries the retired teacher-first flow ({stale!r})")
+            break
+    else:
+        ok("resources: teach/SKILL.md no longer carries the retired teacher-first flow")
+
+    pedagogy_needles = ("Attack Taxonomy", "Triage", "Model Patch", "MODEL_GHOSTWRITING", "UNGROUNDED_HOLE")
+    missing_pedagogy = [n for n in pedagogy_needles if n.lower() not in pedagogy_text.lower()]
+    if missing_pedagogy:
+        fail(f"resources: pedagogy.md missing interrogation rule(s): {missing_pedagogy}")
+    else:
+        ok("resources: pedagogy.md documents triage, attacks, model patches, and ghostwriting rules")
+
+    verifier_text = (agy / "agents" / "verifier.md").read_text(encoding="utf-8")
+    verifier_needles = ("MODEL_GHOSTWRITING", "UNGROUNDED_HOLE", "LECTURE_SLIP", "counterexample")
+    missing_verifier = [n for n in verifier_needles if n.lower() not in verifier_text.lower()]
+    if missing_verifier:
+        fail(f"resources: verifier.md missing interrogation audit rule(s): {missing_verifier}")
+    else:
+        ok("resources: verifier.md audits ghostwriting, ungrounded holes, lecture slips, and counterexamples")
+
+    auditor_text = (agy / "agents" / "auditor.md").read_text(encoding="utf-8")
+    auditor_needles = ("v1", "v2", "triage", "attack")
+    missing_auditor = [n for n in auditor_needles if n.lower() not in auditor_text.lower()]
+    if missing_auditor:
+        fail(f"resources: auditor.md missing interrogation handoff rule(s): {missing_auditor}")
+    else:
+        ok("resources: auditor.md audits model provenance, triage coverage, and attacks")
+
+    clerk_text = (agy / "agents" / "clerk.md").read_text(encoding="utf-8")
+    clerk_needles = ("learner_model", "triage", "open_attacks")
+    missing_clerk = [n for n in clerk_needles if n.lower() not in clerk_text.lower()]
+    if missing_clerk:
+        fail(f"resources: clerk.md missing interrogation handoff field(s): {missing_clerk}")
+    else:
+        ok("resources: clerk.md persists the learner model, triage, and open attacks")
+
+    # 7. Scripts compile
     for script_name in ("pre_tool_gate.py", "stop_gate.py"):
         sp = agy / "scripts" / script_name
         if not sp.is_file():

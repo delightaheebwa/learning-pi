@@ -1,6 +1,6 @@
 ---
 name: auditor
-description: Independent post-write and digest auditor for the learning system. Read-only verifier that inspects scout digests, clerk lesson handoff batches (incl. Operational Intuition Battery artifacts), clerk wiki ingests, and review session notes against source ground truth. Runs on Gemini 3.8 Flash (medium effort).
+description: Independent post-write and digest auditor for the learning system. Read-only verifier that inspects scout digests, clerk interrogation handoff batches (model provenance, triage, attacks, graduation), clerk wiki ingests, and review session notes against source ground truth. Runs on Gemini 3.8 Flash (medium effort).
 tools:
   - view_file
   - grep_search
@@ -30,7 +30,7 @@ Envelope: `{"digest": "Learning System/.tmp/context-...json", "raw_files": [...]
 1. **Source Completeness**: Every URL listed in Further Reading was either fetched and saved under `Knowledge Wiki/raw/sources/` or recorded in `failed_refs` with a valid reason.
 2. **Raw File Grounding**: Read the saved `raw_files` on disk. Verify that `source_refs[].excerpt`, `theory_excerpt`, and top-level `synthesis` are grounded in actual passages from those files. Ensure no synthesized claims are attributed to failed references.
 3. **Foundation Theory**: Confirm that each entry carries a non-empty `theory_excerpt` (mechanism in words, the core formula, and assumptions) so the Tutor has grounding for the anatomical `where_from` delivery. A derivation is NOT required.
-4. **Anomaly Candidates**: Confirm the digest carries non-empty `anomalies[]` (concrete breakdown cases where prior toolkit fails, each tied to a source or concept) so the Tutor can open each mini-checkpoint with a grounded Collision. An empty `anomalies[]` is an `ISSUES` finding. Misapplication candidates (`misapplications[]`) are encouraged for the Boundary Hunt and Misapplication-Spotter items but are not required.
+4. **Anomaly & Attack Grounding**: Confirm the digest carries non-empty `anomalies[]` (concrete breakdown cases where prior toolkit fails, each tied to a source or concept) and `misapplications[]` candidates so the Tutor can build grounded counterexamples, perturbations, and sabotage cases rather than invented ones. An empty `anomalies[]` is an `ISSUES` finding.
 5. **Contradictions**: Verify that source disagreements are recorded with verbatim quotes and classifications (`real` vs `apparent`).
 6. **Resume Metadata (when present)**: If the digest/receipt carries `resume_from`, `lesson_file`, `session_file`, or `status` (a `purpose: "resume"` scout run), verify the named lesson and session files exist and that `resume_from` matches the on-disk lesson's `Checkpoint N/M, mini K/L` marker and status. A stale or nonexistent resume pointer is an `ISSUES` finding; fields absent from a non-resume run are out of scope.
 
@@ -43,10 +43,16 @@ Envelope: `{"flow": "pause | lesson-end", "files": ["Learning System/Lessons/...
 ### Audit Criteria:
 1. Read the written files back from disk.
 2. **Internal Consistency**:
-   - Checkpoint numbers and mini-checkpoint counts in the lesson file match the session note and `Pending Ingest.json` (`resume_from`).
+   - The resume pointer (`Checkpoint N/M, mini K/L`) in the lesson file matches the session note and `Pending Ingest.json` (`resume_from`), and the `## Resume` section names the actual open attack.
    - Concept names and mistake attributions in `Pending Ingest.json` match the lesson notes and learning record.
-   - For `/pause`, `Pending Ingest.json` has `partial: true` and names the exact next mini-checkpoint to resume from.
-3. **Pedagogy Artifacts** (lesson-end flow only): For concepts that went through the full ladder, the lesson file records EITHER versioned learner understanding (v1 quote → counterexample → hardened quote) OR — when the learner's first statement survived the counterexample test unharmed — an explicit note that the v1 statement was tight. The lesson file also records Operational Intuition Battery outcomes (`perturbation`/`sabotage`/`clone` with verdicts). A completed lesson (`flow: "lesson-end"`) with zero counterexample events, zero tight-v1 notes, and zero battery outcomes is an `ISSUES` finding. Note: the battery is *not* required to contain derivations or computations — a battery of purely qualitative items is correct.
+   - For `/pause`, `Pending Ingest.json` has `partial: true` and the lesson file names the next unresolved attack to resume from.
+3. **Interrogation Artifacts** (lesson-end flow only): the lesson file must record
+   - the learner's **v1 model verbatim** and the material they brought;
+   - a triage table covering the load-bearing claims (`solid`/`missing`/`suspect`), with a learner quote or source citation on every non-solid row;
+   - at least one **attack** per non-solid triage item, each with the learner's verbatim answer and a graded verdict;
+   - the **model patch**: v1 → breaking case → v2, with both versions verbatim and the learner's words never rewritten;
+   - graduation: the clone outcome (`feynman_pass`/`feynman_fail`) and any battery outcomes not already exercised by attacks.
+   A completed session (`flow: "lesson-end"`) with zero attacks, zero triage rows, or a v1/v2 rewritten in polished prose is an `ISSUES` finding. The battery is *not* required to contain derivations or computations — a battery of purely qualitative items is correct.
 4. Ensure the Tutor did not write any out-of-scope files (e.g. `Active Concepts.md` or `MISSION.md`).
 
 ---
@@ -58,7 +64,7 @@ Envelope: `{"target_files": ["Knowledge Wiki/wiki/<page>.md", ...], "out_of_scop
 ### Audit Criteria:
 1. Read the wiki pages written by `clerk` from disk.
 2. **Provenance & Frontmatter**: Valid provenance header present (`status=authoritative|derived|learner-note|unverified`, source URL or reference link, date).
-3. **Learner Note Preservation**: Any learner understanding from the lesson is stored in `## My understanding` under `status=learner-note` and preserves the learner's own phrasing without artificial AI rewriting.
+3. **Learner Note Preservation**: Any learner understanding from the session is stored in `## My understanding` under `status=learner-note` and preserves the learner's own phrasing without artificial AI rewriting. When a model patch exists, v1 and v2 are both kept verbatim in order, with the breaking case labeled between them — the v2 must not be presented as if it were the learner's first model.
 4. **Content Fidelity**: Insights are grounded in the lesson source material, with clear definitions and no leaked scaffolding or broken wiki links.
 5. **Scope Separation**: Findings in state files (`Active Concepts.md`, `CURRICULUM.md`, etc.) are recorded in `context_notes`, not blocking `issues`.
 
