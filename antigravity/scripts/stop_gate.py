@@ -11,8 +11,8 @@ Enforces:
    foundations — and anything in /solo) never silently fail open. A critical gate is
    re-issued up to 6 times; if still unresolved, the turn may proceed ONLY with a visible
    `⚠️ UNVERIFIED` banner so the learner is never bluffed by a silent fail-open.
-4. Substantiveness is judged over the WHOLE turn text (receipts stripped), so a long
-   substantive emission cannot hide behind a short closing line.
+4. Substantiveness is judged over the turn's PLANNER_RESPONSE text (receipts stripped),
+   so a long substantive emission cannot hide behind a short closing line.
 5. Widget integrity: every raw <agent-embed> in the learner-facing text must be bound
    to a passing ui_audit receipt for the same absolute file and the file's current
    SHA-256. /solo may never render one. This check is a hard block (no fail-open
@@ -218,7 +218,7 @@ def main() -> None:
     for step in steps:
         if step.get("type") == "GENERIC":
             continue
-        content = str(step.get("content", "") + "\n" + str(step.get("thinking", "")))
+        content = str((step.get("content") or "") + "\n" + str(step.get("thinking") or ""))
         matches = re.findall(r"\[\[FLOW:([A-Za-z]+)\]\]", content)
         if matches:
             active_flow = matches[-1].lower()
@@ -296,8 +296,9 @@ def main() -> None:
                 return
             emit("continue", reason)
 
-    # Substantiveness is judged over the whole turn (receipts stripped): a substantive
-    # emission cannot escape the gate by hiding behind a short closing line. No
+    # Substantiveness is judged over the turn's PLANNER_RESPONSE text (receipts
+    # stripped): a substantive emission cannot escape the gate by hiding behind a
+    # short closing line. No
     # procedural-phrase exemption — a status line is short, and anything long is gated.
     stripped_text = "\n".join(
         strip_receipts(str(step.get("content", "")), decoder)

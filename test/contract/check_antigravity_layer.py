@@ -1136,6 +1136,45 @@ def test_hook_behaviors(root: Path) -> None:
             fail(f"behavior: non-PLANNER text must not trigger the verifier gate, got {res}")
 
 
+        # --- Test 27: null / missing step content never crashes the stop gate ---
+        transcript_null_content = tmp_path / "trans_null_content.jsonl"
+        with open(transcript_null_content, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "next"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": None,
+                "thinking": "[[FLOW:teach]] planning without an emitted draft",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_null_content)})
+        if res.get("decision") == "allow":
+            ok("behavior: stop_gate tolerates null step content (no crash)")
+        else:
+            fail(f"behavior: null step content should fail open, got {res}")
+
+        # --- Test 28: pre_tool_gate honors a solo flow marker in thinking too ---
+        transcript_thinking_solo_pre = tmp_path / "trans_thinking_solo_pre.jsonl"
+        with open(transcript_thinking_solo_pre, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/solo"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "preparing the closed-book check",
+                "thinking": "[[FLOW:solo]] no aids",
+            }) + "\n")
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_thinking_solo_pre),
+            },
+        )
+        if res.get("decision") == "deny" and "SOLO_NO_AIDS" in res.get("reason", ""):
+            ok("behavior: pre_tool_gate honors [[FLOW:solo]] in the thinking field")
+        else:
+            fail(f"behavior: thinking-field solo marker must gate writes, got {res}")
+
+
 def main() -> None:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     print(f"check_antigravity_layer: root={root}")

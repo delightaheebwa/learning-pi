@@ -182,7 +182,7 @@ def main() -> None:
                 steps.append(step)
                 if step.get("type") == "GENERIC":
                     continue
-                content = str(step.get("content", ""))
+                content = str((step.get("content") or "") + "\n" + str(step.get("thinking") or ""))
                 idx = content.find("[[FLOW:")
                 while idx != -1:
                     end = content.find("]]", idx)
