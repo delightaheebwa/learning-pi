@@ -1175,6 +1175,71 @@ def test_hook_behaviors(root: Path) -> None:
             fail(f"behavior: thinking-field solo marker must gate writes, got {res}")
 
 
+        # --- Test 29: a thinking-only flow marker sets the teaching flow ---
+        transcript_thinking_teach = tmp_path / "trans_thinking_teach.jsonl"
+        with open(transcript_thinking_teach, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "next"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": None,
+                "thinking": "[[FLOW:teach]] planning the next step",
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "This is a substantive teaching draft without any flow marker, long enough to require independent verification before it is shown to the learner.",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_thinking_teach)})
+        if res.get("decision") == "continue":
+            ok("behavior: stop_gate applies the thinking-only flow marker to later steps")
+        else:
+            fail(f"behavior: thinking-only teach flow should gate the turn, got {res}")
+
+        # --- Test 30: pre_tool_gate tolerates null content and reads its thinking flow ---
+        transcript_null_pre = tmp_path / "trans_null_pre.jsonl"
+        with open(transcript_null_pre, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/solo"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": None,
+                "thinking": "[[FLOW:solo]] closed-book",
+            }) + "\n")
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_null_pre),
+            },
+        )
+        if res.get("decision") == "deny" and "SOLO_NO_AIDS" in res.get("reason", ""):
+            ok("behavior: pre_tool_gate tolerates null content and reads its thinking flow")
+        else:
+            fail(f"behavior: null content with thinking solo should deny, got {res}")
+
+        # --- Test 31: flow markers are case-insensitive in pre_tool_gate ---
+        transcript_upper_flow = tmp_path / "trans_upper_flow.jsonl"
+        with open(transcript_upper_flow, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/solo"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:SOLO]] closed-book check",
+            }) + "\n")
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_upper_flow),
+            },
+        )
+        if res.get("decision") == "deny" and "SOLO_NO_AIDS" in res.get("reason", ""):
+            ok("behavior: pre_tool_gate treats flow markers case-insensitively")
+        else:
+            fail(f"behavior: uppercase SOLO flow must gate writes, got {res}")
+
+
 def main() -> None:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     print(f"check_antigravity_layer: root={root}")

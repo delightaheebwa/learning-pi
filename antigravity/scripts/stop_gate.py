@@ -218,7 +218,7 @@ def main() -> None:
     for step in steps:
         if step.get("type") == "GENERIC":
             continue
-        content = str((step.get("content") or "") + "\n" + str(step.get("thinking") or ""))
+        content = str(step.get("content") or "") + "\n" + str(step.get("thinking") or "")
         matches = re.findall(r"\[\[FLOW:([A-Za-z]+)\]\]", content)
         if matches:
             active_flow = matches[-1].lower()

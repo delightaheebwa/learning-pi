@@ -182,12 +182,12 @@ def main() -> None:
                 steps.append(step)
                 if step.get("type") == "GENERIC":
                     continue
-                content = str((step.get("content") or "") + "\n" + str(step.get("thinking") or ""))
+                content = str(step.get("content") or "") + "\n" + str(step.get("thinking") or "")
                 idx = content.find("[[FLOW:")
                 while idx != -1:
                     end = content.find("]]", idx)
                     if end != -1:
-                        last_flow = content[idx + len("[[FLOW:") : end]
+                        last_flow = content[idx + len("[[FLOW:") : end].strip().lower()
                         idx = content.find("[[FLOW:", end)
                     else:
                         break
