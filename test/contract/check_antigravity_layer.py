@@ -693,10 +693,11 @@ def test_hook_behaviors(root: Path) -> None:
                 "tool_calls": [{"name": "invoke_subagent", "args": {"Subagents": [{"TypeName": "ui-generator"}]}}],
             }) + "\n")
 
+        brain_widget = "/home/user/.gemini/antigravity/brain/conv-1/widget.html"
         res = run_hook(
             pre_tool_script,
             {
-                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": brain_widget}},
                 "transcriptPath": str(transcript_uigen),
             },
         )
@@ -704,6 +705,18 @@ def test_hook_behaviors(root: Path) -> None:
             ok("behavior: pre_tool_gate allows ui-generator to write an artifact .html")
         else:
             fail(f"behavior: pre_tool_gate should allow ui-generator artifact write, got {res}")
+
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_uigen),
+            },
+        )
+        if res.get("decision") == "deny" and "UI_GENERATOR_SCOPE" in res.get("reason", ""):
+            ok("behavior: pre_tool_gate denies ui-generator .html outside the artifact directory")
+        else:
+            fail(f"behavior: pre_tool_gate should deny ui-generator writes outside the artifact dir, got {res}")
 
         res = run_hook(
             pre_tool_script,
@@ -755,6 +768,58 @@ def test_hook_behaviors(root: Path) -> None:
             ok("behavior: UI_GENERATOR_RECEIPT closes the ui-generator role")
         else:
             fail(f"behavior: ui-generator role should close on its receipt, got {res}")
+
+        # --- Test 17: ui-generator may only run sha256sum (no shell writes) ---
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "run_command", "args": {"CommandLine": "sha256sum /home/user/.gemini/antigravity/brain/conv-1/widget.html"}},
+                "transcriptPath": str(transcript_uigen),
+            },
+        )
+        if res.get("decision") == "allow":
+            ok("behavior: pre_tool_gate allows ui-generator to hash its artifact")
+        else:
+            fail(f"behavior: pre_tool_gate should allow ui-generator sha256sum, got {res}")
+
+        for cmd in (
+            'echo pwn > "Learning System/evil.md"',
+            "python3 -c \"open('Learning System/evil.md','w').write('x')\"",
+            "sha256sum /home/user/.gemini/antigravity/brain/conv-1/widget.html; echo pwn > /repo/Learning System/evil.md",
+        ):
+            res = run_hook(
+                pre_tool_script,
+                {
+                    "toolCall": {"name": "run_command", "args": {"CommandLine": cmd}},
+                    "transcriptPath": str(transcript_uigen),
+                },
+            )
+            if res.get("decision") == "deny" and "UI_GENERATOR_SCOPE" in res.get("reason", ""):
+                ok(f"behavior: pre_tool_gate denies ui-generator shell write ({cmd[:32]}...)")
+            else:
+                fail(f"behavior: pre_tool_gate should deny ui-generator command {cmd!r}, got {res}")
+
+        # --- Test 18: SYSTEM_MESSAGE mode 'widget' opens the ui-generator role ---
+        transcript_widget_mode = tmp_path / "trans_widget_mode.jsonl"
+        with open(transcript_widget_mode, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
+            f.write(json.dumps({"source": "MODEL", "type": "PLANNER_RESPONSE", "content": "[[FLOW:teach]] dispatching the generator"}) + "\n")
+            f.write(json.dumps({
+                "source": "SYSTEM",
+                "type": "SYSTEM_MESSAGE",
+                "content": "mode: 'widget', slug: 'probe', spec: {...}",
+            }) + "\n")
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": brain_widget}},
+                "transcriptPath": str(transcript_widget_mode),
+            },
+        )
+        if res.get("decision") == "allow":
+            ok("behavior: SYSTEM_MESSAGE mode 'widget' opens the ui-generator role")
+        else:
+            fail(f"behavior: SYSTEM_MESSAGE mode 'widget' should open ui-generator, got {res}")
 
         # --- Test 13: stop_gate critical tier escalates to a visible UNVERIFIED banner ---
         transcript_critical = tmp_path / "trans_critical.jsonl"

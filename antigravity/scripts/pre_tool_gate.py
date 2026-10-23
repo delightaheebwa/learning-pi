@@ -4,8 +4,8 @@
 Enforces:
 1. Read-only subagents (verifier, auditor, naive-student) cannot modify files —
    detected by a state machine over the transcript so a role never sticks after
-   the subagent's run closes with its receipt (stale roles would deadlock the
-   Tutor's widget writes or bypass the pure-teaching stance).
+   the subagent's run closes with its receipt (stale roles would deadlock
+   legitimate subagent writes or bypass the pure-teaching stance).
 2. Tutor/Reviewer main session cannot directly overwrite Clerk-owned state files
    (MISSION, CURRICULUM, Active Concepts, Mistakes, Learner History, wiki pages),
    and cannot author widget HTML (that is ui-generator's only write).
@@ -14,6 +14,7 @@ Enforces:
 """
 import json
 import os
+import re
 import sys
 
 ROLE_MARKERS = {
@@ -128,6 +129,7 @@ def infer_role(steps):
                 ("review_session_audit", "auditor"),
                 ("lesson", "scout"),
                 ("review", "scout"),
+                ("widget", "ui-generator"),
             ]:
                 if f"mode: '{mode}'" in content or f'mode: "{mode}"' in content or f'"mode": "{mode}"' in content:
                     push_role(sub_role)
@@ -233,7 +235,12 @@ def main() -> None:
     if agent_role == "ui-generator" and tool_name in ("write_to_file", "replace_file_content"):
         target = tool_args.get("TargetFile", "")
         repo_paths = ("Learning System/", "Knowledge Wiki/", ".tmp/", "Pending Ingest.json")
-        if not target.endswith(".html") or any(p in target for p in repo_paths):
+        in_artifact_dir = "/.gemini/antigravity/brain/" in target or "/.gemini/antigravity-cli/brain/" in target
+        if (
+            not target.lower().endswith((".html", ".htm"))
+            or any(p in target for p in repo_paths)
+            or not in_artifact_dir
+        ):
             print(
                 json.dumps(
                     {
@@ -247,12 +254,30 @@ def main() -> None:
             )
             return
 
+    # Rule 3b: ui-generator's only shell command is the receipt hash. No other
+    # command may run (otherwise shell redirection would bypass Rule 3).
+    if agent_role == "ui-generator" and tool_name == "run_command":
+        cmd = str(tool_args.get("CommandLine", "") or "")
+        if not cmd.strip().startswith("sha256sum ") or "\n" in cmd or re.search(r"[;&|<>`$(){}]", cmd):
+            print(
+                json.dumps(
+                    {
+                        "decision": "deny",
+                        "reason": (
+                            "UI_GENERATOR_SCOPE: the ui-generator subagent may only run 'sha256sum <artifact>' "
+                            "to hash its widget; no other command or shell operator is allowed."
+                        ),
+                    }
+                )
+            )
+            return
+
     # Rule 4: Main Tutor pure teaching stance (delegates all repository writes to Clerk
     # and all widget artifacts to ui-generator)
     if agent_role == "tutor" and is_learning_flow:
         if tool_name in ("write_to_file", "replace_file_content"):
             target = tool_args.get("TargetFile", "")
-            if target.endswith(".html"):
+            if target.lower().endswith((".html", ".htm")):
                 print(
                     json.dumps(
                         {

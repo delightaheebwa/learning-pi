@@ -79,7 +79,7 @@ The session closes in three phases: **verified feedback → learner Q&A pause �
 
 ## Step 3: Feedback & Mandatory Question Pause
 
-1. **Compose the learner-facing feedback**: for each item, the verified verdict and *why* the trace passed or slipped (the exact step that failed), plus the pow outcome and — when a repair is needed — one concrete micro-check. Compose it as prose plus the smallest visual that carries the idea (`AGENTS.md` §6): a table for per-item verdicts, a Mermaid causal chain for the slipped step, or a repair widget for the knob that was misread. Never expose verifier receipts, prompts, or audit mechanics.
+1. **Compose the learner-facing feedback**: for each item, the verified verdict and *why* the trace passed or slipped (the exact step that failed), plus the pow outcome and — when a repair is needed — one concrete micro-check. Compose it as prose plus the smallest visual that carries the idea (`AGENTS.md` §6): a table for per-item verdicts, a Mermaid causal chain for the slipped step, or a repair widget (built by `ui-generator` from your spec, audited before embed) for the knob that was misread. Never expose verifier receipts, prompts, or audit mechanics.
 2. **Verify the rendered feedback** before emitting it:
    ```python
    invoke_subagent(
@@ -100,7 +100,7 @@ The session closes in three phases: **verified feedback → learner Q&A pause �
 ## Step 4: Inquiry Loop (Until the Learner Has No Questions)
 
 1. For every learner message that contains a question:
-   - Answer it as a normal tutoring turn: repair the slip, explain the relevant mechanism, or correct a misread of the feedback — with the smallest visual that carries it (a diagram, table, or audited repair widget).
+   - Answer it as a normal tutoring turn: repair the slip, explain the relevant mechanism, or correct a misread of the feedback — with the smallest visual that carries it (a diagram, table, or repair widget built by `ui-generator` and audited before embed).
    - Every explanatory turn goes through `verifier` (`mode: 'fact_check'`, `turn_kind: 'answer'` — or `'repair'` when correcting the slip — with the exact `draft`, `claims: [...]`, `raw_files`/`source_urls: [...]`, and the declared `visual_plan`) before you emit it; if the inquiry challenges a verdict, re-run `verifier` (`mode: 'grade_audit'`) on that item and adopt the verifier's `correct_verdict`.
    - Honor hint discipline and the AGENTS.md **Clean Reveal + Immediate Knob Check**: if the learner asks to be told the answer outright, ask only where the wall is, deliver the full intuitive model + anatomical formula read immediately, record `just_tell_me` as a `dependency_events[]` entry for the Step 5 handoff, and ask one immediate qualitative prediction on an altered case.
    - After answering, **pause again** with the same invitation. Do not persist state while questions remain.
