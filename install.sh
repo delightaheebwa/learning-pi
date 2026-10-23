@@ -72,7 +72,7 @@ Installed. Next:
   Antigravity Desktop:
     1) Open "$STATE_ROOT" as a project/workspace in Antigravity Desktop
     2) Slash commands: /teach, /lesson, /continue, /pause, /review, /solo, /ingest, /audit
-    3) Subagents (scout, verifier, clerk, auditor) run via invoke_subagent and monitor in the Subagents panel
+    3) Subagents (scout, verifier, ui-generator, clerk, auditor) run via invoke_subagent and monitor in the Subagents panel
 
 State repo:  $STATE_ROOT  (untouched except for untracked .pi/ & .agents/ symlinks)
 Control repo: $PI_ROOT

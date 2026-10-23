@@ -1,22 +1,26 @@
 # Generative UI Reference
 
-How the Tutor builds and embeds an interactive widget in Antigravity Desktop. Read this
-before authoring any widget. The pedagogy rules live in [pedagogy.md](./pedagogy.md) §7 and
-`AGENTS.md` §6; this file is the mechanics.
+How the Tutor specs a widget, `ui-generator` builds it, and the Tutor audits and embeds it in
+Antigravity Desktop. Read this before authoring any widget. The pedagogy rules live in
+[pedagogy.md](./pedagogy.md) §7 and `AGENTS.md` §6; this file is the mechanics.
 
 ---
 
 ## 1. Mechanism (there is no `generative_ui()` tool)
 
-Antigravity's built-in `generative_ui` skill is **instructions, not a callable tool**. A widget
-renders when the agent:
+Antigravity's built-in `generative_ui` skill is **instructions, not a callable tool**. The
+Tutor does not author the widget. It writes a **spec**; `ui-generator` turns that spec into an
+artifact; the Tutor audits and embeds it:
 
-1. writes **one self-contained `.html` file** into the current conversation's **artifact
-   directory**, marked user-facing, then
-2. emits a raw `<agent-embed src="file:///...">` tag in the reply.
+1. The Tutor dispatches `ui-generator` with the spec (§3), including the conversation's
+   artifact directory and a stable slug.
+2. `ui-generator` writes **one self-contained `.html` file** into that directory, marks it
+   user-facing, and returns `UI_GENERATOR_RECEIPT` with the absolute path and SHA-256.
+3. The Tutor dispatches `verifier` (`mode: "ui_audit"`) on that exact file and the exact prose,
+   then emits a raw `<agent-embed src="file:///...">` tag in the reply.
 
-Writing the file without the embed renders nothing; the embed without a valid file renders a
-broken frame. Do both in the same turn.
+Writing the file without the embed renders nothing; the embed without a valid, audited file
+renders a broken frame. Do both in the same turn. The Tutor never writes the HTML itself.
 
 ## 2. Artifact directory
 
@@ -28,18 +32,55 @@ learning-system repository, not `Learning System/`, not `Knowledge Wiki/`:
 
 Resolve it from the live session (or from the path the environment reports). Never hardcode a
 conversation id into a file or a lesson note. If the artifact directory cannot be resolved, do
-not guess: fall back to a Mermaid diagram (see §8).
+not guess: fall back to a Mermaid diagram (see §9).
 
-Use the `write_to_file` tool with:
+`ui-generator` writes it with the `write_to_file` tool and:
 
 ```
 ArtifactMetadata: { UserFacing: true, Summary: "<one line describing the widget>" }
 ```
 
-One widget = one file. Pick a stable, descriptive slug (for example
-`pca-variance-knob.html`). Never write widget source into the learning repository.
+One widget = one file. The Tutor picks a stable, descriptive slug (for example
+`pca-variance-knob.html`) and passes it in the spec. Never write widget source into the
+learning repository.
 
-## 3. Embed syntax
+## 3. Tutor → ui-generator spec
+
+The Tutor owns the pedagogy; the generator only implements. Dispatch `ui-generator` with:
+
+```
+mode: 'widget'
+artifact_dir: '/home/<user>/.gemini/antigravity/brain/<conversation-id>'
+slug: 'pca-variance-knob'
+stage: 'collision | invention | boundary_hunt | falsify | review_repair | synthesis'
+spec: {
+  "idea": "<the one thing the widget makes visible>",
+  "mechanism": "<what moves when each control changes, and in which direction>",
+  "controls": [{"id": "...", "kind": "slider|select|input", "range": "...", "default": "..."}],
+  "prediction": {"prompt": "<exact learner-facing wording>", "accepts": "number|choice|coordinates"},
+  "reveal": "<what is drawn after commitment, overlaid against the prediction>",
+  "values": ["<every grounded number, unit, and label, or 'illustrative'>"],
+  "constraints": "<anything the widget must not show or name>"
+}
+```
+
+A vague spec ("make it interactive") is a defect: the generator must not guess the mechanism,
+the prediction wording, or the values. If the spec is incomplete, the generator returns
+`UI_GENERATOR_RECEIPT` with `status: "NEEDS_SPEC"` and the Tutor fills the gap or degrades to
+Mermaid.
+
+```json
+UI_GENERATOR_RECEIPT: {
+  "status": "OK",
+  "widget_file": "/absolute/path/widget.html",
+  "sha256": "<sha256 of the written file>",
+  "prediction_gate": "commit-before-reveal",
+  "summary": "one line",
+  "missing": []
+}
+```
+
+## 4. Embed syntax
 
 ```
 <agent-embed src="file:///home/<user>/.gemini/antigravity/brain/<conversation-id>/<slug>.html"></agent-embed>
@@ -56,7 +97,7 @@ Hard rules:
 - The inline viewport is about 500px tall. Keep the widget compact enough to fit without the
   learner scrolling the frame.
 
-## 4. HTML contract
+## 5. HTML contract
 
 - `<!DOCTYPE html>`, one file, everything inline.
 - The **only** allowed external resource is the Antigravity Tailwind build:
@@ -79,7 +120,7 @@ Hard rules:
   in a widget as styled inline HTML/SVG (or a clear monospace expression), never by loading a
   KaTeX CDN.
 
-## 5. Predict-Before-Render pattern
+## 6. Predict-Before-Render pattern
 
 Every widget is a two-state machine:
 
@@ -112,7 +153,7 @@ Minimal skeleton:
 The gate is satisfied only when the reveal code cannot run before a committed prediction.
 A slider that recomputes the output live, or a chart drawn on load, is `ISSUES`.
 
-## 6. Grounding and size
+## 7. Grounding and size
 
 - Every number, label, axis, unit, and table row comes from the lesson's sources or is an
   explicitly illustrative value that the prose flags as illustrative.
@@ -123,10 +164,10 @@ A slider that recomputes the output live, or a chart drawn on load, is `ISSUES`.
   they commit first; the prose must ask for the prediction before directing attention to the
   reveal.
 
-## 7. Audit and gate binding
+## 8. Audit and gate binding
 
-Write the file **first**: the verifier run holds the only write lock, so the file must already exist
-when the audit starts. Then dispatch exactly one `verifier` with:
+`ui-generator` writes the file **first** (the verifier run holds a read-only write lock). When
+its `UI_GENERATOR_RECEIPT` returns `status: "OK"`, dispatch exactly one `verifier` with:
 
 ```
 mode: 'ui_audit', widget_file: '<absolute path>', prose_draft: '<the exact turn: prose + <agent-embed> call>'
@@ -151,18 +192,20 @@ SHA-256. A modified file, a different path, a missing hash, a non-`ui_audit` rec
 it read**. If either the file or the surrounding prose changes, re-run `ui_audit` and re-embed
 the audited version. Apply fixes silently.
 
-## 8. Fallback chain
+## 9. Fallback chain
 
 **widget → Mermaid → prose.**
 
 - A static structure, flow, state, or causal chain is better as an inline Mermaid diagram.
-- If a widget fails `ui_audit` twice, or the artifact directory cannot be resolved, degrade to
-  Mermaid and say what the diagram shows. Never ship an unaudited widget.
+- If a widget fails `ui_audit` twice, `ui-generator` returns `NEEDS_SPEC`/`ERROR`, or the
+  artifact directory cannot be resolved, degrade to Mermaid and say what the diagram shows.
+  Never ship an unaudited widget.
 - In `review`, park the widget until the batch is graded. In `/solo`, never build or embed one.
 
-## 9. Do not
+## 10. Do not
 
 - Do not create a workspace skill named `generative_ui` (it would shadow the builtin).
+- Do not write widget HTML in the Tutor session: only `ui-generator` writes artifacts.
 - Do not write widgets into `Learning System/`, `Knowledge Wiki/`, or `.tmp/`.
 - Do not describe a widget you did not verify, and never expose audit mechanics to the learner.
 - Do not use a widget to decorate a sentence or to restate a formula the prose already carries.

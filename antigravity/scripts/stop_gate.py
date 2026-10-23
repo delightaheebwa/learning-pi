@@ -32,6 +32,7 @@ CRITICAL_CAP = 6
 # Longest-first: "REVIEW_SCOUT_RECEIPT:" contains "SCOUT_RECEIPT:" as a substring,
 # so matching order matters to avoid aliasing.
 RECEIPT_NAMES = [
+    "UI_GENERATOR_RECEIPT",
     "NAIVE_STUDENT_RECEIPT",
     "REVIEW_SCOUT_RECEIPT",
     "VERIFIER_RECEIPT",
@@ -46,6 +47,7 @@ ROLE_RECEIPT = {
     "naive-student": "NAIVE_STUDENT_RECEIPT",
     "scout": "SCOUT_RECEIPT",
     "clerk": "CLERK_RECEIPT",
+    "ui-generator": "UI_GENERATOR_RECEIPT",
 }
 
 

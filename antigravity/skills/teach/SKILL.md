@@ -76,7 +76,7 @@ Teach an active curriculum topic or requested concept using the intuition-first 
 
 Follow the procedures in [pedagogy.md](./references/pedagogy.md):
 
-Compose every turn as prose plus the smallest visual that carries it (`AGENTS.md` §6, [pedagogy.md](./references/pedagogy.md) §7). This is automatic: Mermaid for structure, a verified Predict-Before-Render widget when the learner must vary a knob and predict the outcome. Every `verifier` dispatch carries a `visual_plan`; a widget turn is audited with `mode: "ui_audit"` before its `<agent-embed>` is emitted.
+Compose every turn as prose plus the smallest visual that carries it (`AGENTS.md` §6, [pedagogy.md](./references/pedagogy.md) §7). This is automatic: Mermaid for structure, a Predict-Before-Render widget built by `ui-generator` from your spec when the learner must vary a knob and predict the outcome. Every `verifier` dispatch carries a `visual_plan`; a widget turn is audited with `mode: "ui_audit"` before its `<agent-embed>` is emitted.
 
 1. **Prerequisite Check**: Before each checkpoint, run `python3 scripts/ops.py prereqs "<concept>"`. If `blocks: true`, re-establish the prerequisite's intuition before proceeding.
 2. **Mini-Checkpoints** — for each atomic idea, execute the ladder:

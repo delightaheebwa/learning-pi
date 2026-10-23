@@ -177,7 +177,7 @@ A widget that renders its output on load is `ISSUES` and does not ship.
 ### Build, embed, audit
 - **KaTeX**: author all formulas in valid LaTeX (`$...$` inline, `$$...$$` block).
 - **Mermaid**: native ` ```mermaid ` fences for state diagrams, flowcharts, and causal chains.
-- **Widgets**: write one self-contained HTML file into the current Antigravity conversation's **artifact directory** (never the learning repository), mark it user-facing, and embed it as raw `<agent-embed src="file:///..."></agent-embed>`. Full contract: [generative-ui.md](./generative-ui.md).
+- **Widgets**: hand `ui-generator` the spec — one idea, mechanism/knobs, controls, the exact prediction prompt, the reveal, and grounded values — with the conversation's artifact directory and a slug. It writes one self-contained HTML file there (never the learning repository), returns `UI_GENERATOR_RECEIPT` with the path + hash, and the Tutor embeds it as raw `<agent-embed src="file:///..."></agent-embed>`. Full contract: [generative-ui.md](./generative-ui.md).
 - **Audit binding**: dispatch `verifier` (`mode: "ui_audit"`) on the exact file and exact prose. The receipt carries `widget_file` + `widget_sha256`; the turn gate blocks an embed with no matching passing audit. Re-audit whenever the file changes.
 - **Fallback chain: widget → Mermaid → prose.** If a widget fails audit twice, degrade to Mermaid instead of shipping it.
 - Every substantive `fact_check` dispatch carries a declared `visual_plan` (`prose|mermaid|widget|html|none` + why); the verifier flags `VISUAL_PLAN_MISSING` or `VISUAL_MISSED` and can force the visual the turn actually needs.

@@ -7,8 +7,10 @@ Enforces:
    the subagent's run closes with its receipt (stale roles would deadlock the
    Tutor's widget writes or bypass the pure-teaching stance).
 2. Tutor/Reviewer main session cannot directly overwrite Clerk-owned state files
-   (MISSION, CURRICULUM, Active Concepts, Mistakes, Learner History, wiki pages).
-3. Solo mode (FLOW:solo) cannot create HTML widget artifacts (SOLO_NO_AIDS).
+   (MISSION, CURRICULUM, Active Concepts, Mistakes, Learner History, wiki pages),
+   and cannot author widget HTML (that is ui-generator's only write).
+3. ui-generator writes only one `.html` artifact, outside the learning repository.
+4. Solo mode (FLOW:solo) cannot create HTML widget artifacts (SOLO_NO_AIDS).
 """
 import json
 import os
@@ -20,6 +22,7 @@ ROLE_MARKERS = {
     "[SUBAGENT_ROLE:clerk]": "clerk",
     "[SUBAGENT_ROLE:scout]": "scout",
     "[SUBAGENT_ROLE:naive-student]": "naive-student",
+    "[SUBAGENT_ROLE:ui-generator]": "ui-generator",
 }
 # Receipt that closes (ends) a subagent run: the Tutor resumes on its wakeup.
 ROLE_RECEIPT = {
@@ -28,6 +31,7 @@ ROLE_RECEIPT = {
     "naive-student": "NAIVE_STUDENT_RECEIPT",
     "scout": "SCOUT_RECEIPT",
     "clerk": "CLERK_RECEIPT",
+    "ui-generator": "UI_GENERATOR_RECEIPT",
 }
 
 
@@ -96,7 +100,7 @@ def infer_role(steps):
                         sa_type = get_arg(sa, "TypeName", "typeName", "type_name")
                         if sa_type:
                             type_names.add(sa_type)
-                for sub_role in ("verifier", "auditor", "naive-student", "scout", "clerk"):
+                for sub_role in ("verifier", "auditor", "naive-student", "scout", "clerk", "ui-generator"):
                     if sub_role in type_names:
                         stack.append(sub_role)
 
@@ -225,10 +229,42 @@ def main() -> None:
             )
             return
 
-    # Rule 3: Main Tutor pure teaching stance (delegates all repository writes to Clerk)
+    # Rule 3: ui-generator is scoped to one HTML artifact outside the learning repo
+    if agent_role == "ui-generator" and tool_name in ("write_to_file", "replace_file_content"):
+        target = tool_args.get("TargetFile", "")
+        repo_paths = ("Learning System/", "Knowledge Wiki/", ".tmp/", "Pending Ingest.json")
+        if not target.endswith(".html") or any(p in target for p in repo_paths):
+            print(
+                json.dumps(
+                    {
+                        "decision": "deny",
+                        "reason": (
+                            "UI_GENERATOR_SCOPE: the ui-generator subagent may only write one .html widget artifact "
+                            "into the current conversation's Antigravity artifact directory — never into the learning repository."
+                        ),
+                    }
+                )
+            )
+            return
+
+    # Rule 4: Main Tutor pure teaching stance (delegates all repository writes to Clerk
+    # and all widget artifacts to ui-generator)
     if agent_role == "tutor" and is_learning_flow:
         if tool_name in ("write_to_file", "replace_file_content"):
             target = tool_args.get("TargetFile", "")
+            if target.endswith(".html"):
+                print(
+                    json.dumps(
+                        {
+                            "decision": "deny",
+                            "reason": (
+                                "UI_GENERATOR_DELEGATION: the Tutor does not author widget HTML. Hand the complete spec "
+                                "to the 'ui-generator' subagent and embed the audited file it returns."
+                            ),
+                        }
+                    )
+                )
+                return
             if "Learning System/" in target or "Knowledge Wiki/" in target:
                 print(
                     json.dumps(

@@ -89,7 +89,7 @@ def check_resources(root: Path) -> None:
             fail(f"resources: antigravity/hooks.json invalid JSON: {exc}")
 
     # 3. Subagents
-    expected_agents = {"scout", "verifier", "clerk", "auditor", "naive-student"}
+    expected_agents = {"scout", "verifier", "ui-generator", "clerk", "auditor", "naive-student"}
     valid_tool_names = {
         "view_file",
         "grep_search",
@@ -107,7 +107,7 @@ def check_resources(root: Path) -> None:
     if missing:
         fail(f"resources: subagents missing: {missing}")
     else:
-        ok(f"resources: all 5 subagents present: {', '.join(sorted(expected_agents))}")
+        ok(f"resources: all 6 subagents present: {', '.join(sorted(expected_agents))}")
 
     for name, path in found_agents.items():
         text = path.read_text(encoding="utf-8")
@@ -148,6 +148,16 @@ def check_resources(root: Path) -> None:
                 fail(f"resources: read-only subagent {name}.md must not include write tools")
             else:
                 ok(f"resources: read-only subagent {name}.md has no write tools")
+
+        if name == "ui-generator":
+            if "write_to_file" not in tools:
+                fail("resources: ui-generator.md must include write_to_file")
+            else:
+                ok("resources: ui-generator.md can write its widget artifact")
+            if "run_command" not in tools:
+                fail("resources: ui-generator.md must include run_command (sha256sum receipt)")
+            else:
+                ok("resources: ui-generator.md can hash its artifact for the receipt")
 
     # 4. Skills
     expected_skills = {
@@ -191,7 +201,7 @@ def check_resources(root: Path) -> None:
     # 5. Visual composition is automatic (never opt-in) and the widget mechanics
     # reference exists, so the Tutor can actually build and bind a widget.
     agents_text = agents_md.read_text(encoding="utf-8") if agents_md.is_file() else ""
-    agents_needles = ("Visual Composition", "visual_plan", "Predict-Before-Render", "<agent-embed")
+    agents_needles = ("Visual Composition", "visual_plan", "Predict-Before-Render", "<agent-embed", "ui-generator")
     missing_needles = [n for n in agents_needles if n not in agents_text]
     if missing_needles:
         fail(f"resources: AGENTS.md missing visual-composition rule(s): {missing_needles}")
@@ -209,7 +219,7 @@ def check_resources(root: Path) -> None:
         fail("resources: teach/references/generative-ui.md missing")
     else:
         gui_text = gui_ref.read_text(encoding="utf-8")
-        gui_needles = ("UserFacing", "widget_sha256", "file:///", "Predict-Before-Render")
+        gui_needles = ("UserFacing", "widget_sha256", "file:///", "Predict-Before-Render", "ui-generator", "UI_GENERATOR_RECEIPT")
         gui_missing = [n for n in gui_needles if n not in gui_text]
         if gui_missing:
             fail(f"resources: generative-ui.md missing required mechanics: {gui_missing}")
@@ -298,6 +308,19 @@ def test_hook_behaviors(root: Path) -> None:
             ok("behavior: pre_tool_gate denies Tutor running ops.py attempt (TUTOR_PURE_TEACHING)")
         else:
             fail(f"behavior: pre_tool_gate should deny Tutor running attempt logging, got {res}")
+
+        # --- Test 2c: pre_tool_gate denies Tutor authoring widget HTML (delegation) ---
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_tutor),
+            },
+        )
+        if res.get("decision") == "deny" and "UI_GENERATOR_DELEGATION" in res.get("reason", ""):
+            ok("behavior: pre_tool_gate denies Tutor authoring widget HTML (UI_GENERATOR_DELEGATION)")
+        else:
+            fail(f"behavior: pre_tool_gate should deny Tutor widget HTML, got {res}")
 
         # --- Test 3: pre_tool_gate denies HTML widgets during solo flow ---
         transcript_solo = tmp_path / "trans_solo.jsonl"
@@ -611,7 +634,7 @@ def test_hook_behaviors(root: Path) -> None:
 
         # --- Test 11: pre_tool_gate does not stick a stale verifier role after wakeup ---
         # Verifier runs (role marker + closing receipt), then the Tutor resumes and
-        # writes a widget artifact. The stale role must NOT deny the Tutor's write.
+        # writes a non-widget file. The stale role must NOT deny the Tutor's write.
         transcript_stale = tmp_path / "trans_stale.jsonl"
         with open(transcript_stale, "w") as f:
             f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
@@ -628,12 +651,12 @@ def test_hook_behaviors(root: Path) -> None:
         res = run_hook(
             pre_tool_script,
             {
-                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/notes.md"}},
                 "transcriptPath": str(transcript_stale),
             },
         )
         if res.get("decision") == "allow":
-            ok("behavior: pre_tool_gate resets stale subagent role after closing receipt (tutor may write artifacts)")
+            ok("behavior: pre_tool_gate resets stale subagent role after closing receipt (tools usable again)")
         else:
             fail(f"behavior: pre_tool_gate should allow tutor write after verifier receipt, got {res}")
 
@@ -658,6 +681,80 @@ def test_hook_behaviors(root: Path) -> None:
             ok("behavior: pre_tool_gate denies writes while a verifier run is open (no closing receipt yet)")
         else:
             fail(f"behavior: pre_tool_gate should deny writes during open verifier run, got {res}")
+
+        # --- Test 15: ui-generator may write one artifact .html, nothing else ---
+        transcript_uigen = tmp_path / "trans_uigen.jsonl"
+        with open(transcript_uigen, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] dispatching ui-generator with the spec",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"Subagents": [{"TypeName": "ui-generator"}]}}],
+            }) + "\n")
+
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "transcriptPath": str(transcript_uigen),
+            },
+        )
+        if res.get("decision") == "allow":
+            ok("behavior: pre_tool_gate allows ui-generator to write an artifact .html")
+        else:
+            fail(f"behavior: pre_tool_gate should allow ui-generator artifact write, got {res}")
+
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/Learning System/Lessons/Lesson — 1.md"}},
+                "transcriptPath": str(transcript_uigen),
+            },
+        )
+        if res.get("decision") == "deny" and "UI_GENERATOR_SCOPE" in res.get("reason", ""):
+            ok("behavior: pre_tool_gate denies ui-generator writing into the learning repository")
+        else:
+            fail(f"behavior: pre_tool_gate should deny ui-generator repo writes, got {res}")
+
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/notes.md"}},
+                "transcriptPath": str(transcript_uigen),
+            },
+        )
+        if res.get("decision") == "deny" and "UI_GENERATOR_SCOPE" in res.get("reason", ""):
+            ok("behavior: pre_tool_gate denies ui-generator writing non-HTML files")
+        else:
+            fail(f"behavior: pre_tool_gate should deny ui-generator non-HTML writes, got {res}")
+
+        # --- Test 16: UI_GENERATOR_RECEIPT closes the ui-generator role ---
+        transcript_uigen_closed = tmp_path / "trans_uigen_closed.jsonl"
+        with open(transcript_uigen_closed, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/teach widget"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:teach]] dispatching ui-generator with the spec",
+                "tool_calls": [{"name": "invoke_subagent", "args": {"Subagents": [{"TypeName": "ui-generator"}]}}],
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "UI_GENERATOR_RECEIPT: {\"status\": \"OK\", \"widget_file\": \"/repo/artifact/widget.html\", \"sha256\": \"abc\"}",
+            }) + "\n")
+        res = run_hook(
+            pre_tool_script,
+            {
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/notes.md"}},
+                "transcriptPath": str(transcript_uigen_closed),
+            },
+        )
+        if res.get("decision") == "allow":
+            ok("behavior: UI_GENERATOR_RECEIPT closes the ui-generator role")
+        else:
+            fail(f"behavior: ui-generator role should close on its receipt, got {res}")
 
         # --- Test 13: stop_gate critical tier escalates to a visible UNVERIFIED banner ---
         transcript_critical = tmp_path / "trans_critical.jsonl"
@@ -819,7 +916,7 @@ def test_hook_behaviors(root: Path) -> None:
         res = run_hook(
             pre_tool_script,
             {
-                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/notes.md"}},
                 "transcriptPath": str(transcript_lifecycle),
             },
         )
@@ -851,7 +948,7 @@ def test_hook_behaviors(root: Path) -> None:
         res = run_hook(
             pre_tool_script,
             {
-                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/notes.md"}},
                 "transcriptPath": str(transcript_generic),
             },
         )
@@ -874,7 +971,7 @@ def test_hook_behaviors(root: Path) -> None:
             res = run_hook(
                 pre_tool_script,
                 {
-                    "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                    "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/notes.md"}},
                     "transcriptPath": str(transcript_sysmsg),
                 },
             )
@@ -901,7 +998,7 @@ def test_hook_behaviors(root: Path) -> None:
         res = run_hook(
             pre_tool_script,
             {
-                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+                "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/notes.md"}},
                 "transcriptPath": str(transcript_generic_receipt),
             },
         )
