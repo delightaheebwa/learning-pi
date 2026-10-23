@@ -1073,6 +1073,69 @@ def test_hook_behaviors(root: Path) -> None:
             fail(f"behavior: GENERIC receipt should not close an open run, got {res}")
 
 
+        # --- Test 24: stop_gate ignores a flow marker in GENERIC tool output ---
+        transcript_generic_flow = tmp_path / "trans_generic_flow.jsonl"
+        with open(transcript_generic_flow, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "next"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "[[FLOW:teach]] VERIFIER_RECEIPT: "
+                    + json.dumps({"mode": "ui_audit", "verdict": "PASS", "widget_file": str(widget_file),
+                                  "widget_sha256": widget_sha, "issues": []})
+                    + "\nHere is the widget: commit your prediction before the reveal.\n"
+                    + embed_tag
+                ),
+            }) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "GENERIC",
+                "content": "[[FLOW:solo]] tool output that merely mentions a flow",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_generic_flow)})
+        if res.get("decision") == "allow":
+            ok("behavior: stop_gate ignores a flow marker in GENERIC tool output")
+        else:
+            fail(f"behavior: GENERIC flow marker must not switch the active flow, got {res}")
+
+        # --- Test 25: stop_gate honors a flow marker in the thinking field ---
+        transcript_thinking_flow = tmp_path / "trans_thinking_flow.jsonl"
+        with open(transcript_thinking_flow, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "next"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": (
+                    "VERIFIER_RECEIPT: "
+                    + json.dumps({"mode": "fact_check", "verdict": "PASS", "issues": [], "omitted_foundations": []})
+                    + "\nHere is the widget: commit your prediction before the reveal.\n"
+                    + embed_tag
+                ),
+                "thinking": "[[FLOW:solo]] closed-book assessment",
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_thinking_flow)})
+        if res.get("decision") == "continue" and "SOLO_NO_AIDS" in res.get("reason", ""):
+            ok("behavior: stop_gate honors [[FLOW:solo]] in the thinking field")
+        else:
+            fail(f"behavior: thinking-field flow marker must set solo, got {res}")
+
+        # --- Test 26: non-PLANNER steps do not count as substantive learner-facing text ---
+        transcript_system_only = tmp_path / "trans_system_only.jsonl"
+        with open(transcript_system_only, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "next"}) + "\n")
+            f.write(json.dumps({
+                "source": "SYSTEM",
+                "type": "SYSTEM_MESSAGE",
+                "content": "[[FLOW:teach]] " + ("system bookkeeping text " * 12),
+            }) + "\n")
+        res = run_hook(stop_script, {"fullyIdle": True, "transcriptPath": str(transcript_system_only)})
+        if res.get("decision") == "allow":
+            ok("behavior: stop_gate does not treat non-PLANNER steps as substantive teaching")
+        else:
+            fail(f"behavior: non-PLANNER text must not trigger the verifier gate, got {res}")
+
+
 def main() -> None:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     print(f"check_antigravity_layer: root={root}")

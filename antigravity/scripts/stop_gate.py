@@ -216,7 +216,9 @@ def main() -> None:
     # way pre_tool_gate does (so the two hooks never disagree on solo-ness).
     active_flow = None
     for step in steps:
-        content = str(step.get("content", ""))
+        if step.get("type") == "GENERIC":
+            continue
+        content = str(step.get("content", "") + "\n" + str(step.get("thinking", "")))
         matches = re.findall(r"\[\[FLOW:([A-Za-z]+)\]\]", content)
         if matches:
             active_flow = matches[-1].lower()
@@ -297,7 +299,11 @@ def main() -> None:
     # Substantiveness is judged over the whole turn (receipts stripped): a substantive
     # emission cannot escape the gate by hiding behind a short closing line. No
     # procedural-phrase exemption — a status line is short, and anything long is gated.
-    stripped_text = "\n".join(strip_receipts(str(step.get("content", "")), decoder) for step in current_turn_steps)
+    stripped_text = "\n".join(
+        strip_receipts(str(step.get("content", "")), decoder)
+        for step in current_turn_steps
+        if step.get("type") == "PLANNER_RESPONSE"
+    )
     turn_is_substantive = len(stripped_text.strip()) > 80
 
     # Check 0: Interactive widget integrity. Every <agent-embed> in the learner-facing
