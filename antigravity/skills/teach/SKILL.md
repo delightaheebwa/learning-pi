@@ -73,7 +73,7 @@ For each `missing` or `suspect` item, choose the sharpest weapon for that flaw (
 
 Rules:
 - **One attack per turn.** Verify every attack with `verifier` (`mode: "fact_check"`) before emitting, carrying the learner's claim verbatim, the source/raw files, the attack subtype, and the declared `visual_plan`. Pause on `ISSUES`, fix silently, re-verify.
-- After the learner answers, grade with `verifier` (`mode: "grade_audit"`): map `qtype` (`error-detect` for counterexample/sabotage, `transfer-far` for perturbation), include the trace and `pow` where applicable, and **do not soften a fail**. A correct-looking answer with a broken mechanism is a fail.
+- After the learner answers, grade with `verifier` (`mode: "grade_audit"`): map `qtype` — mechanism/synthesis = `discriminative`; counterexample/source clash/sabotage = `error-detect`; perturbation = `transfer-far` — include the trace and `pow` where applicable, and **do not soften a fail**. A correct-looking answer with a broken mechanism is a fail.
 - **Pause after every grade** and invite questions before the next attack.
 - Never state the missing mechanism or the patched rule; the learner produces the repair.
 - **Record failures for the `/review` queue**: every failed attack adds a handoff `mistakes[]` entry — concept, canonical `error_type` (gap → `structural`, misconception → `deviation`, false confidence → `metacognitive`, unverified assumption → `application`), self-attribution from the learner's words, and evidence = the attack that exposed it. A `sure` fail is flagged as false confidence.
@@ -93,7 +93,7 @@ Rules:
        Subagents=[{
            "TypeName": "clerk",
            "Role": "State Clerk",
-           "Prompt": "mode: 'lesson_handoff', topic: '<topic>', slug: '<slug>', material: [{kind: 'notes|url|code|exercise', ref: '...'}], learner_model: {v1: '<verbatim>', v2: '<verbatim>'}, triage: [{item: '...', bucket: 'solid|missing|suspect', evidence: '...'}], attacks: [{target: '...', attack: 'mechanism|counterexample|perturbation|source_clash|sabotage|synthesis', learner_answer: '...', verdict: 'pass|fail', source_excerpt: '...'}], learner_quotes: {v1: {...}, v2: {...}}, attempts: [...], pow_outcomes: [...], dependency_events: [...], session_summary: '...'"
+           "Prompt": "mode: 'lesson_handoff', topic: '<topic>', slug: '<slug>', material: [{kind: 'notes|url|code|exercise', ref: '...'}], learner_model: {v1: '<verbatim>', v2: '<verbatim>'}, triage: [{item: '...', bucket: 'solid|missing|suspect', evidence: '...'}], attacks: [{target: '...', attack: 'mechanism|counterexample|perturbation|source_clash|sabotage|synthesis', learner_answer: '...', verdict: 'pass|fail', source_excerpt: '...'}], attempts: [...], pow_outcomes: [...], dependency_events: [...], session_summary: '...'"
        }]
    )
    ```

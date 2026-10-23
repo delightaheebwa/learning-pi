@@ -72,7 +72,7 @@ When invoked at the conclusion of a review session:
 1. **Record Attempts**:
    - For every entry in `grade_verdicts[]`, run `python3 scripts/ops.py attempt "<concept>" <pass|fail> [feynman_pass|feynman_fail] --qtype <type> --confidence <confidence> --hints <hints> [--mode solo]`.
    - `feynman_pass`/`feynman_fail` records the clone protocol (naive-student) outcome. When the handoff entry carries a `pow` type (`perturbation`|`sabotage`|`clone`), note the Operational Intuition Battery verdict in the Review note next to the attempt.
-   - `just_tell_me` reveals: log the reveal in the review note together with the verdict of the immediate knob-check that followed it (no `contaminated_by_reveal` marking).
+   - `just_tell_me` reveals: log the reveal in the review note together with the verdict of the immediate perturbation that followed it (no `contaminated_by_reveal` marking).
 2. **Write Review Notes**:
    - Write `Learning System/Reviews/Review — <track> — <YYYY-MM-DD>.md` summarizing the reviewed concepts, questions, answers, and verifier verdicts.
    - Write the corresponding `Learning System/Sessions/Session — Review — <date>.md` note.
@@ -104,7 +104,7 @@ When invoked at the conclusion of a review session:
 When invoked at session conclusion so the Tutor stays 100% focused on interrogation:
 1. **Record Attempts**:
    - For every entry in `attempts[]`, run `python3 scripts/ops.py attempt "<concept>" <pass|fail> [feynman_pass|feynman_fail] --qtype <type> --confidence <confidence> --hints <hints>`.
-   - The stress-test qtype mapping is: spine check = `free-recall`; counterexample/sabotage = `error-detect`; perturbation = `transfer-far`; clone = `explain-back`; immediate knob check = `micro-check`. Do not invent new qtype values.
+   - The stress-test qtype mapping is: spine check = `free-recall`; mechanism/synthesis = `discriminative`; counterexample/source clash/sabotage = `error-detect`; perturbation = `transfer-far`; clone = `explain-back`; immediate knob check = `micro-check`. Do not invent new qtype values.
    - When an entry carries a `pow` type (`perturbation`|`sabotage`|`clone`), record the battery verdict alongside the attempt. A `sure` confidence paired with a failed verdict is recorded as false confidence (the illusion-of-competence signal).
 2. **Mistake Normalisation**: `mistakes[]` entries carry `{concept, error_type, self_attribution, evidence, prereq?}`. The canonical `error_type` enum is `structural | deviation | application | metacognitive`. Map the interrogation flaw and keep the original flaw in `self_attribution`: gap → `structural`; misconception → `deviation`; false confidence → `metacognitive`; unverified assumption → `application`. Never write a value outside the enum.
 3. **Write Handoff Batch** (single pass):

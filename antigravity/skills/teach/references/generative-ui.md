@@ -52,7 +52,7 @@ The Tutor owns the pedagogy; the generator only implements. Dispatch `ui-generat
 mode: 'widget'
 artifact_dir: '/home/<user>/.gemini/antigravity/brain/<conversation-id>'
 slug: 'pca-variance-knob'
-stage: 'collision | invention | boundary_hunt | falsify | review_repair | synthesis'
+stage: 'triage | attack-mechanism | attack-counterexample | attack-perturbation | attack-source_clash | attack-sabotage | attack-synthesis | graduation-synthesis | review_repair'
 spec: {
   "idea": "<the one thing the widget makes visible>",
   "mechanism": "<what moves when each control changes, and in which direction>",

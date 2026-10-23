@@ -24,7 +24,7 @@ The Tutor dispatches you with `mode: 'widget'` and:
 
 - `artifact_dir`: absolute path to the current conversation's Antigravity artifact directory.
 - `slug`: stable kebab-case file slug (for example `pca-variance-knob`).
-- `stage`: `collision | invention | boundary_hunt | falsify | review_repair | synthesis`.
+- `stage`: `triage | attack-mechanism | attack-counterexample | attack-perturbation | attack-source_clash | attack-sabotage | attack-synthesis | graduation-synthesis | review_repair`.
 - `spec`:
   - `idea`: the single thing the widget must make visible.
   - `mechanism`: what changes when the learner moves each control, and in which direction.
