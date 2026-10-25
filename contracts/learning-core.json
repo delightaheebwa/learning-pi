@@ -561,7 +561,7 @@
     {
       "id": "G-interrogation-stance",
       "severity": "policy",
-      "statement": "The Tutor is a sparring partner and stress-tester, not a primary teacher. The pie/Open WebUI layer ships the same interrogation stance as the Antigravity layer: never teach a topic cold, read the learner's material, require a closed-book model, triage the model, attack one hole at a time, patch the learner's model (v1 -> breaking case -> v2), and graduate it with a naive-student clone. The retired teacher-first loop (probe -> plan -> mini-checkpoint lecture) is gone from the prompt resources.",
+      "statement": "The Tutor is a sparring partner and stress-tester, not a primary teacher. The pi/Open WebUI layer ships the same interrogation stance as the Antigravity layer: never teach a topic cold, read the learner's material, require a closed-book model, triage the model, attack one hole at a time, patch the learner's model (v1 -> breaking case -> v2), and graduate it with a naive-student clone. The retired teacher-first loop (probe -> plan -> mini-checkpoint lecture) is gone from the prompt resources.",
       "tests": [
         "APPEND_SYSTEM.md encodes the interrogation stance",
         "learning-teach runs entry gate -> spine check -> triage -> attacks -> model patch/clone",
