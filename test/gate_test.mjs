@@ -1291,3 +1291,165 @@ const runFoundationClaims = async (id, draft, envelope, verifierOutput = FC_PASS
     outText(last).startsWith('⛔ WITHHELD') && outText(last).includes('FOUNDATION_INCOMPLETE')
   );
 }
+
+// ============================================================================
+// Interrogation turn kinds (G-triage-shape / G-attack-shape /
+// G-interrogation-turn-kinds). The Tutor now interrogates rather than lectures:
+// triage and attack turns must carry their shape fields, while plan/autopsy/
+// answer/repair/hint/grade_feedback need no foundation beat.
+// ============================================================================
+const TRIAGE_DRAFT =
+  '| Claim | Bucket | Reason |\n|---|---|---|\n| "entropy captures the information" | suspect | no mechanism: which knob moves, which way? |\n| the log of typical sequences | missing | source paragraph 3 states it |';
+const triageEnv = (triage) =>
+  JSON.stringify({
+    gate: 'fact_check',
+    turn_kind: 'triage',
+    triage,
+    visual_plan: { kind: 'prose', why: 'a Markdown table carries the comparison' },
+    claims: [{ id: 1, claim: 'the table buckets the learner claims' }],
+    rendered_content: TRIAGE_DRAFT,
+    source_urls: ['https://e.com'],
+  });
+{
+  const r = await runFoundationClaims(
+    'it1',
+    TRIAGE_DRAFT,
+    triageEnv([
+      { item: 'entropy captures the information', bucket: 'suspect', evidence: 'learner: "entropy captures the information"' },
+      { item: 'log of typical sequences', bucket: 'missing', evidence: 'source p.3: nH typical sequences' },
+      { item: 'independent draws', bucket: 'solid' },
+    ])
+  );
+  assert('triage turn with a grounded triage table renders', allowed(r));
+}
+{
+  const r = await runFoundationClaims(
+    'it2',
+    TRIAGE_DRAFT,
+    triageEnv([{ item: 'entropy captures the information', bucket: 'suspect', evidence: '' }])
+  );
+  assert(
+    'triage turn with an ungrounded suspect row is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('triage')
+  );
+}
+{
+  const r = await runFoundationClaims(
+    'it3',
+    TRIAGE_DRAFT,
+    JSON.stringify({ ...JSON.parse(triageEnv([])), triage: undefined })
+  );
+  assert(
+    'triage turn with no triage table is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('triage')
+  );
+}
+const ATTACK_DRAFT =
+  'You said entropy "captures the information". Take a fair coin and a biased coin with the same two outcomes — which one carries more information per draw, and which way does your rule move?';
+const attackEnv = (attack) =>
+  JSON.stringify({
+    gate: 'fact_check',
+    turn_kind: 'attack',
+    attack,
+    learner_model: 'entropy captures the information',
+    visual_plan: { kind: 'none', why: 'a one-line mechanism press is carried by its sentence' },
+    claims: [{ id: 1, claim: 'the attack asks for the causal chain' }],
+    rendered_content: ATTACK_DRAFT,
+    source_urls: ['https://e.com'],
+  });
+{
+  const r = await runFoundationClaims('it4', ATTACK_DRAFT, attackEnv('mechanism'));
+  assert('attack turn with one valid subtype renders', allowed(r));
+}
+{
+  const r = await runFoundationClaims('it5', ATTACK_DRAFT, attackEnv(''));
+  assert(
+    'attack turn with no subtype is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('attack')
+  );
+}
+{
+  const r = await runFoundationClaims('it6', ATTACK_DRAFT, attackEnv('lecture'));
+  assert(
+    'attack turn with an unknown subtype is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('attack')
+  );
+}
+{
+  const autopsy = JSON.stringify({
+    gate: 'fact_check',
+    turn_kind: 'autopsy',
+    visual_plan: { kind: 'prose', why: 'the patch and the perturbation are carried by prose' },
+    claims: [{ id: 1, claim: 'entropy is the expected surprise of a distribution' }],
+    rendered_content: FOUND_DRAFT,
+    source_urls: ['https://e.com'],
+  });
+  const r = await runFoundationClaims('it7', FOUND_DRAFT, autopsy);
+  assert('autopsy patch turn needs no foundation beat', allowed(r));
+}
+{
+  const plan = JSON.stringify({
+    gate: 'fact_check',
+    turn_kind: 'plan',
+    visual_plan: { kind: 'none', why: 'a reading brief is scope, not mechanism' },
+    claims: [{ id: 1, claim: 'read the chapter and its Further Reading' }],
+    rendered_content: 'Read section 3 and its Further Reading, then bring your notes and a closed-book model.',
+    source_urls: ['https://e.com'],
+  });
+  const r = await runFoundationClaims(
+    'it8',
+    'Read section 3 and its Further Reading, then bring your notes and a closed-book model.',
+    plan
+  );
+  assert('reading-brief plan turn needs no foundation beat', allowed(r));
+}
+{
+  const feedback = JSON.stringify({
+    gate: 'fact_check',
+    turn_kind: 'grade_feedback',
+    grade_verdicts: [{ id: 1, concept: 'entropy', verdict: 'fail', trace_step: 'direction' }],
+    visual_plan: { kind: 'prose', why: 'the failed step is one sentence' },
+    claims: [{ id: 1, claim: 'the trace missed the direction check' }],
+    rendered_content: 'Your trace named the right knob but not which way it moves.',
+    source_urls: ['https://e.com'],
+  });
+  const r = await runFoundationClaims(
+    'it9',
+    'Your trace named the right knob but not which way it moves.',
+    feedback
+  );
+  assert('review grade-feedback turn needs no foundation beat', allowed(r));
+}
+{
+  const r = await runFoundationClaims('it10', FOUND_DRAFT, ideaEnv(FOUND_DRAFT, FOUNDATION, 'lecture'));
+  assert(
+    'claims turn with an unknown turn_kind is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('turn_kind')
+  );
+}
+
+// ============================================================================
+// Auto-ingest at lesson end (G-interrogation-stance / writes & session end):
+// after the Tutor's handoff passes tutor-audit, the Tutor dispatches clerk and
+// review-gate inline and then presents the completion summary. The summary must
+// render with those receipts present.
+// ============================================================================
+{
+  await setPrompt('[[FLOW:teach]] teach me fixture linear algebra');
+  const lessonPath = 'Learning System/Lessons/Lesson — Fixture — 2026-10-25.md';
+  await writeCall(lessonPath, 'ai1');
+  const tutorEnv = JSON.stringify({ gate: 'tutor_audit', flow: 'lesson-end', files: [lessonPath] });
+  await dispatch('tutor-audit', tutorEnv, 'ai2');
+  await fg('ai2', 'tutor-audit', tutorEnv, JSON.stringify({ verdict: 'PASS', evidence: ['read lesson file'], issues: [], context_notes: [] }));
+  const clerkEnv = JSON.stringify({ mode: 'ingest', source: 'Learning System/Core/Pending Ingest.json' });
+  await dispatch('clerk', clerkEnv, 'ai3');
+  await fg('ai3', 'clerk', clerkEnv, CLERK_WRITES);
+  const rgEnv = JSON.stringify({ gate: 'review', concepts: ['Fixture'], target_files: [{ path: 'Knowledge Wiki/wiki/Fixture.md' }] });
+  await dispatch('review-gate', rgEnv, 'ai4');
+  await fg('ai4', 'review-gate', rgEnv, REVIEW_PASS);
+  const summary = await msg(
+    '[[TURN:none]]\nLesson complete: the v1 model missed the mechanism, the attack exposed it, and v2 now carries the condition. Ingested one wiki page; next review in 3 days. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}',
+    'stop'
+  );
+  assert('lesson-end auto-ingest summary renders after tutor-audit + clerk + review-gate', allowed(summary));
+}

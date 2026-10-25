@@ -37,6 +37,15 @@ are supplied) and the `instructed` intent:
 - **Follow-ups carry the choice:** a `FollowUpItem` whose text is clicked and sent as the learner's
   next message must name the selected values explicitly ("Show the derivative of x² at x = 3"), never
   a bare "Yes"/"More" that loses the state.
+- **Predict-Before-Render (mandatory):** the payload must render its setup with the output canvas
+  (curve, result, final state) locked or hidden, require a committed prediction (typed value,
+  selection, or coordinates) before anything runs, and only then render the true behaviour overlaid
+  against the prediction (Predicted vs Actual). A payload that renders its output on load, or whose
+  reveal can run without a prediction, is `ISSUES`. The prose must ask for the prediction *before*
+  directing attention to the reveal, and must not name the mechanism the learner is about to infer.
+- **One idea, no answer leaks:** one idea per widget, not a dashboard. Interactive controls must not
+  reveal the solution before the learner works through the problem. No answer key, no concept label
+  on a selection item, no pre-triage roadmap.
 - **Not buggy/misleading:** reject NaN/Infinity, empty series, duplicate ids, degenerate ranges,
   self-referential actions.
 

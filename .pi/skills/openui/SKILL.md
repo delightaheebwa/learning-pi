@@ -37,16 +37,34 @@ Rules of thumb:
 1. **Author the payload.** Write OpenUI Lang: `root = Card([...])` MUST be the first line; every
    other name is defined once and reachable from `root`. Arguments are positional
    (`TextContent("Title", "large")`, never `TextContent(text: "Title")`).
-2. **Assemble the turn.** `[[TURN:ui]]` + the supporting prose (1–3 sentences up front, then what to
+2. **Predict-Before-Render (mandatory).** Render the setup, but lock or hide the output canvas
+   (curve, result, final state). Require a committed prediction — a typed input, a selection, or
+   coordinates — before anything runs. Only then render the true behaviour overlaid against the
+   prediction (**Predicted vs Actual**). A widget that renders its output on load, or whose reveal can
+   run without a prediction, is `ISSUES`. If the prediction was wrong, the next turn explains the
+   **delta** between the learner's mental renderer and reality. No leaks: the prose asks for the
+   prediction *before* directing attention to the reveal, and never names the mechanism the learner is
+   about to infer.
+3. **Assemble the turn.** `[[TURN:ui]]` + the supporting prose (1–3 sentences up front, then what to
    notice) + a single ` ```openui ` fence holding the payload + optional closing prose.
-3. **Verify.** `dispatch` ONE foreground `ui-audit`:
+4. **Verify.** `dispatch` ONE foreground `ui-audit`:
    `{"gate":"ui_audit","concept":"…","instructed":"what the widget must make obvious","payload":"<the exact OpenUI Lang source>","rendered_content":"the full turn draft (supporting words + the fenced payload)","sources":[{"label","url?","excerpt?","file?"}],"context":"…"}`.
    On `ISSUES`: fix and re-dispatch the **materially corrected** draft until the verifier returns
    PASS — no cycle cap, any severity blocks.
-4. **Emit unchanged.** Send the audited draft as `[[TURN:ui]]`. The bridge extracts the ` ```openui `
+5. **Emit unchanged.** Send the audited draft as `[[TURN:ui]]`. The bridge extracts the ` ```openui `
    fence, wraps it in the OpenUI HTML shell (self-hosted pinned bundle + `iframe:height` +
    `sendPrompt` bridge), and delivers it as an embed **below** the prose. Talk about **what it shows**
    ("drag the learning rate past 0.5 and watch it overshoot") — the widget is already rendered.
+
+## Declared visual plan on every substantive turn
+
+Include `visual_plan` in every substantive `fact-check` dispatch:
+`{"kind":"prose|mermaid|widget|html|none","why":"<why this is the smallest format that carries the idea>","widget_file":"<path when kind is widget|html>"}`.
+The verifier flags `VISUAL_PLAN_MISSING` when no plan is declared, and `VISUAL_MISSED` when the draft
+carries a shape/relationship, a parameter→outcome relation, or a multi-value comparison that prose
+cannot carry. Declaring `none` with a real reason is legal; guessing prose for a dynamic relationship
+is not. No visual may preview the mechanism, the patched rule, or the qualitative outcome the learner
+is about to be asked for; no roadmap before triage.
 
 ## OpenUI Lang (authoring rules)
 

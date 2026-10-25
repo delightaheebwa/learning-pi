@@ -76,10 +76,15 @@ export interface Receipt {
   // joined. Lets the gate check that every hard fact in the draft was actually
   // placed before the verifier (see `missingHardFacts`).
   claimsText?: string;
-  // The kind this teach/resume claims turn declared (`idea`, `answer`, `repair`,
-  // `hint`, `plan`). A turn that introduces a new idea must declare `idea` and
-  // carry a `foundation` block, or it is withheld as FOUNDATION_INCOMPLETE.
+  // The kind this teach/resume claims turn declared (`plan`, `triage`,
+  // `attack`, `hint`, `autopsy`, `answer`, `repair`, `grade_feedback`, `idea`).
+  // A triage/attack turn must carry its shape fields; an `idea` turn must carry
+  // a `foundation` block; other kinds need neither.
   turnKind?: string;
+  // Triage rows supplied on a `turn_kind:"triage"` turn.
+  triage?: TriageRow[];
+  // The single attack subtype supplied on a `turn_kind:"attack"` turn.
+  attack?: string;
   // The four-beat theoretical foundation a new idea must ship with (see
   // `foundationGaps`). Each beat is an excerpt of prose actually present in the
   // verified draft.
@@ -663,26 +668,94 @@ export const FOUNDATION_FIELDS = ["problem", "where_from", "conditions", "contra
 export const FOUNDATION_BIND_THRESHOLD = 0.6;
 
 /** turn_kinds that do NOT introduce a new idea and need no foundation beat. */
-const NON_IDEA_TURN_KINDS = new Set(["answer", "repair", "hint", "plan"]);
+const NON_IDEA_TURN_KINDS = new Set([
+  "answer",
+  "repair",
+  "hint",
+  "plan",
+  "triage",
+  "attack",
+  "autopsy",
+  "grade_feedback",
+]);
+
+/** The interrogation turn kinds a teach/resume claims turn may declare. */
+export const VALID_TURN_KINDS = new Set([...NON_IDEA_TURN_KINDS, "idea"]);
+
+/** The attack menu. One attack per turn is enforced by the shape check. */
+export const ATTACK_KINDS = new Set([
+  "mechanism",
+  "counterexample",
+  "perturbation",
+  "source_clash",
+  "sabotage",
+  "synthesis",
+]);
+
+export interface TriageRow {
+  item?: string;
+  bucket?: string;
+  evidence?: string;
+}
 
 /**
- * Deterministic foundation-beat check for a teach/resume `claims` turn (the
- * complement of the fact-check's correctness check: fact-check verifies that
- * everything *said* is true; this verifies that the load-bearing *why* was
- * actually said). Returns the list of gaps — empty means the turn is complete.
+ * Shape check for a `turn_kind:"triage"` turn: every row names an item and a
+ * valid bucket, and every non-solid row carries grounding (the learner's quote
+ * for `suspect`, the source citation for `missing`). A row with no grounding is
+ * the `UNGROUNDED_HOLE` failure, caught deterministically before the verifier.
+ */
+function triageGaps(triage: TriageRow[] | undefined): string[] {
+  if (!Array.isArray(triage) || triage.length === 0) return ["triage (missing)"];
+  const gaps: string[] = [];
+  triage.forEach((row, i) => {
+    const n = i + 1;
+    if (!row || typeof row !== "object") {
+      gaps.push(`triage row ${n} (not an object)`);
+      return;
+    }
+    const item = typeof row.item === "string" ? row.item.trim() : "";
+    const bucket = typeof row.bucket === "string" ? row.bucket.trim().toLowerCase() : "";
+    const evidence = typeof row.evidence === "string" ? row.evidence.trim() : "";
+    if (!item) gaps.push(`triage row ${n} (no item)`);
+    if (!["solid", "missing", "suspect"].includes(bucket)) {
+      gaps.push(`triage row ${n} (bucket ${bucket ? `'${bucket}'` : "missing"} is not solid|missing|suspect)`);
+    } else if (bucket !== "solid" && !evidence) {
+      gaps.push(`triage row ${n} (${bucket} row has no learner quote or source citation)`);
+    }
+  });
+  return gaps;
+}
+
+/** Shape check for a `turn_kind:"attack"` turn: exactly one known subtype. */
+function attackGaps(attack: string | undefined): string[] {
+  const kind = typeof attack === "string" ? attack.trim().toLowerCase() : "";
+  if (!kind) return ["attack (missing)"];
+  if (kind.includes(",") || kind.includes("|")) return [`attack '${kind}' (declare exactly one subtype)`];
+  if (!ATTACK_KINDS.has(kind)) return [`attack '${kind}' (unknown subtype)`];
+  return [];
+}
+
+/**
+ * Deterministic shape check for a teach/resume `claims` turn.
  *
- *   - no valid `turn_kind`             -> ["turn_kind"]
- *   - `turn_kind` in {answer,repair,hint,plan} -> [] (no beat required)
- *   - `turn_kind: "idea"`              -> every field non-empty AND its prose
- *     bound into the verified draft; a missing or unbound field is a gap.
+ *   - no/invalid `turn_kind`             -> ["turn_kind"]
+ *   - `triage`                           -> every row valid and grounded
+ *   - `attack`                           -> exactly one known subtype
+ *   - `autopsy` / answer/repair/hint/... -> [] (no beat required)
+ *   - `turn_kind: "idea"`                -> every foundation field non-empty AND
+ *     its prose bound into the verified draft
  */
 export function foundationGaps(
   renderedContent: string | undefined,
   turnKind: string | undefined,
-  foundation: FoundationBlock | undefined
+  foundation: FoundationBlock | undefined,
+  triage?: TriageRow[],
+  attack?: string
 ): string[] {
   const kind = typeof turnKind === "string" ? turnKind.trim().toLowerCase() : "";
-  if (kind !== "idea" && !NON_IDEA_TURN_KINDS.has(kind)) return ["turn_kind"];
+  if (!VALID_TURN_KINDS.has(kind)) return ["turn_kind"];
+  if (kind === "triage") return triageGaps(triage);
+  if (kind === "attack") return attackGaps(attack);
   if (kind !== "idea") return [];
   const draft = renderedContent || "";
   const gaps: string[] = [];
@@ -1168,6 +1241,12 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
             .join("\n")
         : undefined,
     turnKind: envelope && typeof envelope.turn_kind === "string" ? envelope.turn_kind : undefined,
+    triage:
+      envelope && Array.isArray(envelope.triage)
+        ? (envelope.triage as TriageRow[])
+        : undefined,
+    attack:
+      envelope && typeof envelope.attack === "string" ? envelope.attack : undefined,
     foundation:
       envelope && envelope.foundation && typeof envelope.foundation === "object" && !Array.isArray(envelope.foundation)
         ? (envelope.foundation as FoundationBlock)

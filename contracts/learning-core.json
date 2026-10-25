@@ -1,7 +1,7 @@
 {
-  "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' \u2014 see CONTRACT.md).",
-  "version": 7,
-  "updated": "2026-10-18",
+  "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
+  "version": 8,
+  "updated": "2026-10-25",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -111,7 +111,7 @@
     {
       "id": "G-infer-claims-from-bound",
       "severity": "hard",
-      "statement": "A dropped claims tag is recovered only from a content-bound passing fact-check receipt (\u226595% coverage plus a bounded unverified tail of \u226412 tokens); unbound messages still withhold.",
+      "statement": "A dropped claims tag is recovered only from a content-bound passing fact-check receipt (≥95% coverage plus a bounded unverified tail of ≤12 tokens); unbound messages still withhold.",
       "tests": [
         "dropped claims tag recovered from bound fact-check"
       ]
@@ -153,7 +153,7 @@
     {
       "id": "G-foundation-beats",
       "severity": "hard",
-      "statement": "The gate checks omission, not just commission. In a teach/resume flow a claims turn must declare a `turn_kind`: `idea` (introduces a new definition, formula, mechanism, or micro-step) carries a `foundation` block with all four beats \u2014 `problem` (what it is for), `where_from` (derivation/mechanism), `conditions` (assumptions/boundary cases), `contrast` (nearest-neighbour distinction) \u2014 each non-empty and its prose present in the verified draft; `answer`/`repair`/`hint`/`plan` need no foundation. A missing or unknown `turn_kind`, or an `idea` turn missing or not binding a beat, is withheld as FOUNDATION_INCOMPLETE, so a fluent what-only summary that is factually true and fully span-covered cannot render as if complete. At the retry cap such a turn is withheld entirely rather than shown. A fact_check verdict that names a non-empty `omitted_foundations[]` (load-bearing theory in the sources with no trace in the draft) is an ISSUES verdict even when it also says PASS.",
+      "statement": "The gate checks omission, not just commission. In a teach/resume flow a `claims` turn must declare a valid `turn_kind`: `plan`, `triage`, `attack`, `hint`, `autopsy`, `answer`, `repair`, `grade_feedback`, or `idea`. A `triage` turn ships a non-empty `triage[]` where every row names an item and a valid bucket and every non-solid row carries the learner's quote or a source citation; an `attack` turn ships exactly one subtype from the menu (`mechanism`/`counterexample`/`perturbation`/`source_clash`/`sabotage`/`synthesis`); `plan`/`autopsy`/`answer`/`repair`/`hint`/`grade_feedback` need no foundation. An `idea` turn (a new definition, formula, mechanism, or micro-step the learner actually asked for) carries all four beats — `problem`, `where_from`, `conditions`, `contrast` — each non-empty and its prose present in the verified draft. A missing or unknown `turn_kind`, a malformed `triage[]`, or an attack without one valid subtype is withheld (`FOUNDATION_INCOMPLETE`) with a remedy naming the fix, so a fluent what-only lecture, an ungrounded triage claim, or a chain of attacks cannot render as if complete. Foundation beats are also the completeness rubric for the learner's own model: a missing beat is an attack target, never a Tutor paragraph. A fact-check verdict naming a non-empty `omitted_foundations[]` is an `ISSUES` verdict even when it also says PASS; the omission check is scoped to load-bearing conceptual gaps, never missing derivations.",
       "tests": [
         "idea turn with a complete bound foundation renders",
         "teach/resume claims turn without turn_kind is withheld",
@@ -224,7 +224,7 @@
     {
       "id": "G-review-session-audit",
       "severity": "hard",
-      "statement": "After the review flow's writes land \u2014 the delegated review-clerk run, or a session-note write \u2014 a summary turn requires a review-session audit receipt. Only a receipt with zero issues releases the summary; an ISSUES verdict blocks it (REVIEW_SESSION_AUDIT_ISSUES) until the writes are corrected and a fresh audit returns zero issues at any severity, with no per-flow pass cap.",
+      "statement": "After the review flow's writes land — the delegated review-clerk run, or a session-note write — a summary turn requires a review-session audit receipt. Only a receipt with zero issues releases the summary; an ISSUES verdict blocks it (REVIEW_SESSION_AUDIT_ISSUES) until the writes are corrected and a fresh audit returns zero issues at any severity, with no per-flow pass cap.",
       "tests": [
         "review-session audit required after session-note write",
         "review-session pass releases the close summary",
@@ -254,7 +254,7 @@
     {
       "id": "G-retry-cap",
       "severity": "hard",
-      "statement": "Repeated withheld turns are capped; after the cap the turn surfaces with \u26d4 UNVERIFIED rather than looping forever.",
+      "statement": "Repeated withheld turns are capped; after the cap the turn surfaces with ⛔ UNVERIFIED rather than looping forever.",
       "tests": [
         "repeated withheld turns are blocked before the cap",
         "retry cap surfaces unverified after 2 withholdings",
@@ -264,7 +264,7 @@
     {
       "id": "G-hard-fact-withhold",
       "severity": "hard",
-      "statement": "At the retry cap, a claims turn whose draft states hard facts (extractHardFacts: URL, LaTeX/math expression, scientific notation, decimal, percentage, or 3+ digit integer) is withheld entirely \u2014 only the banner renders, no content \u2014 rather than delivered as `\u26d4 UNVERIFIED`, but only when the block implicates verification (`FACT_CHECK_*`, `CLAIMS_INCOMPLETE`, `FOUNDATION_INCOMPLETE`, `NO_FACT_CHECK_MATCH`). A foundation-incomplete idea turn (`FOUNDATION_INCOMPLETE`) is withheld the same way even with no hard facts, so a complete-sounding but foundation-less summary is never shown. A verified draft blocked only on context (`NO_SCOUT_CONTEXT`/`NO_REVIEW_CONTEXT`) degrades gracefully. Non-hard-fact prose still degrades with the UNVERIFIED banner, and G-retry-cap semantics are unchanged for every other turn (grade/quiz/none). This deliberately inverts the anti-dead-end policy for load-bearing facts and for the missing theoretical foundation.",
+      "statement": "At the retry cap, a claims turn whose draft states hard facts (extractHardFacts: URL, LaTeX/math expression, scientific notation, decimal, percentage, or 3+ digit integer) is withheld entirely — only the banner renders, no content — rather than delivered as `⛔ UNVERIFIED`, but only when the block implicates verification (`FACT_CHECK_*`, `CLAIMS_INCOMPLETE`, `FOUNDATION_INCOMPLETE`, `NO_FACT_CHECK_MATCH`). A foundation-incomplete idea turn (`FOUNDATION_INCOMPLETE`) is withheld the same way even with no hard facts, so a complete-sounding but foundation-less summary is never shown. A verified draft blocked only on context (`NO_SCOUT_CONTEXT`/`NO_REVIEW_CONTEXT`) degrades gracefully. Non-hard-fact prose still degrades with the UNVERIFIED banner, and G-retry-cap semantics are unchanged for every other turn (grade/quiz/none). This deliberately inverts the anti-dead-end policy for load-bearing facts and for the missing theoretical foundation.",
       "tests": [
         "retry cap withholds a hard-fact claims turn",
         "retry cap still delivers non-hard-fact prose",
@@ -274,7 +274,7 @@
     {
       "id": "G-out-of-scope-demoted",
       "severity": "policy",
-      "statement": "Review findings are demoted to flags only when EVERY finding CITES an explicit bookkeeping-path `location` (state/session/review/lesson notes, log/index bookkeeping, git metadata). A finding that cites a content location, or gives no location, is never demoted \u2014 a content defect that merely mentions a bookkeeping word in its `issue` text still blocks. The old issue-text fallback and the blanket low-severity demotion are removed.",
+      "statement": "Review findings are demoted to flags only when EVERY finding CITES an explicit bookkeeping-path `location` (state/session/review/lesson notes, log/index bookkeeping, git metadata). A finding that cites a content location, or gives no location, is never demoted — a content defect that merely mentions a bookkeeping word in its `issue` text still blocks. The old issue-text fallback and the blanket low-severity demotion are removed.",
       "tests": [
         "out-of-scope review issues with a bookkeeping location render as flags",
         "content review findings are not demoted by a bookkeeping word",
@@ -284,7 +284,7 @@
     {
       "id": "G-state-audit-blocking",
       "severity": "hard",
-      "statement": "The content gate (fact-check/quiz/grade/review) and the state gate are split. At the ingest/review close, the deterministic state audit's errors block the summary (`STATE_AUDIT_ERRORS`) while the drift is fixed and the audit re-runs clean, while warnings remain a non-blocking `\u26a0\ufe0f STATE AUDIT` banner. Warnings never withhold, so a warning cannot dead-end the flow. The block is subject to the standard retry cap: a persistent, unfixable error withholds twice and then degrades to `\u26d4 UNVERIFIED` rather than dead-ending the close.",
+      "statement": "The content gate (fact-check/quiz/grade/review) and the state gate are split. At the ingest/review close, the deterministic state audit's errors block the summary (`STATE_AUDIT_ERRORS`) while the drift is fixed and the audit re-runs clean, while warnings remain a non-blocking `⚠️ STATE AUDIT` banner. Warnings never withhold, so a warning cannot dead-end the flow. The block is subject to the standard retry cap: a persistent, unfixable error withholds twice and then degrades to `⛔ UNVERIFIED` rather than dead-ending the close.",
       "tests": [
         "state-audit error withholds the close summary",
         "state-audit warnings render a non-blocking banner",
@@ -480,7 +480,7 @@
     {
       "id": "G-grade-repair-dual-verify",
       "severity": "hard",
-      "statement": "A grade turn that also teaches (the diagnose-first repair) is covered by two receipts: the `grade-audit` covers the graded question/answer/verdict and the `fact-check` covers the repair prose (`rendered_content` = the full emitted turn). When the grade-audit does not cover the whole emitted text and no fact-check covers it, the turn is withheld (GRADE_AUDIT_STALE) with a remedy to fact-check the prose or split the turn \u2014 the gate never loops re-dispatching the grade-audit.",
+      "statement": "A grade turn that also teaches (the diagnose-first repair) is covered by two receipts: the `grade-audit` covers the graded question/answer/verdict and the `fact-check` covers the repair prose (`rendered_content` = the full emitted turn). When the grade-audit does not cover the whole emitted text and no fact-check covers it, the turn is withheld (GRADE_AUDIT_STALE) with a remedy to fact-check the prose or split the turn — the gate never loops re-dispatching the grade-audit.",
       "tests": [
         "grade+repair turn allowed when grade-audit and fact-check both cover it",
         "grade+repair without a fact-check is GRADE_AUDIT_STALE"
@@ -489,7 +489,7 @@
     {
       "id": "G-grade-verdict-only-binds",
       "severity": "hard",
-      "statement": "A verdict-only grade turn (`[[TURN:grade]]` presenting only the graded answers and their verdicts, e.g. \"Correct on all three: W1 B, W2 C, W3 A\") renders with just the agreeing `grade-audit` receipt. The grade-audit binds the graded question/answer/verdict, which a terse confirmation does not repeat verbatim, so both the model judge (a GRADE TURNS carve-out to the 100% rule) and the deterministic fallback (every graded answer restated, turn no longer than half the graded question text) accept it. A teaching/repair tail is still not covered by the grade receipt and needs its own fact-check \u2014 the 2026-10-06 resume session looped as GRADE_AUDIT_STALE because a verdict-only turn could not bind at all.",
+      "statement": "A verdict-only grade turn (`[[TURN:grade]]` presenting only the graded answers and their verdicts, e.g. \"Correct on all three: W1 B, W2 C, W3 A\") renders with just the agreeing `grade-audit` receipt. The grade-audit binds the graded question/answer/verdict, which a terse confirmation does not repeat verbatim, so both the model judge (a GRADE TURNS carve-out to the 100% rule) and the deterministic fallback (every graded answer restated, turn no longer than half the graded question text) accept it. A teaching/repair tail is still not covered by the grade receipt and needs its own fact-check — the 2026-10-06 resume session looped as GRADE_AUDIT_STALE because a verdict-only turn could not bind at all.",
       "tests": [
         "verdict-only grade turn binds a full-sentence grade envelope",
         "verdict-only grade turn binds despite uncovered judge verdict",
@@ -508,7 +508,7 @@
     {
       "id": "B-withheld-banner-forwarded",
       "severity": "hard",
-      "statement": "A withheld or retry-capped turn surfaces the gate's own banner text written into message_end (\u26d4 WITHHELD / \u26d4 UNVERIFIED) \u2014 never the raw pre-verification draft, and never a bridge-authored substitute.",
+      "statement": "A withheld or retry-capped turn surfaces the gate's own banner text written into message_end (⛔ WITHHELD / ⛔ UNVERIFIED) — never the raw pre-verification draft, and never a bridge-authored substitute.",
       "tests": [
         "test_withheld_banner_forwarded",
         "test_unverified_banner_forwarded"
@@ -517,7 +517,7 @@
     {
       "id": "B-provider-error-surfaced",
       "severity": "hard",
-      "statement": "A provider failure (expired API key, quota, outage) reaches the bridge as an assistant message with empty content, stopReason=error, and an errorMessage. The bridge surfaces that reason as `\u26a0\ufe0f pi runtime error: <message>` instead of streaming an empty completion, so the learner can act on it rather than seeing a blank bubble (the 2026-10-19 Open WebUI session where chat and the Tutor preset both returned nothing). A later successful message in the same turn still wins.",
+      "statement": "A provider failure (expired API key, quota, outage) reaches the bridge as an assistant message with empty content, stopReason=error, and an errorMessage. The bridge surfaces that reason as `⚠️ pi runtime error: <message>` instead of streaming an empty completion, so the learner can act on it rather than seeing a blank bubble (the 2026-10-19 Open WebUI session where chat and the Tutor preset both returned nothing). A later successful message in the same turn still wins.",
       "tests": [
         "test_provider_error_with_no_content_surfaces_message",
         "test_provider_error_does_not_replace_real_text",
@@ -556,6 +556,76 @@
         "test_single_learning_writer",
         "test_two_chats_cannot_run_learning_turns_at_once",
         "test_general_chat_exempt_from_learning_lock"
+      ]
+    },
+    {
+      "id": "G-interrogation-stance",
+      "severity": "policy",
+      "statement": "The Tutor is a sparring partner and stress-tester, not a primary teacher. The pie/Open WebUI layer ships the same interrogation stance as the Antigravity layer: never teach a topic cold, read the learner's material, require a closed-book model, triage the model, attack one hole at a time, patch the learner's model (v1 -> breaking case -> v2), and graduate it with a naive-student clone. The retired teacher-first loop (probe -> plan -> mini-checkpoint lecture) is gone from the prompt resources.",
+      "tests": [
+        "APPEND_SYSTEM.md encodes the interrogation stance",
+        "learning-teach runs entry gate -> spine check -> triage -> attacks -> model patch/clone",
+        "learning-teach no longer carries the retired teacher-first flow",
+        "lesson-end auto-ingest summary renders"
+      ]
+    },
+    {
+      "id": "G-triage-shape",
+      "severity": "hard",
+      "statement": "A teach/resume `turn_kind:\"triage\"` turn carries a non-empty `triage[]`; every row has an item and a bucket in solid|missing|suspect, and every non-solid row carries grounding (the learner's exact words for suspect, a source citation for missing). A missing/empty table, an invalid bucket, or an ungrounded non-solid row withholds the turn (FOUNDATION_INCOMPLETE) with a triage-specific remedy.",
+      "tests": [
+        "triage turn with a grounded triage table renders",
+        "triage turn with an ungrounded suspect row is withheld",
+        "triage turn with no triage table is withheld"
+      ]
+    },
+    {
+      "id": "G-attack-shape",
+      "severity": "hard",
+      "statement": "A teach/resume `turn_kind:\"attack\"` turn declares exactly one subtype from the attack menu. A missing, unknown, or multiple subtype withholds the turn (FOUNDATION_INCOMPLETE) with an attack-specific remedy. The verifier additionally rejects an attack that does not target a non-solid triage row, a counterexample that does not satisfy the learner's statement as written, a perturbation of a cosmetic term, or an attack that fills the hole (SPOONFEEDING_DETECTED / LECTURE_SLIP).",
+      "tests": [
+        "attack turn with one valid subtype renders",
+        "attack turn with no subtype is withheld",
+        "attack turn with an unknown subtype is withheld"
+      ]
+    },
+    {
+      "id": "G-interrogation-turn-kinds",
+      "severity": "hard",
+      "statement": "Every teach/resume claims turn declares a valid turn_kind. `plan`, `triage`, `attack`, `hint`, `autopsy`, `answer`, `repair`, and `grade_feedback` need no foundation beat; only `idea` does. An unknown or absent kind is withheld (FOUNDATION_INCOMPLETE). A grade-feedback turn is a claims turn verified with `turn_kind:\"grade_feedback\"` + `grade_verdicts[]`; it must reproduce the audited verdicts exactly and never expose verification internals.",
+      "tests": [
+        "autopsy patch turn needs no foundation beat",
+        "reading-brief plan turn needs no foundation beat",
+        "review grade-feedback turn needs no foundation beat",
+        "claims turn with an unknown turn_kind is withheld"
+      ]
+    },
+    {
+      "id": "G-verifier-interrogation-audit",
+      "severity": "policy",
+      "statement": "The fixed verifier prompts police mental-model integrity as strictly as truth. `fact-check` audits attack grounding and counterexample validity, triage integrity, model ghostwriting, ungrounded holes, lecture slips, spoonfeeding, cue leakage, and visual sufficiency (visual_plan present; VISUAL_PLAN_MISSING / VISUAL_MISSED). `grade-audit` grades the mechanism and the direction/extreme check, applies the attack and battery rubrics, flags SHALLOW_PASS when the learner merely remixes the Tutor's recent turns, records sure-but-fail as false confidence, and requires a real `naive_student_receipt` for a clone. `quiz-audit` enforces context-appropriate item types, the concept-label ban, and the qualitative-trace requirement.",
+      "tests": [
+        "fact-check audits ghostwriting",
+        "grade-audit grades traces",
+        "quiz-audit enforces MCQ legality"
+      ]
+    },
+    {
+      "id": "G-clone-protocol",
+      "severity": "hard",
+      "statement": "Graduation for a concept/design runs the naive-student clone: the learner's patched model v2 is handed over verbatim (never a Tutor paraphrase) plus the concept, a seeded misconception, prerequisite level, and a qualitative prediction/tool-choice task. The clone reports NAIVE_STUDENT_RECEIPT with task_succeeded and questions_unanswered; a failed clone is a fail regardless of the claimed verdict, a missing receipt is an ISSUES verdict, and the outcome is logged as feynman_pass/feynman_fail. v1 and v2 are preserved verbatim in order with the breaking case labelled between them.",
+      "tests": [
+        "naive-student runs the clone protocol",
+        "review flow is unlabeled/trace-graded"
+      ]
+    },
+    {
+      "id": "G-review-no-mcq",
+      "severity": "hard",
+      "statement": "Review and solo batches test cue selection and transfer, not recognition: no MCQs (MCQs are legal only in a legacy probe), items are unlabeled for selection/application, and the learner must produce the 3-line qualitative trace (cue & principle -> mechanism/knob-turn -> direction & extreme check). Review/solo batches include operational items (perturbation, misapplication, decoy/near-miss). A review presents verified feedback and pauses for learner questions before any state is persisted; `review-clerk` runs only on an explicit \"no questions\".",
+      "tests": [
+        "review flow is unlabeled/trace-graded",
+        "quiz-audit enforces MCQ legality"
       ]
     }
   ]

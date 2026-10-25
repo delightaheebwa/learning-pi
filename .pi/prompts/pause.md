@@ -1,7 +1,12 @@
 ---
-description: Pause the current lesson and bank progress
+description: Pause the interrogation and bank the model + open attacks
 ---
 [[FLOW:resume]]
-Pause the current lesson where we are. Load the `learning-teach` skill and run the pause protocol: an exit ticket for today's mini-checkpoints only, a partial lesson file with Status + Resume-from pointer (`Checkpoint N/M, mini K/L`), and a partial `Pending Ingest.json` (status, resume_from, concepts, mistakes). Write no `Learning System/` files until this handoff, then dispatch one foreground `tutor-audit` on the written batch. Finally run the Ingest flow via the `clerk` subagent to bank today's progress (this keeps the Scout digest and the lesson in-progress).
+Pause the interrogation cleanly. Load the `learning-teach` skill and run its pause protocol.
 
-Begin every assistant message with a turn tag on its first line — `[[TURN:quiz]]` (exit ticket), `[[TURN:grade]]` (grading), or `[[TURN:none]]` (summaries). The gate strips the tag before the learner sees it. Dispatch each verifier once with `dispatch({ agent, task: { ...envelope... } })` (foreground) and wait for its verdict before emitting; if a message is withheld, re-emit the verified draft or fix the tag — never re-dispatch the same draft.
+1. Ask ONE model-recall exit ticket: "Without looking at your notes, state the part of your model you are least sure about and one case you think might break it." Verify it with `quiz-audit` (`context:"practice"`) and grade the answer with `grade-audit` (mechanism + proposed breaking case); a fail is recorded, not softened.
+2. Write the partial handoff batch once: lesson file with `Status: Paused at Checkpoint N/M, mini K/L` and a `## Resume` section naming the next unresolved attack + exact source pointer; session note; learning record; `Pending Ingest.json` with `partial:true`, `status:"in-progress"`, `resume_from`, `learner_model:{v1,v2}` (verbatim), `triage`, `open_attacks`, `concepts`, `mistakes`, `attempts`, `dependency_events`.
+3. Dispatch ONE foreground `tutor-audit` on the batch; fix and re-audit until zero issues.
+4. Tell the learner the model and open attacks are banked, run `/ingest` to sync the wiki/state, and `/continue` picks up at the first unresolved attack with no re-reading.
+
+Begin every assistant message with a turn tag. Never write state outside this handoff batch.

@@ -9,9 +9,9 @@ contains **no learning state**.
 An AI tutor that actually teaches you things — and remembers what you know.
 
 - **You learn real subjects** (`/teach eigenvalue decomposition`, or `/lesson`
-  for the next curriculum lesson). The tutor first checks what you already
-  know, shows you a plan, then teaches in small steps with questions along
-  the way.
+  for the next curriculum lesson). You read the material and bring notes plus a
+  closed-book model; the tutor triages that model, attacks the holes one at a
+  time, and never lectures the topic cold.
 - **It can't bluff you.** Every claim the tutor makes is fact-checked by an
   independent verifier before you see it. Anything unverified is withheld,
   not shown.
@@ -230,7 +230,7 @@ cd ~/learning-system && pi        # approve/trust the project once
 Slash commands: `/review`, `/solo` (an AI-free closed-book check — no teaching or hints),
 `/ingest <content>`, `/teach <topic>`, `/lesson`, `/continue`, `/pause`,
 `/audit`.
-The main pi session acts as the **Tutor**; `scout`, `clerk`, and the verifier subagents run as
+The main pi session acts as the **Tutor**; `scout`, `clerk`, `naive-student` (the graduation clone), and the verifier subagents run as
 children. The Tutor writes only its four handoff artifacts (lesson file, session note, learning
 record, `Pending Ingest.json`) at a pause or lesson end; the **Clerk** reconciles position/state
 files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at
@@ -251,6 +251,7 @@ Configured in `.pi/settings.json` (project scope only):
 | --- | --- |
 | Tutor (main session) | `glm-5.3-flash` |
 | Scout / Clerk / review-scout / review-clerk | `deepseek-v4.1-flash` |
+| Graduation clone (`naive-student`) | `deepseek-v4.1-flash` |
 | Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `ui-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Clerk's writes) |
 | Lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Scout digest) |
@@ -269,7 +270,7 @@ assistant turn unless the matching, **passing** receipt is present:
 | Turn contains | Required receipt |
 | --- | --- |
 | Teaching claims (Tutor) | `fact-check` whose `rendered_content` covers the emitted text and has no `ISSUES`. With a judge configured the rule is **100% span coverage** (the judge checks every sentence); the legacy path approximates it with ≥85% token coverage + a length guard |
-| A new idea during teach/resume | the `fact-check` envelope carries `turn_kind` plus, for an `idea`, a four-beat `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft; a turn with no `turn_kind`, or an `idea` missing/unbinding a beat, is withheld (`FOUNDATION_INCOMPLETE`) — a factually correct "what"-only summary cannot render as if complete. The verifier also returns `omitted_foundations[]` (source theory with no trace in the draft), which is an `ISSUES` verdict. `answer`/`repair`/`hint`/`plan` need no foundation |
+| A `claims` turn during teach/resume | the `fact-check` envelope carries a valid `turn_kind`: `plan`/`triage`/`attack`/`hint`/`autopsy`/`answer`/`repair`/`grade_feedback`/`idea`. A `triage` turn ships a grounded `triage[]` (learner quote for every `suspect`, source citation for every `missing`); an `attack` turn ships exactly one subtype (`mechanism`/`counterexample`/`perturbation`/`source_clash`/`sabotage`/`synthesis`); only an `idea` turn ships the four-beat `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft. A missing/unknown `turn_kind`, an ungrounded triage table, or an attack with no single subtype is withheld (`FOUNDATION_INCOMPLETE`) — a fluent what-only lecture or a chain of ungrounded attacks cannot render as if complete. The verifier also returns `omitted_foundations[]` (load-bearing *conceptual* theory with no trace in the draft), which is an `ISSUES` verdict; missing derivations are not omissions |
 | A question batch | `quiz-audit` returning `PASS` (zero issues); any issue, at any severity, blocks until fixed (uncapped — re-check until zero issues). The envelope carries `questions_json` **and** `rendered_content` = the full batch text (intro/instructions + every question + its options), which binds the whole emitted turn |
 | A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced. One batched `items[]` envelope grades every answer from a single learner reply (never one subagent per answer) |
 | A `Learning System/` handoff write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` (once per handoff batch; every issue blocks at any severity; out-of-scope observations go to `context_notes`) |
@@ -472,14 +473,14 @@ can be the face while pi stays the brain** (gate, subagents, skills run unchange
 holds only chat transcripts). `deploy/` runs Open WebUI in Docker in front of a host
 `pi-bridge` systemd service. A verified `[[TURN:ui]]` turn rides out as a self-hosted OpenUI
 widget embed below the prose (`bridge/genui.py` + `deploy/openui/`, served by the installer).
-Behavior contract: `B-*` invariants in `CONTRACT.md` / `contracts/learning-core.json` (v7, 54
+Behavior contract: `B-*` invariants in `CONTRACT.md` / `contracts/learning-core.json` (v8, 62
 invariants). Details: [`bridge/README.md`](bridge/README.md),
 [`deploy/README.md`](deploy/README.md), [`deploy/SECURITY.md`](deploy/SECURITY.md).
 
 ### Repo layout for the gate
 
 ```
-CONTRACT.md                  declared behavior (the thing updates must not break; v7, 54 invariants 2026-10-18)
+CONTRACT.md                  declared behavior (the thing updates must not break; v8, 62 invariants 2026-10-25)
 contracts/learning-core.json machine-readable invariants -> test names
 bridge/                      OpenAI-compatible pi-bridge (B-* invariants) + README
 deploy/                      Docker Open WebUI + pi-bridge.service + searxng + README/SECURITY

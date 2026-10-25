@@ -131,27 +131,42 @@ export function createGate(options: GateOptions = {}): GateEngine {
     if (i >= 0) run.receipts.splice(i, 1);
   };
 
-  // Foundation beats (G-foundation-beats) apply only to the teaching flows: a
-  // new idea delivered during teach/resume must ship its theoretical
-  // foundation, not just the "what". Other flows (review/solo/ingest) keep the
-  // existing behavior.
+  // Turn-shape checks (G-foundation-beats / G-triage-shape / G-attack-shape)
+  // apply only to the teaching flows: a teach/resume claims turn must declare
+  // its shape (triage table, one attack subtype, or an idea's foundation).
+  // Other flows (review/solo/ingest) keep the existing behavior.
   const foundationApplies = () => run.flow === "teach" || run.flow === "resume";
   const foundationGapsOf = (r: P.Receipt): string[] =>
-    foundationApplies() ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation) : [];
+    foundationApplies() ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation, r.triage, r.attack) : [];
   // A grade+repair turn is not a claims turn, so it may not *require* a
   // turn_kind; but if its repair prose is explicitly labelled an idea, the beat
   // is still enforced. (A disguise, e.g. an idea labelled `repair`, is the
   // verifier's honesty check — see fact-check.)
   const ideaFoundationGapsOf = (r: P.Receipt): string[] =>
     (r.turnKind || "").trim().toLowerCase() === "idea"
-      ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation)
+      ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation, r.triage, r.attack)
       : [];
   const foundationRemedy = (r: P.Receipt, gaps: string[]): string => {
     if (gaps.length === 1 && gaps[0] === "turn_kind") {
       return (
-        "This teach/resume claims turn declares no `turn_kind`. Add `\"turn_kind\": \"idea\"` (with a `foundation` block) " +
-        "when the turn introduces a new idea, or `\"answer\"|\"repair\"|\"hint\"|\"plan\"` when it does not. Re-dispatch the " +
-        "fact-check envelope with the field, then emit this draft unchanged."
+        "This teach/resume claims turn declares no valid `turn_kind`. Add `\"turn_kind\": \"idea\"` (with a `foundation` block) " +
+        "when the turn introduces a new idea the learner asked for; otherwise use `\"plan\"|\"triage\"|\"attack\"|\"hint\"|\"autopsy\"|\"answer\"|\"repair\"|\"grade_feedback\"`. " +
+        "Re-dispatch the fact-check envelope with the field, then emit this draft unchanged."
+      );
+    }
+    if (gaps.some((g) => g.startsWith("triage"))) {
+      return (
+        "This triage turn is missing a usable triage table (" + gaps.join(", ") + "). Send " +
+        "`\"triage\": [{\"item\": \"<claim/topic>\", \"bucket\": \"solid|missing|suspect\", \"evidence\": \"<learner quote or source citation>\"}]` " +
+        "in the fact-check envelope. Every `suspect` row quotes the learner's exact words and every `missing` row cites the source passage; " +
+        "a non-solid row with no grounding is an ungrounded hole. Re-dispatch, then emit the draft unchanged."
+      );
+    }
+    if (gaps.some((g) => g.startsWith("attack"))) {
+      return (
+        "This attack turn does not declare exactly one attack subtype (" + gaps.join(", ") + "). Send " +
+        "`\"attack\": \"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis\"` in the fact-check envelope — " +
+        "one attack per turn, targeting one `missing`/`suspect` item, and never filling the hole for the learner. Re-dispatch, then emit."
       );
     }
     return (

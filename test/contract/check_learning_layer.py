@@ -48,13 +48,19 @@ EXPECTED_AGENTS = {
     "review-gate",
     "review-session-audit",
     "ui-audit",
+    "naive-student",
 }
 EXPECTED_SKILLS = {"learning-system", "learning-teach", "learning-review", "llm-wiki", "openui"}
 
 FAILURES: list[str] = []
+# Every resource-level `PASS` becomes part of the contract-coverage corpus, so
+# a verifier-rule invariant can bind to a resource check as well as a behavior
+# suite (the resource files carry the fixed verifier prompts).
+RESOURCE_PASSES: list[str] = []
 
 
 def ok(msg: str) -> None:
+    RESOURCE_PASSES.append(msg)
     print(f"PASS {msg}")
 
 
@@ -161,6 +167,110 @@ def check_resources(root: Path) -> None:
     else:
         ok(f"resources: {len(evidence_agents)} verifier agents require an `evidence` list")
 
+    # --- Interrogation-layer resource contract -----------------------------
+    # The stance and flow live in the prompt resources; the fixed verifier
+    # prompts live in the agent files. These named checks bind the
+    # interrogation invariants to the files that actually encode the behavior.
+    agents_md = (root / ".pi" / "APPEND_SYSTEM.md").read_text(encoding="utf-8", errors="replace")
+    stance_needles = (
+        "sparring partner",
+        "never teach a topic cold",
+        "Closed-book spine check",
+        "Triage",
+        "Targeted attacks",
+        "Predict-Before-Render",
+        "naive-student",
+    )
+    missing_stance = [n for n in stance_needles if n.lower() not in agents_md.lower()]
+    if missing_stance:
+        fail(f"resources: APPEND_SYSTEM.md missing interrogation-stance rule(s): {missing_stance}")
+    else:
+        ok("resources: APPEND_SYSTEM.md encodes the interrogation stance (spine check, triage, attacks, clone, Predict-Before-Render)")
+
+    teach_text = (root / ".pi" / "skills" / "learning-teach" / "SKILL.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    teach_needles = (
+        "Entry gate",
+        "Closed-book spine check",
+        "Triage",
+        "Targeted attacks",
+        "Model patch",
+        "naive-student",
+    )
+    missing_teach = [n for n in teach_needles if n.lower() not in teach_text.lower()]
+    if missing_teach:
+        fail(f"resources: learning-teach/SKILL.md missing interrogation step(s): {missing_teach}")
+    else:
+        ok("resources: learning-teach runs entry gate -> spine check -> triage -> attacks -> model patch/clone")
+
+    for stale in ("probe → plan → teach", "Mini-checkpoint pause protocol", "elicit → attempt → state"):
+        if stale.lower() in teach_text.lower():
+            fail(f"resources: learning-teach/SKILL.md still carries the retired teacher-first flow ({stale!r})")
+            break
+    else:
+        ok("resources: learning-teach no longer carries the retired teacher-first flow")
+
+    fact_check_text = (root / ".pi" / "agents" / "fact-check.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    fact_needles = (
+        "MODEL_GHOSTWRITING",
+        "UNGROUNDED_HOLE",
+        "LECTURE_SLIP",
+        "SPOONFEEDING_DETECTED",
+        "CUE_LEAKAGE",
+        "VISUAL_PLAN_MISSING",
+        "omitted_foundations",
+    )
+    missing_fact = [n for n in fact_needles if n not in fact_check_text]
+    if missing_fact:
+        fail(f"resources: fact-check.md missing interrogation audit rule(s): {missing_fact}")
+    else:
+        ok("resources: fact-check audits ghostwriting, ungrounded holes, lecture slips, spoonfeeding, cue leakage, and visual sufficiency")
+
+    grade_text = (root / ".pi" / "agents" / "grade-audit.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    grade_needles = ("SHALLOW_PASS", "naive_student_receipt", "trace", "false confidence")
+    missing_grade = [n for n in grade_needles if n.lower() not in grade_text.lower()]
+    if missing_grade:
+        fail(f"resources: grade-audit.md missing interrogation grading rule(s): {missing_grade}")
+    else:
+        ok("resources: grade-audit grades traces, shallow passes, false confidence, and the naive-student clone")
+
+    quiz_text = (root / ".pi" / "agents" / "quiz-audit.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    quiz_needles = ("MCQ legality", "Concept-label ban", "Qualitative-trace requirement")
+    missing_quiz = [n for n in quiz_needles if n.lower() not in quiz_text.lower()]
+    if missing_quiz:
+        fail(f"resources: quiz-audit.md missing interrogation question rule(s): {missing_quiz}")
+    else:
+        ok("resources: quiz-audit enforces MCQ legality, the concept-label ban, and the qualitative-trace requirement")
+
+    naive_path = root / ".pi" / "agents" / "naive-student.md"
+    if not naive_path.is_file():
+        fail("resources: naive-student.md missing")
+    else:
+        naive_text = naive_path.read_text(encoding="utf-8", errors="replace")
+        naive_needles = ("NAIVE_STUDENT_RECEIPT", "task_succeeded", "learner_transcript", "read-only")
+        missing_naive = [n for n in naive_needles if n.lower() not in naive_text.lower()]
+        if missing_naive:
+            fail(f"resources: naive-student.md missing clone-protocol field(s): {missing_naive}")
+        else:
+            ok("resources: naive-student runs the clone protocol and reports task_succeeded honestly")
+
+    review_text = (root / ".pi" / "skills" / "learning-system" / "SKILL.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    review_needles = ("no MCQs", "qualitative trace", "mandatory question pause", "naive-student")
+    missing_review = [n for n in review_needles if n.lower() not in review_text.lower()]
+    if missing_review:
+        fail(f"resources: learning-system review flow missing interrogation rule(s): {missing_review}")
+    else:
+        ok("resources: review flow is unlabeled/trace-graded, has no MCQs, pauses for questions, and runs the clone")
+
 
 def check_contract(root: Path, test_outputs: list[Path]) -> None:
     contract_path = root / "contracts" / "learning-core.json"
@@ -173,7 +283,7 @@ def check_contract(root: Path, test_outputs: list[Path]) -> None:
         fail(f"contract: learning-core.json invalid: {exc}")
         return
 
-    passed: list[str] = []
+    passed: list[str] = list(RESOURCE_PASSES)
     for output in test_outputs:
         if output.is_file():
             for line in output.read_text(encoding="utf-8", errors="replace").splitlines():

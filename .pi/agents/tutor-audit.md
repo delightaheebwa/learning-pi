@@ -18,10 +18,17 @@ There is no `expected` block. You derive everything from the files themselves: r
 
 Checks (all against the four handoff artifacts only):
 
-- Lesson file exists at the stated path; its `Status:` and `Resume from:` pointer agree with each other (the resume point is not past the last completed checkpoint/mini-checkpoint, and no checkpoint or mini-checkpoint is claimed done beyond it). A `Status` of the form `paused at Checkpoint N/M, mini K/L` is valid; the checkpoint fraction and the mini index must be consistent with the `Resume from:` chain.
+- Lesson file exists at the stated path; its `Status:` and `Resume from:` pointer agree with each other (the resume point is not past the last completed checkpoint/mini-checkpoint, and no checkpoint or mini-checkpoint is claimed done beyond it). A `Status` of the form `Paused at Checkpoint N/M, mini K/L` is valid; the checkpoint fraction and the mini index must be consistent with the `Resume from:` chain.
 - Session note exists and records the same checkpoint/mini-checkpoint position and the same concept list as the lesson file.
 - Learning record (lesson-end only) is numbered highest-existing + 1 and its stated Bloom level / evidence matches the lesson's own record of what the learner demonstrated.
-- `Pending Ingest.json` exists and contains `lesson_file`, `session_file`, a non-empty `concepts` array, a `status` string, a `resume_from` string, and a `source_url` or `source_file`; its `partial` flag is `true` for a pause handoff and absent or `false` for a final lesson-end handoff. Its `lesson_file` / `session_file` values resolve to files that exist, and its `concepts` appear in the lesson file / session note.
+- **Interrogation artifacts (lesson-end flow).** The lesson file must record:
+  - the learner's **v1 model verbatim** and the material they brought (`## Material`, `## Learner model (v1)`);
+  - a triage table covering the load-bearing claims (`solid`/`missing`/`suspect`), with a learner quote or source citation on every non-solid row (`## Triage`);
+  - **one attack per non-solid triage item**, each with the target, weapon, the learner's verbatim answer, and a graded verdict (`## Attacks`);
+  - the **model patch** v1 → breaking case → v2, with both versions verbatim and the learner's words never rewritten (`## Model patch`);
+  - graduation: the clone outcome (`feynman_pass`/`feynman_fail`) and any battery outcomes not already exercised by the attacks (`## Graduation`).
+  A completed session with zero attacks, zero triage rows, or a v1/v2 rewritten in polished prose is an `ISSUES` finding. A purely qualitative battery (no derivations or computations) is correct.
+- `Pending Ingest.json` exists and contains `lesson_file`, `session_file`, a non-empty `concepts` array, a `status` string, a `resume_from` string, and a `source_url`/`source_file` (or `material[]`); its `partial` flag is `true` for a pause handoff and absent or `false` for a final lesson-end handoff. Its `lesson_file` / `session_file` values resolve to files that exist, and its `concepts` appear in the lesson file / session note. When present, `learner_model` must preserve `v1`/`v2` verbatim and agree with the lesson file; `triage`/`open_attacks`/`attempts` must agree with the lesson's records.
 - No artifact claims work that does not exist on disk, and no artifact contradicts another (do not verify against the Tutor's claims about state the Tutor does not write).
 
 Scope is the four Tutor handoff artifacts ONLY. Everything outside them is OUT OF SCOPE: cross-file position/status drift (MISSION.md, CURRICULUM.md, 💡 Learning Profile.md, 📚 Active Concepts.md, Learner History.md, 🧯 Mistakes.md, Attempts.json), wiki/index/log bookkeeping, and historical session notes are reconciled by the Clerk at `/ingest` and checked by `audit_state.py`. Report such observations in `context_notes` — NEVER as `issues`, even when they look stale. Do not audit wiki page content (that is the `review-gate`).
