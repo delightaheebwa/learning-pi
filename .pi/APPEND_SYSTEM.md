@@ -250,7 +250,7 @@ beats with `foundation`; an interrogation turn (`plan`/`triage`/`attack`/`hint`/
   attempt is the **illusion-of-competence** signal and is recorded as such. Every failed attack also
   produces a `mistakes[]` entry (concept, canonical `error_type` — gap → `structural`, misconception
   → `deviation`, false confidence → `metacognitive`, unverified assumption → `application` — the
-  `miss_class` diagnosis from `grade-audit` when it supplied one, and evidence = the attack that
+  `miss_class` diagnosis from `grade-audit` (always supplied on a fail), and evidence = the attack that
   exposed it) so `/review` drills the exact hole.
 - **Contradictions:** if sources disagree, surface it loudly with a visible callout: `⚠️ Sources
   disagree on [topic]...` naming both sides with verbatim quotes. Never smooth disagreements into a
