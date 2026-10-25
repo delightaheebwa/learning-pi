@@ -80,6 +80,15 @@ cp "$WORK/src/.gitignore" .gitignore
 for t in "🔄 Review Note Template.md" "📝 Session Note Template.md"; do
   [ -f "$WORK/src/Learning System/Core/$t" ] && cp "$WORK/src/Learning System/Core/$t" "Learning System/Core/$t"
 done
+# Knowledge graph ledger (propositions + reasoning chains). Copied from the
+# source when it carries it; otherwise scaffolded empty so graph.py works.
+mkdir -p "Knowledge Wiki/graph"
+if [ -d "$WORK/src/Knowledge Wiki/graph" ]; then
+  cp "$WORK/src/Knowledge Wiki/graph/"* "Knowledge Wiki/graph/" 2>/dev/null || true
+else
+  printf '# nodes — propositions (one JSON object per line). See README.md.\n' > "Knowledge Wiki/graph/nodes.jsonl"
+  printf '# chains — reasoning chains: premises jointly imply conclusion. See README.md.\n' > "Knowledge Wiki/graph/chains.jsonl"
+fi
 rm -rf "$WORK"
 trap - EXIT
 

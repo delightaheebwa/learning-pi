@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
-  "version": 8,
-  "updated": "2026-10-25",
+  "version": 9,
+  "updated": "2026-10-26",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -626,6 +626,43 @@
       "tests": [
         "review flow is unlabeled/trace-graded",
         "quiz-audit enforces MCQ legality"
+      ]
+    },
+    {
+      "id": "G-graph-world-only",
+      "severity": "hard",
+      "statement": "The knowledge graph is world knowledge, never learner state. `Knowledge Wiki/graph/nodes.jsonl` records subject-matter propositions (short name, one self-contained statement, verbatim aliases, provenance); `chains.jsonl` records reasoning chains (a premise set that jointly entails a conclusion, with provenance). No mastery, verdict, confidence, attempt, grade, score, level, or \"the learner understands X\" ever enters the ledgers — a misconception enters as its true correction. The merge CLI rejects any record field outside the ledger schema, and the graph-audit flags LEARNER_STATE_LEAK.",
+      "tests": [
+        "test_learner_state_field_is_rejected",
+        "graph agents keep learner state out"
+      ]
+    },
+    {
+      "id": "G-graph-provenance",
+      "severity": "hard",
+      "statement": "The graph is provenance-anchored and append-only: every proposition and chain carries at least one provenance point naming the source file it came from, and a re-encounter appends a link line whose verbatim phrasing joins `aliases[]` and whose provenance unions with the define line — never overwriting the original statement. The ledgers are written only through `pi/graph.py merge`/`retract` (Clerk-run during ingest); no agent hand-edits the JSONL.",
+      "tests": [
+        "test_link_appends_alias_and_provenance_without_overwriting",
+        "test_node_requires_statement_and_provenance",
+        "graph ledgers have a single writer"
+      ]
+    },
+    {
+      "id": "G-graph-derived-view",
+      "severity": "hard",
+      "statement": "Edges are not stored. The rendered graph is a derived, lossy view in which each reasoning chain becomes an implication node (premises -> implication -> conclusion), so two independent arguments for one conclusion stay two diamonds instead of a manufactured fan-in. Re-asserting an identical premise set/conclusion links the existing chain instead of duplicating it, and retracting a proposition drops every chain that depends on it (reported as dropped, never silently kept).",
+      "tests": [
+        "test_export_derives_one_implication_node_per_argument",
+        "test_chain_is_deduped_by_premise_set",
+        "test_retract_hides_node_and_drops_dependent_chains"
+      ]
+    },
+    {
+      "id": "G-graph-audit",
+      "severity": "policy",
+      "statement": "Graph extraction is an ingest duty: the Clerk distils the session's taught propositions and reasoning chains with `graph-extract`, merges them deterministically, and the parent dispatches an independent `graph-audit` over the written ids before the ingest closes. An ISSUES verdict (any severity) requires the Clerk to record a fix (retract/correct and re-merge) and a fresh audit to return zero issues — no cycle cap — and the ledgers are never hand-edited to satisfy the audit.",
+      "tests": [
+        "graph extraction is independently audited"
       ]
     }
   ]

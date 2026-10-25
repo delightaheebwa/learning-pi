@@ -95,6 +95,22 @@ else
   FAILED=1
 fi
 
+# 1b. knowledge-graph ledger suite (pi/graph.py, temp roots only) ----------
+: >"$TMP/graph.out"
+if python3 "$LAYER/test/graph/run_tests.py" >"$TMP/graph.out" 2>&1; then
+  if grep -q '^FAIL' "$TMP/graph.out"; then
+    echo "FAIL graph tests:"
+    grep '^FAIL' "$TMP/graph.out"
+    FAILED=1
+  else
+    echo "PASS graph tests ($(grep -c '^PASS' "$TMP/graph.out") assertions)"
+  fi
+else
+  echo "FAIL graph tests (runner exited non-zero):"
+  tail -20 "$TMP/graph.out"
+  FAILED=1
+fi
+
 # 2. bridge (OpenAI-compatible face over pi) ------------------------------
 # Runs before the contract-coverage check because the bridge suite is part of
 # the coverage corpus: run_tests.py emits `PASS <test id>` lines, the same
@@ -121,7 +137,7 @@ if [ "${#BRIDGE_PY[@]}" -gt 0 ]; then
 fi
 
 # 3. resources + contract coverage ---------------------------------------
-if python3 "$LAYER/test/contract/check_learning_layer.py" "$LAYER" "$TMP/gate.out" "$TMP/bridge.out"; then
+if python3 "$LAYER/test/contract/check_learning_layer.py" "$LAYER" "$TMP/gate.out" "$TMP/graph.out" "$TMP/bridge.out"; then
   :
 else
   FAILED=1

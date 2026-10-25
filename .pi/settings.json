@@ -15,8 +15,10 @@
       "review-session-audit": { "model": "muse-spark-1.3-contributor", "thinking": "high" },
       "review-gate": { "model": "muse-spark-1.3-contributor" },
       "scout-audit": { "model": "muse-spark-1.3-contributor" },
+      "graph-audit": { "model": "muse-spark-1.3-contributor", "thinking": "high" },
       "ui-audit": { "model": "muse-spark-1.3-contributor", "thinking": "high" },
-      "naive-student": { "model": "deepseek-v4.1-flash" }
+      "naive-student": { "model": "deepseek-v4.1-flash" },
+      "graph-extract": { "model": "deepseek-v4.1-flash" }
     }
   }
 }

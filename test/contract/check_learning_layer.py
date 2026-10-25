@@ -4,7 +4,7 @@
 Two jobs:
   1. Resources: the layer's own files exist and parse — APPEND_SYSTEM.md,
       .pi/settings.json, the eight prompt templates with their [[FLOW:...]]
-      markers, the twelve agent definitions, the five skills.
+      markers, the agent definitions, the five skills.
    2. Contract coverage: every invariant in contracts/learning-core.json has at
       least one passing test (by name substring), and every listed test name
       matches something. This keeps the contract registry and the tests from
@@ -49,6 +49,8 @@ EXPECTED_AGENTS = {
     "review-session-audit",
     "ui-audit",
     "naive-student",
+    "graph-extract",
+    "graph-audit",
 }
 EXPECTED_SKILLS = {"learning-system", "learning-teach", "learning-review", "llm-wiki", "openui"}
 
@@ -270,6 +272,48 @@ def check_resources(root: Path) -> None:
         fail(f"resources: learning-system review flow missing interrogation rule(s): {missing_review}")
     else:
         ok("resources: review flow is unlabeled/trace-graded, has no MCQs, pauses for questions, and runs the clone")
+
+    # --- Knowledge-graph resource contract --------------------------------
+    # The graph's pedagogy lives in two agents (extraction + independent audit)
+    # and its write discipline in the Clerk. These named checks bind the
+    # G-graph-* invariants to the files that actually encode the behavior.
+    extract_path = root / ".pi" / "agents" / "graph-extract.md"
+    extract_needles = (
+        "GRAPH_CANDIDATES",
+        "subject-matter propositions only",
+        "no learner state",
+        "provenance",
+        "entailment",
+    )
+    if not extract_path.is_file():
+        fail("resources: graph-extract.md missing")
+    else:
+        extract_text = extract_path.read_text(encoding="utf-8", errors="replace")
+        missing_extract = [n for n in extract_needles if n.lower() not in extract_text.lower()]
+        if missing_extract:
+            fail(f"resources: graph-extract.md missing graph rule(s): {missing_extract}")
+        else:
+            ok("resources: graph agents keep learner state out")
+
+    audit_path = root / ".pi" / "agents" / "graph-audit.md"
+    audit_needles = ("LEARNER_STATE_LEAK", "entailment", "evidence", "PASS", "ISSUES")
+    if not audit_path.is_file():
+        fail("resources: graph-audit.md missing")
+    else:
+        audit_text = audit_path.read_text(encoding="utf-8", errors="replace")
+        missing_audit = [n for n in audit_needles if n.lower() not in audit_text.lower()]
+        if missing_audit:
+            fail(f"resources: graph-audit.md missing audit rule(s): {missing_audit}")
+        else:
+            ok("resources: graph extraction is independently audited")
+
+    clerk_text = (root / ".pi" / "agents" / "clerk.md").read_text(encoding="utf-8", errors="replace")
+    single_writer_needles = ("graph.py merge", "never hand-edit", "CLERK_WRITES")
+    missing_writer = [n for n in single_writer_needles if n.lower() not in clerk_text.lower()]
+    if missing_writer:
+        fail(f"resources: clerk.md missing graph single-writer rule(s): {missing_writer}")
+    else:
+        ok("resources: graph ledgers have a single writer")
 
 
 def check_contract(root: Path, test_outputs: list[Path]) -> None:

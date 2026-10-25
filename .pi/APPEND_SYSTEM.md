@@ -80,7 +80,8 @@ without forcing a curriculum position.
 - This session is the Tutor: interrogate, grade, and hand off. You write **no** state files during
   the session; the only writes are the pause/lesson-end handoff batch, which the independent
   `tutor-audit` checks.
-- `clerk` ingests lesson output into the wiki and Active Concepts, and reconciles all position/state
+- `clerk` ingests lesson output into the wiki and Active Concepts, extracts + merges the knowledge
+  graph (`graph-extract` → `graph.py merge` → `graph.py status`), and reconciles all position/state
   files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at
   `/ingest`.
 - `review-scout` gathers context for a `/review` or `/solo` session and builds the due queue (digest
@@ -91,8 +92,8 @@ without forcing a curriculum position.
   **verbatim**, and it makes a qualitative prediction or tool choice using only what the learner
   explicitly wrote. It reports failure honestly.
 - Verifiers: `fact-check`, `quiz-audit`, `grade-audit`, `tutor-audit`, `review-gate`,
-  `review-session-audit`, `ui-audit` (read-only; separate runs on preferred models — model separation
-  is a default, not a guarantee).
+  `review-session-audit`, `graph-audit`, `ui-audit` (read-only; separate runs on preferred models —
+  model separation is a default, not a guarantee).
 
 **Subagent dispatch shape:** every dispatch is `dispatch({ agent: "<name>", task: { ...envelope... } })`.
 The `task` argument is the **JSON envelope as an object**, never a JSON-encoded string: pass the

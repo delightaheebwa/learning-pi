@@ -411,6 +411,29 @@ coverage check as the deno gate suites.
   hint array.
 - **P-5** `audit_gates.py` exits non-zero on error-level findings.
 
+### Knowledge graph (propositions + reasoning chains)
+
+- **G-graph-world-only** — the graph stores the subject, never the learner:
+  propositions (one self-contained statement, verbatim aliases, provenance) and
+  reasoning chains (a premise set that jointly entails a conclusion). No mastery,
+  verdicts, confidence, attempts, or "the learner understands X"; a misconception
+  enters as its true correction. Unknown record fields are rejected at merge.
+- **G-graph-provenance** — every node and chain names the source file it came
+  from. A re-encounter appends a `link` line: the verbatim phrasing joins
+  `aliases[]`, provenance unions with the `define` line, and the original
+  statement is never overwritten. Only `pi/graph.py merge|retract` writes the
+  ledgers; no agent hand-edits the JSONL.
+- **G-graph-derived-view** — edges are never stored. `graph.py export` derives a
+  lossy view where each chain becomes an implication node
+  (premises -> ⟹ -> conclusion), so two independent arguments for one conclusion
+  stay two diamonds; identical premise sets link instead of duplicating, and
+  retracting a proposition drops (and reports) every dependent chain.
+- **G-graph-audit** (policy) — ingest extracts (`graph-extract`), merges
+  deterministically, and the parent dispatches an independent `graph-audit` over
+  the written ids before the ingest closes. ISSUES (any severity) means the Clerk
+  records a fix (retract/correct + re-merge) and a fresh audit must pass — with
+  no cycle cap and no hand-editing to satisfy the audit.
+
 ## Adding a newly installed extension
 
 If a new extension participates in the learning flow, add its behavioral role
