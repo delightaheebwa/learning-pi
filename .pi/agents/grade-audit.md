@@ -52,8 +52,9 @@ and no top-level `question`/`learner_answer`/`claimed_verdict`.
 3b. **Miss classification (on a failed item).** Return `miss_class` for a `fail`:
     `cue` (the right knowledge never came to mind), `discrimination` (a confusable won selection),
     `execution` (right proposition, wrong run), `careless` (misread/slip), or `structural` (the held
-    proposition itself is wrong). It is a diagnosis for the record — never raise or lower the verdict
-    for it. Omit `miss_class` on a pass.
+    proposition itself is wrong). The five are exhaustive — every miss is classifiable; always choose
+    the closest. It is a diagnosis for the record — never raise or lower the verdict for it. On a pass
+    `miss_class` is `null`.
 4. **Shallow-pass detection (`SHALLOW_PASS`).** Compare the learner's answer against `tutor_turns`. If
    the explanation is a lexical or structural remix of the Tutor's own recent phrasing (reused
    signature sentences, same example, same ordering of beats) rather than independent generation,
@@ -93,9 +94,9 @@ when it is active), then output ONLY valid JSON, no prose:
 ```
 
 - Per item: `agrees:false` plus the corrected `correct_verdict` when the claimed verdict is wrong;
-  `agrees:true` only when you endorse it. On a `fail`, `miss_class` is one of
-  `cue|discrimination|execution|careless|structural` (or `null` when you cannot diagnose it); on a
-  pass it is `null`. Keep each `explanation` to one line.
+  `agrees:true` only when you endorse it. On a `fail`, `miss_class` is required and is one of
+  `cue|discrimination|execution|careless|structural`; on a pass it is `null`. Keep each `explanation`
+  to one line.
 - Top level: `agrees` is `true` only when you endorse every item. `verdict` is `ISSUES` exactly when
   `agrees` is `false` or a required clone receipt is missing. `correct_verdict` is the corrected
   verdict of the first disagreeing item. `evidence` is mandatory and non-empty: name the checks you

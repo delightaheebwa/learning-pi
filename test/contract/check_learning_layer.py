@@ -367,15 +367,19 @@ def check_resources(root: Path) -> None:
         ok("resources: learning-teach threads prior knowledge into attacks")
 
     # --- Practice-doctrine resource contract -----------------------------
-    ladder_needles = ("R0", "R5", "one rung per request", "statement repair is free", "difficulty signal")
+    ladder_needles = ("one rung per request", "statement repair is free", "R3 or above")
     missing_ladder = [n for n in ladder_needles if n.lower() not in agents_md.lower()]
+    if not any(dash in agents_md for dash in ("R0–R5", "R0-R5")):
+        missing_ladder.append("R0–R5")
     if missing_ladder:
         fail(f"resources: APPEND_SYSTEM.md missing hint-ladder rule(s): {missing_ladder}")
     else:
         ok("resources: the stuck ladder is a six-rung, one-rung-per-request ladder")
 
-    teach_ladder_needles = ("R0–R5", "one rung per request")
+    teach_ladder_needles = ("one rung per request",)
     missing_teach_ladder = [n for n in teach_ladder_needles if n.lower() not in teach_text.lower()]
+    if not any(dash in teach_text for dash in ("R0–R5", "R0-R5")):
+        missing_teach_ladder.append("R0–R5")
     if missing_teach_ladder:
         fail(f"resources: learning-teach missing rung-ladder rule(s): {missing_teach_ladder}")
     else:

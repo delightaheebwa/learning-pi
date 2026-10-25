@@ -183,8 +183,8 @@ words.
 
 ### Stuck ladder — never slip back into teaching
 
-The ladder is least-to-most revealing. **One rung per request**, always the rung that answers the
-first question in the learner's trace they could not answer:
+The ladder (R0–R5) is least-to-most revealing. **One rung per request**, always the rung that
+answers the first question in the learner's trace they could not answer:
 
 | Rung | Move | Surrendered |
 | :--- | :--- | :--- |
@@ -249,8 +249,9 @@ beats with `foundation`; an interrogation turn (`plan`/`triage`/`attack`/`hint`/
   `explain-back`; immediate knob checks = `micro-check`. A `sure` confidence paired with a failed
   attempt is the **illusion-of-competence** signal and is recorded as such. Every failed attack also
   produces a `mistakes[]` entry (concept, canonical `error_type` — gap → `structural`, misconception
-  → `deviation`, false confidence → `metacognitive`, unverified assumption → `application` — and
-  evidence = the attack that exposed it) so `/review` drills the exact hole.
+  → `deviation`, false confidence → `metacognitive`, unverified assumption → `application` — the
+  `miss_class` diagnosis from `grade-audit` when it supplied one, and evidence = the attack that
+  exposed it) so `/review` drills the exact hole.
 - **Contradictions:** if sources disagree, surface it loudly with a visible callout: `⚠️ Sources
   disagree on [topic]...` naming both sides with verbatim quotes. Never smooth disagreements into a
   single voice.
