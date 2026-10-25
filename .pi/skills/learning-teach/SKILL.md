@@ -68,7 +68,7 @@ Begin every assistant message with `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:g
     "propositions": [{"id": "n_...", "name": "...", "statement": "..."}],
     "chains": [{"id": "arg_...", "premises": ["n_..."], "conclusion": "n_...", "statement": "..."}],
     "prior_models": [{"concept": "...", "version": "v1|v2", "words": "verbatim prior model", "file": "Learning System/..."}],
-    "mistakes": [{"concept": "...", "error_type": "structural|deviation|application|metacognitive", "self_attribution": "..."}]
+    "mistakes": [{"concept": "...", "error_type": "structural|deviation|application|metacognitive", "self_attribution": "...", "date": "YYYY-MM-DD"}]
   },
   "grade_verdicts": [{"id": 1, "concept": "...", "verdict": "pass|fail", "trace_step": "..."}],
   "foundation": {"problem": "...", "where_from": "...", "conditions": "...", "contrast": "..."},
