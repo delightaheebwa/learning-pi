@@ -465,6 +465,17 @@ coverage check as the deno gate suites.
   inactive state: interleaved targets, no immediate re-ask, decision points
   rather than restatements, ~85% success per retrieval event with hint rescue
   at the edge, and the 3-line trace as a floor rather than a cap.
+- **G-item-targets** (policy) — quiz questions and grade items may carry
+  `targets[]`, the knowledge-graph record ids (`n_…` propositions / `arg_…`
+  chains) the item retrieves. Targets are additive record-keeping, never
+  learner-facing text and never a grading input: the binding fields are
+  unchanged, a missing/empty list blocks nothing, and `grade-audit` ignores
+  targets when deciding a verdict. Ids are copied verbatim from the scout
+  digest's `prior_knowledge` (never invented), carried from question to grade
+  item to `REVIEW_WRITES.grade_verdicts[]`, and recorded on the attempt by
+  `ops.py attempt --targets`; malformed ids are `TARGETS_INVALID` at
+  quiz-audit and rejected by ops.py. They are the bridge to per-node mastery
+  and never enter the graph ledger as learner state.
 
 ## Adding a newly installed extension
 

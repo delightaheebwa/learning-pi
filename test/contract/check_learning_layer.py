@@ -429,6 +429,26 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: quiz-audit enforces inactive-state retrieval")
 
+    # --- Item-targets resource contract ----------------------------------
+    target_sources = (
+        ("quiz-audit.md", quiz_text, ("targets", "TARGETS_INVALID")),
+        ("grade-audit.md", grade_text, ("targets",)),
+        ("review-clerk.md", review_clerk_text, ("--targets",)),
+        ("learning-system/SKILL.md", skill_text, ("targets",)),
+        ("learning-teach/SKILL.md", teach_text, ("targets",)),
+        ("APPEND_SYSTEM.md", agents_md, ("--targets",)),
+    )
+    missing_targets = [
+        f"{name}: {needle}"
+        for name, text, needles in target_sources
+        for needle in needles
+        if needle.lower() not in text.lower()
+    ]
+    if missing_targets:
+        fail(f"resources: items missing graph-target rule(s): {missing_targets}")
+    else:
+        ok("resources: practice items carry graph targets")
+
 
 def check_contract(root: Path, test_outputs: list[Path]) -> None:
     contract_path = root / "contracts" / "learning-core.json"

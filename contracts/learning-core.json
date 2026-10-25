@@ -1,6 +1,6 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
-  "version": 11,
+  "version": 12,
   "updated": "2026-10-26",
   "invariants": [
     {
@@ -710,6 +710,16 @@
       "tests": [
         "resources: review items retrieve from an inactive state",
         "resources: quiz-audit enforces inactive-state retrieval"
+      ]
+    },
+    {
+      "id": "G-item-targets",
+      "severity": "policy",
+      "statement": "Quiz questions and grade items may carry `targets[]`, the knowledge-graph record ids (`n_…` propositions / `arg_…` chains) the item retrieves. Targets are additive record-keeping, never learner-facing text and never a grading input: the binding fields are unchanged, a missing or empty target list blocks nothing, and `grade-audit` ignores targets when deciding a verdict. Ids are copied verbatim from the scout digest's `prior_knowledge` (never invented), carried from question to grade item to `REVIEW_WRITES.grade_verdicts[]`, and recorded on the attempt by `ops.py attempt --targets`; malformed ids are `TARGETS_INVALID` at quiz-audit and rejected by ops.py. They are the bridge to per-node mastery and never enter the graph ledger as learner state.",
+      "tests": [
+        "grade targets do not change batch binding",
+        "quiz targets do not break full-batch binding",
+        "resources: practice items carry graph targets"
       ]
     }
   ]

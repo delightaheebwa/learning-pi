@@ -92,7 +92,7 @@ substantive turn.
 {
   "gate": "quiz_audit",
   "context": "probe | practice | review | solo",
-  "questions_json": [{"id":"q1","type":"mcq|free_recall|qualitative|synthesis|misapplication|perturbation","question":"...","options":[...],"correct_index":0,"target_bloom":"Apply"}],
+  "questions_json": [{"id":"q1","type":"mcq|free_recall|qualitative|synthesis|misapplication|perturbation","concept":"the concept this item retrieves","question":"...","options":[...],"correct_index":0,"target_bloom":"Apply","targets":["n_...","arg_..."]}],
   "rendered_content": "the exact full batch text (intro/instructions + every question + its options)",
   "concept": "Concept",
   "source_excerpt": "the passage the items are drawn from"
@@ -121,6 +121,7 @@ the method.
     "trace": "the learner's 3-line qualitative trace, when requested",
     "claimed_verdict": "pass|fail",
     "source_excerpt": "the passage the answer is graded against",
+    "targets": ["n_...", "arg_..."],
     "tutor_turns": ["your last 2–3 substantive turns, for shallow-pass detection"],
     "naive_student_receipt": {"task_succeeded": true, "questions_unanswered": []}
   }]
@@ -130,6 +131,15 @@ the method.
 Batch every answer from one learner reply into ONE `items[]` envelope. On `agrees:false`, re-dispatch
 the corrected batch once with each disputed item's `claimed_verdict` set to the verifier's
 `correct_verdict`, then emit.
+
+**Item targets (record-keeping, never learner-facing).** When the Scout digest's
+`prior_knowledge.propositions`/`chains` name the graph records this item retrieves, attach their ids
+as `targets[]` on the quiz question **and** on the matching grade item: `concept` names the item's
+concept, `targets` lists only ids that appear in the digest. Copy ids verbatim; never invent,
+paraphrase, or derive one. Omit `targets` when no matching proposition exists — an empty graph is
+normal, and a missing target never blocks a question. `quiz-audit` rejects malformed ids
+(`TARGETS_INVALID`); `grade-audit` ignores targets when grading. Targets are recorded on the attempt
+so per-node mastery can be wired later — they never change the verdict.
 
 ### naive-student (clone)
 
@@ -180,7 +190,7 @@ the corrected batch once with each disputed item's `claimed_verdict` set to the 
    retain it.
 3. If the model is empty, or merely restates the source's headings, point back to the material and
    stop — there is nothing to interrogate yet. Do not fill the model for them.
-4. Retain the attempt record (concept, verdict, `qtype`, `confidence`, `hints`) for the handoff.
+4. Retain the attempt record (concept, verdict, `qtype`, `confidence`, `hints`, `targets`) for the handoff.
 
 ## Step 2 — Triage (attack only what is broken)
 
@@ -353,7 +363,8 @@ Rules:
   `Core/Learner History.md`, `Learning Records/`, `Reviews/` (pointed reads only).
 - Attempts sidecar: `Learning System/Core/Attempts.json` — the Tutor does **not** run `ops.py attempt`
   directly; it carries `attempts[]` in the handoff and the Clerk records them. `--qtype` is the enum
-  above; `--confidence` and `--hints` are required on every graded attempt; `--prereq` records edges.
+  above; `--confidence` and `--hints` are required on every graded attempt; `--targets` carries the
+  item's graph ids (`n_…`/`arg_…`) when the digest supplied them; `--prereq` records edges.
 - Mistakes ledger: the Tutor does **not** write it. On fail, record the handoff `mistakes[]` row; the
   Clerk appends and canonicalizes it at `/ingest`.
 - Prerequisites: before stress-testing a concept, run `python3 scripts/ops.py prereqs "<concept>"`.

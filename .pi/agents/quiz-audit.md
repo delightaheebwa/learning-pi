@@ -13,11 +13,13 @@ a `GATE:quiz_audit` envelope — never freeform prompts, and never learner answe
 
 ## Envelope
 
-`{"gate":"quiz_audit","context":"probe|practice|review|solo","questions_json":[{"id":"q1","type":"mcq|free_recall|qualitative|synthesis|misapplication|perturbation","question":"...","options":[...],"correct_index":N,"target_bloom":"..."}],"rendered_content":"the exact full batch text the learner will see (intro/instructions + every question + its options)","concept":"...","source_excerpt":"..."}`
+`{"gate":"quiz_audit","context":"probe|practice|review|solo","questions_json":[{"id":"q1","type":"mcq|free_recall|qualitative|synthesis|misapplication|perturbation","concept":"the concept this item retrieves","question":"...","options":[...],"correct_index":N,"target_bloom":"...","targets":["n_...","arg_..."]}],"rendered_content":"the exact full batch text the learner will see (intro/instructions + every question + its options)","concept":"...","source_excerpt":"..."}`
 
 `questions_json` is what you audit; `rendered_content` is the verbatim emitted batch the gate binds
 the receipt to (it must cover 100% of the learner-facing text, including intro/instructions and every
-option).
+option). `concept` and `targets` are record-keeping fields, never learner-facing: `targets` names the
+knowledge-graph propositions/chains (`n_…`/`arg_…` ids) the item retrieves. Both are optional; when
+present they must describe the item, not replace the question text.
 
 ## Checklist
 
@@ -52,6 +54,12 @@ option).
    answer. A cueing figure is `CUE_LEAKAGE`; a decorative one is noise. No widgets in a review/solo
    batch before grading.
 7. **Bloom level** is realistic for the item.
+8. **Target references (record-keeping only).** When an item carries `targets`, each entry must match
+   a graph id shape (`n_` + 6+ lowercase/alnum, or `arg_` + 6+). A malformed id is `TARGETS_INVALID`
+   (it would record a phantom target on the attempt). Targets never change the concept-label ban,
+   trace requirement, or leak checks; do not demand them when the graph has no matching proposition.
+   `concept` on a question is the record label for that item (allowed even when the stem must not
+   name it).
 
 ## Output
 
@@ -59,7 +67,7 @@ Begin your final message with `[[TURN:none]]` as its first line (the learning ga
 when it is active), then output ONLY valid JSON, no prose:
 
 ```json
-{"verdict":"PASS|ISSUES","evidence":["q1: unlabeled, perturbation, trace requested","batch: no MCQ in review, no leak"],"issues":[{"id":"q1","severity":"high|medium|low","code":"CUE_LEAKAGE|...","problem":"...","suggested_fix":"..."}]}
+{"verdict":"PASS|ISSUES","evidence":["q1: unlabeled, perturbation, trace requested","batch: no MCQ in review, no leak"],"issues":[{"id":"q1","severity":"high|medium|low","code":"CUE_LEAKAGE|TARGETS_INVALID|...","problem":"...","suggested_fix":"..."}]}
 ```
 
 - `PASS` — zero issues. The batch is clean and ready to show.
@@ -69,8 +77,8 @@ when it is active), then output ONLY valid JSON, no prose:
 
 `evidence` is mandatory and non-empty: name the checks you actually ran (context/item-type legality,
 concept-label ban, trace requirement, operational coverage, inactive-state retrieval, distractor
-integrity, no leaks). A verdict with no evidence is treated as unsubstantiated by the gate, even on a
-clean `PASS`.
+integrity, no leaks, target ids when present). A verdict with no evidence is treated as unsubstantiated
+by the gate, even on a clean `PASS`.
 
 Do not re-flag an issue you already flagged once when the Tutor applied your `suggested_fix` — either
 PASS it or drop it. Never demand a third rewrite for wording/parity alone.

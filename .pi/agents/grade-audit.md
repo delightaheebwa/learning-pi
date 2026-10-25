@@ -16,7 +16,7 @@ reasoning beyond the supplied `tutor_turns`.
 
 Batched (the normal case — one learner reply may contain many answers):
 
-`{"gate":"grade_audit","items":[{"id":1,"concept":"...","pow":"perturbation|sabotage|clone|none","attack":"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis|none","qtype":"free-recall|discriminative|error-detect|transfer-far|explain-back|micro-check","confidence":"sure|hunch|no-idea","question":"...","learner_answer":"...","trace":"the learner's 3-line qualitative trace","claimed_verdict":"pass|fail","source_excerpt":"...","tutor_turns":["..."],"naive_student_receipt":{"task_succeeded":true,"questions_unanswered":[]}}]}`
+`{"gate":"grade_audit","items":[{"id":1,"concept":"...","pow":"perturbation|sabotage|clone|none","attack":"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis|none","qtype":"free-recall|discriminative|error-detect|transfer-far|explain-back|micro-check","confidence":"sure|hunch|no-idea","question":"...","learner_answer":"...","trace":"the learner's 3-line qualitative trace","claimed_verdict":"pass|fail","source_excerpt":"...","targets":["n_...","arg_..."],"tutor_turns":["..."],"naive_student_receipt":{"task_succeeded":true,"questions_unanswered":[]}}]}`
 
 A single answer may use the flat shape (`{"gate":"grade_audit","concept":...,"question":...,
 "learner_answer":...}`); treat it as `items` of length one. Never mix: a batched envelope has `items`
@@ -29,6 +29,9 @@ and no top-level `question`/`learner_answer`/`claimed_verdict`.
   mechanism/knob-turn → direction & extreme check); a longer thinking-out-loud trace is normal.
 - `tutor_turns` carries the Tutor's recent substantive turns for shallow-pass detection.
 - `naive_student_receipt` is required when `pow:"clone"`: the parsed `NAIVE_STUDENT_RECEIPT`.
+- `targets` is optional record-keeping (the knowledge-graph `n_…`/`arg_…` ids the item retrieves,
+  carried from the question). It is evidence metadata for the record, never a grading input: never
+  raise or lower a verdict for it, and never demand it when absent.
 
 ## Checklist
 

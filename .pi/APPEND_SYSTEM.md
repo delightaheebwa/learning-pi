@@ -243,7 +243,9 @@ beats with `foundation`; an interrogation turn (`plan`/`triage`/`attack`/`hint`/
   `python3 scripts/ops.py prereqs "<concept>"`. If `blocks` is true (a direct prerequisite is `fuzzy`
   or has an open mistake), **refuse to advance** — re-establish the prerequisite first, then return.
 - **Attempts & calibration:** retain every graded attempt's metadata (concept, verdict, `--qtype`,
-  `--confidence`, `--hints`, `--prereq`, `pow` type) for the handoff `attempts[]` array. Use the
+  `--confidence`, `--hints`, `--targets`, `--prereq`, `pow` type) for the handoff `attempts[]` array.
+  `--targets` carries the graph ids the item retrieved (copied verbatim from the digest's
+  `prior_knowledge`; never invented; omitted when none). Use the
   existing qtype enum: spine check = `free-recall`; mechanism/synthesis = `discriminative`;
   counterexample/source clash/sabotage = `error-detect`; perturbation = `transfer-far`; clone =
   `explain-back`; immediate knob checks = `micro-check`. A `sure` confidence paired with a failed

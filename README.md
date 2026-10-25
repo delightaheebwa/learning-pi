@@ -272,7 +272,7 @@ assistant turn unless the matching, **passing** receipt is present:
 | Teaching claims (Tutor) | `fact-check` whose `rendered_content` covers the emitted text and has no `ISSUES`. With a judge configured the rule is **100% span coverage** (the judge checks every sentence); the legacy path approximates it with ≥85% token coverage + a length guard |
 | A `claims` turn during teach/resume | the `fact-check` envelope carries a valid `turn_kind`: `plan`/`triage`/`attack`/`hint`/`autopsy`/`answer`/`repair`/`grade_feedback`/`idea`. A `triage` turn ships a grounded `triage[]` (learner quote for every `suspect`, source citation for every `missing`); an `attack` turn ships exactly one subtype (`mechanism`/`counterexample`/`perturbation`/`source_clash`/`sabotage`/`synthesis`); only an `idea` turn ships the four-beat `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft. A missing/unknown `turn_kind`, an ungrounded triage table, or an attack with no single subtype is withheld (`FOUNDATION_INCOMPLETE`) — a fluent what-only lecture or a chain of ungrounded attacks cannot render as if complete. The verifier also returns `omitted_foundations[]` (load-bearing *conceptual* theory with no trace in the draft), which is an `ISSUES` verdict; missing derivations are not omissions |
 | A question batch | `quiz-audit` returning `PASS` (zero issues); any issue, at any severity, blocks until fixed (uncapped — re-check until zero issues). The envelope carries `questions_json` **and** `rendered_content` = the full batch text (intro/instructions + every question + its options), which binds the whole emitted turn |
-| A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced. One batched `items[]` envelope grades every answer from a single learner reply (never one subagent per answer) |
+| A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced. One batched `items[]` envelope grades every answer from a single learner reply (never one subagent per answer). Items may carry `targets[]` (graph `n_…`/`arg_…` ids) as additive record-keeping — copied from the scout digest, ignored by the verdict, and recorded on the attempt |
 | A `Learning System/` handoff write during teach/resume | `tutor-audit` reading back the lesson file / session note / learning record / `Pending Ingest.json` (once per handoff batch; every issue blocks at any severity; out-of-scope observations go to `context_notes`) |
 | An ingest | after the Clerk returns a `CLERK_WRITES` receipt, the Tutor dispatches an independent `review-gate` on the wiki pages written; `PASS` renders clean, `ISSUES` renders with a `⚠️ REVIEW FLAGS SURFACED` banner (never an endless re-run). A verdict relayed by the Clerk instead of a real review-gate run gets a `⚠️ INGEST GATE` banner; a review verdict with no `evidence` list gets a `⚠️ REVIEW GATE` banner |
 | The **close** of a standalone `/review` (the delegated `review-clerk` run wrote the Review notes, session note, and touched Active Concepts / Mistakes rows) | `review-session-audit` reading the writes back against the transcript + per-concept grade verdicts; `PASS` releases the summary, `ISSUES` withholds it (`REVIEW_SESSION_AUDIT_ISSUES`) until the writes are fixed and re-audited to zero issues (no cycle cap) |
@@ -473,14 +473,14 @@ can be the face while pi stays the brain** (gate, subagents, skills run unchange
 holds only chat transcripts). `deploy/` runs Open WebUI in Docker in front of a host
 `pi-bridge` systemd service. A verified `[[TURN:ui]]` turn rides out as a self-hosted OpenUI
 widget embed below the prose (`bridge/genui.py` + `deploy/openui/`, served by the installer).
-Behavior contract: `B-*` invariants in `CONTRACT.md` / `contracts/learning-core.json` (v11, 71
+Behavior contract: `B-*` invariants in `CONTRACT.md` / `contracts/learning-core.json` (v12, 72
 invariants). Details: [`bridge/README.md`](bridge/README.md),
 [`deploy/README.md`](deploy/README.md), [`deploy/SECURITY.md`](deploy/SECURITY.md).
 
 ### Repo layout for the gate
 
 ```
-CONTRACT.md                  declared behavior (the thing updates must not break; v11, 71 invariants 2026-10-26)
+CONTRACT.md                  declared behavior (the thing updates must not break; v12, 72 invariants 2026-10-26)
 contracts/learning-core.json machine-readable invariants -> test names
 bridge/                      OpenAI-compatible pi-bridge (B-* invariants) + README
 deploy/                      Docker Open WebUI + pi-bridge.service + searxng + README/SECURITY

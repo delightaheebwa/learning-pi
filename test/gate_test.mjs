@@ -447,6 +447,53 @@ gradeNotify(
 const batchGrade = await msg(batchText, 'stop');
 assert('batched items[] grade envelope binds a multi-answer grade turn', allowed(batchGrade));
 
+// --- graph targets on items are additive record-keeping, never binding text ---
+// `targets[]` (knowledge-graph node/chain ids) travels with a quiz question and
+// its grade item. It must not change what the receipt binds, and it must not be
+// mistaken for learner-facing content.
+const uuidTargets = '5f607182-9304-4125-de67-890123456f0b';
+const targetedEnvelope = JSON.stringify({
+  gate: 'grade_audit',
+  items: [
+    {
+      id: 1,
+      concept: 'Bayes theorem',
+      question: 'Q1 update the posterior',
+      learner_answer: 'multiply prior by likelihood',
+      claimed_verdict: 'pass',
+      targets: ['n_ab12cd34ef', 'arg_ab12cd34ef'],
+    },
+    {
+      id: 2,
+      concept: 'KL divergence',
+      question: 'Q2 name the floor',
+      learner_answer: 'zero when equal',
+      claimed_verdict: 'pass',
+      targets: ['n_0123456789'],
+    },
+  ],
+});
+const targetedText =
+  '[[TURN:grade]]\nQ1 update the posterior — PASS; Q2 name the floor — PASS.';
+await setPrompt('[[FLOW:resume]] continue the lesson');
+await asyncDispatch('a11', 'grade-audit', targetedEnvelope);
+await asyncResult('a11', uuidTargets);
+gradeNotify(
+  uuidTargets,
+  JSON.stringify({
+    verdict: 'PASS',
+    agrees: true,
+    correct_verdict: 'pass',
+    issues: [],
+    items: [
+      { id: 1, agrees: true, correct_verdict: 'pass', explanation: 'ok' },
+      { id: 2, agrees: true, correct_verdict: 'pass', explanation: 'ok' },
+    ],
+  })
+);
+const targetedGrade = await msg(targetedText, 'stop');
+assert('grade targets do not change batch binding', allowed(targetedGrade));
+
 // --- a batched mismatch surfaces which answers the verifier corrected ---
 await setPrompt('[[FLOW:resume]] continue the lesson');
 await asyncDispatch('a8', 'grade-audit', batchEnvelope);
@@ -602,6 +649,29 @@ await dispatch('quiz-audit', fullEnv, 'sq3');
 await fg('sq3', 'quiz-audit', fullEnv, JSON.stringify({ verdict: 'PASS', issues: [] }));
 const fullQuiz = await msg('[[TURN:quiz]]\n' + fullBatch, 'stop');
 assert('rendered_content quiz receipt binds the full batch', allowed(fullQuiz));
+
+// Graph targets and per-question concepts are record-keeping: they must not
+// break the full-batch binding (nor leak into the bound learner-facing text).
+await setPrompt('[[FLOW:resume]] continue the lesson');
+const targetedBatch = 'Review — 1 due item.\n1. Which update rule follows from the posterior? ';
+const targetedQuizEnv = JSON.stringify({
+  gate: 'quiz_audit',
+  context: 'review',
+  rendered_content: targetedBatch,
+  questions_json: [
+    {
+      id: 'q1',
+      type: 'qualitative',
+      concept: 'Bayes theorem',
+      question: 'Which update rule follows from the posterior?',
+      targets: ['n_ab12cd34ef', 'arg_ab12cd34ef'],
+    },
+  ],
+});
+await dispatch('quiz-audit', targetedQuizEnv, 'sq6');
+await fg('sq6', 'quiz-audit', targetedQuizEnv, JSON.stringify({ verdict: 'PASS', issues: [] }));
+const targetedQuiz = await msg('[[TURN:quiz]]\n' + targetedBatch, 'stop');
+assert('quiz targets do not break full-batch binding', allowed(targetedQuiz));
 
 // Any severity blocks: a low-severity quiz issue is an ISSUES verdict, not an
 // accepted caveat. (Lows used to pass as PASS_WITH_FLAGS, silently.)
