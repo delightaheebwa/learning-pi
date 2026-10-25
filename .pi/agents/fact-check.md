@@ -26,7 +26,11 @@ You receive ONLY data via a `GATE:fact_check` envelope — never freeform tutor 
 
 ## Envelope
 
-`{"gate":"fact_check","turn_kind":"plan|triage|attack|hint|autopsy|answer|repair|grade_feedback|idea","attack":"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis","triage":[{"item":"...","bucket":"solid|missing|suspect","evidence":"learner quote or source citation"}],"learner_model":"the learner's verbatim model this turn targets, or null","learner_notes":"verbatim notes excerpt, or null","grade_verdicts":[{"id":1,"concept":"...","verdict":"pass|fail","trace_step":"..."}],"foundation":{"problem":"...","where_from":"...","conditions":"...","contrast":"..."},"visual_plan":{"kind":"prose|mermaid|widget|html|none","why":"...","widget_file":"..."},"claims":[{"id":1,"claim":"..."}],"rendered_content":"the exact draft the learner will see","source_urls":[...],"raw_files":[{"label":"...","url":"...","path":"Knowledge Wiki/raw/sources/..."}],"reference_excerpt":"...","context":"..."}`
+`{"gate":"fact_check","turn_kind":"plan|triage|attack|hint|autopsy|answer|repair|grade_feedback|idea","attack":"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis","triage":[{"item":"...","bucket":"solid|missing|suspect","evidence":"learner quote or source citation"}],"learner_model":"the learner's verbatim model this turn targets, or null","learner_notes":"verbatim notes excerpt, or null","prior_knowledge":{"propositions":[{"id":"n_...","name":"...","statement":"..."}],"prior_models":[{"concept":"...","version":"v1|v2","words":"verbatim prior model","file":"Learning System/..."}],"mistakes":[{"concept":"...","error_type":"structural|deviation|application|metacognitive","self_attribution":"..."}]},"grade_verdicts":[{"id":1,"concept":"...","verdict":"pass|fail","trace_step":"..."}],"foundation":{"problem":"...","where_from":"...","conditions":"...","contrast":"..."},"visual_plan":{"kind":"prose|mermaid|widget|html|none","why":"...","widget_file":"..."},"claims":[{"id":1,"claim":"..."}],"rendered_content":"the exact draft the learner will see","source_urls":[...],"raw_files":[{"label":"...","url":"...","path":"Knowledge Wiki/raw/sources/..."}],"reference_excerpt":"...","context":"..."}`
+
+`prior_knowledge` is the Scout digest's cross-session context (prior verbatim models, graph
+propositions/chains, open mistakes). It is required on an attack turn that quotes the learner's own
+past, and may be omitted otherwise.
 
 Only the fields relevant to `turn_kind` are required (`attack` for `attack`, `triage` for `triage`,
 `grade_verdicts` for `grade_feedback`, `foundation` for `idea`). A missing shape field where the kind
@@ -78,6 +82,14 @@ requires one is an `ISSUES` verdict.
    - The attack must **expose, never fill**: stating the missing mechanism, the patched rule, or the
      answer is `SPOONFEEDING_DETECTED`.
    - An attack that explains the concept instead of pressing on the learner's model is `LECTURE_SLIP`.
+4b. **Prior-knowledge grounding (cross-session attacks).** When an attack quotes the learner's own
+    past — an earlier verbatim model, a graph proposition/chain, or a logged mistake — every quoted
+    item must appear **verbatim** in `envelope.prior_knowledge` (or in `learner_model` for the
+    current session). An invented, paraphrased, or drift-merged "you once said…" is
+    `PRIOR_UNGROUNDED`. The clash must be about the same concept/model under interrogation; a prior
+    fact from a different concept is not a valid attack target (`UNGROUNDED_HOLE`). Two-sided
+    cross-session attacks follow the source-clash/synthesis rules: both sides verbatim, no
+    announcement of which is right, and no filling.
 5. **Autopsy (`turn_kind:"autopsy"`).** A compressed post-"just tell me" reveal is legal. It must be
    explicitly labeled a patch rather than the learner's understanding, and must close with **one**
    immediate perturbation on the patched model. Missing the perturbation is `ISSUES`.
@@ -140,6 +152,9 @@ requires one is an `ISSUES` verdict.
       quoting the learner's words and (b) citing a source passage or concrete counterexample.
     - `LECTURE_SLIP`: an attack/hint/triage turn explains the concept instead of pressing on the
       learner's model.
+    - `PRIOR_UNGROUNDED`: a cross-session attack quotes the learner's past in words they never used
+      (paraphrased or drift-merged), or cites a proposition/mistake that is not in
+      `prior_knowledge`.
 
 ## Output
 
@@ -147,7 +162,7 @@ Begin your final message with `[[TURN:none]]` as its first line (the learning ga
 when it is active), then output ONLY valid JSON, no prose:
 
 ```json
-{"verdicts":[{"id":1,"verdict":"PASS|ISSUES|UNVERIFIED","explanation":"...","corrected_claim":"only when ISSUES else null"}],"omitted_foundations":[{"theory":"...","source":"..."}],"contradictions":[{"topic":"...","positions":[{"source":"...","position":"..."}]}],"issues":[{"id":1,"code":"SPOONFEEDING_DETECTED|CUE_LEAKAGE|LECTURE_SLIP|MODEL_GHOSTWRITING|UNGROUNDED_HOLE|VISUAL_PLAN_MISSING|VISUAL_MISSED|...","issue":"...","suggested_fix":"..."}],"evidence":["Read Knowledge Wiki/raw/sources/... lines 40-65","..."]}
+{"verdicts":[{"id":1,"verdict":"PASS|ISSUES|UNVERIFIED","explanation":"...","corrected_claim":"only when ISSUES else null"}],"omitted_foundations":[{"theory":"...","source":"..."}],"contradictions":[{"topic":"...","positions":[{"source":"...","position":"..."}]}],"issues":[{"id":1,"code":"SPOONFEEDING_DETECTED|CUE_LEAKAGE|LECTURE_SLIP|MODEL_GHOSTWRITING|UNGROUNDED_HOLE|PRIOR_UNGROUNDED|VISUAL_PLAN_MISSING|VISUAL_MISSED|...","issue":"...","suggested_fix":"..."}],"evidence":["Read Knowledge Wiki/raw/sources/... lines 40-65","..."]}
 ```
 
 Always include `omitted_foundations`, `contradictions`, `issues`, and `evidence`. A verdict is `PASS`

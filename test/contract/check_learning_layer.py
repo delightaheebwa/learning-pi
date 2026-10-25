@@ -325,6 +325,37 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: the ingest flow dispatches the independent graph audit")
 
+    # --- Cross-session grounding resource contract -----------------------
+    prior_stance_needles = ("prior_knowledge", "Cross-session attacks", "PRIOR_UNGROUNDED", "verbatim")
+    missing_prior_stance = [n for n in prior_stance_needles if n.lower() not in agents_md.lower()]
+    if missing_prior_stance:
+        fail(f"resources: APPEND_SYSTEM.md missing cross-session attack rule(s): {missing_prior_stance}")
+    else:
+        ok("resources: the stance prefers cross-session attacks grounded in prior knowledge")
+
+    prior_fact_needles = ("PRIOR_UNGROUNDED", "prior_knowledge", "verbatim")
+    missing_prior_fact = [n for n in prior_fact_needles if n.lower() not in fact_check_text.lower()]
+    if missing_prior_fact:
+        fail(f"resources: fact-check.md missing prior-knowledge grounding rule(s): {missing_prior_fact}")
+    else:
+        ok("resources: fact-check enforces prior-knowledge grounding")
+
+    scout_text = (root / ".pi" / "agents" / "scout.md").read_text(encoding="utf-8", errors="replace")
+    review_scout_text = (root / ".pi" / "agents" / "review-scout.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    prior_source_needles = ("prior_knowledge", "graph.py", "list --json", "prior_models")
+    missing_prior_source = [
+        f"{name}: {needle}"
+        for name, text in (("scout.md", scout_text), ("review-scout.md", review_scout_text))
+        for needle in prior_source_needles
+        if needle.lower() not in text.lower()
+    ]
+    if missing_prior_source:
+        fail(f"resources: digests missing prior-knowledge harvest rule(s): {missing_prior_source}")
+    else:
+        ok("resources: scout and review-scout carry prior knowledge")
+
 
 def check_contract(root: Path, test_outputs: list[Path]) -> None:
     contract_path = root / "contracts" / "learning-core.json"

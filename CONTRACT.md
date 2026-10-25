@@ -434,6 +434,21 @@ coverage check as the deno gate suites.
   records a fix (retract/correct + re-merge) and a fresh audit must pass — with
   no cycle cap and no hand-editing to satisfy the audit.
 
+### Cross-session grounding (prior knowledge)
+
+- **G-prior-knowledge-grounding** — the adversarial stance uses the learner's
+  own history: the fact-check envelope carries `prior_knowledge` (prior verbatim
+  models, graph propositions/chains, open mistakes), every quoted prior item
+  appears verbatim in it, the clash targets the same concept/model, both sides
+  are verbatim, and no winner is announced. An invented or paraphrased "you once
+  said…" is `PRIOR_UNGROUNDED`; a prior fact about another concept is not a valid
+  attack target. Attack subtypes and the one-attack-per-turn rule are unchanged.
+- **G-scout-prior-context** (policy) — lesson/review digests harvest
+  `prior_knowledge` from `pi/graph.py list` plus prior verbatim models and open
+  mistakes; empty arrays are legal when nothing is relevant, but a failed graph
+  read must surface as a `failed_refs` entry, never a silent empty. The digest is
+  grounding data, never a learner-facing summary.
+
 ## Adding a newly installed extension
 
 If a new extension participates in the learning flow, add its behavioral role

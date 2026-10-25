@@ -64,6 +64,11 @@ Begin every assistant message with `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:g
   "triage": [{"item": "...", "bucket": "solid|missing|suspect", "evidence": "learner quote or source citation"}],
   "learner_model": "the learner's verbatim v1/current model this turn targets, or null",
   "learner_notes": "verbatim excerpt from the learner's notes this turn reasons about, or null",
+  "prior_knowledge": {
+    "propositions": [{"id": "n_...", "name": "...", "statement": "..."}],
+    "prior_models": [{"concept": "...", "version": "v1|v2", "words": "verbatim prior model", "file": "Learning System/..."}],
+    "mistakes": [{"concept": "...", "error_type": "structural|deviation|application|metacognitive", "self_attribution": "..."}]
+  },
   "grade_verdicts": [{"id": 1, "concept": "...", "verdict": "pass|fail", "trace_step": "..."}],
   "foundation": {"problem": "...", "where_from": "...", "conditions": "...", "contrast": "..."},
   "visual_plan": {"kind": "prose|mermaid|widget|html|none", "why": "...", "widget_file": "..."},
@@ -184,7 +189,9 @@ the corrected batch once with each disputed item's `claimed_verdict` set to the 
    - `missing` — a load-bearing piece the material contains but the model omits or glosses; cite the
      source passage and raw file;
    - `suspect` — vague, buzzwordy, overgeneralised, or contradicted (including a `sure` claim that is
-     wrong); quote the learner's exact words.
+     wrong); quote the learner's exact words. A claim that contradicts a **prior verbatim model** or a
+     graph proposition for this concept (from the Scout digest's `prior_knowledge`) is `suspect`:
+     cite the prior item verbatim.
 3. Present a compact triage table (topic, bucket, reason), then ask the learner to correct any
    misreading. Never pad it with trivia and never rewrite their model into cleaner prose.
 4. Verify the triage with `fact-check` (`turn_kind:"triage"`, `triage[]`, `visual_plan` = a Markdown
@@ -212,13 +219,20 @@ For each `missing` or `suspect` item choose the sharpest weapon for that flaw:
    code.
 6. **Synthesis clash** (`attack:"synthesis"`): when they hop between sources, quote both and ask where
    the sources genuinely disagree versus merely use different words.
+7. **Cross-session clash** (uses the existing subtypes — no new enum): when the current model
+   contradicts, silently overrides, or fails to inherit something the learner established in an
+   earlier session for **this** concept — a prior verbatim model, a graph proposition/chain they
+   accepted, or a logged mistake — prefer `source_clash` (prior model as the second side) or
+   `synthesis` (two of their own models disagree). Quote both sides verbatim from
+   `prior_knowledge`; never invent or paraphrase the past; keep it about this mental model. Do not
+   announce which is right.
 
 Rules:
 
 - **One attack per turn.** Verify every attack with `fact-check` before emitting, carrying
   `turn_kind:"attack"`, exactly one `attack` subtype, the learner's claim verbatim
-  (`learner_model`/`learner_notes`), the raw files, and the declared `visual_plan`. Pause on `ISSUES`,
-  fix silently, re-verify.
+  (`learner_model`/`learner_notes`), `prior_knowledge` when the attack cites their past, the raw
+  files, and the declared `visual_plan`. Pause on `ISSUES`, fix silently, re-verify.
 - After the learner answers, grade with `grade-audit`: map `qtype` — mechanism/synthesis =
   `discriminative`; counterexample/source clash/sabotage = `error-detect`; perturbation =
   `transfer-far`; clone = `explain-back` — include the trace, `pow`, and `tutor_turns`, and **do not

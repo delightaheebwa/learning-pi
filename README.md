@@ -473,14 +473,14 @@ can be the face while pi stays the brain** (gate, subagents, skills run unchange
 holds only chat transcripts). `deploy/` runs Open WebUI in Docker in front of a host
 `pi-bridge` systemd service. A verified `[[TURN:ui]]` turn rides out as a self-hosted OpenUI
 widget embed below the prose (`bridge/genui.py` + `deploy/openui/`, served by the installer).
-Behavior contract: `B-*` invariants in `CONTRACT.md` / `contracts/learning-core.json` (v9, 66
+Behavior contract: `B-*` invariants in `CONTRACT.md` / `contracts/learning-core.json` (v10, 68
 invariants). Details: [`bridge/README.md`](bridge/README.md),
 [`deploy/README.md`](deploy/README.md), [`deploy/SECURITY.md`](deploy/SECURITY.md).
 
 ### Repo layout for the gate
 
 ```
-CONTRACT.md                  declared behavior (the thing updates must not break; v9, 66 invariants 2026-10-26)
+CONTRACT.md                  declared behavior (the thing updates must not break; v10, 68 invariants 2026-10-26)
 contracts/learning-core.json machine-readable invariants -> test names
 bridge/                      OpenAI-compatible pi-bridge (B-* invariants) + README
 deploy/                      Docker Open WebUI + pi-bridge.service + searxng + README/SECURITY

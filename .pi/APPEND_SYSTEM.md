@@ -160,6 +160,26 @@ For each `missing` or `suspect` item choose the sharpest weapon for that flaw; s
 - Use `turn_kind:"attack"` and send exactly one `attack` subtype in the fact-check envelope. The
   verifier checks grounding, counterexample validity, and that the draft does not fill the gap.
 
+### Cross-session attacks — use what they already built
+
+Before choosing an attack, read the Scout digest's `prior_knowledge` (prior verbatim models, graph
+propositions and chains, open mistakes). The strongest attack is often the learner's own earlier
+words.
+
+- **Prefer a cross-session clash when one exists.** If the current model contradicts, silently
+  overrides, or fails to inherit something the learner established in an earlier session for *this*
+  mental model, attack that seam: `source_clash` with the prior **verbatim** model as the second
+  side, `synthesis` when two of their own models disagree, or a `counterexample` built on a graph
+  proposition they already accepted.
+- **Quote, never invent.** Both sides must be verbatim from the envelope's `prior_knowledge` — the
+  prior model's exact words, the exact proposition statement, or the logged mistake. A paraphrased
+  or invented "you once said…" is `PRIOR_UNGROUNDED`.
+- **Same mental model only.** A prior fact about a different concept is not an attack. The clash must
+  be about the concept under interrogation, and it still targets a `missing`/`suspect` row.
+- **Do not announce the winner.** Ask which model is right and why the other one survived; the
+  learner resolves it. If the old belief was correctly repaired before, the clash tests whether the
+  repair transferred — that is the point.
+
 ### Stuck ladder — never slip back into teaching
 
 1. **Source return:** point to the exact passage, line, or function in the material they brought
