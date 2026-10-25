@@ -1,6 +1,6 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
-  "version": 10,
+  "version": 11,
   "updated": "2026-10-26",
   "invariants": [
     {
@@ -682,6 +682,34 @@
       "statement": "Lesson and review digests carry `prior_knowledge` harvested from the durable provenance graph (`pi/graph.py list`) plus prior verbatim learner models and open mistakes, so cross-session grounding never depends on the Tutor's memory. The digest's arrays may be empty when nothing relevant exists, but a failed graph read must appear as a visible `failed_refs` entry rather than a silent empty. The digest quote is data, never a learner-facing summary.",
       "tests": [
         "scout and review-scout carry prior knowledge"
+      ]
+    },
+    {
+      "id": "G-hint-ladder",
+      "severity": "policy",
+      "statement": "Hints follow the R0–R5 ladder (attention redirect → pattern re-description → candidate class → proposition named → move outlined → worked step), one rung per request, chosen to answer the first break in the learner's trace — the stall is not always where their attention is. Statement repairs are free and immediate; solution information is metered (one rung). The rung needed is a difficulty readout (R3 or above means the item was over the edge). The independence budget still caps rungs (2/1/0), and solo sessions get no hints at all.",
+      "tests": [
+        "resources: the stuck ladder is a six-rung",
+        "resources: learning-teach applies the rung ladder"
+      ]
+    },
+    {
+      "id": "G-miss-taxonomy",
+      "severity": "hard",
+      "statement": "Every failed review/teach attempt is classified into the practice miss taxonomy — cue, discrimination, execution, careless, structural — by grade-audit (`miss_class`), and review-clerk writes it as a `[miss: …]` Self-Attribution prefix on the Mistakes row. The classification layers on the unchanged `error_type` enum (structural|deviation|application|metacognitive); no new error_type values are introduced, and a class the verifier did not supply is never invented.",
+      "tests": [
+        "resources: grade-audit classifies practice misses",
+        "resources: review-clerk writes the miss-class prefix",
+        "resources: review-session-audit checks the miss-class prefix"
+      ]
+    },
+    {
+      "id": "G-practice-difficulty",
+      "severity": "policy",
+      "statement": "Review and practice items are retrieval from an inactive state: targets are interleaved, a concept is not re-asked immediately after its verdict, and items are built around decision points where a not-yet-active proposition must be selected. Difficulty targets retrieval that succeeds with effort (~85% per retrieval event), and a hint rescues the learner at the edge instead of lowering the demand. The 3-line qualitative trace is the minimum working trace, not a cap on how much thinking the learner may submit.",
+      "tests": [
+        "resources: review items retrieve from an inactive state",
+        "resources: quiz-audit enforces inactive-state retrieval"
       ]
     }
   ]

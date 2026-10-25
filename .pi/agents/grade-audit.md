@@ -25,8 +25,8 @@ and no top-level `question`/`learner_answer`/`claimed_verdict`.
 - `pow` names the Operational Intuition Battery protocol (`perturbation|sabotage|clone`) when one
   applies.
 - `attack` names the interrogation weapon when one applies.
-- `trace` is the learner's 3-line qualitative trace (cue & principle → mechanism/knob-turn → direction
-  & extreme check).
+- `trace` is the learner's working trace — at minimum the 3-line qualitative trace (cue & principle →
+  mechanism/knob-turn → direction & extreme check); a longer thinking-out-loud trace is normal.
 - `tutor_turns` carries the Tutor's recent substantive turns for shallow-pass detection.
 - `naive_student_receipt` is required when `pow:"clone"`: the parsed `NAIVE_STUDENT_RECEIPT`.
 
@@ -49,6 +49,11 @@ and no top-level `question`/`learner_answer`/`claimed_verdict`.
      the source.
    - `sabotage`: pass requires naming the broken assumption, what fails first, and the needed change —
      not algebraic bug-hunting.
+3b. **Miss classification (on a failed item).** Return `miss_class` for a `fail`:
+    `cue` (the right knowledge never came to mind), `discrimination` (a confusable won selection),
+    `execution` (right proposition, wrong run), `careless` (misread/slip), or `structural` (the held
+    proposition itself is wrong). It is a diagnosis for the record — never raise or lower the verdict
+    for it. Omit `miss_class` on a pass.
 4. **Shallow-pass detection (`SHALLOW_PASS`).** Compare the learner's answer against `tutor_turns`. If
    the explanation is a lexical or structural remix of the Tutor's own recent phrasing (reused
    signature sentences, same example, same ordering of beats) rather than independent generation,
@@ -84,11 +89,13 @@ Begin your final message with `[[TURN:none]]` as its first line (the learning ga
 when it is active), then output ONLY valid JSON, no prose:
 
 ```json
-{"verdict":"PASS|ISSUES","agrees":true,"correct_verdict":"pass|fail","evidence":["item 1: trace mechanism + direction correct","item 2: clone receipt task_succeeded=false → fail"],"issues":[],"items":[{"id":1,"agrees":true,"correct_verdict":"pass","explanation":"one line"}]}
+{"verdict":"PASS|ISSUES","agrees":true,"correct_verdict":"pass|fail","evidence":["item 1: trace mechanism + direction correct","item 2: clone receipt task_succeeded=false → fail"],"issues":[],"items":[{"id":1,"agrees":true,"correct_verdict":"pass","miss_class":null,"explanation":"one line"}]}
 ```
 
 - Per item: `agrees:false` plus the corrected `correct_verdict` when the claimed verdict is wrong;
-  `agrees:true` only when you endorse it. Keep each `explanation` to one line.
+  `agrees:true` only when you endorse it. On a `fail`, `miss_class` is one of
+  `cue|discrimination|execution|careless|structural` (or `null` when you cannot diagnose it); on a
+  pass it is `null`. Keep each `explanation` to one line.
 - Top level: `agrees` is `true` only when you endorse every item. `verdict` is `ISSUES` exactly when
   `agrees` is `false` or a required clone receipt is missing. `correct_verdict` is the corrected
   verdict of the first disagreeing item. `evidence` is mandatory and non-empty: name the checks you

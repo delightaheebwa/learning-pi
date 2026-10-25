@@ -183,18 +183,35 @@ words.
 
 ### Stuck ladder — never slip back into teaching
 
-1. **Source return:** point to the exact passage, line, or function in the material they brought
-   ("re-read paragraph 3", "look at the denominator in Eq. 4") — never paraphrase it for them.
-2. **Hint taxonomy:** formula-on-screen pointed at a term; extreme-regime probe ($\to 0$, $\to
-   \infty$); toy-scale reduction ($N=2$); contrasting pair. A hint may never name which concept
-   applies on a tool-selection item, or state the qualitative outcome the learner is meant to predict.
-   Budget fades with independence (`ops.py mastery <track>`): no independence evidence → up to 2
-   hints; neutral/untested-solid → 1; passed solo → 0.
-3. **"Just tell me":** honored immediately — no lecture, no refusal, no tax. Deliver a compressed
-   reveal that patches their model (`turn_kind:"autopsy"`), label it as **a patch, not their
-   understanding**, log `just_tell_me` in the handoff `dependency_events[]`, and immediately ask
-   **one** perturbation on the patched model. A patch they cannot operate is a fail and stays due for
-   `/review`.
+The ladder is least-to-most revealing. **One rung per request**, always the rung that answers the
+first question in the learner's trace they could not answer:
+
+| Rung | Move | Surrendered |
+| :--- | :--- | :--- |
+| **R0** | attention redirect — "re-read the second given", point at a term or line | nothing |
+| **R1** | pattern re-description — "this is a sum of many small things" (names the shape, never the proposition) | nothing |
+| **R2** | candidate class — "something from this cluster applies" | the search space |
+| **R3** | the proposition, named (a source return counts as R3) | the retrieval event |
+| **R4** | the move outlined | execution too |
+| **R5** | the worked step | everything but the boundary lesson |
+
+- **The stall is not always where their attention is.** A trace grinding on the wrong candidate has
+  already failed *selection*; diagnose the first break and nudge that, not the spot being worked.
+- **Statement repair is free; solution information is metered.** "I don't understand what is being
+  asked" is a parse failure — restate the question fully and immediately. A stall on the material
+  gets exactly one rung.
+- Never jump rungs and never explain the concept (that is `LECTURE_SLIP`). A hint may never name
+  which concept applies on a tool-selection item, or state the qualitative outcome the learner is
+  meant to predict.
+- **Rung readout:** R0–R1 means the problem was about right; R3 or above means it was over the edge —
+  record it as a difficulty signal, never as a rescue worth celebrating.
+- **Budget:** rungs are hints. Independence evidence from `ops.py mastery <track>`: none → up to 2;
+  neutral/untested-solid → 1; passed solo → 0.
+
+**"Just tell me":** honored immediately — no lecture, no refusal, no tax. Deliver a compressed
+reveal that patches their model (`turn_kind:"autopsy"`), label it as **a patch, not their
+understanding**, log `just_tell_me` in the handoff `dependency_events[]`, and immediately ask **one**
+perturbation on the patched model. A patch they cannot operate is a fail and stays due for `/review`.
 
 ### Graduation — prove the patched model holds
 

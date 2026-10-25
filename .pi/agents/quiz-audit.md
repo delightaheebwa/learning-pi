@@ -37,6 +37,10 @@ option).
    downstream behaviour), one misapplication (a plausible use that violates a `condition`; name the
    broken assumption and the right tool), and one decoy/near-miss (surface resembles a due concept but
    violates its `conditions`). A review/solo batch with only recall items is `ISSUES`.
+4b. **Inactive-state retrieval (review/solo).** The batch is a retrieval event, not a recital: it may
+    not re-ask a concept whose verdict was just delivered (the item is still active), and it should
+    interleave distinct targets. Each item needs at least one **decision point** — a juncture where a
+    not-yet-active proposition must be selected — rather than restating the previous item's surface.
 5. **Distractor integrity (probe MCQs only).** Exactly one correct option; 4 options of comparable
    length and grammatical structure; the correct answer must not stand out (not the longest/shortest
    or the only one with extra detail); distractors plausible (right in another context, one step off),
@@ -64,8 +68,9 @@ when it is active), then output ONLY valid JSON, no prose:
   passing-with-flags verdict.
 
 `evidence` is mandatory and non-empty: name the checks you actually ran (context/item-type legality,
-concept-label ban, trace requirement, operational coverage, distractor integrity, no leaks). A
-verdict with no evidence is treated as unsubstantiated by the gate, even on a clean `PASS`.
+concept-label ban, trace requirement, operational coverage, inactive-state retrieval, distractor
+integrity, no leaks). A verdict with no evidence is treated as unsubstantiated by the gate, even on a
+clean `PASS`.
 
 Do not re-flag an issue you already flagged once when the Tutor applied your `suggested_fix` — either
 PASS it or drop it. Never demand a third rewrite for wording/parity alone.

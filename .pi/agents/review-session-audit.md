@@ -19,7 +19,7 @@ Checks (end-of-review writes ONLY):
 
 - Every concept's written verdict matches its `grade_verdicts` entry's `correct_verdict` (the grade-audit truth), not merely the tutor's claim. A written `pass` where the grade-audit said `fail` (or vice versa) is high.
 - `next_review` / `last_reviewed` / `Last Q Type` in the touched Active Concepts rows are consistent with `Attempts.json` and the type-aware intervals (memory `[0,1,3,7,14,30,60]d`, concept `[3,7,14,30]`, procedure `[3,7,14]`, design `[14,28]`); a claimed `graduated` requires 2 consecutive correct.
-- A `fail` produced a `🧯 Mistakes.md` row with an `error_type` (`structural|deviation|application|metacognitive`) and self-attribution; no invented rows.
+- A `fail` produced a `🧯 Mistakes.md` row with an `error_type` (`structural|deviation|application|metacognitive`) and self-attribution; the Self-Attribution cell carries the `miss_class` diagnosis as `[miss: cue|discrimination|execution|careless|structural]` for this session's rows (after any `[prereq: …]` prefix when both apply) — a missing or unknown class on a newly written fail row is an issue. No invented rows.
 - **Battery/clone outcomes:** for `concept`/`design` types, the Review note records the battery verdicts (`perturbation`, `sabotage`) and the clone outcome as `feynman_pass`/`feynman_fail` in `Attempts.json`; a clone item with no `naive_student_receipt` behind it is not a pass. A `sure` confidence paired with a failed verdict is recorded as false confidence.
 - The session note's tallies (pass/fail counts), due-next list, and queue-overflow line match the transcript; no concept cited that was not actually reviewed.
 - No artifact claims work that does not exist on disk, and no artifact contradicts another.

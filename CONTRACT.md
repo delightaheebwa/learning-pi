@@ -449,6 +449,23 @@ coverage check as the deno gate suites.
   read must surface as a `failed_refs` entry, never a silent empty. The digest is
   grounding data, never a learner-facing summary.
 
+### Practice doctrine (hints and misses)
+
+- **G-hint-ladder** (policy) — the stuck ladder is R0–R5 (attention redirect,
+  pattern re-description, candidate class, proposition named, move outlined,
+  worked step), one rung per request, answering the first break in the trace.
+  Statement repairs are free; solution information is metered. The rung needed
+  is a difficulty readout, the independence budget still caps hints (2/1/0), and
+  solo sessions get none.
+- **G-miss-taxonomy** — every fail is classified `cue | discrimination |
+  execution | careless | structural` by `grade-audit` and recorded as a
+  `[miss: …]` Self-Attribution prefix by `review-clerk`. It layers on the
+  existing `error_type` enum; no new enum values, no invented classes.
+- **G-practice-difficulty** (policy) — review items are retrieval from an
+  inactive state: interleaved targets, no immediate re-ask, decision points
+  rather than restatements, ~85% success per retrieval event with hint rescue
+  at the edge, and the 3-line trace as a floor rather than a cap.
+
 ## Adding a newly installed extension
 
 If a new extension participates in the learning flow, add its behavioral role

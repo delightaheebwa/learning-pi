@@ -366,6 +366,65 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: learning-teach threads prior knowledge into attacks")
 
+    # --- Practice-doctrine resource contract -----------------------------
+    ladder_needles = ("R0", "R5", "one rung per request", "statement repair is free", "difficulty signal")
+    missing_ladder = [n for n in ladder_needles if n.lower() not in agents_md.lower()]
+    if missing_ladder:
+        fail(f"resources: APPEND_SYSTEM.md missing hint-ladder rule(s): {missing_ladder}")
+    else:
+        ok("resources: the stuck ladder is a six-rung, one-rung-per-request ladder")
+
+    teach_ladder_needles = ("R0–R5", "one rung per request")
+    missing_teach_ladder = [n for n in teach_ladder_needles if n.lower() not in teach_text.lower()]
+    if missing_teach_ladder:
+        fail(f"resources: learning-teach missing rung-ladder rule(s): {missing_teach_ladder}")
+    else:
+        ok("resources: learning-teach applies the rung ladder")
+
+    miss_needles = ("miss_class", "cue", "discrimination", "execution", "careless", "structural")
+    missing_miss = [n for n in miss_needles if n.lower() not in grade_text.lower()]
+    if missing_miss:
+        fail(f"resources: grade-audit missing miss-classification rule(s): {missing_miss}")
+    else:
+        ok("resources: grade-audit classifies practice misses")
+
+    review_clerk_text = (root / ".pi" / "agents" / "review-clerk.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    clerk_miss_needles = ("[miss:", "miss_class")
+    missing_clerk_miss = [n for n in clerk_miss_needles if n.lower() not in review_clerk_text.lower()]
+    if missing_clerk_miss:
+        fail(f"resources: review-clerk missing miss-prefix rule(s): {missing_clerk_miss}")
+    else:
+        ok("resources: review-clerk writes the miss-class prefix")
+
+    review_session_text = (root / ".pi" / "agents" / "review-session-audit.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    session_miss_needles = ("[miss:", "miss_class")
+    missing_session_miss = [n for n in session_miss_needles if n.lower() not in review_session_text.lower()]
+    if missing_session_miss:
+        fail(f"resources: review-session-audit missing miss-prefix check(s): {missing_session_miss}")
+    else:
+        ok("resources: review-session-audit checks the miss-class prefix")
+
+    practice_needles = ("inactive state", "decision point", "interleav", "85%")
+    missing_practice = [n for n in practice_needles if n.lower() not in skill_text.lower()]
+    if missing_practice:
+        fail(f"resources: review flow missing practice-difficulty rule(s): {missing_practice}")
+    else:
+        ok("resources: review items retrieve from an inactive state")
+
+    quiz_text = (root / ".pi" / "agents" / "quiz-audit.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    quiz_practice_needles = ("inactive-state retrieval", "decision point")
+    missing_quiz_practice = [n for n in quiz_practice_needles if n.lower() not in quiz_text.lower()]
+    if missing_quiz_practice:
+        fail(f"resources: quiz-audit missing inactive-state rule(s): {missing_quiz_practice}")
+    else:
+        ok("resources: quiz-audit enforces inactive-state retrieval")
+
 
 def check_contract(root: Path, test_outputs: list[Path]) -> None:
     contract_path = root / "contracts" / "learning-core.json"

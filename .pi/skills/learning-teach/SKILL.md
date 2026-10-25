@@ -243,12 +243,15 @@ Rules:
 - Never state the missing mechanism or the patched rule; the learner produces the repair.
 - **Record failures for `/review`:** every failed attack adds a handoff `mistakes[]` entry — concept,
   canonical `error_type` (gap → `structural`, misconception → `deviation`, false confidence →
-  `metacognitive`, unverified assumption → `application`), self-attribution from the learner's words,
-  and evidence = the attack that exposed it. A `sure` fail is flagged as false confidence.
-- **Stuck ladder** (in order): point to the exact source location; then a taxonomy hint within the
-  existing budget; then, on "just tell me", a compressed `autopsy` patch labeled as *a patch, not
-  their understanding*, logged in `dependency_events[]`, immediately followed by one perturbation on
-  the patched model.
+  `metacognitive`, unverified assumption → `application`), the `miss_class` diagnosis from
+  `grade-audit` (`cue|discrimination|execution|careless|structural`), self-attribution from the
+  learner's words, and evidence = the attack that exposed it. A `sure` fail is flagged as false
+  confidence.
+- **Stuck ladder** — apply the R0–R5 ladder from `APPEND_SYSTEM.md`: one rung per request, address the
+  first break in their trace, statement repairs free, solution information metered. A source return
+  is R3; never jump rungs. Then, on "just tell me", a compressed `autopsy` patch labeled as *a patch,
+  not their understanding*, logged in `dependency_events[]`, immediately followed by one perturbation
+  on the patched model.
 
 ## Step 4 — Graduation (prove the patched model holds)
 
