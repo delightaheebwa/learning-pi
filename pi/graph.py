@@ -285,8 +285,10 @@ def load(root: Path) -> dict:
         if fingerprint in chain_by_fingerprint:
             existing = chains[chain_by_fingerprint[fingerprint]]
             # A re-asserted chain resurrects a retracted one (retract -> corrected
-            # re-assert is the mandated fix loop) and unions its provenance.
+            # re-assert is the mandated fix loop) and unions its provenance. A
+            # corrected gloss on identical premises/conclusion is taken too.
             retracted_chains.pop(existing["id"], None)
+            existing["statement"] = str(record.get("statement", "")).strip() or existing["statement"]
             existing["provenance"] = _dedupe_points(
                 existing["provenance"] + list(record.get("provenance", []) or [])
             )
@@ -537,7 +539,7 @@ def plan_merge(graph: dict, spec: dict, session: str | None = None) -> dict:
             ref = str(ref).strip()
             if ref.startswith("@"):
                 digits = ref[1:]
-                if not digits.isdigit() or int(digits) >= len(resolved):
+                if not digits.isascii() or not digits.isdigit() or int(digits) >= len(resolved):
                     raise GraphError(
                         f"{where}: {ref} does not point at a node in this spec"
                     )

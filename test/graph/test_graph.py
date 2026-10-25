@@ -433,6 +433,51 @@ class GraphCase(unittest.TestCase):
         self.assertEqual(receipt["nodes_created"], 1)
         self.assertEqual(graph.load(self.root)["problems"], [])
 
+    def test_unicode_digit_spec_index_is_rejected(self) -> None:
+        spec = {
+            "nodes": [{"name": "A", "statement": "A is true.", "provenance": [prov()]}],
+            "chains": [{"premises": ["@0"], "conclusion": "@²", "provenance": [prov()]}],
+        }
+        with self.assertRaises(graph.GraphError):
+            graph.plan_merge(graph.load(self.root), spec)
+
+    def test_chain_reassert_updates_statement_gloss(self) -> None:
+        base = {
+            "nodes": [
+                {"name": "A", "statement": "A is true.", "provenance": [prov()]},
+                {"name": "E", "statement": "E is true.", "provenance": [prov()]},
+            ]
+        }
+        receipt = self.merge(
+            {
+                **base,
+                "chains": [
+                    {
+                        "premises": ["@0"],
+                        "conclusion": "@1",
+                        "statement": "old gloss",
+                        "provenance": [prov()],
+                    }
+                ],
+            }
+        )
+        chain_id = receipt["created_chains"][0]
+        again = self.merge(
+            {
+                **base,
+                "chains": [
+                    {
+                        "premises": ["@0"],
+                        "conclusion": "@1",
+                        "statement": "corrected gloss",
+                        "provenance": [prov("Learning System/Sessions/s2.md")],
+                    }
+                ],
+            }
+        )
+        self.assertEqual(again["chains_linked"], 1)
+        self.assertEqual(graph.load(self.root)["chains"][chain_id]["statement"], "corrected gloss")
+
 
 if __name__ == "__main__":
     unittest.main()
