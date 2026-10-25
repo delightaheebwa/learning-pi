@@ -66,6 +66,7 @@ Begin every assistant message with `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:g
   "learner_notes": "verbatim excerpt from the learner's notes this turn reasons about, or null",
   "prior_knowledge": {
     "propositions": [{"id": "n_...", "name": "...", "statement": "..."}],
+    "chains": [{"id": "arg_...", "premises": ["n_..."], "conclusion": "n_...", "statement": "..."}],
     "prior_models": [{"concept": "...", "version": "v1|v2", "words": "verbatim prior model", "file": "Learning System/..."}],
     "mistakes": [{"concept": "...", "error_type": "structural|deviation|application|metacognitive", "self_attribution": "..."}]
   },

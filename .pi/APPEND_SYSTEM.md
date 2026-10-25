@@ -171,9 +171,10 @@ words.
   mental model, attack that seam: `source_clash` with the prior **verbatim** model as the second
   side, `synthesis` when two of their own models disagree, or a `counterexample` built on a graph
   proposition they already accepted.
-- **Quote, never invent.** Both sides must be verbatim from the envelope's `prior_knowledge` — the
-  prior model's exact words, the exact proposition statement, or the logged mistake. A paraphrased
-  or invented "you once said…" is `PRIOR_UNGROUNDED`.
+- **Quote, never invent.** The prior side must be verbatim from the envelope's `prior_knowledge` —
+  the prior model's exact words, the exact proposition/chain statement, or the logged mistake; the
+  current side comes from `learner_model`/`learner_notes`. A paraphrased or invented "you once said…"
+  is `PRIOR_UNGROUNDED`.
 - **Same mental model only.** A prior fact about a different concept is not an attack. The clash must
   be about the concept under interrogation, and it still targets a `missing`/`suspect` row.
 - **Do not announce the winner.** Ask which model is right and why the other one survived; the

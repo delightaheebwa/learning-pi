@@ -333,7 +333,7 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: the stance prefers cross-session attacks grounded in prior knowledge")
 
-    prior_fact_needles = ("PRIOR_UNGROUNDED", "prior_knowledge", "verbatim")
+    prior_fact_needles = ("PRIOR_UNGROUNDED", "prior_knowledge", "verbatim", "chains")
     missing_prior_fact = [n for n in prior_fact_needles if n.lower() not in fact_check_text.lower()]
     if missing_prior_fact:
         fail(f"resources: fact-check.md missing prior-knowledge grounding rule(s): {missing_prior_fact}")
@@ -344,7 +344,7 @@ def check_resources(root: Path) -> None:
     review_scout_text = (root / ".pi" / "agents" / "review-scout.md").read_text(
         encoding="utf-8", errors="replace"
     )
-    prior_source_needles = ("prior_knowledge", "graph.py", "list --json", "prior_models")
+    prior_source_needles = ("prior_knowledge", "graph.py", "list --json", "prior_models", "chains")
     missing_prior_source = [
         f"{name}: {needle}"
         for name, text in (("scout.md", scout_text), ("review-scout.md", review_scout_text))
@@ -355,6 +355,16 @@ def check_resources(root: Path) -> None:
         fail(f"resources: digests missing prior-knowledge harvest rule(s): {missing_prior_source}")
     else:
         ok("resources: scout and review-scout carry prior knowledge")
+
+    teach_prior_text = (root / ".pi" / "skills" / "learning-teach" / "SKILL.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    teach_prior_needles = ("prior_knowledge", "Cross-session clash", "prior model")
+    missing_teach_prior = [n for n in teach_prior_needles if n.lower() not in teach_prior_text.lower()]
+    if missing_teach_prior:
+        fail(f"resources: learning-teach missing cross-session attack rule(s): {missing_teach_prior}")
+    else:
+        ok("resources: learning-teach threads prior knowledge into attacks")
 
 
 def check_contract(root: Path, test_outputs: list[Path]) -> None:

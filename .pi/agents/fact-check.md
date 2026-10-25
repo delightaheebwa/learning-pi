@@ -26,7 +26,7 @@ You receive ONLY data via a `GATE:fact_check` envelope — never freeform tutor 
 
 ## Envelope
 
-`{"gate":"fact_check","turn_kind":"plan|triage|attack|hint|autopsy|answer|repair|grade_feedback|idea","attack":"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis","triage":[{"item":"...","bucket":"solid|missing|suspect","evidence":"learner quote or source citation"}],"learner_model":"the learner's verbatim model this turn targets, or null","learner_notes":"verbatim notes excerpt, or null","prior_knowledge":{"propositions":[{"id":"n_...","name":"...","statement":"..."}],"prior_models":[{"concept":"...","version":"v1|v2","words":"verbatim prior model","file":"Learning System/..."}],"mistakes":[{"concept":"...","error_type":"structural|deviation|application|metacognitive","self_attribution":"..."}]},"grade_verdicts":[{"id":1,"concept":"...","verdict":"pass|fail","trace_step":"..."}],"foundation":{"problem":"...","where_from":"...","conditions":"...","contrast":"..."},"visual_plan":{"kind":"prose|mermaid|widget|html|none","why":"...","widget_file":"..."},"claims":[{"id":1,"claim":"..."}],"rendered_content":"the exact draft the learner will see","source_urls":[...],"raw_files":[{"label":"...","url":"...","path":"Knowledge Wiki/raw/sources/..."}],"reference_excerpt":"...","context":"..."}`
+`{"gate":"fact_check","turn_kind":"plan|triage|attack|hint|autopsy|answer|repair|grade_feedback|idea","attack":"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis","triage":[{"item":"...","bucket":"solid|missing|suspect","evidence":"learner quote or source citation"}],"learner_model":"the learner's verbatim model this turn targets, or null","learner_notes":"verbatim notes excerpt, or null","prior_knowledge":{"propositions":[{"id":"n_...","name":"...","statement":"..."}],"chains":[{"id":"arg_...","premises":["n_..."],"conclusion":"n_...","statement":"..."}],"prior_models":[{"concept":"...","version":"v1|v2","words":"verbatim prior model","file":"Learning System/..."}],"mistakes":[{"concept":"...","error_type":"structural|deviation|application|metacognitive","self_attribution":"..."}]},"grade_verdicts":[{"id":1,"concept":"...","verdict":"pass|fail","trace_step":"..."}],"foundation":{"problem":"...","where_from":"...","conditions":"...","contrast":"..."},"visual_plan":{"kind":"prose|mermaid|widget|html|none","why":"...","widget_file":"..."},"claims":[{"id":1,"claim":"..."}],"rendered_content":"the exact draft the learner will see","source_urls":[...],"raw_files":[{"label":"...","url":"...","path":"Knowledge Wiki/raw/sources/..."}],"reference_excerpt":"...","context":"..."}`
 
 `prior_knowledge` is the Scout digest's cross-session context (prior verbatim models, graph
 propositions/chains, open mistakes). It is required on an attack turn that quotes the learner's own
@@ -89,7 +89,9 @@ requires one is an `ISSUES` verdict.
     `PRIOR_UNGROUNDED`. The clash must be about the same concept/model under interrogation; a prior
     fact from a different concept is not a valid attack target (`UNGROUNDED_HOLE`). Two-sided
     cross-session attacks follow the source-clash/synthesis rules: both sides verbatim, no
-    announcement of which is right, and no filling.
+    announcement of which is right, and no filling. For a cross-session clash, "both sides" means
+    the current model (`learner_model`/`learner_notes`) plus the quoted prior item
+    (`prior_knowledge`) — not two external sources.
 5. **Autopsy (`turn_kind:"autopsy"`).** A compressed post-"just tell me" reveal is legal. It must be
    explicitly labeled a patch rather than the learner's understanding, and must close with **one**
    immediate perturbation on the patched model. Missing the perturbation is `ISSUES`.
