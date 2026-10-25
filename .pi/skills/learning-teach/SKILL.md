@@ -139,7 +139,9 @@ concept, `targets` lists only ids that appear in the digest. Copy ids verbatim; 
 paraphrase, or derive one. Omit `targets` when no matching proposition exists — an empty graph is
 normal, and a missing target never blocks a question. `quiz-audit` rejects malformed ids
 (`TARGETS_INVALID`); `grade-audit` ignores targets when grading. Targets are recorded on the attempt
-so per-node mastery can be wired later — they never change the verdict.
+so per-node mastery can be wired later — they never change the verdict. Targets are format-validated,
+not liveness-checked: a well-formed but stale `n_…` id can be recorded. Per-node mastery aggregation
+is still not implemented (this is the plumbing); `ops.py mastery` remains per-concept.
 
 ### naive-student (clone)
 

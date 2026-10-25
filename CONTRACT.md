@@ -475,7 +475,10 @@ coverage check as the deno gate suites.
   item to `REVIEW_WRITES.grade_verdicts[]`, and recorded on the attempt by
   `ops.py attempt --targets`; malformed ids are `TARGETS_INVALID` at
   quiz-audit and rejected by ops.py. They are the bridge to per-node mastery
-  and never enter the graph ledger as learner state.
+  and never enter the graph ledger as learner state. Targets are
+  **format-validated, not liveness-checked**: a well-formed but stale `n_…` id
+  may be recorded. Per-node mastery aggregation is still not implemented — this
+  is the plumbing for it — so `ops.py mastery` remains per-concept.
 
 ## Adding a newly installed extension
 
