@@ -39,7 +39,12 @@ Merge spec (stdin):
    "chains": [
      {"premises": ["@0", "n_ab12cd34ef"],   # @N = nodes[N] from this spec
       "conclusion": "@1", "statement": "A ∧ B ⟹ C", "provenance": [...]}
-   ]}
+   ],
+   "notes": ["<material gaps worth surfacing>"]}   # accepted and ignored
+
+Every provenance point must carry a non-empty `file` (the material the claim came
+from); `session`/`message` are optional context. A re-merged id that was
+previously retracted is revived with its provenance unioned.
 
 Root resolution: --root, else $LEARNING_SYSTEM_ROOT, else ~/learning-system.
 """
@@ -218,7 +223,24 @@ def load(root: Path) -> dict:
             )
             continue
         if ident in nodes:
-            problems.append(f"{NODES_FILE}:{number}: duplicate define for {ident}")
+            if ident not in retracted_nodes:
+                problems.append(f"{NODES_FILE}:{number}: duplicate define for {ident}")
+                continue
+            # A later `define` for a retracted id resurrects it (the ISSUES fix
+            # loop: retract a bad record, then re-merge the corrected one). The
+            # new definition's label/aliases/provenance are folded into the
+            # existing record; nothing is lost from the tombstoned history.
+            retracted_nodes.pop(ident, None)
+            existing = nodes[ident]
+            existing["name"] = str(record.get("name", "")).strip() or existing["name"]
+            existing["statement"] = str(record.get("statement", "")).strip() or existing["statement"]
+            for alias in record.get("aliases", []) or []:
+                alias = str(alias).strip()
+                if alias and alias not in existing["aliases"]:
+                    existing["aliases"].append(alias)
+            existing["provenance"] = _dedupe_points(
+                existing["provenance"] + list(record.get("provenance", []) or [])
+            )
             continue
         nodes[ident] = {
             "id": ident,
@@ -262,6 +284,9 @@ def load(root: Path) -> dict:
         fingerprint = chain_fingerprint(premises, conclusion)
         if fingerprint in chain_by_fingerprint:
             existing = chains[chain_by_fingerprint[fingerprint]]
+            # A re-asserted chain resurrects a retracted one (retract -> corrected
+            # re-assert is the mandated fix loop) and unions its provenance.
+            retracted_chains.pop(existing["id"], None)
             existing["provenance"] = _dedupe_points(
                 existing["provenance"] + list(record.get("provenance", []) or [])
             )
@@ -404,11 +429,11 @@ def _check_provenance(points, where: str) -> list[dict]:
         if not isinstance(point, dict):
             raise GraphError(f"{where}: each provenance point must be an object")
         _check_keys(point, PROVENANCE_FIELDS, f"{where}.provenance")
-        if not any(
-            isinstance(point.get(key), str) and point[key].strip()
-            for key in ("file", "session")
-        ):
-            raise GraphError(f"{where}: each provenance point needs a non-empty `file` or `session`")
+        if not (isinstance(point.get("file"), str) and point.get("file", "").strip()):
+            raise GraphError(
+                f"{where}: each provenance point needs a non-empty `file` "
+                "(the material the claim came from)"
+            )
         clean.append({k: str(v).strip() for k, v in point.items() if isinstance(v, str) and v.strip()})
     return clean
 
@@ -417,7 +442,7 @@ def plan_merge(graph: dict, spec: dict, session: str | None = None) -> dict:
     """Resolve a spec into concrete records without writing anything."""
     if not isinstance(spec, dict):
         raise GraphError("merge spec must be a JSON object")
-    _check_keys(spec, {"session", "nodes", "chains"}, "spec")
+    _check_keys(spec, {"session", "nodes", "chains", "notes"}, "spec")
     raw_nodes = spec.get("nodes", []) or []
     raw_chains = spec.get("chains", []) or []
     if not isinstance(raw_nodes, list) or not isinstance(raw_chains, list):
@@ -511,10 +536,12 @@ def plan_merge(graph: dict, spec: dict, session: str | None = None) -> dict:
         def resolve_ref(ref) -> str:
             ref = str(ref).strip()
             if ref.startswith("@"):
-                try:
-                    return resolved[int(ref[1:])]
-                except (ValueError, IndexError):
-                    raise GraphError(f"{where}: {ref} does not point at a node in this spec")
+                digits = ref[1:]
+                if not digits.isdigit() or int(digits) >= len(resolved):
+                    raise GraphError(
+                        f"{where}: {ref} does not point at a node in this spec"
+                    )
+                return resolved[int(digits)]
             if ref not in known:
                 raise GraphError(f"{where}: unknown premise/conclusion id {ref}")
             return ref
@@ -542,6 +569,9 @@ def plan_merge(graph: dict, spec: dict, session: str | None = None) -> dict:
             record["id"] = chain_id(premises, conclusion)
             record["op"] = "assert"
             created_chains.append(record)
+            # Track within-spec duplicates too: a second identical argument in the
+            # same spec links the first instead of minting the same id twice.
+            existing_fingerprints[fingerprint] = record["id"]
         chain_records.append(record)
 
     return {
@@ -575,8 +605,10 @@ def apply_merge(root: Path, plan: dict) -> dict:
         "nodes_linked": len(plan["linked_nodes"]),
         "chains_created": len(plan["created_chains"]),
         "chains_linked": len(plan["linked_chains"]),
-        "node_ids": [record["id"] for record in plan["created_nodes"]],
-        "chain_ids": [record["id"] for record in plan["created_chains"]],
+        "created_nodes": [record["id"] for record in plan["created_nodes"]],
+        "linked_nodes": [record["id"] for record in plan["linked_nodes"]],
+        "created_chains": [record["id"] for record in plan["created_chains"]],
+        "linked_chains": [record["id"] for record in plan["linked_chains"]],
     }
 
 
@@ -640,7 +672,8 @@ def cmd_list(root: Path, as_json: bool, session: str | None) -> int:
     chains = [
         chain
         for chain in _live_chains(graph)
-        if not session or chain["conclusion"] in live
+        if not session
+        or any(point.get("session") == session for point in chain["provenance"])
     ]
     if as_json:
         print(

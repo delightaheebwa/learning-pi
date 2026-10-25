@@ -74,7 +74,7 @@ class GraphCase(unittest.TestCase):
         loaded = graph.load(self.root)
         expected = graph.node_id("A linear layer acts on each row independently.")
         self.assertIn(expected, loaded["nodes"])
-        self.assertEqual(set(receipt["node_ids"]), set(loaded["nodes"]))
+        self.assertEqual(set(receipt["created_nodes"]), set(loaded["nodes"]))
 
     def test_merge_is_idempotent_for_the_same_statement(self) -> None:
         spec = {
@@ -95,7 +95,7 @@ class GraphCase(unittest.TestCase):
     def test_link_appends_alias_and_provenance_without_overwriting(self) -> None:
         node_id = self.merge(
             {"nodes": [{"name": "Row independence", "statement": "A linear layer acts on each row independently.", "provenance": [prov()]}]}
-        )["node_ids"][0]
+        )["created_nodes"][0]
         self.merge(
             {
                 "nodes": [
@@ -156,7 +156,7 @@ class GraphCase(unittest.TestCase):
         }
         receipt = self.merge(spec)
         self.assertEqual(receipt["chains_created"], 1)
-        chain = graph.load(self.root)["chains"][receipt["chain_ids"][0]]
+        chain = graph.load(self.root)["chains"][receipt["created_chains"][0]]
         node_ids = {
             graph.node_id("Premise A is true."),
             graph.node_id("Premise B is true."),
@@ -256,7 +256,7 @@ class GraphCase(unittest.TestCase):
         self.assertEqual(
             [n for n in view["nodes"] if n["kind"] == "implication"], []
         )
-        self.assertTrue(receipt["chain_ids"])
+        self.assertTrue(receipt["created_chains"])
 
     def test_chain_retract_removes_the_argument(self) -> None:
         receipt = self.merge(
@@ -268,7 +268,7 @@ class GraphCase(unittest.TestCase):
                 "chains": [{"premises": ["@0"], "conclusion": "@1", "provenance": [prov()]}],
             }
         )
-        chain_id = receipt["chain_ids"][0]
+        chain_id = receipt["created_chains"][0]
         self.assertEqual(graph.cmd_retract(self.root, chain_id, "bad entailment"), 0)
         view = self.view()
         self.assertEqual([n for n in view["nodes"] if n["kind"] == "implication"], [])
@@ -306,7 +306,11 @@ class GraphCase(unittest.TestCase):
         self.merge(
             {
                 "session": "ses_one",
-                "nodes": [{"name": "A", "statement": "A is true.", "provenance": [prov()]}],
+                "nodes": [
+                    {"name": "A", "statement": "A is true.", "provenance": [prov()]},
+                    {"name": "E", "statement": "E is true.", "provenance": [prov()]},
+                ],
+                "chains": [{"premises": ["@0"], "conclusion": "@1", "provenance": [prov()]}],
             }
         )
         self.merge(
@@ -317,8 +321,117 @@ class GraphCase(unittest.TestCase):
         )
         code, out = self.cli("list", "--json", "--session", "ses_one")
         self.assertEqual(code, 0)
-        listed = json.loads(out)["nodes"]
-        self.assertEqual([n["name"] for n in listed], ["A"])
+        listed = json.loads(out)
+        self.assertEqual([n["name"] for n in listed["nodes"]], ["A", "E"])
+        self.assertEqual(len(listed["chains"]), 1)
+        self.assertEqual(listed["chains"][0]["conclusion"], graph.node_id("E is true."))
+
+    # -- fix loop and spec hygiene ----------------------------------------
+    def test_retracted_node_is_revived_by_remerge(self) -> None:
+        node_id = self.merge(
+            {"nodes": [{"name": "A", "statement": "A is true.", "provenance": [prov()]}]}
+        )["created_nodes"][0]
+        self.assertEqual(graph.cmd_retract(self.root, node_id, "mistake"), 0)
+        self.assertIn(node_id, graph.load(self.root)["retracted_nodes"])
+        receipt = self.merge(
+            {
+                "nodes": [
+                    {
+                        "name": "A",
+                        "statement": "A is true.",
+                        "provenance": [prov("Learning System/Sessions/s2.md")],
+                    }
+                ]
+            }
+        )
+        self.assertEqual(receipt["nodes_created"], 1)
+        loaded = graph.load(self.root)
+        self.assertNotIn(node_id, loaded["retracted_nodes"])
+        self.assertIn(node_id, loaded["nodes"])
+        self.assertEqual(len(loaded["nodes"][node_id]["provenance"]), 2)
+        self.assertEqual(loaded["problems"], [])
+
+    def test_retracted_chain_is_revived_by_reassert(self) -> None:
+        receipt = self.merge(
+            {
+                "nodes": [
+                    {"name": "A", "statement": "A is true.", "provenance": [prov()]},
+                    {"name": "E", "statement": "E is true.", "provenance": [prov()]},
+                ],
+                "chains": [{"premises": ["@0"], "conclusion": "@1", "provenance": [prov()]}],
+            }
+        )
+        chain_id = receipt["created_chains"][0]
+        self.assertEqual(graph.cmd_retract(self.root, chain_id, "bad entailment"), 0)
+        again = self.merge(
+            {
+                "nodes": [
+                    {"name": "A", "statement": "A is true.", "provenance": [prov()]},
+                    {"name": "E", "statement": "E is true.", "provenance": [prov()]},
+                ],
+                "chains": [
+                    {
+                        "premises": ["@0"],
+                        "conclusion": "@1",
+                        "provenance": [prov("Learning System/Sessions/s2.md")],
+                    }
+                ],
+            }
+        )
+        self.assertEqual(again["chains_created"], 1)
+        loaded = graph.load(self.root)
+        self.assertNotIn(chain_id, loaded["retracted_chains"])
+        self.assertEqual(len(loaded["chains"][chain_id]["provenance"]), 2)
+        self.assertEqual(loaded["problems"], [])
+
+    def test_duplicate_chains_in_one_spec_link(self) -> None:
+        receipt = self.merge(
+            {
+                "nodes": [
+                    {"name": "A", "statement": "A is true.", "provenance": [prov()]},
+                    {"name": "E", "statement": "E is true.", "provenance": [prov()]},
+                ],
+                "chains": [
+                    {"premises": ["@0"], "conclusion": "@1", "provenance": [prov()]},
+                    {"premises": ["@0"], "conclusion": "@1", "provenance": [prov("Learning System/Sessions/s2.md")]},
+                ],
+            }
+        )
+        self.assertEqual(receipt["chains_created"], 1)
+        self.assertEqual(receipt["chains_linked"], 1)
+        self.assertEqual(len(set(receipt["created_chains"] + receipt["linked_chains"])), 1)
+        loaded = graph.load(self.root)
+        self.assertEqual(len(loaded["chains"]), 1)
+        self.assertEqual(loaded["problems"], [])
+
+    def test_negative_spec_index_is_rejected(self) -> None:
+        spec = {
+            "nodes": [{"name": "A", "statement": "A is true.", "provenance": [prov()]}],
+            "chains": [{"premises": ["@0"], "conclusion": "@-1", "provenance": [prov()]}],
+        }
+        with self.assertRaises(graph.GraphError):
+            graph.plan_merge(graph.load(self.root), spec)
+
+    def test_session_only_provenance_is_rejected(self) -> None:
+        spec = {
+            "nodes": [
+                {"name": "A", "statement": "A is true.", "provenance": [{"session": "ses_one"}]}
+            ]
+        }
+        with self.assertRaises(graph.GraphError) as caught:
+            graph.plan_merge(graph.load(self.root), spec)
+        self.assertIn("non-empty `file`", str(caught.exception))
+
+    def test_top_level_notes_are_accepted_and_ignored(self) -> None:
+        receipt = self.merge(
+            {
+                "nodes": [{"name": "A", "statement": "A is true.", "provenance": [prov()]}],
+                "chains": [],
+                "notes": ["material gap: the source skipped the proof"],
+            }
+        )
+        self.assertEqual(receipt["nodes_created"], 1)
+        self.assertEqual(graph.load(self.root)["problems"], [])
 
 
 if __name__ == "__main__":

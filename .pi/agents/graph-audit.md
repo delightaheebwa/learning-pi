@@ -39,7 +39,7 @@ Begin your final message with `[[TURN:none]]` as its first line (the learning ga
 
 `{"verdict":"PASS|ISSUES","evidence":["<ledger line/file read / quote checked>", ...],"issues":[{"severity":"high|medium|low","code":"LEARNER_STATE_LEAK|UNGROUNDED|NOT_SELF_CONTAINED|NO_ENTAILMENT|BAD_LINK|MISSING_PROVENANCE","location":"<node id / chain id / file:line>","issue":"..."}],"context_notes":[{"location":"...","note":"..."}]}`
 
-`evidence` is mandatory and non-empty: name the ledger records and material passages you read. A verdict without evidence is treated as unsubstantiated by the gate.
+`evidence` is mandatory and non-empty: name the ledger records and material passages you read. The parent treats a verdict without evidence as unsubstantiated.
 
 - `PASS` — zero in-scope issues.
 - `ISSUES` — one or more in-scope issues (any severity). The ingest is not complete until a fresh audit returns zero issues; the Clerk retracts or corrects the offending records (never hand-edits the ledger).

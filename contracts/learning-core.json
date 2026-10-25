@@ -662,7 +662,8 @@
       "severity": "policy",
       "statement": "Graph extraction is an ingest duty: the Clerk distils the session's taught propositions and reasoning chains with `graph-extract`, merges them deterministically, and the parent dispatches an independent `graph-audit` over the written ids before the ingest closes. An ISSUES verdict (any severity) requires the Clerk to record a fix (retract/correct and re-merge) and a fresh audit to return zero issues — no cycle cap — and the ledgers are never hand-edited to satisfy the audit.",
       "tests": [
-        "graph extraction is independently audited"
+        "graph extraction is independently audited",
+        "the ingest flow dispatches the independent graph audit"
       ]
     }
   ]

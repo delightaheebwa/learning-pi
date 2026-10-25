@@ -315,6 +315,16 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: graph ledgers have a single writer")
 
+    skill_text = (root / ".pi" / "skills" / "learning-system" / "SKILL.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    graph_dispatch_needles = ("GATE:graph_audit", "graph-audit", "CLERK_WRITES.graph")
+    missing_dispatch = [n for n in graph_dispatch_needles if n.lower() not in skill_text.lower()]
+    if missing_dispatch:
+        fail(f"resources: learning-system ingest flow missing graph-audit dispatch rule(s): {missing_dispatch}")
+    else:
+        ok("resources: the ingest flow dispatches the independent graph audit")
+
 
 def check_contract(root: Path, test_outputs: list[Path]) -> None:
     contract_path = root / "contracts" / "learning-core.json"
