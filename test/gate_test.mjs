@@ -1564,6 +1564,20 @@ const AUTOPSY_STEP = {
   );
 }
 {
+  const r = await runFoundationClaims(
+    'it17',
+    TRIAGE_DRAFT,
+    triageEnv([
+      { item: 'entropy captures the information', bucket: 'suspect', evidence: 'learner: "entropy captures the information"' },
+      { item: 'entropy captures the information', bucket: 'missing', evidence: 'source p.3: nH typical sequences' },
+    ])
+  );
+  assert(
+    'triage turn with duplicate item names is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('duplicate')
+  );
+}
+{
   const plan = JSON.stringify({
     gate: 'fact_check',
     turn_kind: 'plan',

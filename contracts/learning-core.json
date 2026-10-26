@@ -577,14 +577,15 @@
     {
       "id": "G-triage-shape",
       "severity": "hard",
-      "statement": "A teach/resume `turn_kind:\"triage\"` turn carries a non-empty `triage[]`; every row has an item and a bucket in solid|missing|suspect, and every non-solid row carries grounding (the learner's exact words for suspect, a source citation for missing). Optional `requires` names the rows whose repair must land first and `on_path` marks the shortest dependency path to the model's goal; a reference to an unknown row, a self-reference, or a cycle is withheld (`FOUNDATION_INCOMPLETE`) with a triage-specific remedy, so the attack plan is always traversable. A missing/empty table, an invalid bucket, or an ungrounded non-solid row withholds the turn the same way.",
+      "statement": "A teach/resume `turn_kind:\"triage\"` turn carries a non-empty `triage[]`; every row has an item and a bucket in solid|missing|suspect, and every non-solid row carries grounding (the learner's exact words for suspect, a source citation for missing). Optional `requires` names the rows whose repair must land first and `on_path` marks the shortest dependency path to the model's goal; a reference to an unknown row, a self-reference, a duplicate item name, or a cycle is withheld (`FOUNDATION_INCOMPLETE`) with a triage-specific remedy, so the attack plan is always traversable. A missing/empty table, an invalid bucket, or an ungrounded non-solid row withholds the turn the same way.",
       "tests": [
         "triage turn with a grounded triage table renders",
         "triage turn with an ungrounded suspect row is withheld",
         "triage turn with no triage table is withheld",
         "triage turn with dependency ordering renders",
         "triage turn with unmet dependency is withheld",
-        "triage turn with a cyclic requires edge is withheld"
+        "triage turn with a cyclic requires edge is withheld",
+        "triage turn with duplicate item names is withheld"
       ]
     },
     {
@@ -617,6 +618,7 @@
         "grade-audit grades traces",
         "quiz-audit enforces MCQ legality",
         "fact-check audits one-step autopsy patches",
+        "fact-check audits dependency ordering",
         "grade-audit grades conceptual entailment without algebra",
         "quiz-audit enforces predict context rules"
       ]

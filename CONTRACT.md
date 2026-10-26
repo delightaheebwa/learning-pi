@@ -150,10 +150,10 @@ its tagged test, change the implementation, all in one reviewed commit.
   every non-solid row carries grounding (the learner's exact words for
   `suspect`, a source citation for `missing`). Optional `requires` names the rows
   whose repair must land first and `on_path` marks the shortest dependency path to
-  the model's goal; a reference to an unknown row, a self-reference, or a cycle is
-  withheld (`FOUNDATION_INCOMPLETE`) with a triage-specific remedy, so the attack
-  plan is always traversable. A missing/empty table, an invalid bucket, or an
-  ungrounded non-solid row withholds the turn the same way.
+  the model's goal; a reference to an unknown row, a self-reference, a duplicate
+  item name, or a cycle is withheld (`FOUNDATION_INCOMPLETE`) with a triage-specific
+  remedy, so the attack plan is always traversable. A missing/empty table, an invalid
+  bucket, or an ungrounded non-solid row withholds the turn the same way.
 - **G-attack-shape** *(hard)* — a `turn_kind:"attack"` turn declares exactly one
   subtype from the attack menu; a missing, unknown, or multiple subtype withholds
   the turn (`FOUNDATION_INCOMPLETE`) with an attack-specific remedy. The verifier

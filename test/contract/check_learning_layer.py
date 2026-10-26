@@ -255,6 +255,13 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: fact-check audits one-step autopsy patches")
 
+    fact_order_needles = ("dependency ordering", "requires` are all `solid`")
+    missing_fact_order = [n for n in fact_order_needles if n.lower() not in fact_check_text.lower()]
+    if missing_fact_order:
+        fail(f"resources: fact-check.md missing attack-ordering rule(s): {missing_fact_order}")
+    else:
+        ok("resources: fact-check audits dependency ordering")
+
     grade_text = (root / ".pi" / "agents" / "grade-audit.md").read_text(
         encoding="utf-8", errors="replace"
     )

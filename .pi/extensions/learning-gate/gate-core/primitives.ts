@@ -735,10 +735,16 @@ function triageGaps(triage: TriageRow[] | undefined): string[] {
   if (!Array.isArray(triage) || triage.length === 0) return ["triage (missing)"];
   const gaps: string[] = [];
   const names = new Set<string>();
+  const seen = new Set<string>();
   triage.forEach((row, i) => {
     if (!row || typeof row !== "object") return;
     const item = typeof row.item === "string" ? row.item.trim() : "";
-    if (item) names.add(item);
+    if (!item) return;
+    if (seen.has(item)) {
+      gaps.push(`triage row ${i + 1} (duplicate item '${item}')`);
+    }
+    seen.add(item);
+    names.add(item);
   });
   const edges = new Map<string, string[]>();
   triage.forEach((row, i) => {
