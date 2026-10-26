@@ -1,9 +1,9 @@
 # Open WebUI in front of pi-bridge
 
 Runs [Open WebUI](https://github.com/open-webui/open-webui) in Docker on this
-machine as the chat front-end, talking to the **host-run** `pi-bridge` over the
-Docker bridge. pi (the learning gate, subagents, skills) stays the brain and the
-bridge keeps driving a real shell — so treat this deployment as security-sensitive.
+machine as the chat front-end. It talks to the **host-run** `pi-bridge` over
+the Docker bridge. pi (the learning gate, subagents, skills) stays the brain and
+the bridge drives a real shell — treat this deployment as security-sensitive.
 
 ```
 browser 127.0.0.1:3000 ─▶ open-webui (container, pi-net)
@@ -33,8 +33,8 @@ Files in this directory:
   by default — start it: `sudo systemctl enable --now docker`.
 - Your user can talk to Docker. Either run the commands with `sudo`, or add
   yourself to the `docker` group (`sudo usermod -aG docker "$USER"`, then re-login).
-  **This deploy does not change group membership for you**; note that the `docker`
-  group is root-equivalent, so `sudo` + explicit commands is the more conservative
+  **This deploy does not change group membership for you**. The `docker` group
+  is root-equivalent, so `sudo` + explicit commands is the more conservative
   choice.
 - `python3` (for the bridge) and the `learning-pi` repo checked out at
   `~/learning-pi` with the learning system's state repo (default `~/learning-system`).

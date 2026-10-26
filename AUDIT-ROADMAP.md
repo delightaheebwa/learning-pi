@@ -16,7 +16,7 @@
 >
 > > **Post-cascade (2026-10-12..16, after E2E 2026-10-08):** P4 foundation-beats, scout-audit
 > > lesson-start gate, teach stance rewrite (Guided Learning peer tutor), bridge Phase 1 MVP +
-> > deploy Phase 3 (Open WebUI in Docker → pi-bridge), contract v6 with 55 invariants
+> > deploy Phase 3 (Open WebUI in Docker → pi-bridge), contract v6 with 55 invariants at that time
 > > (was 45/45 at E2E). `E2E-REPORT.md` numbers are the 2026-10-08 snapshot, not current.
 > > Contract is now v12 (72 invariants); see `contracts/learning-core.json`.
 > > See `docs/roadmap/STAGE-LOG.md` for the post-cascade SHAs.
@@ -156,7 +156,7 @@ Each item lists **Goal · Where · Design · Verify**.
 - **Where:** `learning-pi/.pi/extensions/learning-gate/gate-core/primitives.ts` + `engine.ts`,
   `contracts/learning-core.json`, `CONTRACT.md`, `test/gate_test.mjs`,
   `.pi/agents/fact-check.md`, `.pi/skills/learning-teach/SKILL.md`.
-- **Design (as landed):**
+- **Design:**
   - Deterministic hard-fact extraction in code (`extractHardFacts`): URLs, LaTeX/math expressions,
     scientific notation, decimals, percentages, and 3+ digit integers (calendar years excluded).
     A hard fact present in the draft but absent from the submitted `claims[]` withholds the turn as
@@ -185,7 +185,7 @@ Each item lists **Goal · Where · Design · Verify**.
 
 #### [x] P0.3 — Persist claim-level verification verdicts
 - **Goal:** verification becomes auditable, not a prose tally.
-- **Where (as landed):** `gate-core/ledger.ts` (existing), `gate-core/judge/types.ts`,
+- **Where:** `gate-core/ledger.ts` (existing), `gate-core/judge/types.ts`,
   `gate-core/primitives.ts`, `gate-core/engine.ts`, `pi-adapter/index.ts`,
   `test/gate_test.mjs`.
 - **Design:** the receipt ledger now records, for every verifier receipt, the claim-level verdicts
@@ -203,10 +203,10 @@ Each item lists **Goal · Where · Design · Verify**.
 
 #### [x] P0.4 — Multi-dimensional mastery + independence gate
 - **Goal:** mastery means demonstrated capability, not recent quiz correctness.
-- **Where (as landed):** `learning-system/scripts/ops.py`, `scripts/learner_history.py`,
+- **Where:** `learning-system/scripts/ops.py`, `scripts/learner_history.py`,
   `scripts/ops_test.py`; `learning-pi/.pi/skills/learning-system/SKILL.md`,
   `.pi/skills/learning-teach/SKILL.md`, `.pi/agents/review-clerk.md`.
-- **Design (as landed, additive):**
+- **Design (additive):**
   - `compute_dimensions(entry)` reports six dimensions 0–3: recall, conceptual (Feynman),
     procedural, transfer, independence (last `mode:"solo"` attempt), stability (interval_index).
     A dimension with no evidencing attempt is `None` (unknown), never a false 0.
@@ -228,7 +228,7 @@ Each item lists **Goal · Where · Design · Verify**.
 
 #### [x] P0.5 — `/solo` AI-free flow
 - **Goal:** measure what the learner can do without the AI; make it veto mastery.
-- **Where (as landed):** new `.pi/prompts/solo.md` (`[[FLOW:solo]]`); `gate-core/primitives.ts`
+- **Where:** new `.pi/prompts/solo.md` (`[[FLOW:solo]]`); `gate-core/primitives.ts`
   (flow enum + `FLOW_TAG_RE`); `gate-core/engine.ts` (solo blocks + reuse of the review gates);
   `.pi/agents/review-clerk.md` (`mode:"solo"` pass-through); `.pi/skills/learning-system/SKILL.md`,
   `.pi/APPEND_SYSTEM.md`, `README.md`, `FIELD-GUIDE.md`; `test/contract/check_learning_layer.py`;
@@ -248,10 +248,10 @@ Each item lists **Goal · Where · Design · Verify**.
   yet as a gate:** every page is labelled and the trust order is inverted, but no flow is yet
   *required* to refuse an `unverified` page's claims (see the Review-phase note; enforcement is
   future work).
-- **Where (as landed):** `learning-system/scripts/wiki_provenance.py` (new),
+- **Where:** `learning-system/scripts/wiki_provenance.py` (new),
   `Knowledge Wiki/AGENTS.md`, `AGENTS.md`, `Skills/llm-wiki/SKILL.md`, all 220
   `Knowledge Wiki/wiki/*.md`; `learning-pi/.pi/skills/llm-wiki/SKILL.md`.
-- **Design (as landed):** every page carries a marker
+- **Design:** every page carries a marker
   `<!-- provenance: status=<verified|synthesis|learner-note|unverified> | source=<ref> | verified-by=<who> | date=YYYY-MM-DD -->`.
   An **unstamped page counts as `unverified`**. All 220 existing pages were stamped
   `status=unverified` (source `legacy`) so nothing is silently trusted; a page is upgraded to
@@ -370,7 +370,7 @@ Each item lists **Goal · Where · Design · Verify**.
 
 > **P2 complete (2026-10-08).** All eight items landed and were verified
 > (`learn-check --no-load --with-sidecars` → OK; `ops_test.py` 48 tests OK). No
-> P2 deferrals. One P1 deferral carried forward honestly: P1.5's full
+> P2 deferrals. One P1 deferral carried forward: P1.5's full
 > `consolidated` graduation flow still has no flow to gate — `transfer_ok` /
 > `independence_ok` remain the gate it will use (unchanged by P2).
 
@@ -641,7 +641,7 @@ Per-checkpoint review by `R-P0`/`R-P1`/`R-P2` (Muse Spark); full findings and de
 - **Tests:** red-team harness now asserts its own limitation (listed-but-false + PASS renders); the
   review-close arm of the state gate is covered.
 
-**Deferred (recorded honestly, not silently dropped):**
+**Deferred (recorded, not silently dropped):**
 
 - **Wiki trust enforcement (P0.6 M4):** labelling landed; no flow is yet *required* to re-ground an
   `unverified` page. Future work.

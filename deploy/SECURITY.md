@@ -1,8 +1,8 @@
 # Security note
 
-The bridge executes real commands on this machine through pi. Anything that can
-reach the bridge with the key can drive a shell, so the key is worth as much as
-your login. This deployment is built to keep the blast radius local.
+The bridge executes real commands on this machine through pi. Anything that
+reaches the bridge with the key can drive a shell. The key is worth as much as
+your login. This deployment keeps the blast radius local.
 
 ## What is exposed where
 

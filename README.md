@@ -1,12 +1,12 @@
 # learning-pi
 
-The **pi control layer** for the `learning-system` spaced-repetition system. This repo contains
-only pi-side resources (skills, subagents, prompts, a verification gate, and an audit script). It
-contains **no learning state**.
+The pi control layer for the `learning-system` spaced-repetition system. This repo holds only
+pi-side resources — skills, subagents, prompts, a verification gate, and an audit script — and
+**no learning state**.
 
 ## What is this?
 
-An AI tutor that actually teaches you things — and remembers what you know.
+An AI tutor that teaches and remembers what you know.
 
 - **You learn real subjects** (`/teach eigenvalue decomposition`, or `/lesson`
   for the next curriculum lesson). You read the material and bring notes plus a
@@ -18,19 +18,19 @@ An AI tutor that actually teaches you things — and remembers what you know.
 - **It remembers.** Everything you learn becomes review cards on a schedule
   (`/review`), your mistakes jump the queue, and your own explanations
   accumulate into a personal wiki.
-- **Your data is just files.** All state is Markdown + JSON in a git repo you
-  own — sessions, concepts, wiki. No database, no lock-in, history included.
+- **Your data is files.** All state is Markdown + JSON in a git repo you
+  own — sessions, concepts, wiki. No database, no lock-in; history included.
 
 > **Community:** questions, ideas, show-and-tell, and the build log all live in
 > [`learning-system` Discussions](https://github.com/delightaheebwa/learning-system/discussions).
 > This project is built in public.
 
-> **Roadmap:** see [`AUDIT-ROADMAP.md`](AUDIT-ROADMAP.md) for the audit verdict and the staged
-> improvement plan (P0–P2 done, P3 deferred, plus post-cascade P4 foundation-beats, scout-audit gate,
-> teach rewrite, bridge + deploy, and P5 LearnHarness hybrid). Read it before changing teaching behavior, the gate, learner state, or
-> the Knowledge Wiki, and update it when a stage lands.
+> **Roadmap:** [`AUDIT-ROADMAP.md`](AUDIT-ROADMAP.md) holds the audit verdict and the staged
+> improvement plan (P0–P2 done, P3 deferred; post-cascade P4 foundation-beats, scout-audit gate,
+> teach rewrite, bridge + deploy; P5 LearnHarness hybrid). Read it before changing teaching
+> behavior, the gate, learner state, or the Knowledge Wiki; update it when a stage lands.
 
-> **Methodology:** [`docs/teaching-methodology.md`](docs/teaching-methodology.md) records how the
+> **Methodology:** [`docs/teaching-methodology.md`](docs/teaching-methodology.md) covers how the
 > interrogation flow relates to LearnHarness — what is imported (measurement, dependency ordering,
 > predict → attack → check, one-step reveals, the entailment check) and what is deliberately not
 > (teacher-first cold lessons, Tutor-authored v2, numeric confidence, symbolic derivations).
@@ -235,7 +235,7 @@ cd ~/learning-system && pi        # approve/trust the project once
 Slash commands: `/review`, `/solo` (an AI-free closed-book check — no teaching or hints),
 `/ingest <content>`, `/teach <topic>`, `/lesson`, `/continue`, `/pause`,
 `/audit`.
-The main pi session acts as the **Tutor**; `scout`, `clerk`, `naive-student` (the graduation clone), and the verifier subagents run as
+The main pi session is the **Tutor**; `scout`, `clerk`, `naive-student` (the graduation clone), and the verifier subagents run as
 children. The Tutor writes only its four handoff artifacts (lesson file, session note, learning
 record, `Pending Ingest.json`) at a pause or lesson end; the **Clerk** reconciles position/state
 files (MISSION, CURRICULUM, Learning Profile, Active Concepts, Mistakes, Learner History) at
@@ -359,7 +359,7 @@ Receipts are still the verifier's own statement; the judge never authors them.
 
 ## Skills
 
-> **Canonical pedagogy lives here.** The skills in `learning-pi/.pi/skills/` are the **canonical**
+> **Canonical pedagogy is here.** The skills in `learning-pi/.pi/skills/` are the **canonical**
 > teaching behavior. The copies under the state repo's `Skills/` (and `OPENWEBUI.md`) are a
 > **frozen, unmaintained legacy path** — the two diverged and pi is now the single source of truth
 > for teaching behavior, verification, and the flows. Add teaching-behavior changes here only; a
@@ -397,7 +397,7 @@ current state include outstanding Active Concepts/Attempts.json schedule drift.
 python3 ~/learning-pi/pi/audit_gates.py --session <session.jsonl>
 ```
 
-Reconstructs which verifier runs actually backed each claimed verdict in a pi session: dispatches
+Reconstructs which verifier runs backed each claimed verdict in a pi session: dispatches
 with no artifact, non-zero exits, harness-`rejected` runs the gate may still have consumed,
 review verdicts with no backing run, Clerk-relayed review provenance, and unbound
 `STATE_AUDIT_VERDICT` markers. Prints the model each run used. Exit 1 on error-level findings.

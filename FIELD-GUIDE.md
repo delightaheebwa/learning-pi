@@ -75,7 +75,7 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
    routes back to one more attack. A concept cannot reach `solid` without passing.
 9. **Pause anytime** with `/pause` (student-paced). It banks today's progress and keeps the lesson
    in-progress; `/continue` resumes at the next attack (the pause pointer records
-   `Checkpoint N/M`).
+   `Checkpoint N/M, mini K/L`).
 10. **Lesson end** — cumulative quiz + Feynman explain-back. Then run `/ingest` to finalize: Clerk
    writes the wiki + Active Concepts, reconciles the position pointers, runs the state audit,
    regenerates Learner History, and commits state; then the **Tutor** dispatches an independent

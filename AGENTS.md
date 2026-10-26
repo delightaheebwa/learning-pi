@@ -1,8 +1,7 @@
 # AGENTS.md — mandatory worktree isolation (this repo)
 
-Any agent or model doing work in this repo **must not edit the main checkout
-directly**. Work happens in a dedicated `git worktree` on its own
-`agent/<slug>-<date>` branch, so two agents never step on each other.
+Do not edit the main checkout directly. Work in a dedicated `git worktree` on
+its own `agent/<slug>-<date>` branch.
 
 ## 0. Are you already isolated?
 

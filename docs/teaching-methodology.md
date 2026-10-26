@@ -1,9 +1,9 @@
 # Teaching methodology — the LearnHarness hybrid
 
-This document records how the interrogation flow relates to
-[`amosblomqvist/learnharness`](https://github.com/amosblomqvist/learnharness) and where the two
-deliberately diverge. It is the reference for changing teaching behaviour; the enforceable rules
-live in `CONTRACT.md` (`G-interrogation-*`, `G-foundation-beats`, `G-clone-protocol`).
+How the interrogation flow relates to
+[`amosblomqvist/learnharness`](https://github.com/amosblomqvist/learnharness), and where the two
+deliberately diverge. Reference for changing teaching behaviour; enforceable rules live in
+`CONTRACT.md` (`G-interrogation-*`, `G-foundation-beats`, `G-clone-protocol`).
 
 ## The two shapes
 

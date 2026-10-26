@@ -1,8 +1,8 @@
 # pi-bridge
 
-An OpenAI-compatible endpoint in front of the pinned pi runtime, so **Open WebUI
-can be the face while pi stays the brain** (the learning-gate, subagents, and
-skills run unchanged; Open WebUI holds only chat transcripts).
+OpenAI-compatible endpoint in front of the pinned pi runtime. **Open WebUI is
+the face; pi is the brain** (the learning-gate, subagents, and skills run
+unchanged; Open WebUI holds only chat transcripts).
 
 ```
 Open WebUI (Docker, this machine)

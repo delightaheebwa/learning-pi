@@ -1,14 +1,14 @@
 # bin/ — pinned launcher and control command
 
-`pi` here is the **canonical launcher**. It is installed (or symlinked) as
-`~/.local/bin/pi` and it **never updates anything**.
+`pi` here is the **canonical launcher**. Installed (or symlinked) as
+`~/.local/bin/pi`; it **never updates anything**.
 
-- It reads the pinned pi version from `../versions.lock.json`.
-- It runs that exact binary directly, so a `mise use -g pi` elsewhere cannot
+- Reads the pinned pi version from `../versions.lock.json`.
+- Runs that exact binary directly, so `mise use -g pi` elsewhere cannot
   silently change what a learning session runs on.
-- It starts `notify-if-outdated` in the background at most once per day; that
-  script only *reports* a newer candidate (status file in
-  `$XDG_CACHE_HOME/learning-pi/`, plus a desktop notification).
+- Starts `notify-if-outdated` in the background at most once per day. That
+  script only *reports* a newer candidate: status file in
+  `$XDG_CACHE_HOME/learning-pi/`, plus a desktop notification.
 
 Updates happen **only** through `lpi update` (backed by
 `../harness/pi-safe-update`), which tests a candidate against `lpi test` before
@@ -16,7 +16,7 @@ promoting it into `versions.lock.json`.
 
 `pi-review-status` reports whether the day's spaced-repetition `/review` is
 done. It matches the calendar date review-clerk stamps on the session note (a
-review finished at 1am is that day's, not the previous day's). It is the single
+review finished at 1am is that day's, not the previous day's). Single
 detection source shared by the `local.pi-review` Omarchy bar widget and the
 desktop reminder:
 
@@ -25,8 +25,8 @@ pi-review-status --json          # {"date":"YYYY-MM-DD","done":bool,"visible":bo
 pi-review-status --check DATE    # exit 0 if a review exists for DATE
 ```
 
-`visible` is the evening window (18:00–03:59) when the bar indicator shows;
-`missed` is true when today's review is not done and it is already late
+`visible`: evening window (18:00–03:59) when the bar indicator shows.
+`missed`: true when today's review is not done and it is already late
 (hour ≥ 23).
 
 `lpi` is the umbrella control command:
@@ -50,5 +50,5 @@ install -m644 ~/learning-pi/harness/man/lpi.1 ~/.local/share/man/man1/
 
 ## Disable the availability check
 
-Set `PI_OFFLINE=1` in the environment (also disables pi's own startup network
-operations).
+Set `PI_OFFLINE=1` in the environment. It also disables pi's own startup
+network operations.
