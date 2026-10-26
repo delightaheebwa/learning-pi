@@ -487,7 +487,9 @@ coverage check as the deno gate suites.
   rejects a well-formed but non-live id (missing or retracted) so only current
   records can be recorded. If a digest snapshot names an id that is no longer
   live, the flow drops that id and records the attempt without it — never
-  resolving, inventing, or substituting a different id. Per-node mastery
+  resolving, inventing, or substituting a different id. The rejection is
+  implemented in the state-repo `scripts/ops.py` (learning-system@ff57645),
+  which folds the same append-only ledgers as `pi/graph.py`. Per-node mastery
   aggregation is still not implemented — this is the plumbing for it — so
   `ops.py mastery` remains per-concept.
 

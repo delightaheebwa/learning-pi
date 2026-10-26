@@ -667,7 +667,11 @@
         "the /ingest prompt dispatches the independent graph audit",
         "graph write without graph-audit withholds the ingest summary",
         "graph-audit PASS over the written ids releases the ingest summary",
-        "graph-audit ISSUES withholds the ingest summary until fixed"
+        "graph-audit ISSUES withholds the ingest summary until fixed",
+        "partial graph-audit ISSUES reports the audit issue, not a missing audit",
+        "split passing audits covering every id release the summary",
+        "graph record objects in CLERK_WRITES still arm the audit gate",
+        "judge path withholds the ingest close without a graph-audit"
       ]
     },
     {

@@ -764,4 +764,38 @@ const mintFC = (engine, output = FC_PASS) =>
     const res = await engine.onMessageEnd({ message: msg(`[[TURN:ui]]\n${draft}`) });
     assert('judge path withholds a solo ui widget', blocked(res, 'SOLO_NO_AIDS'));
   }
+
+  // The ingest graph gate runs on the judge path too: a Clerk graph write with
+  // no independent graph-audit withholds the close summary.
+  {
+    const j = stubJudge({ evaluate: () => ({ turnType: 'none' }) });
+    const engine = createGate({ judge: j.judge });
+    engine.onBeforeAgentStart('[[FLOW:ingest]] ingest this');
+    const clerk = {
+      gate: 'clerk',
+    };
+    const clerkOut = '[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"graph":{"created_nodes":["n_aaaaaaaaaa"],"linked_nodes":[],"created_chains":[],"linked_chains":[]},"commit":"abc"}';
+    engine.onToolCall({ tool: 'subagent', input: {}, calls: [{ agent: 'clerk', envelope: clerk }], agentless: false });
+    engine.onToolResult({
+      tool: 'subagent',
+      isError: false,
+      text: clerkOut,
+      dispatchCalls: [],
+      mintCalls: [{ agent: 'clerk', envelope: clerk, output: clerkOut }],
+    });
+    const rgEnv = { gate: 'review', concepts: ['X'], target_files: [{ path: 'Knowledge Wiki/wiki/X.md' }] };
+    const rgOut = JSON.stringify({ verdict: 'PASS', evidence: ['read X.md'], issues: [], context_notes: [] });
+    engine.onToolCall({ tool: 'subagent', input: {}, calls: [{ agent: 'review-gate', envelope: rgEnv }], agentless: false });
+    engine.onToolResult({
+      tool: 'subagent',
+      isError: false,
+      text: rgOut,
+      dispatchCalls: [],
+      mintCalls: [{ agent: 'review-gate', envelope: rgEnv, output: rgOut }],
+    });
+    const res = await engine.onMessageEnd({
+      message: msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}'),
+    });
+    assert('judge path withholds the ingest close without a graph-audit', blocked(res, 'NO_GRAPH_AUDIT_PASS'));
+  }
 }

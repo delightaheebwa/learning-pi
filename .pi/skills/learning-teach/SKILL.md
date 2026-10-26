@@ -140,7 +140,7 @@ paraphrase, or derive one. Omit `targets` when no matching proposition exists â€
 normal, and a missing target never blocks a question. `grade-audit` ignores targets when grading.
 Targets are recorded on the attempt
 so per-node mastery can be wired later â€” they never change the verdict. Targets are format-checked at
-quiz-audit (`TARGETS_INVALID`) and liveness-checked at record time: `ops.py attempt` rejects a
+quiz-audit (`TARGETS_INVALID`) and liveness-checked at record time: `ops.py attempt|amend` rejects a
 well-formed id that is missing from the graph or retracted, so only current records are stored. A stale
 id from a digest snapshot is dropped, never resolved or replaced. Per-node mastery aggregation is still
 not implemented (this is the plumbing); `ops.py mastery` remains per-concept.

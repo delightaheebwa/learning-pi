@@ -948,20 +948,6 @@ export function receiptAuditsArtifacts(r: Receipt): boolean {
 }
 
 /**
- * Whether a `graph_audit` receipt covers the graph records the Clerk wrote.
- *
- * The graph audit verifies ledger records (propositions and chains), not files.
- * A present-but-untargeted envelope audited nothing, and an audit that names
- * only some of the written ids cannot release the whole merge. An envelope-less
- * async notification cannot prove coverage, so it does not satisfy the gate.
- */
-export function receiptAuditsGraph(r: Receipt, writtenIds: string[]): boolean {
-  if (!r.hasEnvelope) return false;
-  if (!r.graphIds || r.graphIds.length === 0) return false;
-  return writtenIds.every((id) => r.graphIds!.includes(id));
-}
-
-/**
  * Near-identical drafts: used to catch a re-dispatch of already-verified text.
  * Deliberately stricter than `contentMatches` so a materially corrected draft
  * (the legitimate post-ISSUES re-verification) is never treated as a duplicate.
@@ -1079,6 +1065,19 @@ export function artifactPaths(envelope: any): string[] | undefined {
 }
 
 /**
+ * One graph record id from a ledger list entry. Accepts the canonical plain id
+ * string and the `{"id":"n_…", …}` record shape (a Clerk may copy the merge's
+ * record objects), so a non-string entry cannot silently disarm the gate.
+ */
+export function graphIdOf(value: any): string | undefined {
+  if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  if (value && typeof value === "object" && typeof value.id === "string" && value.id.trim().length > 0) {
+    return value.id.trim();
+  }
+  return undefined;
+}
+
+/**
  * Graph record ids named by a `graph_audit` envelope: `written_nodes[]` plus
  * `written_chains[]`. Returns undefined when the envelope names none, so a
  * present-but-untargeted audit cannot release the ingest close.
@@ -1088,7 +1087,10 @@ export function graphIdsOf(envelope: any): string[] | undefined {
   const ids: string[] = [];
   for (const value of [envelope.written_nodes, envelope.written_chains]) {
     if (!Array.isArray(value)) continue;
-    for (const v of value) if (typeof v === "string" && v.trim().length > 0) ids.push(v.trim());
+    for (const v of value) {
+      const id = graphIdOf(v);
+      if (id) ids.push(id);
+    }
   }
   return ids.length > 0 ? ids : undefined;
 }
@@ -1405,7 +1407,10 @@ export function parseClerkGraph(text: string): string[] | undefined {
   for (const key of ["created_nodes", "linked_nodes", "created_chains", "linked_chains"]) {
     const value = (graph as any)[key];
     if (!Array.isArray(value)) continue;
-    for (const v of value) if (typeof v === "string" && v.trim().length > 0) ids.push(v.trim());
+    for (const v of value) {
+      const id = graphIdOf(v);
+      if (id) ids.push(id);
+    }
   }
   return ids.length > 0 ? Array.from(new Set(ids)) : undefined;
 }

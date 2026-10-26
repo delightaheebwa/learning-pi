@@ -883,6 +883,46 @@ await fg('g4ga', 'graph-audit', gEnv4, GRAPH_PASS);
 const partialGraphAudit = await msg(INGEST_SUMMARY, 'stop');
 assert('graph-audit covering only some written ids does not release the summary', blocked(partialGraphAudit, 'NO_GRAPH_AUDIT_PASS'));
 
+// Partial-coverage ISSUES must surface as ISSUES, not as a missing audit.
+await ingestWithGraph('6');
+const gEnv6 = graphEnv(['n_aaaaaaaaaa']);
+await dispatch('graph-audit', gEnv6, 'g6ga');
+await fg('g6ga', 'graph-audit', gEnv6, JSON.stringify({
+  verdict: 'ISSUES',
+  evidence: ['read nodes.jsonl:12'],
+  issues: [{ severity: 'high', code: 'UNGROUNDED', location: 'n_aaaaaaaaaa', issue: 'not in the source' }],
+  context_notes: [],
+}));
+const partialIssues = await msg(INGEST_SUMMARY, 'stop');
+assert('partial graph-audit ISSUES reports the audit issue, not a missing audit', blocked(partialIssues, 'GRAPH_AUDIT_ISSUES'));
+
+// Coverage may be split across passing audits (the re-audit fix cycle).
+await ingestWithGraph('7');
+const gEnv7a = graphEnv(['n_aaaaaaaaaa', 'n_bbbbbbbbbb']);
+await dispatch('graph-audit', gEnv7a, 'g7ga');
+await fg('g7ga', 'graph-audit', gEnv7a, GRAPH_PASS);
+const gEnv7b = graphEnv(['arg_cccccccccc']);
+await dispatch('graph-audit', gEnv7b, 'g7gb');
+await fg('g7gb', 'graph-audit', gEnv7b, GRAPH_PASS);
+const splitCoverage = await msg(INGEST_SUMMARY, 'stop');
+assert('split passing audits covering every id release the summary', allowed(splitCoverage));
+
+// A Clerk that copies the merge's record objects (not plain id strings) must
+// still arm the gate.
+await setPrompt('[[FLOW:ingest]] ingest this');
+await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), 'g8c');
+await notify('Background task completed: **clerk**\n\n[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"graph":{"created_nodes":[{"id":"n_aaaaaaaaaa","name":"A"}],"linked_nodes":[],"created_chains":[],"linked_chains":[]},"commit":"abc"}');
+const rg8 = JSON.stringify({ gate: 'review', concepts: ['X'], target_files: [{ path: 'Knowledge Wiki/wiki/X.md' }] });
+await dispatch('review-gate', rg8, 'g8rg');
+await fg('g8rg', 'review-gate', rg8, REVIEW_PASS);
+const objectGraphWrites = await msg(INGEST_SUMMARY, 'stop');
+assert('graph record objects in CLERK_WRITES still arm the audit gate', blocked(objectGraphWrites, 'NO_GRAPH_AUDIT_PASS'));
+
+const parsedObjectIds = P.graphIdsOf({ written_nodes: [{ id: 'n_aaaaaaaaaa' }], written_chains: ['arg_cccccccccc'] });
+assert('graph envelope ids accept record objects', !!parsedObjectIds && parsedObjectIds.length === 2);
+const parsedClerkObjectIds = P.parseClerkGraph('CLERK_WRITES: {"graph":{"created_nodes":[{"id":"n_aaaaaaaaaa"}],"linked_nodes":[],"created_chains":[],"linked_chains":[]}}');
+assert('clerk graph parser accepts record objects', !!parsedClerkObjectIds && parsedClerkObjectIds.includes('n_aaaaaaaaaa'));
+
 await ingestWithGraph('5');
 const gEnv5 = graphEnv(GRAPH_IDS);
 await dispatch('graph-audit', gEnv5, 'g5ga');

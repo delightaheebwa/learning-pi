@@ -199,6 +199,32 @@ export function createGate(options: GateOptions = {}): GateEngine {
     }
   };
 
+  /**
+   * Graph-audit coverage for the ids the Clerk wrote.
+   *
+   * Coverage may be split across several passing audits (an ISSUES → fix →
+   * re-audit cycle can name a corrected subset), so the union of valid
+   * receipt ids must cover every id the Clerk wrote. Any envelope-targeted
+   * `graph_audit` that is not valid is a flagged audit, even if it names only
+   * part of the written set — surfacing it as ISSUES, not as a missing audit.
+   */
+  const graphAuditState = () => {
+    const written = new Set(run.clerkGraphIds);
+    const targeted = run.receipts.filter(
+      (r) =>
+        r.gate === "graph_audit" &&
+        r.hasEnvelope === true &&
+        !!r.graphIds &&
+        r.graphIds.length > 0
+    );
+    const valid = targeted.filter((r) => r.valid);
+    const flagged = targeted.filter((r) => !r.valid);
+    const covered = new Set<string>();
+    for (const r of valid) for (const id of r.graphIds!) covered.add(id);
+    const complete = written.size > 0 && [...written].every((id) => covered.has(id));
+    return { valid, flagged, complete };
+  };
+
   const onToolCall = (input: ToolCallInput): BlockResult | undefined => {
     try {
       const tool = typeof input?.tool === "string" ? input.tool.toLowerCase() : "";
@@ -257,12 +283,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
         // A flagged graph audit means the ingest is NOT done: the Clerk still
         // owes a recorded fix (retract/correct + re-merge). Exempt that fix
         // re-dispatch; the graph fix loop is uncapped and bounded by the
-        // dispute safeguard.
-        const graphFixPending =
-          run.clerkGraphIds.length > 0 &&
-          run.receipts.some(
-            (r) => r.gate === "graph_audit" && !r.valid && P.receiptAuditsGraph(r, run.clerkGraphIds)
-          );
+        // dispute safeguard. Any targeted non-pass counts, so a fix that
+        // expands the id set cannot lock itself out.
+        const graphFixPending = run.clerkGraphIds.length > 0 && graphAuditState().flagged.length > 0;
         if (!graphFixPending) {
           return {
             block: true,
@@ -771,19 +794,16 @@ export function createGate(options: GateOptions = {}): GateEngine {
           // A missing audit withholds; an ISSUES verdict withholds until the
           // Clerk records a fix and a fresh audit passes (no cycle cap).
           if (run.clerkGraphIds.length > 0) {
-            const graphAudits = run.receipts.filter(
-              (r) => r.gate === "graph_audit" && P.receiptAuditsGraph(r, run.clerkGraphIds)
-            );
-            const goodAudit = graphAudits.find((r) => r.valid);
-            if (goodAudit) {
-              toConsume.push(goodAudit);
-              if (goodAudit.evidenceMissing) {
+            const { valid, flagged, complete } = graphAuditState();
+            if (complete) {
+              for (const r of valid) toConsume.push(r);
+              if (valid.some((r) => r.evidenceMissing)) {
                 surface +=
                   "⚠️ GRAPH AUDIT — the graph-audit verdict carries no `evidence` list (what it read/checked); " +
                   "treat the pass as unsubstantiated.\n\n";
               }
             } else {
-              blockers.push(graphAudits.length > 0 ? "GRAPH_AUDIT_ISSUES" : "NO_GRAPH_AUDIT_PASS");
+              blockers.push(flagged.length > 0 ? "GRAPH_AUDIT_ISSUES" : "NO_GRAPH_AUDIT_PASS");
             }
           }
         }
@@ -1089,6 +1109,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
       if (blockers.length === 0 && !scoutNeeded && !reviewScoutNeeded) {
         for (const r of toConsume) consume(r);
         run.retries = 0;
+        // The audited merge is closed; a later ingest in this flow arms its own
+        // set instead of re-requiring these ids.
+        run.clerkGraphIds = [];
         run.agentlessDispatch = false;
         let out = P.stripTag(message);
         if (surface) out = P.prependBanner(out, surface);
@@ -1420,19 +1443,16 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // records needs an independent graph-audit over exactly those ids before
       // the close summary. Missing audit or ISSUES withholds; no cycle cap.
       if (run.clerkGraphIds.length > 0) {
-        const graphAudits = R.filter(
-          (r) => r.gate === "graph_audit" && P.receiptAuditsGraph(r, run.clerkGraphIds)
-        );
-        const goodAudit = graphAudits.find((r) => r.valid);
-        if (goodAudit) {
-          toConsume.push(goodAudit);
-          if (goodAudit.evidenceMissing) {
+        const { valid, flagged, complete } = graphAuditState();
+        if (complete) {
+          for (const r of valid) toConsume.push(r);
+          if (valid.some((r) => r.evidenceMissing)) {
             surface +=
               "⚠️ GRAPH AUDIT — the graph-audit verdict carries no `evidence` list (what it read/checked); " +
               "treat the pass as unsubstantiated.\n\n";
           }
         } else {
-          blocks.push(graphAudits.length > 0 ? "GRAPH_AUDIT_ISSUES" : "NO_GRAPH_AUDIT_PASS");
+          blocks.push(flagged.length > 0 ? "GRAPH_AUDIT_ISSUES" : "NO_GRAPH_AUDIT_PASS");
         }
       }
     } else if (turnType === "claims") {
@@ -1679,6 +1699,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
     if (blocks.length === 0 && !scoutNeeded && !reviewScoutNeeded) {
       for (const r of toConsume) consume(r);
       run.retries = 0;
+      run.clerkGraphIds = [];
       run.agentlessDispatch = false;
       run.issueBlocks = {};
       let out = P.stripTag(message);
