@@ -27,8 +27,13 @@ An AI tutor that actually teaches you things — and remembers what you know.
 
 > **Roadmap:** see [`AUDIT-ROADMAP.md`](AUDIT-ROADMAP.md) for the audit verdict and the staged
 > improvement plan (P0–P2 done, P3 deferred, plus post-cascade P4 foundation-beats, scout-audit gate,
-> teach rewrite, and bridge + deploy). Read it before changing teaching behavior, the gate, learner state, or
+> teach rewrite, bridge + deploy, and P5 LearnHarness hybrid). Read it before changing teaching behavior, the gate, learner state, or
 > the Knowledge Wiki, and update it when a stage lands.
+
+> **Methodology:** [`docs/teaching-methodology.md`](docs/teaching-methodology.md) records how the
+> interrogation flow relates to LearnHarness — what is imported (measurement, dependency ordering,
+> predict → attack → check, one-step reveals, the entailment check) and what is deliberately not
+> (teacher-first cold lessons, Tutor-authored v2, numeric confidence, symbolic derivations).
 
 ## The two repos
 

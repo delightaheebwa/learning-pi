@@ -79,8 +79,9 @@ export interface Receipt {
   claimsText?: string;
   // The kind this teach/resume claims turn declared (`plan`, `triage`,
   // `attack`, `hint`, `autopsy`, `answer`, `repair`, `grade_feedback`, `idea`).
-  // A triage/attack turn must carry its shape fields; an `idea` turn must carry
-  // a `foundation` block; other kinds need neither.
+  // A triage/attack turn must carry its shape fields, an `autopsy` must carry
+  // one reasoning `step`, an `idea` must carry a `foundation` block; other
+  // kinds need neither.
   turnKind?: string;
   // Triage rows supplied on a `turn_kind:"triage"` turn.
   triage?: TriageRow[];
@@ -90,6 +91,9 @@ export interface Receipt {
   // `foundationGaps`). Each beat is an excerpt of prose actually present in the
   // verified draft.
   foundation?: FoundationBlock;
+  // The single reasoning step an `autopsy` patch ships (see `stepGaps`): one
+  // new fact resting on something the learner already holds, plus its check.
+  step?: StepBlock;
   // Canonical JSON of the verified OpenUI Lang payload (ui_audit). A `[[TURN:ui]]`
   // turn binds only when its emitted ```openui fence canonicalizes to this value.
   uiPayload?: string;
@@ -667,6 +671,20 @@ export interface FoundationBlock {
   contrast?: string;
 }
 
+/**
+ * The single reasoning step an `autopsy` patch may install. A step is one new
+ * fact attached to something the learner already holds (`rests_on`) plus the
+ * check that verifies it landed (`check`). More than one step is a lecture, not
+ * a patch; the Tutor must pause for the learner's check before the next step.
+ */
+export interface StepBlock {
+  index?: number;
+  total?: number;
+  fact?: string;
+  rests_on?: string;
+  check?: string;
+}
+
 export const FOUNDATION_FIELDS = ["problem", "where_from", "conditions", "contrast"] as const;
 
 /**
@@ -706,17 +724,39 @@ export interface TriageRow {
   item?: string;
   bucket?: string;
   evidence?: string;
+  // Dependency ordering for the attack plan: the other triage rows whose
+  // load-bearing claim must be solid before this row may be attacked. Optional;
+  // a row with no `requires` is a root of the attack tree.
+  requires?: string[];
+  // True when the row sits on the shortest dependency path to the model's goal.
+  // Off-path holes are recorded but not attacked this session.
+  on_path?: boolean;
 }
 
 /**
  * Shape check for a `turn_kind:"triage"` turn: every row names an item and a
  * valid bucket, and every non-solid row carries grounding (the learner's quote
- * for `suspect`, the source citation for `missing`). A row with no grounding is
- * the `UNGROUNDED_HOLE` failure, caught deterministically before the verifier.
+ * for `suspect`, the source citation for `missing`). The optional dependency
+ * ordering (`requires`, `on_path`) must name real rows and be acyclic, so the
+ * attack plan is traversable. A row with no grounding is the `UNGROUNDED_HOLE`
+ * failure, caught deterministically before the verifier.
  */
 function triageGaps(triage: TriageRow[] | undefined): string[] {
   if (!Array.isArray(triage) || triage.length === 0) return ["triage (missing)"];
   const gaps: string[] = [];
+  const names = new Set<string>();
+  const seen = new Set<string>();
+  triage.forEach((row, i) => {
+    if (!row || typeof row !== "object") return;
+    const item = typeof row.item === "string" ? row.item.trim() : "";
+    if (!item) return;
+    if (seen.has(item)) {
+      gaps.push(`triage row ${i + 1} (duplicate item '${item}')`);
+    }
+    seen.add(item);
+    names.add(item);
+  });
+  const edges = new Map<string, string[]>();
   triage.forEach((row, i) => {
     const n = i + 1;
     if (!row || typeof row !== "object") {
@@ -732,7 +772,77 @@ function triageGaps(triage: TriageRow[] | undefined): string[] {
     } else if (bucket !== "solid" && !evidence) {
       gaps.push(`triage row ${n} (${bucket} row has no learner quote or source citation)`);
     }
+    if (row.on_path !== undefined && typeof row.on_path !== "boolean") {
+      gaps.push(`triage row ${n} (on_path must be true or false)`);
+    }
+    if (row.requires !== undefined) {
+      if (!Array.isArray(row.requires)) {
+        gaps.push(`triage row ${n} (requires must be an array of row items)`);
+      } else {
+        const refs: string[] = [];
+        for (const raw of row.requires) {
+          const ref = typeof raw === "string" ? raw.trim() : "";
+          if (!ref) {
+            gaps.push(`triage row ${n} (requires has an empty entry)`);
+          } else if (ref === item) {
+            gaps.push(`triage row ${n} (requires itself)`);
+          } else if (!names.has(ref)) {
+            gaps.push(`triage row ${n} (requires unknown item '${ref}')`);
+          } else {
+            refs.push(ref);
+          }
+        }
+        if (item && refs.length > 0) edges.set(item, refs);
+      }
+    }
   });
+  // A cycle makes "attack the prerequisites first" unsatisfiable.
+  const state = new Map<string, number>();
+  const visit = (name: string): boolean => {
+    const s = state.get(name) || 0;
+    if (s === 1) return true;
+    if (s === 2) return false;
+    state.set(name, 1);
+    for (const next of edges.get(name) || []) {
+      if (visit(next)) return true;
+    }
+    state.set(name, 2);
+    return false;
+  };
+  for (const name of names) {
+    if (visit(name)) {
+      gaps.push("triage (dependency cycle in requires)");
+      break;
+    }
+  }
+  return gaps;
+}
+
+/**
+ * Shape check for an `autopsy` patch: exactly one reasoning step, bound into
+ * the draft, with the check that verifies it. The step must rest on something
+ * the learner already holds; a patch that installs several facts at once is a
+ * lecture and is withheld.
+ */
+function stepGaps(renderedContent: string | undefined, step: StepBlock | undefined): string[] {
+  if (!step || typeof step !== "object" || Array.isArray(step)) return ["step (missing)"];
+  const gaps: string[] = [];
+  const index = typeof step.index === "number" ? step.index : NaN;
+  const total = typeof step.total === "number" ? step.total : NaN;
+  if (!Number.isInteger(index) || index < 1) gaps.push("step.index (missing or not a positive integer)");
+  if (!Number.isInteger(total) || total < 1) gaps.push("step.total (missing or not a positive integer)");
+  if (Number.isInteger(index) && Number.isInteger(total) && index > total) {
+    gaps.push("step.index (greater than step.total)");
+  }
+  const draft = renderedContent || "";
+  const fact = typeof step.fact === "string" ? step.fact.trim() : "";
+  if (!fact) gaps.push("step.fact (missing)");
+  else if (coverage(fact, draft) < FOUNDATION_BIND_THRESHOLD) gaps.push("step.fact (not in the draft)");
+  const restsOn = typeof step.rests_on === "string" ? step.rests_on.trim() : "";
+  if (!restsOn) gaps.push("step.rests_on (missing)");
+  const check = typeof step.check === "string" ? step.check.trim() : "";
+  if (!check) gaps.push("step.check (missing)");
+  else if (coverage(check, draft) < FOUNDATION_BIND_THRESHOLD) gaps.push("step.check (not in the draft)");
   return gaps;
 }
 
@@ -749,9 +859,10 @@ function attackGaps(attack: string | undefined): string[] {
  * Deterministic shape check for a teach/resume `claims` turn.
  *
  *   - no/invalid `turn_kind`             -> ["turn_kind"]
- *   - `triage`                           -> every row valid and grounded
+ *   - `triage`                           -> every row valid, grounded, acyclic
  *   - `attack`                           -> exactly one known subtype
- *   - `autopsy` / answer/repair/hint/... -> [] (no beat required)
+ *   - `autopsy`                          -> exactly one bound reasoning step
+ *   - answer/repair/hint/...             -> [] (no shape required)
  *   - `turn_kind: "idea"`                -> every foundation field non-empty AND
  *     its prose bound into the verified draft
  */
@@ -760,12 +871,14 @@ export function foundationGaps(
   turnKind: string | undefined,
   foundation: FoundationBlock | undefined,
   triage?: TriageRow[],
-  attack?: string
+  attack?: string,
+  step?: StepBlock
 ): string[] {
   const kind = typeof turnKind === "string" ? turnKind.trim().toLowerCase() : "";
   if (!VALID_TURN_KINDS.has(kind)) return ["turn_kind"];
   if (kind === "triage") return triageGaps(triage);
   if (kind === "attack") return attackGaps(attack);
+  if (kind === "autopsy") return stepGaps(renderedContent, step);
   if (kind !== "idea") return [];
   const draft = renderedContent || "";
   const gaps: string[] = [];
@@ -1291,6 +1404,10 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     foundation:
       envelope && envelope.foundation && typeof envelope.foundation === "object" && !Array.isArray(envelope.foundation)
         ? (envelope.foundation as FoundationBlock)
+        : undefined,
+    step:
+      envelope && envelope.step && typeof envelope.step === "object" && !Array.isArray(envelope.step)
+        ? (envelope.step as StepBlock)
         : undefined,
     uiPayload:
       gate === "ui_audit" && envelope && envelope.payload !== undefined

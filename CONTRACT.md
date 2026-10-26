@@ -112,72 +112,92 @@ its tagged test, change the implementation, all in one reviewed commit.
   `plan`, `triage`, `attack`, `hint`, `autopsy`, `answer`, `repair`,
   `grade_feedback`, or `idea`. A `triage` turn ships a non-empty `triage[]`
   where every row names an item and a valid bucket and every non-solid row
-  carries the learner's quote or a source citation; an `attack` turn ships
-  exactly one subtype (`mechanism`/`counterexample`/`perturbation`/`source_clash`/
-  `sabotage`/`synthesis`); `plan`/`autopsy`/`answer`/`repair`/`hint`/
-  `grade_feedback` need no foundation. An `idea` turn (a new definition, formula,
+  carries the learner's quote or a source citation; the optional
+  `requires`/`on_path` fields order the attack plan and must be acyclic. An
+  `attack` turn ships exactly one subtype (`mechanism`/`counterexample`/
+  `perturbation`/`source_clash`/`sabotage`/`synthesis`); `plan`/`answer`/
+  `repair`/`hint`/`grade_feedback` need no shape block. An `autopsy` turn ships
+  exactly one reasoning `step` (`index`/`total`/`fact`/`rests_on`/`check`) with
+  the `fact` and `check` prose present in the draft; more than one step is a
+  lecture and is withheld. An `idea` turn (a new definition, formula,
   mechanism, or micro-step the learner actually asked for) carries all four beats
-  — `problem` (what it is for), `where_from` (derivation/mechanism), `conditions`
-  (assumptions/boundary cases), `contrast` (nearest-neighbour distinction) — each
-  non-empty and its prose present in the verified draft. A missing or unknown
-  `turn_kind`, a malformed `triage[]`, or an attack without one valid subtype is
-  withheld (`FOUNDATION_INCOMPLETE`) with a remedy naming the fix, so a fluent
-  what-only lecture, an ungrounded triage claim, or a chain of attacks cannot
-  render as if complete. Foundation beats are also the completeness rubric for
-  the learner's own model: a missing beat is an attack target, never a Tutor
-  paragraph. A fact-check verdict naming a non-empty `omitted_foundations[]`
-  (load-bearing *conceptual* theory in the sources with no trace in the draft) is
-  an `ISSUES` verdict even when it also says PASS; the omission check never
-  demands a missing derivation.
+  — `problem` (what it is for), `where_from` (conceptual entailment/mechanism),
+  `conditions` (assumptions/boundary cases), `contrast` (nearest-neighbour
+  distinction) — each non-empty and its prose present in the verified draft;
+  `where_from` never demands a symbolic derivation. A missing or unknown
+  `turn_kind`, a malformed `triage[]`, an attack without one valid subtype, or an
+  autopsy without one bound step is withheld (`FOUNDATION_INCOMPLETE`) with a
+  remedy naming the fix, so a fluent what-only lecture, an ungrounded triage
+  claim, a chain of attacks, or a multi-step patch cannot render as if complete.
+  Foundation beats are also the completeness rubric for the learner's own model:
+  a missing beat is an attack target, never a Tutor paragraph. A fact-check
+  verdict naming a non-empty `omitted_foundations[]` (load-bearing *conceptual*
+  theory in the sources with no trace in the draft) is an `ISSUES` verdict even
+  when it also says PASS; the omission check never demands a missing symbolic
+  derivation, but it may require a qualitative one-step entailment.
 - **G-interrogation-stance** *(policy)* — the Tutor is a sparring partner and
   stress-tester, not a primary teacher. The pi/Open WebUI layer ships the same
   interrogation stance as the Antigravity layer: never teach a topic cold, read
-  the learner's material, require a closed-book model, triage the model, attack
-  one hole at a time, patch the learner's model (v1 → breaking case → v2), and
-  graduate it with a naive-student clone. The retired teacher-first loop
-  (probe → plan → mini-checkpoint lecture) is gone from the prompt resources.
+  the learner's material, require a closed-book model, bracket the edge when the
+  model is ambiguous, triage the model as a dependency-ordered attack tree, attack
+  one hole at a time, reveal at most one reasoning step when a legal reveal is
+  delivered, patch the learner's model (v1 → breaking case → v2), run the
+  entailment check, and graduate it with a naive-student clone. The retired
+  teacher-first loop (probe → plan → mini-checkpoint lecture) is gone from the
+  prompt resources; the bracket is diagnostic measurement, not a lecture.
 - **G-triage-shape** *(hard)* — a `turn_kind:"triage"` turn carries a non-empty
   `triage[]`; every row has an item and a bucket in `solid|missing|suspect`, and
   every non-solid row carries grounding (the learner's exact words for
-  `suspect`, a source citation for `missing`). A missing/empty table, an invalid
-  bucket, or an ungrounded non-solid row withholds the turn
-  (`FOUNDATION_INCOMPLETE`) with a triage-specific remedy.
+  `suspect`, a source citation for `missing`). Optional `requires` names the rows
+  whose repair must land first and `on_path` marks the shortest dependency path to
+  the model's goal; a reference to an unknown row, a self-reference, a duplicate
+  item name, or a cycle is withheld (`FOUNDATION_INCOMPLETE`) with a triage-specific
+  remedy, so the attack plan is always traversable. A missing/empty table, an invalid
+  bucket, or an ungrounded non-solid row withholds the turn the same way.
 - **G-attack-shape** *(hard)* — a `turn_kind:"attack"` turn declares exactly one
   subtype from the attack menu; a missing, unknown, or multiple subtype withholds
   the turn (`FOUNDATION_INCOMPLETE`) with an attack-specific remedy. The verifier
-  additionally rejects an attack that does not target a non-solid triage row, a
-  counterexample that does not satisfy the learner's statement as written, a
-  perturbation of a cosmetic term, or an attack that fills the hole
+  additionally rejects an attack that does not target a non-solid triage row, an
+  attack on a dependent hole before its `requires` are solid, a counterexample
+  that does not satisfy the learner's statement as written, a perturbation of a
+  cosmetic term, or an attack that fills the hole
   (`SPOONFEEDING_DETECTED` / `LECTURE_SLIP`).
 - **G-interrogation-turn-kinds** *(hard)* — every teach/resume claims turn
   declares a valid `turn_kind`; `plan`/`triage`/`attack`/`hint`/`autopsy`/
   `answer`/`repair`/`grade_feedback` need no foundation beat and only `idea`
-  does. An unknown or absent kind is withheld (`FOUNDATION_INCOMPLETE`). A
-  grade-feedback turn is a claims turn verified with `turn_kind:"grade_feedback"`
-  + `grade_verdicts[]`; it reproduces the audited verdicts exactly and never
-  exposes verification internals.
+  does. An `autopsy` carries exactly one reasoning `step` block; other non-idea
+  kinds carry neither. An unknown or absent kind is withheld
+  (`FOUNDATION_INCOMPLETE`). A grade-feedback turn is a claims turn verified with
+  `turn_kind:"grade_feedback"` + `grade_verdicts[]`; it reproduces the audited
+  verdicts exactly and never exposes verification internals.
 - **G-verifier-interrogation-audit** *(policy)* — the fixed verifier prompts
   police mental-model integrity as strictly as truth. `fact-check` audits attack
-  grounding and counterexample validity, triage integrity, model ghostwriting,
-  ungrounded holes, lecture slips, spoonfeeding, cue leakage, and visual
-  sufficiency (`visual_plan` present; `VISUAL_PLAN_MISSING` / `VISUAL_MISSED`).
-  `grade-audit` grades the mechanism and the direction/extreme check, applies the
-  attack and battery rubrics, flags `SHALLOW_PASS` when the learner merely remixes
-  the Tutor's recent turns, records sure-but-fail as false confidence, and
-  requires a real `naive_student_receipt` for a clone. `quiz-audit` enforces
-  context-appropriate item types, the concept-label ban, and the qualitative-trace
-  requirement.
-- **G-clone-protocol** *(hard)* — graduation for a `concept`/`design` runs the
-  naive-student clone: the learner's patched model v2 is handed over **verbatim**
-  (never a Tutor paraphrase) plus the concept, a seeded misconception,
-  prerequisite level, and a qualitative prediction/tool-choice task. The clone
-  reports `NAIVE_STUDENT_RECEIPT` with `task_succeeded` and
+  grounding, dependency ordering, and counterexample validity, triage integrity,
+  model ghostwriting, ungrounded holes, lecture slips, one-step autopsy patches,
+  spoonfeeding, cue leakage, and visual sufficiency (`visual_plan` present;
+  `VISUAL_PLAN_MISSING` / `VISUAL_MISSED`). `grade-audit` grades the mechanism and
+  the direction/extreme check, applies the attack and battery rubrics, flags
+  `SHALLOW_PASS` when the learner merely remixes the Tutor's recent turns, records
+  sure-but-fail as false confidence, grades the graduation conceptual entailment
+  without demanding algebra, and requires a real `naive_student_receipt` for a
+  clone. `quiz-audit` enforces context-appropriate item types (bracket probe,
+  pre-attack prediction, practice, review, solo), the concept-label ban, the
+  qualitative-trace requirement, and check craft.
+- **G-clone-protocol** *(hard)* — graduation for a `concept`/`design` runs an
+  entailment check before the naive-student clone: one qualitative question
+  asking why the patched claim must hold given what the learner already accepted,
+  and what would have to be true for it to break. Pass requires the learner's own
+  conceptual one-step entailment plus the breaking condition; this is not a
+  symbolic derivation and must not demand algebra. The clone then hands over v2
+  **verbatim** (never a Tutor paraphrase) plus the concept, a seeded
+  misconception, prerequisite level, and a qualitative prediction/tool-choice
+  task. The clone reports `NAIVE_STUDENT_RECEIPT` with `task_succeeded` and
   `questions_unanswered`; a failed clone is a fail regardless of the claimed
   verdict, a missing receipt is an `ISSUES` verdict, and the outcome is logged as
   `feynman_pass`/`feynman_fail`. v1 and v2 are preserved verbatim in order with
   the breaking case labelled between them.
 - **G-review-no-mcq** *(hard)* — review and solo batches test cue selection and
-  transfer, not recognition: no MCQs (MCQs are legal only in a legacy probe),
+  transfer, not recognition: no MCQs (MCQs are legal only in a bracket probe),
   items are unlabeled for selection/application, and the learner must produce the
   3-line qualitative trace (cue & principle → mechanism/knob-turn → direction &
   extreme check). Review/solo batches include operational items (perturbation,
