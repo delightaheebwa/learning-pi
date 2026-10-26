@@ -25,6 +25,11 @@
 > > triage → one targeted attack per turn → model patch (v2) → naive-student clone, with automatic
 > > visual composition and a review that pauses for learner questions before persisting. Contract v8
 > > (62 invariants); gate turn kinds extended to `plan|triage|attack|hint|autopsy|answer|repair|grade_feedback|idea`.
+> >
+> > **LearnHarness hybrid (2026-10-26):** the interrogation flow imports LearnHarness's measurement
+> > and pacing mechanics — bracket probe, dependency-ordered attack tree, predict → attack → check,
+> > one-step `autopsy` reveals, and a graduation entailment check — while keeping the learner-owned
+> > model and the never-teach-cold stance. Numeric confidence is not imported.
 
 ---
 
@@ -505,6 +510,42 @@ Each item lists **Goal · Where · Design · Verify**.
   `.pi/APPEND_SYSTEM.md`, `.pi/skills/learning-teach/SKILL.md`, `.pi/skills/learning-system/SKILL.md`,
   `test/gate_test.mjs`, `test/judge_test.mjs`, `test/golden/golden_test.mjs`, `test/redteam/`. Verified
   with `scripts/learn-check`.
+
+---
+
+### P5 — LearnHarness methodology hybrid (landed 2026-10-26)
+
+> **Status:** landed. Imports the measurement/planning/one-step mechanics from
+> `amosblomqvist/learnharness` into the existing interrogation stance, without
+> restoring the retired teacher-first loop. The learner still reads first, owns v1/v2
+> verbatim, and produces every repair; LearnHarness's "one reasoning step" now constrains
+> *how much a legal reveal gives away*, never whether the Tutor may teach cold.
+
+- **Bracket probe.** After v1, when the model is ambiguous or triage would be guesswork, one short
+  `context:"probe"` batch locates the learner's edge before bucketing. Diagnostic only; no preview,
+  no lesson.
+- **Dependency-ordered attack tree.** Triage rows may carry `requires`/`on_path`; the gate validates
+  real references and acyclicity. Attacks run shallowest-root first along the minimal path to the
+  model's goal; off-path holes are recorded but not attacked this session.
+- **Predict → attack → check.** Before each attack with a meaningful next step, one open
+  `context:"predict"` question (not graded, no MCQ); after a repair, one check on the patched claim.
+- **One-step reveals.** `autopsy` (and hints past R2) install exactly one reasoning step:
+  `step:{index,total,fact,rests_on,check}`. More than one step is withheld; the Tutor ships step 1 and
+  waits.
+- **Graduation entailment check.** Before the clone, one qualitative "why must this hold now / what
+  would break it?" question, graded `explain-back`. Conceptual entailment, never algebra.
+- **Question craft + voice.** `quiz-audit` enforces the check principles (answerable from the
+  session, application over recitation, diagnostic misses); the stance keeps no agreement bias or
+  performed profundity.
+- **Files:** `contracts/learning-core.json`, `CONTRACT.md`,
+  `.pi/extensions/learning-gate/gate-core/` (`primitives.ts`, `engine.ts`),
+  `.pi/agents/fact-check.md`, `.pi/agents/quiz-audit.md`, `.pi/agents/grade-audit.md`,
+  `.pi/agents/tutor-audit.md`, `.pi/agents/clerk.md`, `.pi/APPEND_SYSTEM.md`,
+  `.pi/skills/learning-teach/SKILL.md`, `.pi/prompts/teach.md`, `.pi/prompts/continue.md`,
+  `.pi/prompts/pause.md`, `test/gate_test.mjs`, `test/contract/check_learning_layer.py`,
+  `docs/teaching-methodology.md`, `README.md`. Verified with `scripts/learn-check`.
+- **Not imported:** teacher-first cold lessons; a visible plan map before triage; numeric per-answer
+  confidence (the `sure|hunch|no-idea` scale is unchanged); symbolic derivations.
 
 ---
 

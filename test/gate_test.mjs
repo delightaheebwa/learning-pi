@@ -1445,17 +1445,123 @@ const attackEnv = (attack) =>
     blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('attack')
   );
 }
+const AUTOPSY_DRAFT =
+  'Here is the patch, not your understanding: entropy is the expected surprise of a draw. ' +
+  'Check: with a fair coin, is the surprise per draw high or low?';
+const AUTOPSY_STEP = {
+  index: 1,
+  total: 1,
+  fact: 'entropy is the expected surprise of a draw',
+  rests_on: 'you already accepted that a rare outcome carries more surprise',
+  check: 'with a fair coin, is the surprise per draw high or low?',
+};
 {
   const autopsy = JSON.stringify({
     gate: 'fact_check',
     turn_kind: 'autopsy',
-    visual_plan: { kind: 'prose', why: 'the patch and the perturbation are carried by prose' },
+    step: AUTOPSY_STEP,
+    visual_plan: { kind: 'prose', why: 'the patch and the check are carried by prose' },
     claims: [{ id: 1, claim: 'entropy is the expected surprise of a distribution' }],
-    rendered_content: FOUND_DRAFT,
+    rendered_content: AUTOPSY_DRAFT,
     source_urls: ['https://e.com'],
   });
-  const r = await runFoundationClaims('it7', FOUND_DRAFT, autopsy);
+  const r = await runFoundationClaims('it7', AUTOPSY_DRAFT, autopsy);
   assert('autopsy patch turn needs no foundation beat', allowed(r));
+}
+{
+  const noStep = JSON.stringify({
+    gate: 'fact_check',
+    turn_kind: 'autopsy',
+    visual_plan: { kind: 'prose', why: 'the patch and the check are carried by prose' },
+    claims: [{ id: 1, claim: 'entropy is the expected surprise of a distribution' }],
+    rendered_content: AUTOPSY_DRAFT,
+    source_urls: ['https://e.com'],
+  });
+  const r = await runFoundationClaims('it11', AUTOPSY_DRAFT, noStep);
+  assert(
+    'autopsy without one bound reasoning step is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('step')
+  );
+}
+{
+  const noCheck = { ...AUTOPSY_STEP };
+  delete noCheck.check;
+  const r = await runFoundationClaims(
+    'it12',
+    AUTOPSY_DRAFT,
+    JSON.stringify({
+      gate: 'fact_check',
+      turn_kind: 'autopsy',
+      step: noCheck,
+      visual_plan: { kind: 'prose', why: 'the patch and the check are carried by prose' },
+      claims: [{ id: 1, claim: 'entropy is the expected surprise of a distribution' }],
+      rendered_content: AUTOPSY_DRAFT,
+      source_urls: ['https://e.com'],
+    })
+  );
+  assert(
+    'autopsy step missing its check is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('step')
+  );
+}
+{
+  const unbound = { ...AUTOPSY_STEP, fact: 'variance measures the spread of a Gaussian' };
+  const r = await runFoundationClaims(
+    'it13',
+    AUTOPSY_DRAFT,
+    JSON.stringify({
+      gate: 'fact_check',
+      turn_kind: 'autopsy',
+      step: unbound,
+      visual_plan: { kind: 'prose', why: 'the patch and the check are carried by prose' },
+      claims: [{ id: 1, claim: 'entropy is the expected surprise of a distribution' }],
+      rendered_content: AUTOPSY_DRAFT,
+      source_urls: ['https://e.com'],
+    })
+  );
+  assert(
+    'autopsy step whose fact is not in the draft is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('step')
+  );
+}
+{
+  const r = await runFoundationClaims(
+    'it14',
+    TRIAGE_DRAFT,
+    triageEnv([
+      { item: 'entropy captures the information', bucket: 'suspect', evidence: 'learner: "entropy captures the information"', on_path: true },
+      { item: 'log of typical sequences', bucket: 'missing', evidence: 'source p.3: nH typical sequences', requires: ['entropy captures the information'] },
+      { item: 'independent draws', bucket: 'solid' },
+    ])
+  );
+  assert('triage turn with dependency ordering renders', allowed(r));
+}
+{
+  const r = await runFoundationClaims(
+    'it15',
+    TRIAGE_DRAFT,
+    triageEnv([
+      { item: 'entropy captures the information', bucket: 'suspect', evidence: 'learner: "entropy captures the information"', requires: ['not a row'] },
+    ])
+  );
+  assert(
+    'triage turn with unmet dependency is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('requires')
+  );
+}
+{
+  const r = await runFoundationClaims(
+    'it16',
+    TRIAGE_DRAFT,
+    triageEnv([
+      { item: 'entropy captures the information', bucket: 'suspect', evidence: 'learner: "entropy captures the information"', requires: ['log of typical sequences'] },
+      { item: 'log of typical sequences', bucket: 'missing', evidence: 'source p.3: nH typical sequences', requires: ['entropy captures the information'] },
+    ])
+  );
+  assert(
+    'triage turn with a cyclic requires edge is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('cycle')
+  );
 }
 {
   const plan = JSON.stringify({

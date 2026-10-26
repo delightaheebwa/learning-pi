@@ -137,21 +137,21 @@ export function createGate(options: GateOptions = {}): GateEngine {
   // Other flows (review/solo/ingest) keep the existing behavior.
   const foundationApplies = () => run.flow === "teach" || run.flow === "resume";
   const foundationGapsOf = (r: P.Receipt): string[] =>
-    foundationApplies() ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation, r.triage, r.attack) : [];
+    foundationApplies() ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation, r.triage, r.attack, r.step) : [];
   // A grade+repair turn is not a claims turn, so it may not *require* a
   // turn_kind; but if its repair prose is explicitly labelled an idea, the beat
   // is still enforced. (A disguise, e.g. an idea labelled `repair`, is the
   // verifier's honesty check — see fact-check.)
   const ideaFoundationGapsOf = (r: P.Receipt): string[] =>
     (r.turnKind || "").trim().toLowerCase() === "idea"
-      ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation, r.triage, r.attack)
+      ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation, r.triage, r.attack, r.step)
       : [];
   const foundationRemedy = (r: P.Receipt, gaps: string[]): string => {
     if (gaps.length === 1 && gaps[0] === "turn_kind") {
       return (
         "This teach/resume claims turn declares no valid `turn_kind`. Add `\"turn_kind\": \"idea\"` (with a `foundation` block) " +
-        "when the turn introduces a new idea the learner asked for; otherwise use `\"plan\"|\"triage\"|\"attack\"|\"hint\"|\"autopsy\"|\"answer\"|\"repair\"|\"grade_feedback\"`. " +
-        "Re-dispatch the fact-check envelope with the field, then emit this draft unchanged."
+        "when the turn introduces a new idea the learner asked for; otherwise use `\"plan\"|\"triage\"|\"attack\"|\"hint\"|\"autopsy\"|\"answer\"|\"repair\"|\"grade_feedback\"` " +
+        "(an `autopsy` also needs one `step` block). Re-dispatch the fact-check envelope with the field, then emit this draft unchanged."
       );
     }
     if (gaps.some((g) => g.startsWith("triage"))) {
@@ -160,6 +160,14 @@ export function createGate(options: GateOptions = {}): GateEngine {
         "`\"triage\": [{\"item\": \"<claim/topic>\", \"bucket\": \"solid|missing|suspect\", \"evidence\": \"<learner quote or source citation>\"}]` " +
         "in the fact-check envelope. Every `suspect` row quotes the learner's exact words and every `missing` row cites the source passage; " +
         "a non-solid row with no grounding is an ungrounded hole. Re-dispatch, then emit the draft unchanged."
+      );
+    }
+    if (gaps.some((g) => g.startsWith("step"))) {
+      return (
+        `This autopsy patch does not ship exactly one reasoning step (${gaps.join(", ")}). Send ` +
+        "`\"step\": {\"index\": 1, \"total\": 1, \"fact\": \"<the one new fact>\", \"rests_on\": \"<what the learner already holds>\", \"check\": \"<the question that verifies it landed>\"}` " +
+        "in the fact-check envelope. The `fact` and `check` prose must appear in the draft; if the patch needs more than one step, ship step 1 now and continue only after the learner answers its check. " +
+        "Re-dispatch, then emit the draft unchanged."
       );
     }
     if (gaps.some((g) => g.startsWith("attack"))) {
@@ -461,7 +469,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
             r.valid &&
             r.renderedContent &&
             P.nearDuplicate(r.renderedContent, draft) &&
-            P.missingHardFacts(r.renderedContent, r.claimsText).length === 0
+            P.missingHardFacts(r.renderedContent, r.claimsText).length === 0 &&
+            foundationGapsOf(r).length === 0
         );
       if (
         run.receipts.some((r) => r.gate === "fact_check" && r.valid) &&
@@ -1109,7 +1118,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const fix = [
         "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, or `[[TURN:none]]`.",
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged. A `[[TURN:claims]]` tag is also inferred automatically when your text matches an already-verified `rendered_content`, so if a message is withheld here, just re-emit the verified draft with its tag.",
-        "foundation: every teach/resume claims turn needs `turn_kind`; an `idea` turn (new definition, formula, mechanism, or micro-step) also needs a `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft. `answer`/`repair`/`hint`/`plan` need no foundation.",
+        "foundation: every teach/resume claims turn needs `turn_kind`; an `idea` turn (new definition, formula, mechanism, or micro-step) also needs a `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft, and an `autopsy` patch needs one `step` block (`index`/`total`/`fact`/`rests_on`/`check`) whose `fact` and `check` prose are in the draft. `answer`/`repair`/`hint`/`plan` need neither.",
         "quiz: send the exact batch as `questions_json` (not `items[]`) AND the full learner-facing batch text as `rendered_content` (intro/instructions + every question + its options) so the receipt covers the whole emitted turn; fix EVERY issue (any severity blocks), then re-emit the corrected batch instead of looping.",
         "grade: when one learner reply answers several questions, send ONE `grade-audit` envelope with an `items[]` entry per answer (`{id,concept,question,learner_answer,claimed_verdict,source_excerpt}`); a single answer may use the flat object. Use the verifier's per-item `correct_verdict`.",
         "grade mismatch: on GRADE_MISMATCH, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict`, then emit those verdicts — do not emit a disputed grade.",

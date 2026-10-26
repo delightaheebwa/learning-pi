@@ -206,6 +206,23 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: learning-teach runs entry gate -> spine check -> triage -> attacks -> model patch/clone")
 
+    learned_needles = ("Bracket the edge", "dependency tree", "entailment check")
+    missing_learned = [n for n in learned_needles if n.lower() not in teach_text.lower()]
+    if missing_learned:
+        fail(f"resources: learning-teach/SKILL.md missing LearnHarness-hybrid step(s): {missing_learned}")
+    else:
+        ok(
+            "resources: learning-teach brackets the learner's edge before triage, orders attacks by "
+            "dependency, and runs the graduation entailment check before clone"
+        )
+
+    stance_measure_needles = ("Bracket the edge", "one reasoning step per reveal")
+    missing_stance_measure = [n for n in stance_measure_needles if n.lower() not in agents_md.lower()]
+    if missing_stance_measure:
+        fail(f"resources: APPEND_SYSTEM.md missing LearnHarness-hybrid rule(s): {missing_stance_measure}")
+    else:
+        ok("resources: APPEND_SYSTEM.md encodes bracket measurement and one reasoning step per reveal")
+
     for stale in ("probe → plan → teach", "Mini-checkpoint pause protocol", "elicit → attempt → state"):
         if stale.lower() in teach_text.lower():
             fail(f"resources: learning-teach/SKILL.md still carries the retired teacher-first flow ({stale!r})")
@@ -231,6 +248,13 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: fact-check audits ghostwriting, ungrounded holes, lecture slips, spoonfeeding, cue leakage, and visual sufficiency")
 
+    fact_step_needles = ("one reasoning step", "step` block")
+    missing_fact_step = [n for n in fact_step_needles if n.lower() not in fact_check_text.lower()]
+    if missing_fact_step:
+        fail(f"resources: fact-check.md missing one-step autopsy rule(s): {missing_fact_step}")
+    else:
+        ok("resources: fact-check audits one-step autopsy patches")
+
     grade_text = (root / ".pi" / "agents" / "grade-audit.md").read_text(
         encoding="utf-8", errors="replace"
     )
@@ -241,6 +265,13 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: grade-audit grades traces, shallow passes, false confidence, and the naive-student clone")
 
+    grade_entail_needles = ("conceptual entailment", "one-step entailment")
+    missing_grade_entail = [n for n in grade_entail_needles if n.lower() not in grade_text.lower()]
+    if missing_grade_entail:
+        fail(f"resources: grade-audit.md missing entailment rule(s): {missing_grade_entail}")
+    else:
+        ok("resources: grade-audit grades conceptual entailment without algebra")
+
     quiz_text = (root / ".pi" / "agents" / "quiz-audit.md").read_text(
         encoding="utf-8", errors="replace"
     )
@@ -250,6 +281,13 @@ def check_resources(root: Path) -> None:
         fail(f"resources: quiz-audit.md missing interrogation question rule(s): {missing_quiz}")
     else:
         ok("resources: quiz-audit enforces MCQ legality, the concept-label ban, and the qualitative-trace requirement")
+
+    quiz_predict_needles = ("Prediction context", "untaught next step", "not a graded")
+    missing_quiz_predict = [n for n in quiz_predict_needles if n.lower() not in quiz_text.lower()]
+    if missing_quiz_predict:
+        fail(f"resources: quiz-audit.md missing prediction-context rule(s): {missing_quiz_predict}")
+    else:
+        ok("resources: quiz-audit enforces predict context rules (open prediction about the untaught next step, no MCQ, no answer leak)")
 
     naive_path = root / ".pi" / "agents" / "naive-student.md"
     if not naive_path.is_file():
