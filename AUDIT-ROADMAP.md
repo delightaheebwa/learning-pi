@@ -18,13 +18,14 @@
 > > lesson-start gate, teach stance rewrite (Guided Learning peer tutor), bridge Phase 1 MVP +
 > > deploy Phase 3 (Open WebUI in Docker → pi-bridge), contract v6 with 55 invariants
 > > (was 45/45 at E2E). `E2E-REPORT.md` numbers are the 2026-10-08 snapshot, not current.
+> > Contract is now v12 (72 invariants); see `contracts/learning-core.json`.
 > > See `docs/roadmap/STAGE-LOG.md` for the post-cascade SHAs.
 > >
 > > **Interrogation port (2026-10-25):** the pi/Open WebUI layer now carries the Antigravity
 > > stress-test stance instead of the teacher-first loop: entry gate → closed-book spine check (v1) →
 > > triage → one targeted attack per turn → model patch (v2) → naive-student clone, with automatic
-> > visual composition and a review that pauses for learner questions before persisting. Contract v8
-> > (62 invariants); gate turn kinds extended to `plan|triage|attack|hint|autopsy|answer|repair|grade_feedback|idea`.
+> > visual composition and a review that pauses for learner questions before persisting. Contract v12
+> > (72 invariants); gate turn kinds extended to `plan|triage|attack|hint|autopsy|answer|repair|grade_feedback|idea`.
 > >
 > > **LearnHarness hybrid (2026-10-26):** the interrogation flow imports LearnHarness's measurement
 > > and pacing mechanics — bracket probe, dependency-ordered attack tree, predict → attack → check,

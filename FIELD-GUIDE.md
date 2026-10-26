@@ -28,7 +28,7 @@ A practical guide to running your spaced-repetition learning system from the pi 
 
 | Command | What it does |
 | --- | --- |
-| `/teach <topic>` | New topic: Scout gathers live sources → probe → plan → teach |
+| `/teach <topic>` | New topic: Scout gathers live sources → entry gate → triage → targeted attacks |
 | `/lesson` | Next curriculum lesson (sequential within the phase) |
 | `/continue` | Resume a paused lesson at its next mini-checkpoint (no Scout needed) |
 | `/pause` | Stop cleanly: exit ticket, partial lesson file, bank progress via Clerk |
@@ -57,22 +57,26 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
    lines + prereqs present, raw files on disk) and fact-checks the synthesis against the raw
    sources. A missing audit withholds the first teaching turn; `ISSUES` surfaces as a banner
    and never blocks.
-3. **Probe** — a small batch of questions, always with an "I don't know". Answer with a confidence
-   tag (`sure` / `hunch` / `no idea`). Feedback is withheld until the batch ends.
-4. **Plan** — a Mermaid dependency graph + what to skip/expand/reframe. You can push back.
-5. **Teach** — a checkpoint is delivered as **mini-checkpoints**: one atomic idea per message,
-   each followed by a pause that invites your questions and tangents. Each idea is delivered
-   through **elicit → attempt → state → check-and-extend** — it asks what you predict (grounded in
-   your Learner History and past learning records), nudges with at most two guiding questions if
-   you're off, then asks *you* to state the idea in your own words and checks that before adding
-   only what you missed. Say **"just tell me"** and it gives the idea at once (logged as a
-   dependency event), still closing with one minimal one-line generation. After the last
-   mini-checkpoint comes the checkpoint's single practice, then another pause after grading. It
-   won't chain ahead of you or dump a whole checkpoint at once.
-6. **Pause anytime** with `/pause` (student-paced). It banks today's progress and keeps the lesson
-   in-progress; `/continue` resumes at the next mini-checkpoint (the pause pointer records
-   `Checkpoint N/M, mini K/L`).
-7. **Lesson end** — cumulative quiz + Feynman explain-back. Then run `/ingest` to finalize: Clerk
+3. **Entry gate** — the Tutor never teaches cold. It asks for your notes/material and a **closed-book
+   model in your own words** first; if you bring notes but no model, it asks for the model before
+   reading anything. It will not preview the mechanism or name the right framing.
+4. **Measure (optional)** — if your model is ambiguous or hedged, one short bracket probe (MCQs,
+   marked `context:"probe"`) locates your edge before triage. It is diagnostic, never a preview.
+5. **Triage** — the Tutor buckets each claim in your model as `solid` / `missing` / `suspect` and
+   shows a compact table with the attack order. Off-path holes stay in the table but are not
+   attacked this session; prerequisites are attacked first.
+6. **Attack** — one targeted attack per turn, in dependency order: mechanism press, counterexample
+   trap, perturbation, source clash, sabotage, or synthesis clash. You predict before each attack;
+   the Tutor exposes the hole and never fills it. Say **"just tell me"** and it gives the idea at
+   once (logged as a dependency event), still closing with one minimal generation.
+7. **Patch (v2)** — you restate the repaired model in your own words; the Tutor checks it and adds
+   only what you missed, never rewriting your words.
+8. **Graduate** — a naive-student clone tries to use your patched model; if it fails, the hole
+   routes back to one more attack. A concept cannot reach `solid` without passing.
+9. **Pause anytime** with `/pause` (student-paced). It banks today's progress and keeps the lesson
+   in-progress; `/continue` resumes at the next attack (the pause pointer records
+   `Checkpoint N/M`).
+10. **Lesson end** — cumulative quiz + Feynman explain-back. Then run `/ingest` to finalize: Clerk
    writes the wiki + Active Concepts, reconciles the position pointers, runs the state audit,
    regenerates Learner History, and commits state; then the **Tutor** dispatches an independent
    `review-gate` on the wiki pages Clerk wrote (the Clerk does not gate itself).
@@ -213,8 +217,9 @@ Set in `~/learning-pi/.pi/settings.json` (project scope only):
 | --- | --- |
 | Tutor (your session) | `glm-5.3-flash` |
 | Scout / Clerk / Review Scout / Review Clerk | `deepseek-v4.1-flash` |
-| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `ui-audit`) | `muse-spark-1.3-contributor` (high) |
+| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `ui-audit` / `graph-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) / lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` |
+| Graph extractor (`graph-extract`) | `deepseek-v4.1-flash` |
 
 Verifiers run on preferred models for cost/availability, but this is a **default, not a guarantee** —
 when the preferred model is unavailable a verifier may run on the same model as the Tutor or Clerk,

@@ -6,6 +6,6 @@
 - `redteam/` — adversarial suites.
 - `contract/` (`check_learning_layer.py`, `load_probe.py`) — resource checks; load probe needs the pi binary (`--no-load` skips it in CI).
 - `bridge/` (`test_bridge.py`, `fake_pi.py`, `run_tests.py`) — bridge `B-*` coverage; deterministic, no models/network.
-- `e2e/scenarios/` (6 scenarios) — smoke runs by default; `*-full.json` need models (`--tier full`).
+- `e2e/scenarios/` (7 scenarios) — smoke runs by default; `*-full.json` need models (`--tier full`).
 - `fixtures/make_state_fixture.py` — synthetic learning-system state (never real data).
 - `pi_review_status_test.sh` — `bin/pi-review-status` boundary tests.

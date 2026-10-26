@@ -257,9 +257,10 @@ Configured in `.pi/settings.json` (project scope only):
 | Tutor (main session) | `glm-5.3-flash` |
 | Scout / Clerk / review-scout / review-clerk | `deepseek-v4.1-flash` |
 | Graduation clone (`naive-student`) | `deepseek-v4.1-flash` |
-| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `ui-audit`) | `muse-spark-1.3-contributor` (high) |
+| Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `ui-audit` / `graph-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Clerk's writes) |
 | Lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` (dispatched by the Tutor on the Scout digest) |
+| Graph extractor (`graph-extract`) | `deepseek-v4.1-flash` |
 
 Verifiers run on these models by default for cost/availability, but separation is a **preference,
 not a guarantee** — when the preferred model is unavailable a verifier may run on the same model as
@@ -313,6 +314,7 @@ content-matched verification (generation-to-emission — "verify A, emit B" is b
   - `[[TURN:claims]]` → requires a content-matched, passing `fact-check`
   - `[[TURN:quiz]]` → requires a `PASS` `quiz-audit` (zero issues; any severity blocks)
   - `[[TURN:grade]]` → requires an agreeing `grade-audit`
+  - `[[TURN:ui]]` → requires a passing `ui-audit` bound to the emitted OpenUI payload and covering the prose
   - `[[TURN:none]]` → no verifier required
 - A missing tag is withheld (`NO_TURN_TAG`) on the legacy path — **except** a grade/quiz turn, which
   the gate infers from a `grade-audit`/`quiz-audit` receipt (a bound match, or the single valid

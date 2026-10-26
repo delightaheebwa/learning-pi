@@ -1,9 +1,10 @@
 # E2E Report — final end-to-end verification (2026-10-08 — snapshot, superseded by post-cascade work)
 
-> **Snapshot note (2026-10-16):** this report is the 2026-10-08 cascade result (45/45 invariants,
-> `learning-pi 5a31bed`). It does **not** cover P4 foundation-beats, the scout-audit gate, the teach
-> rewrite, or bridge/deploy + contract v6 (55 invariants). See `STAGE-LOG.md` + `AUDIT-ROADMAP.md`
-> post-cascade note for what landed after.
+> **Snapshot note (2026-10-16, updated 2026-10-27):** this report is the 2026-10-08 cascade result
+> (45/45 invariants, `learning-pi 5a31bed`). It does **not** cover P4 foundation-beats, the
+> scout-audit gate, the teach rewrite, or bridge/deploy + the later interrogation/LearnHarness ports.
+> The contract is now at v12 (72 invariants). See `STAGE-LOG.md` + `AUDIT-ROADMAP.md` for what
+> landed after.
 
 Final stage of the audit cascade (`P1 → P2 → P3* → REVIEW → E2E`). This report tests the
 claims in [`AUDIT-ROADMAP.md`](../../AUDIT-ROADMAP.md) against the integrated system and records
