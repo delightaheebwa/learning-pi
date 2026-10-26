@@ -918,6 +918,13 @@ await fg('g8rg', 'review-gate', rg8, REVIEW_PASS);
 const objectGraphWrites = await msg(INGEST_SUMMARY, 'stop');
 assert('graph record objects in CLERK_WRITES still arm the audit gate', blocked(objectGraphWrites, 'NO_GRAPH_AUDIT_PASS'));
 
+// An intermediate released message must not disarm the armed id set.
+await ingestWithGraph('9');
+const intermediate = await msg('[[TURN:none]]\nThe Clerk returned; preparing the close summary.', 'stop');
+assert('intermediate ingest status message renders', allowed(intermediate));
+const stillGated = await msg(INGEST_SUMMARY, 'stop');
+assert('intermediate message does not disarm the graph audit gate', blocked(stillGated, 'NO_GRAPH_AUDIT_PASS'));
+
 const parsedObjectIds = P.graphIdsOf({ written_nodes: [{ id: 'n_aaaaaaaaaa' }], written_chains: ['arg_cccccccccc'] });
 assert('graph envelope ids accept record objects', !!parsedObjectIds && parsedObjectIds.length === 2);
 const parsedClerkObjectIds = P.parseClerkGraph('CLERK_WRITES: {"graph":{"created_nodes":[{"id":"n_aaaaaaaaaa"}],"linked_nodes":[],"created_chains":[],"linked_chains":[]}}');

@@ -215,7 +215,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         r.gate === "graph_audit" &&
         r.hasEnvelope === true &&
         !!r.graphIds &&
-        r.graphIds.length > 0
+        r.graphIds.some((id) => written.has(id))
     );
     const valid = targeted.filter((r) => r.valid);
     const flagged = targeted.filter((r) => !r.valid);
@@ -648,6 +648,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       let scoutNeeded = false;
       let reviewScoutNeeded = false;
       let surface = "";
+      let graphCloseComplete = false;
       const toConsume: P.Receipt[] = [];
 
       // Ingest terminal summary: the clerk's REVIEW_GATE_VERDICT receipt is the
@@ -797,6 +798,10 @@ export function createGate(options: GateOptions = {}): GateEngine {
             const { valid, flagged, complete } = graphAuditState();
             if (complete) {
               for (const r of valid) toConsume.push(r);
+              // A released close consumes its flagged history too, so a later
+              // ingest in the same flow does not inherit a stale ISSUES receipt.
+              for (const r of flagged) toConsume.push(r);
+              graphCloseComplete = true;
               if (valid.some((r) => r.evidenceMissing)) {
                 surface +=
                   "⚠️ GRAPH AUDIT — the graph-audit verdict carries no `evidence` list (what it read/checked); " +
@@ -1109,9 +1114,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
       if (blockers.length === 0 && !scoutNeeded && !reviewScoutNeeded) {
         for (const r of toConsume) consume(r);
         run.retries = 0;
-        // The audited merge is closed; a later ingest in this flow arms its own
-        // set instead of re-requiring these ids.
-        run.clerkGraphIds = [];
+        // Only the audited close clears the armed ids; an intermediate released
+        // message must not disarm a merge that still owes its audit.
+        if (graphCloseComplete) run.clerkGraphIds = [];
         run.agentlessDispatch = false;
         let out = P.stripTag(message);
         if (surface) out = P.prependBanner(out, surface);
@@ -1309,6 +1314,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
     let verdictNote = "";
     let scoutNeeded = false;
     let reviewScoutNeeded = false;
+    let graphCloseComplete = false;
     const toConsume: P.Receipt[] = [];
     let turnType = (explicitTag || assessment.turnType) as string;
     const summaryKind = assessment.summaryKind;
@@ -1446,6 +1452,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
         const { valid, flagged, complete } = graphAuditState();
         if (complete) {
           for (const r of valid) toConsume.push(r);
+          for (const r of flagged) toConsume.push(r);
+          graphCloseComplete = true;
           if (valid.some((r) => r.evidenceMissing)) {
             surface +=
               "⚠️ GRAPH AUDIT — the graph-audit verdict carries no `evidence` list (what it read/checked); " +
@@ -1699,7 +1707,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
     if (blocks.length === 0 && !scoutNeeded && !reviewScoutNeeded) {
       for (const r of toConsume) consume(r);
       run.retries = 0;
-      run.clerkGraphIds = [];
+      if (graphCloseComplete) run.clerkGraphIds = [];
       run.agentlessDispatch = false;
       run.issueBlocks = {};
       let out = P.stripTag(message);

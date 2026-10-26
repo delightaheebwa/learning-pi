@@ -671,6 +671,7 @@
         "partial graph-audit ISSUES reports the audit issue, not a missing audit",
         "split passing audits covering every id release the summary",
         "graph record objects in CLERK_WRITES still arm the audit gate",
+        "intermediate message does not disarm the graph audit gate",
         "judge path withholds the ingest close without a graph-audit"
       ]
     },
