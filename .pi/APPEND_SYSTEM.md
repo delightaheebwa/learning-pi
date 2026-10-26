@@ -245,7 +245,9 @@ beats with `foundation`; an interrogation turn (`plan`/`triage`/`attack`/`hint`/
 - **Attempts & calibration:** retain every graded attempt's metadata (concept, verdict, `--qtype`,
   `--confidence`, `--hints`, `--targets`, `--prereq`, `pow` type) for the handoff `attempts[]` array.
   `--targets` carries the graph ids the item retrieved (copied verbatim from the digest's
-  `prior_knowledge`; never invented; omitted when none). Use the
+  `prior_knowledge`; never invented; omitted when none). `ops.py` liveness-checks them against the
+  graph ledger and rejects a missing or retracted id — drop that id and record the attempt without it,
+  never resolve or substitute another. Use the
   existing qtype enum: spine check = `free-recall`; mechanism/synthesis = `discriminative`;
   counterexample/source clash/sabotage = `error-detect`; perturbation = `transfer-far`; clone =
   `explain-back`; immediate knob checks = `micro-check`. A `sure` confidence paired with a failed

@@ -254,10 +254,21 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // verifier returns zero issues at ANY severity. A repeated identical
       // issue is still bounded by the dispute safeguard (three repeats escalate to the judge).
       if (clerkCalls > 0 && run.clerkDispatches > P.MAX_CLERK_DISPATCHES) {
-        return {
-          block: true,
-          reason: `clerk ingest cap reached (${P.MAX_CLERK_DISPATCHES} per flow). The ingest is already running or done — report its result instead of re-dispatching.`,
-        };
+        // A flagged graph audit means the ingest is NOT done: the Clerk still
+        // owes a recorded fix (retract/correct + re-merge). Exempt that fix
+        // re-dispatch; the graph fix loop is uncapped and bounded by the
+        // dispute safeguard.
+        const graphFixPending =
+          run.clerkGraphIds.length > 0 &&
+          run.receipts.some(
+            (r) => r.gate === "graph_audit" && !r.valid && P.receiptAuditsGraph(r, run.clerkGraphIds)
+          );
+        if (!graphFixPending) {
+          return {
+            block: true,
+            reason: `clerk ingest cap reached (${P.MAX_CLERK_DISPATCHES} per flow). The ingest is already running or done — report its result instead of re-dispatching.`,
+          };
+        }
       }
       if (reviewClerkCalls > 0 && run.reviewClerkDispatches > P.MAX_REVIEW_CLERK_DISPATCHES) {
         // A flagged review-session audit means the review close is NOT done: its
@@ -350,6 +361,12 @@ export function createGate(options: GateOptions = {}): GateEngine {
           if (call.agent === "clerk") {
             const r = P.parseClerkReview(output);
             if (r) addReceipt(r);
+            // Arm the ingest graph gate: a Clerk that wrote ledger records owes
+            // an independent graph-audit over exactly those ids. Union across
+            // Clerk runs so a fix cannot shrink the audited set.
+            const graphIds = P.parseClerkGraph(output);
+            if (graphIds && graphIds.length > 0)
+              run.clerkGraphIds = Array.from(new Set([...run.clerkGraphIds, ...graphIds]));
           }
           if (call.agent === "review-clerk") {
             // The review close is a writer subagent now; a completed run means
@@ -410,6 +427,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
     const agent = input.agent;
     if (!agent) return;
     if (agent === "clerk") {
+      const graphIds = P.parseClerkGraph(text);
+      if (graphIds && graphIds.length > 0)
+        run.clerkGraphIds = Array.from(new Set([...run.clerkGraphIds, ...graphIds]));
       if (run.receipts.some((r) => r.gate === "review" && r.valid)) return;
       const r = P.parseClerkReview(text);
       if (r) addReceipt(r);
@@ -745,6 +765,26 @@ export function createGate(options: GateOptions = {}): GateEngine {
             }
           } else {
             blockers.push("NO_REVIEW_GATE_PASS");
+          }
+          // Graph fact-check gate: when the Clerk wrote ledger records, the
+          // close summary needs an independent `graph-audit` naming every id.
+          // A missing audit withholds; an ISSUES verdict withholds until the
+          // Clerk records a fix and a fresh audit passes (no cycle cap).
+          if (run.clerkGraphIds.length > 0) {
+            const graphAudits = run.receipts.filter(
+              (r) => r.gate === "graph_audit" && P.receiptAuditsGraph(r, run.clerkGraphIds)
+            );
+            const goodAudit = graphAudits.find((r) => r.valid);
+            if (goodAudit) {
+              toConsume.push(goodAudit);
+              if (goodAudit.evidenceMissing) {
+                surface +=
+                  "⚠️ GRAPH AUDIT — the graph-audit verdict carries no `evidence` list (what it read/checked); " +
+                  "treat the pass as unsubstantiated.\n\n";
+              }
+            } else {
+              blockers.push(graphAudits.length > 0 ? "GRAPH_AUDIT_ISSUES" : "NO_GRAPH_AUDIT_PASS");
+            }
           }
         }
       } else if (tag === "claims") {
@@ -1117,7 +1157,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         "in flight: if a verifier is still running, wait for its completion notification, then re-emit — do NOT re-dispatch and do NOT downgrade the tag.",
         "do not tag teaching content `[[TURN:none]]` to bypass the gate: a `none` message matching a verified or in-flight `fact-check` draft is withheld (TURN_TAG_MISMATCH / FACT_CHECK_PENDING).",
         "write: write lesson/session/record/Pending Ingest files only at a pause or lesson-end handoff, then dispatch a `tutor-audit` on that batch (`files:[...]`) and fold its verdict before the summary.",
-        "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary.",
+        "ingest: after Clerk returns its `CLERK_WRITES` receipt, dispatch ONE independent `review-gate` on the wiki pages it wrote (the Clerk does not gate itself); fold its verdict into the summary. If `CLERK_WRITES.graph` lists created/linked nodes or chains, dispatch ONE independent `graph-audit` over those exact ids first — the close is withheld (`NO_GRAPH_AUDIT_PASS`) until it passes, and an `ISSUES` verdict withholds (`GRAPH_AUDIT_ISSUES`) until the Clerk records a fix and a fresh audit passes.",
         "lesson-start context: after Scout returns its `SCOUT_DIGEST` receipt, dispatch ONE independent `scout-audit` on the digest (`{\"gate\":\"scout_audit\",\"slug\":\"...\",\"digest\":\"...\",\"raw_files\":[...],\"failed_refs\":[...]}`); fold its verdict before teaching. A missing audit withholds the first claims turn (NO_SCOUT_AUDIT_PASS); ISSUES surfaces as a banner and never blocks — fix via re-scout + re-audit (no cycle cap).",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review context: run the `review-scout` subagent first; it builds the due queue and writes the review digest (`REVIEW_SCOUT_DIGEST:`). A review's first claims/quiz turn is withheld (NO_REVIEW_CONTEXT) until it has run; a partial digest banners (REVIEW CONTEXT INCOMPLETE), never withholds.",
@@ -1375,6 +1415,25 @@ export function createGate(options: GateOptions = {}): GateEngine {
         surface += "⚠️ REVIEW FLAGS SURFACED — review issues were reported on the ingest output; the content below is shown with those flags outstanding.\n\n";
       } else {
         blocks.push("NO_REVIEW_GATE_PASS");
+      }
+      // Graph fact-check gate (judge-path mirror): a Clerk that wrote ledger
+      // records needs an independent graph-audit over exactly those ids before
+      // the close summary. Missing audit or ISSUES withholds; no cycle cap.
+      if (run.clerkGraphIds.length > 0) {
+        const graphAudits = R.filter(
+          (r) => r.gate === "graph_audit" && P.receiptAuditsGraph(r, run.clerkGraphIds)
+        );
+        const goodAudit = graphAudits.find((r) => r.valid);
+        if (goodAudit) {
+          toConsume.push(goodAudit);
+          if (goodAudit.evidenceMissing) {
+            surface +=
+              "⚠️ GRAPH AUDIT — the graph-audit verdict carries no `evidence` list (what it read/checked); " +
+              "treat the pass as unsubstantiated.\n\n";
+          }
+        } else {
+          blocks.push(graphAudits.length > 0 ? "GRAPH_AUDIT_ISSUES" : "NO_GRAPH_AUDIT_PASS");
+        }
       }
     } else if (turnType === "claims") {
       if (run.flow === "teach" && !run.scoutCalled) scoutNeeded = true;

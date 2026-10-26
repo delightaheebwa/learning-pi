@@ -33,6 +33,25 @@ Review ONLY the records the receipt names: `written_nodes[]` and `written_chains
 5. **BAD_LINK** — a `link` merged two different propositions (a near-twin, a special case, or a differently quantified claim), or an obvious duplicate stayed unlinked.
 6. **MISSING_PROVENANCE** — no provenance point, or a point naming a file that does not exist.
 
+## Connection fact-check (every chain and link)
+
+A true proposition can still be joined by a false connection, so check the
+connections against the material independently of the nodes:
+
+- **Chains — read every premise, not just the conclusion.** For each written
+  chain, read the cited passage behind each premise and behind the conclusion.
+  Every premise must be supported as written (`UNGROUNDED`), and someone who
+  accepted every premise would have to accept the conclusion as written
+  (`NO_ENTAILMENT`). Topical proximity, narrative order, or "the lesson used A to
+  motivate B" is not entailment.
+- **Links — compare both sides.** For every `link_to` re-encounter, put the new
+  verbatim phrasing and the existing statement side by side against the material.
+  Linking a near-twin, a special case, or a differently quantified claim is
+  `BAD_LINK`; so is leaving an obvious duplicate unlinked.
+- **Evidence names the connection.** Cite the ledger line and the source passage
+  you checked for each chain/link in `evidence[]`. A connection verdict without
+  the passage it checked is unsubstantiated.
+
 ## Verdict
 
 Begin your final message with `[[TURN:none]]` as its first line (the learning gate strips it), then output ONLY valid JSON, no prose:

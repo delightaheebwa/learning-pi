@@ -56,8 +56,10 @@ present they must describe the item, not replace the question text.
 7. **Bloom level** is realistic for the item.
 8. **Target references (record-keeping only).** When an item carries `targets`, each entry must match
    a graph id shape (`n_` + 6+ lowercase/alnum, or `arg_` + 6+). A malformed id is `TARGETS_INVALID`
-   (it would record a phantom target on the attempt). Targets never change the concept-label ban,
-   trace requirement, or leak checks; do not demand them when the graph has no matching proposition.
+   (it would record a phantom target on the attempt). Liveness is enforced downstream: `ops.py
+   attempt|amend` rejects an id that is missing from the graph ledger or retracted, so this check is
+   shape-only. Targets never change the concept-label ban, trace requirement, or leak checks; do not
+   demand them when the graph has no matching proposition.
    `concept` on a question is the record label for that item (allowed even when the stem must not
    name it).
 

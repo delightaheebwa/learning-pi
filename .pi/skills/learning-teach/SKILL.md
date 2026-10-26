@@ -137,11 +137,13 @@ the corrected batch once with each disputed item's `claimed_verdict` set to the 
 as `targets[]` on the quiz question **and** on the matching grade item: `concept` names the item's
 concept, `targets` lists only ids that appear in the digest. Copy ids verbatim; never invent,
 paraphrase, or derive one. Omit `targets` when no matching proposition exists — an empty graph is
-normal, and a missing target never blocks a question. `quiz-audit` rejects malformed ids
-(`TARGETS_INVALID`); `grade-audit` ignores targets when grading. Targets are recorded on the attempt
-so per-node mastery can be wired later — they never change the verdict. Targets are format-validated,
-not liveness-checked: a well-formed but stale `n_…` (or `arg_…`) id can be recorded. Per-node mastery aggregation
-is still not implemented (this is the plumbing); `ops.py mastery` remains per-concept.
+normal, and a missing target never blocks a question. `grade-audit` ignores targets when grading.
+Targets are recorded on the attempt
+so per-node mastery can be wired later — they never change the verdict. Targets are format-checked at
+quiz-audit (`TARGETS_INVALID`) and liveness-checked at record time: `ops.py attempt` rejects a
+well-formed id that is missing from the graph or retracted, so only current records are stored. A stale
+id from a digest snapshot is dropped, never resolved or replaced. Per-node mastery aggregation is still
+not implemented (this is the plumbing); `ops.py mastery` remains per-concept.
 
 ### naive-student (clone)
 

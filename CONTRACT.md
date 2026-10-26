@@ -430,9 +430,15 @@ coverage check as the deno gate suites.
   retracting a proposition drops (and reports) every dependent chain.
 - **G-graph-audit** (policy) — ingest extracts (`graph-extract`), merges
   deterministically, and the parent dispatches an independent `graph-audit` over
-  the written ids before the ingest closes. ISSUES (any severity) means the Clerk
-  records a fix (retract/correct + re-merge) and a fresh audit must pass — with
-  no cycle cap and no hand-editing to satisfy the audit.
+  **every written id** (created and linked propositions/chains) before the ingest
+  closes. This is gate-enforced, not prompt-only: the close summary is withheld
+  (`NO_GRAPH_AUDIT_PASS`) until a passing audit covers every id in
+  `CLERK_WRITES.graph`; an ISSUES verdict (any severity) withholds it
+  (`GRAPH_AUDIT_ISSUES`) until the Clerk records a fix (retract/correct +
+  re-merge) and a fresh audit passes — no cycle cap and no hand-editing to
+  satisfy the audit. The audit fact-checks the **connections**, not just the
+  nodes: every chain premise and conclusion is grounded in the cited material
+  and jointly entails it, and every link joins the same proposition.
 
 ### Cross-session grounding (prior knowledge)
 
@@ -475,10 +481,15 @@ coverage check as the deno gate suites.
   item to `REVIEW_WRITES.grade_verdicts[]`, and recorded on the attempt by
   `ops.py attempt --targets`; malformed ids are `TARGETS_INVALID` at
   quiz-audit and rejected by ops.py. They are the bridge to per-node mastery
-  and never enter the graph ledger as learner state. Targets are
-  **format-validated, not liveness-checked**: a well-formed but stale `n_…`
-  (or `arg_…`) id may be recorded. Per-node mastery aggregation is still not implemented — this
-  is the plumbing for it — so `ops.py mastery` remains per-concept.
+  and never enter the graph ledger as learner state. Target ids are
+  **liveness-checked** against the graph ledger as well as format-checked: a
+  malformed id is `TARGETS_INVALID` at quiz-audit, and `ops.py attempt|amend`
+  rejects a well-formed but non-live id (missing or retracted) so only current
+  records can be recorded. If a digest snapshot names an id that is no longer
+  live, the flow drops that id and records the attempt without it — never
+  resolving, inventing, or substituting a different id. Per-node mastery
+  aggregation is still not implemented — this is the plumbing for it — so
+  `ops.py mastery` remains per-concept.
 
 ## Adding a newly installed extension
 

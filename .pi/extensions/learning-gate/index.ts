@@ -45,10 +45,12 @@
  *     (`REVIEW_SESSION_AUDIT_ISSUES`) until the writes are fixed and a fresh
  *     audit returns zero issues.
  *   - ingest -> the parent dispatches an independent `review-gate` after the Clerk
- *     returns `CLERK_WRITES`. In-scope issues keep the re-check going (uncapped,
- *     any severity) until the verifier returns zero issues; out-of-scope
- *     bookkeeping findings are demoted to a visible `⚠️ REVIEW FLAGS SURFACED`
- *     banner. A verdict
+ *     returns `CLERK_WRITES`, and an independent `graph-audit` over the ledger
+ *     ids when the Clerk wrote graph records. In-scope issues keep the re-check
+ *     going (uncapped, any severity) until the verifier returns zero issues; the
+ *     graph audit withholds the close (`NO_GRAPH_AUDIT_PASS` / `GRAPH_AUDIT_ISSUES`)
+ *     until it passes. Out-of-scope bookkeeping findings are demoted to a visible
+ *     `⚠️ REVIEW FLAGS SURFACED` banner. A verdict
  *     relayed inside the Clerk's own output surfaces `⚠️ INGEST GATE`; a review
  *     verdict with no `evidence` list surfaces `⚠️ REVIEW GATE`.
  *   - provider failures (503/429/overloaded) are counted per agent; after two in a

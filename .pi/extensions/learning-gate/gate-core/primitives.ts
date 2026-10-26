@@ -20,6 +20,7 @@ export const VERIFIER_AGENTS: Record<string, string> = {
   "tutor-audit": "tutor_audit",
   "review-session-audit": "review_session",
   "scout-audit": "scout_audit",
+  "graph-audit": "graph_audit",
   "ui-audit": "ui_audit",
 };
 
@@ -111,6 +112,10 @@ export interface Receipt {
   provenance?: "dispatch" | "clerk";
   // Review-family verdicts must carry an `evidence` list (what was read/checked).
   evidenceMissing?: boolean;
+  // The graph record ids a `graph_audit` envelope names. The ingest close
+  // requires the audit to cover every id the Clerk wrote, so an audit of one
+  // node cannot release a merge of six.
+  graphIds?: string[];
   // Highest issue severity the verifier reported (high/medium/low). Retained for
   // the ledger only: severity no longer gates — ANY issue (any severity) keeps
   // blocking and never dumps the turn as UNVERIFIED.
@@ -157,6 +162,10 @@ export interface RunState {
   scoutFailedRefs: unknown[];
   clerkCalled: boolean;
   clerkDispatches: number;
+  // Graph record ids the Clerk's `CLERK_WRITES.graph` receipt says it wrote
+  // (created + linked nodes/chains). Non-empty arms the ingest close's graph
+  // audit gate: the summary needs an independent `graph-audit` over these ids.
+  clerkGraphIds: string[];
   // Review-context: the review flow's `review-scout` run (its `REVIEW_SCOUT_DIGEST:`
   // receipt is parsed so a partial/missing digest surfaces a banner, never a withhold).
   reviewScoutCalled: boolean;
@@ -211,6 +220,7 @@ export function newRun(flow: Flow): RunState {
     scoutFailedRefs: [],
     clerkCalled: false,
     clerkDispatches: 0,
+    clerkGraphIds: [],
     reviewScoutCalled: false,
     reviewScoutFinished: false,
     reviewScoutReceiptSeen: false,
@@ -938,6 +948,20 @@ export function receiptAuditsArtifacts(r: Receipt): boolean {
 }
 
 /**
+ * Whether a `graph_audit` receipt covers the graph records the Clerk wrote.
+ *
+ * The graph audit verifies ledger records (propositions and chains), not files.
+ * A present-but-untargeted envelope audited nothing, and an audit that names
+ * only some of the written ids cannot release the whole merge. An envelope-less
+ * async notification cannot prove coverage, so it does not satisfy the gate.
+ */
+export function receiptAuditsGraph(r: Receipt, writtenIds: string[]): boolean {
+  if (!r.hasEnvelope) return false;
+  if (!r.graphIds || r.graphIds.length === 0) return false;
+  return writtenIds.every((id) => r.graphIds!.includes(id));
+}
+
+/**
  * Near-identical drafts: used to catch a re-dispatch of already-verified text.
  * Deliberately stricter than `contentMatches` so a materially corrected draft
  * (the legitimate post-ISSUES re-verification) is never treated as a duplicate.
@@ -1052,6 +1076,21 @@ export function artifactPaths(envelope: any): string[] | undefined {
     for (const v of envelope.raw_files) if (typeof v === "string" && v.length > 0) scout.push(v);
   }
   return scout;
+}
+
+/**
+ * Graph record ids named by a `graph_audit` envelope: `written_nodes[]` plus
+ * `written_chains[]`. Returns undefined when the envelope names none, so a
+ * present-but-untargeted audit cannot release the ingest close.
+ */
+export function graphIdsOf(envelope: any): string[] | undefined {
+  if (!envelope || typeof envelope !== "object") return undefined;
+  const ids: string[] = [];
+  for (const value of [envelope.written_nodes, envelope.written_chains]) {
+    if (!Array.isArray(value)) continue;
+    for (const v of value) if (typeof v === "string" && v.trim().length > 0) ids.push(v.trim());
+  }
+  return ids.length > 0 ? ids : undefined;
 }
 
 /**
@@ -1200,7 +1239,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
   const auditFiles = artifactPaths(envelope);
   // Review-family verdicts: a PASS without an evidence list is unsubstantiated.
   let evidenceMissing = false;
-  if (gate === "review" || gate === "review_session" || gate === "scout_audit") {
+  if (gate === "review" || gate === "review_session" || gate === "scout_audit" || gate === "graph_audit") {
     const obj = parseVerdictObject(text);
     const ev = obj?.evidence;
     const hasEvidence =
@@ -1259,6 +1298,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
     gradeText: gradeText || undefined,
     gradeAnswers,
     auditFiles,
+    graphIds: graphIdsOf(envelope),
     envelopeGate: envelope && typeof envelope.gate === "string" ? envelope.gate : undefined,
     hasEnvelope: !!envelope && typeof envelope === "object",
     provenance: "dispatch",
@@ -1270,7 +1310,7 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
   // UNVERIFIED never counts as verified — it must block, not pass.
   if (gate === "fact_check") r.valid = pass && !issues && !unverified;
   else if (gate === "grade_audit") r.valid = !issues && r.agrees === true;
-  else r.valid = (pass || passWithFlags) && !issues; // quiz_audit, review, tutor_audit
+  else r.valid = (pass || passWithFlags) && !issues; // quiz_audit, review, tutor_audit, graph_audit
   return r;
 }
 
@@ -1336,6 +1376,38 @@ export function parseClerkReview(text: string): Receipt | undefined {
   const pass = /"verdict"\s*:\s*"PASS"/i.test(blob);
   const passWithFlags = /"verdict"\s*:\s*"PASS_WITH_FLAGS"/i.test(blob);
   return { gate: "review", valid: (pass || passWithFlags) && !issues, issues, flags: passWithFlags, provenance: "clerk", raw: blob };
+}
+
+/**
+ * Graph ids from the Clerk's `CLERK_WRITES:` receipt.
+ *
+ * `graph` carries the four id lists `graph.py merge` returned. Any non-empty
+ * list means the Clerk wrote ledger records, so the ingest close owes an
+ * independent `graph-audit` over them. A missing graph object (or one with no
+ * ids) wrote nothing and arms nothing.
+ */
+export function parseClerkGraph(text: string): string[] | undefined {
+  const idx = text.search(/CLERK_WRITES\s*:/i);
+  if (idx < 0) return undefined;
+  const brace = text.indexOf("{", idx);
+  if (brace < 0) return undefined;
+  const blob = extractBalancedJson(text, brace);
+  if (!blob) return undefined;
+  let parsed: any;
+  try {
+    parsed = JSON.parse(blob);
+  } catch {
+    return undefined;
+  }
+  const graph = parsed && typeof parsed === "object" ? parsed.graph : undefined;
+  if (!graph || typeof graph !== "object" || Array.isArray(graph)) return undefined;
+  const ids: string[] = [];
+  for (const key of ["created_nodes", "linked_nodes", "created_chains", "linked_chains"]) {
+    const value = (graph as any)[key];
+    if (!Array.isArray(value)) continue;
+    for (const v of value) if (typeof v === "string" && v.trim().length > 0) ids.push(v.trim());
+  }
+  return ids.length > 0 ? Array.from(new Set(ids)) : undefined;
 }
 
 /**
@@ -1499,5 +1571,6 @@ export const EXPECTED_ENVELOPE_GATE: Record<string, string> = {
   "tutor-audit": "tutor_audit",
   "review-session-audit": "review_session",
   "scout-audit": "scout_audit",
+  "graph-audit": "graph_audit",
   "ui-audit": "ui_audit",
 };

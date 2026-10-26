@@ -660,10 +660,14 @@
     {
       "id": "G-graph-audit",
       "severity": "policy",
-      "statement": "Graph extraction is an ingest duty: the Clerk distils the session's taught propositions and reasoning chains with `graph-extract`, merges them deterministically, and the parent dispatches an independent `graph-audit` over the written ids before the ingest closes. An ISSUES verdict (any severity) requires the Clerk to record a fix (retract/correct and re-merge) and a fresh audit to return zero issues — no cycle cap — and the ledgers are never hand-edited to satisfy the audit.",
+      "statement": "Graph extraction is an ingest duty: the Clerk distils the session's taught propositions and reasoning chains with `graph-extract`, merges them deterministically, and the parent dispatches an independent `graph-audit` over every written id (created and linked propositions/chains) before the ingest closes. The close is gate-enforced: the summary is withheld (NO_GRAPH_AUDIT_PASS) until a passing audit covers every id in CLERK_WRITES.graph, and an ISSUES verdict (any severity) withholds it (GRAPH_AUDIT_ISSUES) until the Clerk records a fix (retract/correct and re-merge) and a fresh audit returns zero issues — no cycle cap — and the ledgers are never hand-edited to satisfy the audit. The audit fact-checks the connections too: every chain premise and conclusion is grounded in the cited material and jointly entails it, and every link joins the same proposition.",
       "tests": [
         "graph extraction is independently audited",
-        "the ingest flow dispatches the independent graph audit"
+        "the ingest flow dispatches the independent graph audit",
+        "the /ingest prompt dispatches the independent graph audit",
+        "graph write without graph-audit withholds the ingest summary",
+        "graph-audit PASS over the written ids releases the ingest summary",
+        "graph-audit ISSUES withholds the ingest summary until fixed"
       ]
     },
     {
@@ -715,11 +719,12 @@
     {
       "id": "G-item-targets",
       "severity": "policy",
-      "statement": "Quiz questions and grade items may carry `targets[]`, the knowledge-graph record ids (`n_…` propositions / `arg_…` chains) the item retrieves. Targets are additive record-keeping, never learner-facing text and never a grading input: the binding fields are unchanged, a missing or empty target list blocks nothing, and `grade-audit` ignores targets when deciding a verdict. Ids are copied verbatim from the scout digest's `prior_knowledge` (never invented), carried from question to grade item to `REVIEW_WRITES.grade_verdicts[]`, and recorded on the attempt by `ops.py attempt --targets`; malformed ids are `TARGETS_INVALID` at quiz-audit and rejected by ops.py. They are the bridge to per-node mastery and never enter the graph ledger as learner state. Targets are format-validated, not liveness-checked: a well-formed but stale `n_…` (or `arg_…`) id can be recorded. Per-node mastery aggregation is not implemented — the targets are the plumbing — and `ops.py mastery` remains per-concept.",
+      "statement": "Quiz questions and grade items may carry `targets[]`, the knowledge-graph record ids (`n_…` propositions / `arg_…` chains) the item retrieves. Targets are additive record-keeping, never learner-facing text and never a grading input: the binding fields are unchanged, a missing or empty target list blocks nothing, and `grade-audit` ignores targets when deciding a verdict. Ids are copied verbatim from the scout digest's `prior_knowledge` (never invented), carried from question to grade item to `REVIEW_WRITES.grade_verdicts[]`, and recorded on the attempt by `ops.py attempt --targets`; malformed ids are `TARGETS_INVALID` at quiz-audit, and `ops.py attempt|amend` rejects both malformed and non-live ids (missing or retracted), so only current graph records are recorded. A digest snapshot that names a stale id is dropped rather than resolved or replaced. They are the bridge to per-node mastery and never enter the graph ledger as learner state. Per-node mastery aggregation is not implemented — the targets are the plumbing — and `ops.py mastery` remains per-concept.",
       "tests": [
         "grade targets do not change batch binding",
         "quiz targets do not break full-batch binding",
-        "resources: practice items carry graph targets"
+        "resources: practice items carry graph targets",
+        "resources: graph targets are liveness-checked at record time"
       ]
     }
   ]

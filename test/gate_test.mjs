@@ -805,6 +805,91 @@ await fg('irg1', 'review-gate', JSON.stringify({ gate: 'review', concepts: ['X']
 const noTargetsRG = await msg('[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}', 'stop');
 assert('review-gate without target_files does not release the ingest summary', blocked(noTargetsRG, 'NO_REVIEW_GATE_PASS'));
 
+// --- Graph fact-check gate: a Clerk graph write owes an independent graph-audit ---
+const GRAPH_WRITES = '[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"graph":{"created_nodes":["n_aaaaaaaaaa"],"linked_nodes":["n_bbbbbbbbbb"],"created_chains":["arg_cccccccccc"],"linked_chains":[],"status":"ok"},"commit":"abc"}';
+const GRAPH_IDS = ['n_aaaaaaaaaa', 'n_bbbbbbbbbb', 'arg_cccccccccc'];
+const graphEnv = (ids) => JSON.stringify({
+  gate: 'graph_audit',
+  session: 's',
+  written_nodes: ids.filter((i) => i.startsWith('n_')),
+  written_chains: ids.filter((i) => i.startsWith('arg_')),
+  material: [{ file: 'Learning System/Lessons/L.md', kind: 'lesson' }],
+  lesson_ref: 'Learning System/Lessons/L.md',
+});
+const GRAPH_PASS = JSON.stringify({ verdict: 'PASS', evidence: ['read nodes.jsonl:12'], issues: [], context_notes: [] });
+const INGEST_SUMMARY = '[[TURN:none]]\nIngest complete. STATE_AUDIT_VERDICT: {"errors":0,"warnings":0}';
+const ingestWithGraph = async (id) => {
+  await setPrompt('[[FLOW:ingest]] ingest this');
+  await dispatch('clerk', JSON.stringify({ gate: 'clerk' }), `g${id}c`);
+  await notify(`Background task completed: **clerk**\n\n${GRAPH_WRITES}`);
+  const rg = JSON.stringify({ gate: 'review', concepts: ['X'], target_files: [{ path: 'Knowledge Wiki/wiki/X.md' }] });
+  await dispatch('review-gate', rg, `g${id}rg`);
+  await fg(`g${id}rg`, 'review-gate', rg, REVIEW_PASS);
+};
+
+await ingestWithGraph('1');
+const noGraphAudit = await msg(INGEST_SUMMARY, 'stop');
+assert('graph write without graph-audit withholds the ingest summary', blocked(noGraphAudit, 'NO_GRAPH_AUDIT_PASS'));
+
+// The fix exemption must not disable the normal cap: with no flagged audit, the
+// third Clerk dispatch is still blocked.
+let clerkCapBlocked = false;
+for (let i = 1; i <= 3; i++) {
+  const r = await fire('tool_call', {
+    toolName: 'subagent',
+    toolCallId: `cap${i}`,
+    input: { agent: 'clerk', task: JSON.stringify({ gate: 'clerk' }) },
+  });
+  if (r && r.block) clerkCapBlocked = true;
+}
+assert('clerk ingest cap still blocks without a flagged graph audit', clerkCapBlocked);
+
+await ingestWithGraph('2');
+const gEnv = graphEnv(GRAPH_IDS);
+await dispatch('graph-audit', gEnv, 'g2ga');
+await fg('g2ga', 'graph-audit', gEnv, GRAPH_PASS);
+const graphAudited = await msg(INGEST_SUMMARY, 'stop');
+assert('graph-audit PASS over the written ids releases the ingest summary', allowed(graphAudited));
+
+await ingestWithGraph('3');
+const gEnv3 = graphEnv(GRAPH_IDS);
+await dispatch('graph-audit', gEnv3, 'g3ga');
+await fg('g3ga', 'graph-audit', gEnv3, JSON.stringify({
+  verdict: 'ISSUES',
+  evidence: ['read chains.jsonl:4'],
+  issues: [{ severity: 'high', code: 'NO_ENTAILMENT', location: 'arg_cccccccccc', issue: 'premises do not entail the conclusion' }],
+  context_notes: [],
+}));
+const graphIssues = await msg(INGEST_SUMMARY, 'stop');
+assert('graph-audit ISSUES withholds the ingest summary until fixed', blocked(graphIssues, 'GRAPH_AUDIT_ISSUES'));
+
+// A flagged graph audit keeps the ingest open: a Clerk fix re-dispatch beyond
+// the normal per-flow cap must be allowed (no cycle cap).
+let graphFixBlocked = false;
+for (let i = 1; i <= 3; i++) {
+  const r = await fire('tool_call', {
+    toolName: 'subagent',
+    toolCallId: `gfix${i}`,
+    input: { agent: 'clerk', task: JSON.stringify({ gate: 'clerk' }) },
+  });
+  if (r && r.block) graphFixBlocked = true;
+}
+assert('clerk fix re-dispatch is uncapped while a graph audit is flagged', !graphFixBlocked);
+
+await ingestWithGraph('4');
+const gEnv4 = graphEnv(['n_aaaaaaaaaa']);
+await dispatch('graph-audit', gEnv4, 'g4ga');
+await fg('g4ga', 'graph-audit', gEnv4, GRAPH_PASS);
+const partialGraphAudit = await msg(INGEST_SUMMARY, 'stop');
+assert('graph-audit covering only some written ids does not release the summary', blocked(partialGraphAudit, 'NO_GRAPH_AUDIT_PASS'));
+
+await ingestWithGraph('5');
+const gEnv5 = graphEnv(GRAPH_IDS);
+await dispatch('graph-audit', gEnv5, 'g5ga');
+await fg('g5ga', 'graph-audit', gEnv5, JSON.stringify({ verdict: 'PASS', issues: [], context_notes: [] }));
+const graphNoEvidence = await msg(INGEST_SUMMARY, 'stop');
+assert('graph-audit without evidence surfaces the unsubstantiated banner', allowed(graphNoEvidence) && outText(graphNoEvidence).includes('GRAPH AUDIT'));
+
 // --- uncapped verifier re-check: review-gate / review-session-audit are not dispatch-capped ---
 // The Tutor/Reviewer may keep fixing and re-checking a verifier until it returns
 // zero issues (any severity). A 3rd/4th dispatch must not be blocked by an old

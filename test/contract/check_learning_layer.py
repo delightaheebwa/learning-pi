@@ -296,7 +296,7 @@ def check_resources(root: Path) -> None:
             ok("resources: graph agents keep learner state out")
 
     audit_path = root / ".pi" / "agents" / "graph-audit.md"
-    audit_needles = ("LEARNER_STATE_LEAK", "entailment", "evidence", "PASS", "ISSUES")
+    audit_needles = ("LEARNER_STATE_LEAK", "entailment", "BAD_LINK", "connection", "evidence", "PASS", "ISSUES")
     if not audit_path.is_file():
         fail("resources: graph-audit.md missing")
     else:
@@ -318,12 +318,20 @@ def check_resources(root: Path) -> None:
     skill_text = (root / ".pi" / "skills" / "learning-system" / "SKILL.md").read_text(
         encoding="utf-8", errors="replace"
     )
-    graph_dispatch_needles = ("GATE:graph_audit", "graph-audit", "CLERK_WRITES.graph")
+    graph_dispatch_needles = ("GATE:graph_audit", "graph-audit", "CLERK_WRITES.graph", "NO_GRAPH_AUDIT_PASS")
     missing_dispatch = [n for n in graph_dispatch_needles if n.lower() not in skill_text.lower()]
     if missing_dispatch:
         fail(f"resources: learning-system ingest flow missing graph-audit dispatch rule(s): {missing_dispatch}")
     else:
         ok("resources: the ingest flow dispatches the independent graph audit")
+
+    ingest_prompt = (root / ".pi" / "prompts" / "ingest.md").read_text(encoding="utf-8", errors="replace")
+    prompt_graph_needles = ("graph-audit", "CLERK_WRITES.graph", "NO_GRAPH_AUDIT_PASS")
+    missing_prompt_graph = [n for n in prompt_graph_needles if n.lower() not in ingest_prompt.lower()]
+    if missing_prompt_graph:
+        fail(f"resources: /ingest prompt missing graph-audit gate rule(s): {missing_prompt_graph}")
+    else:
+        ok("resources: the /ingest prompt dispatches the independent graph audit")
 
     # --- Cross-session grounding resource contract -----------------------
     prior_stance_needles = ("prior_knowledge", "Cross-session attacks", "PRIOR_UNGROUNDED", "verbatim")
@@ -448,6 +456,31 @@ def check_resources(root: Path) -> None:
         fail(f"resources: items missing graph-target rule(s): {missing_targets}")
     else:
         ok("resources: practice items carry graph targets")
+
+    # Liveness half: a well-formed but stale graph id must be documented as
+    # rejected at record time, not merely shape-checked.
+    contract_path = root / "CONTRACT.md"
+    contract_md = contract_path.read_text(encoding="utf-8", errors="replace") if contract_path.is_file() else ""
+    liveness_sources = (
+        ("CONTRACT.md", contract_md),
+        ("review-clerk.md", review_clerk_text),
+        ("learning-system/SKILL.md", skill_text),
+        ("learning-teach/SKILL.md", teach_text),
+        ("APPEND_SYSTEM.md", agents_md),
+    )
+    missing_liveness = [
+        name
+        for name, text in liveness_sources
+        if "liveness-checked" not in text.lower()
+        and "liveness-checks" not in text.lower()
+    ]
+    stale_caveat = "format-validated, not liveness-checked"
+    if stale_caveat in contract_md.lower():
+        missing_liveness.append("CONTRACT.md: stale caveat")
+    if missing_liveness:
+        fail(f"resources: targets missing liveness rule(s): {missing_liveness}")
+    else:
+        ok("resources: graph targets are liveness-checked at record time")
 
 
 def check_contract(root: Path, test_outputs: list[Path]) -> None:

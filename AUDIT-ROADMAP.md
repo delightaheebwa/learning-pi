@@ -608,10 +608,10 @@ Per-checkpoint review by `R-P0`/`R-P1`/`R-P2` (Muse Spark); full findings and de
   beat remains prompt-level.
 - **Scout TTL teach-time enforcement (P2.3 M17):** still an instruction + `warn`; no teach-time gate.
 - **Ledger rotation / write-failure counter (P0.3 M6):** dir mode is now `0700`; rotation deferred.
-- **Per-node mastery aggregation (G-item-targets, 2026-10-26):** quiz/grade targets are recorded on
-  the attempt but only **format-validated, not liveness-checked** — a well-formed but stale `n_…`
-  (or `arg_…`) id can be recorded. Per-node mastery aggregation is not implemented (the targets are the plumbing), and
-  `ops.py mastery` remains per-concept. Future work.
+- **Per-node mastery aggregation (G-item-targets, 2026-10-26):** still not implemented (the targets
+  are the plumbing), so `ops.py mastery` remains per-concept. Target ids are now
+  **liveness-checked**: `ops.py attempt|amend` rejects an id that is missing from the graph ledger or
+  retracted, so only current records are recorded. No per-node mastery report yet.
 - **Solo fact-free prose on a `none` turn (P0.5 H1 residual):** no deterministic prose-teaching
   detector; hard-fact-bearing attempts are blocked.
 
