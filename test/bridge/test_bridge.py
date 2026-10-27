@@ -119,6 +119,11 @@ class TestSessionId(unittest.TestCase):
         self.assertNotEqual(session_id_for("a/b"), session_id_for("a b"))
         self.assertNotEqual(session_id_for("a:b"), session_id_for("a-b"))
 
+    def test_overlong_key_collapses_to_a_short_valid_id(self):
+        sid = session_id_for("chat:" + "a" * 500)
+        self.assertEqual(len(sid), 26)  # "s-" + sha1[:24]
+        self.assertRegex(sid, r"^[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]$")
+
     def test_pi_command_resumes_the_id(self):
         session = PiSession(
             pi_bin="pi", cwd="/tmp", env={}, name="bridge-x",

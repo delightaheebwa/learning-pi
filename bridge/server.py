@@ -194,7 +194,9 @@ class SessionRegistry:
                 pi_bin=self.config.pi_bin,
                 cwd=self.config.state_repo,
                 env=self.config.child_env(),
-                name=f"bridge-{key.replace(':', '-')[:12]}",
+                # The id is the identity; the display name mirrors it so two
+                # chats cannot look ambiguous in pi's session list.
+                name=f"bridge-{session_id_for(key)}",
                 extra_args=self.config.session_args(),
                 session_id=session_id_for(key),
             )
