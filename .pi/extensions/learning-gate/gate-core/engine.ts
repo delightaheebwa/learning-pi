@@ -251,7 +251,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       : `The repair is not closed. A \`done\` repair needs a fresh-surface check the learner already answered and passed with \`repair_gap\` naming this same gap (quote that exact question in \`fresh_surface_check\`) and their own-words restatement (\`learner_restate\`); a different gap cannot be opened while this one is unrepaired. Finish the open gap first.`;
   const applyRepairTransition = (r?: P.Receipt) => {
     if (!r || (r.turnKind || "").trim().toLowerCase() !== "repair" || !r.repair) return;
-    const gap = normGap(r.repair.gap);
+    const gap = typeof r.repair.gap === "string" ? r.repair.gap.trim() : "";
     const status = typeof r.repair.status === "string" ? r.repair.status.trim().toLowerCase() : "";
     if (status === "teaching" && gap) run.openRepair = { gap };
     else if (status === "done") run.openRepair = undefined;
@@ -411,7 +411,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // re-dispatch must be allowed (the 2026-10-09 dead-end). A receipt whose
       // foundation beat is incomplete is incomplete for the same reason: the
       // FOUNDATION_INCOMPLETE remedy adds the missing beats, so it too is
-      // allowed to re-dispatch.
+      // allowed to re-dispatch. A repair receipt whose `repair` block is
+      // malformed is incomplete the same way (its shape block is fixed in the
+      // envelope, not the draft), so the corrected re-dispatch must be allowed.
       for (const fc of calls.filter((c) => c.agent === "fact-check")) {
         const draft = fc.envelope && typeof fc.envelope.rendered_content === "string" ? fc.envelope.rendered_content : undefined;
         if (!draft) continue;
@@ -422,7 +424,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
             r.renderedContent &&
             P.nearDuplicate(r.renderedContent, draft) &&
             P.missingHardFacts(r.renderedContent, r.claimsText).length === 0 &&
-            foundationGapsOf(r).length === 0
+            foundationGapsOf(r).length === 0 &&
+            ((r.turnKind || "").trim().toLowerCase() !== "repair" ||
+              P.repairGaps(r.renderedContent, r.repair).length === 0)
         );
         if (verified) {
           return {
@@ -597,7 +601,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
             r.renderedContent &&
             P.nearDuplicate(r.renderedContent, draft) &&
             P.missingHardFacts(r.renderedContent, r.claimsText).length === 0 &&
-            foundationGapsOf(r).length === 0
+            foundationGapsOf(r).length === 0 &&
+            ((r.turnKind || "").trim().toLowerCase() !== "repair" ||
+              P.repairGaps(r.renderedContent, r.repair).length === 0)
         );
       if (
         run.receipts.some((r) => r.gate === "fact_check" && r.valid) &&

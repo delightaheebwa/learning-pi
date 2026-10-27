@@ -1989,8 +1989,25 @@ const TEACH_REPAIR = {
   for (let i = 0; i < 3; i++) last = await msg(`[[TURN:claims]]\n${ATTACK_DRAFT}`, 'stop');
   assert(
     'attack turn stays withheld at the retry cap while a repair is open',
-    blocked(last, 'NO_REPAIR_RECEIPT')
+    blocked(last, 'NO_REPAIR_RECEIPT') &&
+      outText(last).startsWith('⛔ WITHHELD') &&
+      !outText(last).includes('UNVERIFIED')
   );
 }
+{
+  // The FOUNDATION_INCOMPLETE remedy is "re-dispatch with the corrected block",
+  // not "emit the verified text unchanged": a malformed repair block must not
+  // mark the draft as verified and block its own corrected re-dispatch.
+  await setPrompt('[[FLOW:resume]] continue the lesson');
+  const badRepair = { ...TEACH_REPAIR };
+  delete badRepair.step;
+  const badEnv = repairEnv(badRepair);
+  await dispatch('fact-check', badEnv, 'rq1');
+  await fg('rq1', 'fact-check', badEnv, FC_PASS);
+  const goodEnv = repairEnv(TEACH_REPAIR);
+  const reDispatch = await fire('tool_call', { toolName: 'subagent', toolCallId: 'rq2', input: { agent: 'fact-check', task: goodEnv } });
+  assert('corrected repair envelope re-dispatch is allowed', !reDispatch || !reDispatch.block);
+}
+
 
 

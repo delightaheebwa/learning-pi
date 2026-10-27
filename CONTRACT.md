@@ -80,9 +80,10 @@ its tagged test, change the implementation, all in one reviewed commit.
   offer (never force) a one-shot alternate-model re-dispatch.
 - **G-no-duplicate-factcheck** *(hard)* — re-verifying an already-verified draft
   is blocked; a materially corrected post-ISSUES draft is allowed, as are the
-  re-dispatches `CLAIMS_INCOMPLETE` and `FOUNDATION_INCOMPLETE` mandate (the same
-  draft with the missing claims or foundation beats added). The corrected receipt
-  supersedes the incomplete one, so the emission binds the complete pass.
+  re-dispatches `CLAIMS_INCOMPLETE`, `FOUNDATION_INCOMPLETE`, and the repair-shape
+  remedy mandate (the same draft with the missing claims, foundation beats, or
+  `repair` block added). The corrected receipt supersedes the incomplete one, so
+  the emission binds the complete pass.
 - **G-async-notify-mints** *(hard)* — async completion notifications mint
   content-bound receipts from the dispatch envelope; failures clear pending.
 - **G-infer-claims-from-bound** *(hard)* — a dropped `claims` tag is recovered

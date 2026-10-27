@@ -183,8 +183,8 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `QUIZ_AUDIT_STALE` / `GRADE_AUDIT_STALE` | a valid receipt exists but does not bind this message — either the emission differs from what was audited, or the dispatch envelope was the wrong shape (quiz: `items[]` instead of `questions_json`, or a questions-only envelope missing `rendered_content` = the full batch text; grade: no question/answer/verdict) so there is nothing to bind | re-emit the audited text, or re-dispatch the verifier with the correctly shaped envelope carrying the full batch in `rendered_content` (never re-audit an already-bound draft) |
 | `NO_GRADE_AUDIT_PASS` / `GRADE_MISMATCH` | grade unverified / conflicts with verifier | use the verifier's `correct_verdict` |
 | `FOUNDATION_INCOMPLETE` | a teach/resume claims turn omitted its shape block (unknown `turn_kind`, ungrounded triage, no single attack subtype, an autopsy without one step, or a repair without its `repair` block) | re-dispatch the fact-check with the missing block added, then emit |
-| `NO_REPAIR_RECEIPT` | the attack battery tried to resume while a repair is still open | finish the repair: fresh-surface check graded `pass`, then a `repair` turn with `status:"done"` quoting that question and the learner's restatement |
-| `REPAIR_INCOMPLETE` | a `done` repair has no graded fresh-surface pass, a mismatched gap, or no learner restatement (or a second gap was opened first) | close the open gap first; quote the exact question the grade-audit passed and the learner's own words |
+| `NO_REPAIR_RECEIPT` | the attack battery tried to resume while a repair is still open | finish the repair: fresh-surface check graded `pass` with `repair_gap` naming the gap, then a `repair` turn with `status:"done"` quoting that question and the learner's restatement |
+| `REPAIR_INCOMPLETE` | a `done` repair has no graded fresh-surface pass for this gap, a mismatched gap, or no learner restatement (or a second gap was opened first) | close the open gap first; quote the exact question the grade-audit passed with `repair_gap` and the learner's own words |
 | `NO_UI_AUDIT` / `UI_AUDIT_ISSUES` / `UI_AUDIT_STALE` | widget unverified / flagged / a valid receipt that does not bind this payload | re-emit the audited payload+prose, or re-dispatch `ui-audit` with the exact `payload` and `rendered_content` = the full turn draft |
 | `UI_PAYLOAD_INVALID` | a `[[TURN:ui]]` message with no parseable ```openui payload | re-emit the payload the verifier audited |
 | `UI_REQUIRES_OWN_TURN` | a ```openui fence inside a claims/transition turn | make the widget its own `[[TURN:ui]]` message |
@@ -299,9 +299,10 @@ surface as `STATE_AUDIT_ERRORS` (withhold); warnings-only surface as `⚠️ STA
   grade-only (no teaching prose — move repair to a separate `[[TURN:claims]]` with its own `fact-check`).
 - **`NO_REPAIR_RECEIPT` / `REPAIR_INCOMPLETE` loops** → repair mode is bound to one gap and closes only
   on evidence. The check that closes it must be a **new surface** (not a re-ask of the repair turn),
-  graded `pass` with `qtype:"micro-check"`; the `done` turn must quote that exact question in
-  `fresh_surface_check` and the learner's own words in `learner_restate`. A `done` turn for a
-  different gap, or before the grade receipt exists, is rejected — finish the open gap first.
+  graded `pass` with `qtype:"micro-check"` and `repair_gap` equal to the repair's gap; the `done` turn
+  must quote that exact question in `fresh_surface_check` and the learner's own words in
+  `learner_restate`. A `done` turn for a different gap, or before the grade receipt exists, is
+  rejected — finish the open gap first.
 - **`QUIZ_AUDIT_STALE` on a clean PASS** (or a write-gate PASS judged unsubstantiated) → the judge
   scored the PASS unsubstantiated because the verifier emitted no evidence. The verifier's verdict
   JSON must carry a non-empty `evidence` list naming what it checked (the `quiz-audit` and
