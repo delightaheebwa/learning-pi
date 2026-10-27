@@ -22,12 +22,14 @@ sys.path.insert(0, str(ROOT))
 
 from bridge.stream import TurnStream, text_of_content  # noqa: E402
 from bridge import genui, openwebui  # noqa: E402
+from bridge.rpc import PiSession  # noqa: E402
 from bridge.server import (  # noqa: E402
     BridgeConfig,
     BridgeServer,
     LearningLock,
     is_learning_flow,
     last_user_text,
+    session_id_for,
     session_key,
 )
 
@@ -87,6 +89,53 @@ class TestHelpers(unittest.TestCase):
         body = {"model": "learning"}
         msgs = [{"role": "user", "content": "first"}]
         self.assertEqual(session_key(body, msgs), session_key(body, list(msgs)))
+
+
+class TestSessionId(unittest.TestCase):
+    """A chat's pi session id must be stable across bridge restarts.
+
+    The registry is in-memory, so without `--session-id` every systemd restart
+    (or pi crash) started a blank session and pi re-derived context from the
+    state repo — the 2026-10-27 tensor-lesson turn answered from a review in a
+    different chat that way.
+    """
+
+    def test_chat_key_maps_to_pi_session_id(self):
+        self.assertEqual(
+            session_id_for("chat:4f9603e9-2823-4dd9-88eb-9562d9f0ea83"),
+            "chat-4f9603e9-2823-4dd9-88eb-9562d9f0ea83",
+        )
+
+    def test_fingerprint_key_maps_to_pi_session_id(self):
+        self.assertEqual(session_id_for("fp:4f93b36529d5d5fc"), "fp-4f93b36529d5d5fc")
+
+    def test_id_is_stable_and_valid(self):
+        for key in ("chat:abc", "fp:abc", "a/b", "a b", "a:b", "x"):
+            sid = session_id_for(key)
+            self.assertEqual(sid, session_id_for(key))
+            self.assertRegex(sid, r"^[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]$")
+
+    def test_different_keys_never_share_a_sanitised_id(self):
+        self.assertNotEqual(session_id_for("a/b"), session_id_for("a b"))
+        self.assertNotEqual(session_id_for("a:b"), session_id_for("a-b"))
+
+    def test_pi_command_resumes_the_id(self):
+        session = PiSession(
+            pi_bin="pi", cwd="/tmp", env={}, name="bridge-x",
+            extra_args=["--bash-guard-disabled"], session_id="chat-1",
+        )
+        self.assertEqual(
+            session.command_line(),
+            ["pi", "--mode", "rpc", "--name", "bridge-x",
+             "--session-id", "chat-1", "--bash-guard-disabled"],
+        )
+
+    def test_pi_command_without_id_keeps_old_shape(self):
+        session = PiSession(pi_bin="pi", cwd="/tmp", env={}, name="bridge-x")
+        self.assertEqual(
+            session.command_line(),
+            ["pi", "--mode", "rpc", "--name", "bridge-x"],
+        )
 
 
 class TestTurnStream(unittest.TestCase):
@@ -620,6 +669,7 @@ class TestStartFailure(unittest.TestCase):
 
 class FakeSession:
     def __init__(self, *a, **k):
+        self.session_id = k.get("session_id")
         self.started = False
         self.closed = False
         self.alive_flag = True
@@ -667,6 +717,26 @@ class TestRegistry(unittest.TestCase):
         self.assertTrue(e1.session.closed)
         self.assertEqual(len(reg._entries), 1)
         self.assertIsNot(e1, e2)
+
+    def test_dead_session_is_recreated_with_the_same_pi_session_id(self):
+        # pi may exit mid-chat (e.g. provider failure). The replacement must
+        # resume the transcript it already wrote, not start blank.
+        reg = self._reg()
+        e1 = reg.get_or_create("chat:abc")
+        e1.session.alive_flag = False
+        e2 = reg.get_or_create("chat:abc")
+        self.assertEqual(e2.session.session_id, e1.session.session_id)
+        self.assertEqual(e2.session.session_id, "chat-abc")
+
+    def test_bridge_restart_resumes_the_same_pi_session_id(self):
+        # A new registry models a systemd restart: the in-memory entry is gone,
+        # but the deterministic id reconnects the chat to its transcript.
+        first = self._reg()
+        e1 = first.get_or_create("chat:abc")
+        first.close_all()
+        second = self._reg()
+        e2 = second.get_or_create("chat:abc")
+        self.assertEqual(e2.session.session_id, e1.session.session_id)
 
     def test_get_or_create_marks_inflight(self):
         reg = self._reg()

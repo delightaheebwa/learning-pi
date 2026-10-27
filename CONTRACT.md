@@ -389,9 +389,11 @@ coverage check as the deno gate suites.
   `⛔ UNVERIFIED`) — never the raw draft, and never a bridge-authored substitute.
 - **B-newest-message-only** *(hard)* — one pi RPC session per chat, reused across
   turns; only the newest user message of each posted transcript is forwarded (pi
-  owns its context). A resend of the same message is a regenerate: the bridge
-  forks the session back to that user message before re-prompting, and falls back
-  to appending if the fork fails.
+  owns its context). The session is started with a deterministic `--session-id`,
+  so a bridge restart or a pi crash resumes the same transcript instead of
+  starting blank and re-deriving context from the state repo. A resend of the
+  same message is a regenerate: the bridge forks the session back to that user
+  message before re-prompting, and falls back to appending if the fork fails.
 - **B-bash-guard-floor** *(hard)* — the bridge passes `--bash-guard-disabled`
   only when bash-guard is actually installed in the agent dir. A headless session
   needs the catastrophic-command floor disabled to stay usable, but pi rejects an

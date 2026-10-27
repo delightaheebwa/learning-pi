@@ -39,12 +39,14 @@ class PiSession:
         env: dict,
         name: str,
         extra_args: Iterable[str] = (),
+        session_id: Optional[str] = None,
     ) -> None:
         self.pi_bin = pi_bin
         self.cwd = cwd
         self.env = env
         self.name = name
         self.extra_args = list(extra_args)
+        self.session_id = session_id
         self.proc: Optional[subprocess.Popen] = None
         self._q: "queue.Queue[dict]" = queue.Queue()
         self._write_lock = threading.Lock()
@@ -54,8 +56,16 @@ class PiSession:
         self._closed = False
 
     # -- lifecycle ---------------------------------------------------------
+    def command_line(self) -> list[str]:
+        cmd = [self.pi_bin, "--mode", "rpc", "--name", self.name]
+        if self.session_id:
+            # Resume this chat's transcript when it exists; create it otherwise.
+            cmd += ["--session-id", self.session_id]
+        cmd += self.extra_args
+        return cmd
+
     def start(self) -> None:
-        cmd = [self.pi_bin, "--mode", "rpc", "--name", self.name, *self.extra_args]
+        cmd = self.command_line()
         self.proc = subprocess.Popen(
             cmd,
             cwd=self.cwd,

@@ -27,9 +27,13 @@ Open WebUI (Docker, this machine)
   (`rm -r/-rf`, `sudo`, `curl|sh`, `mkfs*`, `dd of=/dev/…`, disk/power tools,
   `git reset --hard`, …) stays blocked — bash-guard's default in a headless
   session blocks even read-only `git`, which would make computer use unusable.
-* One pi session per chat; only the **newest** user message is forwarded (pi owns
-  its context). A resend of the same message is treated as a regenerate and forks
-  the session back to that user message first.
+* One pi session per chat, with a deterministic `--session-id` derived from the
+  chat key (`chat-<uuid>` or `fp-<hash>`); only the **newest** user message is
+  forwarded (pi owns the session context). Because pi resumes that id, a bridge
+  restart or a pi crash reconnects the chat to its saved transcript instead of
+  starting blank and re-deriving context from the state repo. A resend of the
+  same message is treated as a regenerate and forks the session back to that
+  user message first.
 
 ## Run
 
@@ -50,6 +54,20 @@ Options: `--host/--port`, `--models a,b,c`, `--timeout`, `--max-sessions`,
 `--agent-dir`, `--session-dir`, `--ledger-dir`, `--openwebui-base-url`,
 `--openwebui-key-file`, `--allow-bash-guard` (do **not**
 pass `--bash-guard-disabled`; not recommended headless).
+
+### Sessions and restarts
+
+The registry of live pi processes is in memory, but every session is started
+with `--session-id` set to a deterministic value derived from the chat key, so
+systemd restarts, reboots, LRU eviction (`--max-sessions`), and pi crashes all
+resume the same transcript. The id is `chat-<uuid>` when the client supplies a
+chat id and `fp-<fingerprint>` otherwise; any other key collapses to a stable
+hash.
+
+Open WebUI strips `metadata` before forwarding to an OpenAI-compatible backend,
+so the fingerprint path is the normal one. Its input is the **first** user
+message plus the model name: two chats whose first user message is identical will
+share one pi session, and editing that first message starts a new one.
 
 ## Math
 

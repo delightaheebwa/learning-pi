@@ -533,13 +533,16 @@
     {
       "id": "B-newest-message-only",
       "severity": "hard",
-      "statement": "One pi RPC session per chat, reused across turns; only the newest user message of each posted transcript is forwarded (pi owns its context). A resend of the same message is a regenerate: the bridge forks the session back to that user message before re-prompting, and falls back to appending if the fork fails.",
+      "statement": "One pi RPC session per chat, reused across turns; only the newest user message of each posted transcript is forwarded (pi owns its context). The session is started with a deterministic `--session-id`, so a bridge restart or a pi crash resumes the same transcript instead of starting blank and re-deriving context from the state repo. A resend of the same message is a regenerate: the bridge forks the session back to that user message before re-prompting, and falls back to appending if the fork fails.",
       "tests": [
         "test_one_session_per_chat",
         "test_only_newest_user_message_forwarded",
         "test_only_newest_user_message_reaches_pi",
         "test_resend_forks",
-        "test_fork_failure_falls_back_to_append"
+        "test_fork_failure_falls_back_to_append",
+        "test_bridge_restart_resumes_the_same_pi_session_id",
+        "test_dead_session_is_recreated_with_the_same_pi_session_id",
+        "test_pi_command_resumes_the_id"
       ]
     },
     {

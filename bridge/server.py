@@ -67,9 +67,11 @@ def is_learning_flow(text: str) -> bool:
 def session_key(body: dict, messages) -> str:
     """Stable per-conversation key.
 
-    Prefer a client-supplied id (Open WebUI sends `metadata.chat_id`); fall back
-    to a fingerprint of the first user message plus the requested model, which is
-    stable across the turns of one conversation.
+    Prefer a client-supplied id (Open WebUI can send `metadata.chat_id`); fall
+    back to a fingerprint of the first user message plus the requested model,
+    which is stable across the turns of one conversation. Open WebUI currently
+    strips `metadata` before forwarding to an OpenAI-compatible backend, so in
+    practice the fingerprint is the path that is used.
     """
     md = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
     for cand in (md.get("chat_id"), body.get("chat_id"), body.get("conversation_id")):
@@ -83,6 +85,31 @@ def session_key(body: dict, messages) -> str:
                 break
     seed = f"{body.get('model', '')}|{first}"
     return "fp:" + hashlib.sha1(seed.encode("utf-8")).hexdigest()[:16]
+
+
+# pi's `--session-id` accepts letters, numbers, `.`, `_`, and `-`, and requires
+# the id to start and end with a letter or number.
+_PI_SESSION_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]")
+
+
+def session_id_for(key: str) -> str:
+    """Deterministic pi session id for a bridge chat key.
+
+    Passing this id to `pi --session-id` makes pi resume the transcript it
+    already wrote for this chat. The bridge's registry is in memory only, so
+    without a stable id a systemd restart (or a pi crash) would start a blank
+    session and pi would re-derive context from the state repo — which is
+    exactly how a lesson chat once answered from a review in another chat.
+
+    `chat:<uuid>` -> `chat-<uuid>`, `fp:<hex>` -> `fp-<hex>`. Any other key — or
+    one that would be too long or contain characters pi rejects — collapses to a
+    stable hash, so two different keys do not collide by sanitising.
+    """
+    if key.startswith("chat:") or key.startswith("fp:"):
+        sid = key.replace(":", "-", 1)
+        if len(sid) <= 100 and _PI_SESSION_ID_RE.fullmatch(sid):
+            return sid
+    return "s-" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:24]
 
 
 class LearningLock:
@@ -169,6 +196,7 @@ class SessionRegistry:
                 env=self.config.child_env(),
                 name=f"bridge-{key.replace(':', '-')[:12]}",
                 extra_args=self.config.session_args(),
+                session_id=session_id_for(key),
             )
             session.start()
             entry = SessionEntry(key, session)
