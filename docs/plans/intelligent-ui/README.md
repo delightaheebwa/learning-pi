@@ -53,7 +53,8 @@ license), and the OpenUI bundle must be **pinned + self-hosted** (0.2.1).
 ## Non-negotiables (don't relearn these the hard way)
 
 - pi-bridge has **no tool-calling** → Open WebUI Tools / MCP / `render_openui` never fire on `learning*`.
-- pi-bridge forwards **`message_end` only** → no progressive widget streaming.
+- pi-bridge forwards **`message_end` only** for prose → no progressive *widget/prose* streaming; the
+  action trace (tool steps, thinking duration) streams live as `<details>` cards.
 - Rich UI message embeds render **above** message text → use the **two-message** arrangement for "below".
 - Contract/`learning-core.json`/tagged tests change **only through the revise door**, together, one commit.
 - Open WebUI objects are written **only** by `setup_openwebui.py`; verify with `audit_openwebui.py`.

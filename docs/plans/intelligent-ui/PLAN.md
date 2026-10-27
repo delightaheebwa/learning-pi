@@ -27,8 +27,11 @@ is not a wall of white text.
 - **Inline interactive widgets** (charts, forms, tables, follow-up buttons) — the OpenUI Lang route.
 - **Inline diagrams** via native Mermaid; **free-form HTML apps** via native Artifacts side panel;
   **Python code blocks** runnable via the native "Run" button.
-- Accepted gap: **no progressive UI streaming** — pi-bridge forwards only completed `message_end`
-  (`bridge/stream.py:60-89`, invariant `B-deltas-never-forwarded`). Widgets appear fully formed.
+- Accepted gap: **no progressive widget streaming** — pi-bridge forwards only completed
+  `message_end` (`bridge/stream.py`, invariant `B-deltas-never-forwarded`), so widgets appear fully
+  formed. The turn's **action trace** (tool steps + thinking duration) does stream live as
+  `<details>` blocks (`B-steps-stream-before-settle`); the prose and widget payload still arrive
+  only at settlement.
 
 ## Architecture
 
@@ -186,8 +189,9 @@ One reviewed commit. The update door may never touch `contracts/`, `CONTRACT.md`
 - **Mercury Decide → Cloudflare Clef-flash** presentation router (System One API schema shared).
   Keys: Inception `mercury-decide` (free tier) primary, `@cf/cloudflare/clef-flash` (smallest Clef)
   fallback. Config in `~/.config/genui.env` (600). Not needed while pi decides in-prompt.
-- **Progressive UI streaming** — needs same-origin DOM tailing (community Inline Visualizer pattern)
-  or a bridge rewrite; out of scope.
+- **Progressive widget/prose streaming** — needs same-origin DOM tailing (community Inline Visualizer
+  pattern) or a bridge rewrite; out of scope. The action trace already streams (step cards); only the
+  verified widget payload waits for settlement.
 - **Python workloads** — native manual Run button works; Open Terminal is the real backend if needed
   (was in the frozen legacy stack `learning-system/infra/docker-compose.yml`).
 - **Standalone OpenIntelligentUI MCP server** as a pi-net service (skill docs only) — not needed.

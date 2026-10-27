@@ -6,8 +6,10 @@ network, no state — and assert the bridge's two load-bearing properties:
   2. a withheld turn surfaces the gate banner, never the raw draft.
 """
 import base64
+import html
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -20,6 +22,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from bridge import steps  # noqa: E402
 from bridge.stream import TurnStream, text_of_content  # noqa: E402
 from bridge import genui, openwebui  # noqa: E402
 from bridge.rpc import PiSession  # noqa: E402
@@ -29,12 +32,38 @@ from bridge.server import (  # noqa: E402
     LearningLock,
     is_learning_flow,
     last_user_text,
+    openwebui_ids,
     session_id_for,
     session_key,
 )
 
 FAKE_PI = str(ROOT / "test" / "bridge" / "fake_pi.py")
 SECRET = "SECRET_DRAFT_MUST_NOT_LEAK"
+
+_DETAILS_BLOCK_RE = re.compile(r"<details[\s\S]*?</details>\s*", re.IGNORECASE)
+
+
+def prose(content: str) -> str:
+    """Message text with the streamed step cards removed."""
+    return _DETAILS_BLOCK_RE.sub("", content or "").strip()
+
+
+def sse_content(body: str) -> str:
+    """Concatenate the `delta.content` of every SSE chunk in a raw response."""
+    out = []
+    for line in (body or "").splitlines():
+        if not line.startswith("data: "):
+            continue
+        payload = line[6:].strip()
+        if payload == "[DONE]":
+            continue
+        try:
+            rec = json.loads(payload)
+        except ValueError:
+            continue
+        delta = (rec.get("choices") or [{}])[0].get("delta", {})
+        out.append(delta.get("content") or "")
+    return "".join(out)
 
 
 # --------------------------------------------------------------------------
@@ -89,6 +118,16 @@ class TestHelpers(unittest.TestCase):
         body = {"model": "learning"}
         msgs = [{"role": "user", "content": "first"}]
         self.assertEqual(session_key(body, msgs), session_key(body, list(msgs)))
+
+    def test_openwebui_ids_prefer_forwarded_headers(self):
+        headers = {"X-OpenWebUI-Chat-Id": "chat-1", "X-OpenWebUI-Message-Id": "msg-1"}
+        body = {"metadata": {"chat_id": "stale"}}
+        self.assertEqual(openwebui_ids(headers, body), ("chat-1", "msg-1"))
+
+    def test_openwebui_ids_fall_back_to_metadata_chat(self):
+        # No header (the pre-0.10 path): chat id may still arrive in metadata,
+        # but without a message id there is nothing to attach a status to.
+        self.assertEqual(openwebui_ids({}, {"metadata": {"chat_id": "c"}}), ("c", ""))
 
 
 class TestSessionId(unittest.TestCase):
@@ -366,7 +405,7 @@ class TestSessionArgs(unittest.TestCase):
 # Integration (fake pi + real HTTP server)
 # --------------------------------------------------------------------------
 class ServerHarness:
-    def __init__(self, scenario="default", pi_bin=FAKE_PI, env_extra=None):
+    def __init__(self, scenario="default", pi_bin=FAKE_PI, env_extra=None, **cfg):
         env = {"FAKE_PI_SCENARIO": scenario}
         env.update(env_extra or {})
         self.httpd = BridgeServer(BridgeConfig(
@@ -378,6 +417,7 @@ class ServerHarness:
             timeout=30,
             models=["learning"],
             child_env_extra=env,
+            **cfg,
         ))
         self.port = self.httpd.server_address[1]
         self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
@@ -391,11 +431,20 @@ class ServerHarness:
     def url(self, path):
         return f"http://127.0.0.1:{self.port}{path}"
 
-    def post(self, payload, key="test-key", raw=False):
-        data = json.dumps(payload).encode()
-        req = urllib.request.Request(self.url("/v1/chat/completions"), data=data,
-                                     headers={"Content-Type": "application/json",
-                                              "Authorization": f"Bearer {key}"})
+    def request(self, payload, key="test-key", headers=None):
+        merged = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {key}",
+        }
+        merged.update(headers or {})
+        return urllib.request.Request(
+            self.url("/v1/chat/completions"),
+            data=json.dumps(payload).encode(),
+            headers=merged,
+        )
+
+    def post(self, payload, key="test-key", raw=False, headers=None):
+        req = self.request(payload, key=key, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 body = resp.read().decode()
@@ -449,7 +498,8 @@ class TestIntegration(unittest.TestCase):
         status, data = self.h.post(self.h.body("hello"))
         self.assertEqual(status, 200)
         content = data["choices"][0]["message"]["content"]
-        self.assertEqual(content, "VERIFIED_FINAL")
+        self.assertEqual(prose(content), "VERIFIED_FINAL")
+        self.assertIn('type="tool_calls"', content)  # the action trace rides along
         self.assertNotIn(SECRET, json.dumps(data))
 
     def test_stream_returns_final_without_draft(self):
@@ -472,7 +522,7 @@ class TestIntegration(unittest.TestCase):
         self.h.post(self.h.body("hello"))
         status, data = self.h.post(self.h.body("hello"))  # same text -> fork path
         self.assertEqual(status, 200)
-        self.assertEqual(data["choices"][0]["message"]["content"], "VERIFIED_FINAL")
+        self.assertEqual(prose(data["choices"][0]["message"]["content"]), "VERIFIED_FINAL")
 
     def test_resend_forks(self):
         # B-newest-message-only: a resend of the same user message is a
@@ -485,7 +535,7 @@ class TestIntegration(unittest.TestCase):
                 h.post(h.body("hello"))
                 status, data = h.post(h.body("hello"))
                 self.assertEqual(status, 200)
-                self.assertEqual(data["choices"][0]["message"]["content"], "VERIFIED_FINAL")
+                self.assertEqual(prose(data["choices"][0]["message"]["content"]), "VERIFIED_FINAL")
                 self.assertTrue(fork_log.exists(), "resend did not fork the session")
                 self.assertIn("e1", fork_log.read_text())
             finally:
@@ -507,7 +557,7 @@ class TestIntegration(unittest.TestCase):
                 ]
                 status, data = h.post(body)
                 self.assertEqual(status, 200)
-                self.assertEqual(data["choices"][0]["message"]["content"], "VERIFIED_FINAL")
+                self.assertEqual(prose(data["choices"][0]["message"]["content"]), "VERIFIED_FINAL")
                 forwarded = prompt_log.read_text()
                 self.assertIn("newest", forwarded)
                 self.assertNotIn("oldest", forwarded)
@@ -568,7 +618,7 @@ class TestLearningLockConcurrent(unittest.TestCase):
             time.sleep(0.4)  # let the learning turn acquire the lock
             status, data = h.post(h.body("hello", chat_id="B"))
             self.assertEqual(status, 200)
-            self.assertEqual(data["choices"][0]["message"]["content"], "VERIFIED_FINAL")
+            self.assertEqual(prose(data["choices"][0]["message"]["content"]), "VERIFIED_FINAL")
             t.join(timeout=15)
             self.assertEqual(results["a"][0], 200)
         finally:
@@ -608,7 +658,7 @@ class TestTurnTagIntegration(unittest.TestCase):
             status, data = h.post(h.body("2 plus 2?"))
             self.assertEqual(status, 200)
             content = data["choices"][0]["message"]["content"]
-            self.assertEqual(content, "2 plus 2 equals 4.")
+            self.assertEqual(prose(content), "2 plus 2 equals 4.")
             self.assertNotIn("[[TURN:", json.dumps(data))
         finally:
             h.stop()
@@ -631,7 +681,7 @@ class TestForkFallback(unittest.TestCase):
             h.post(h.body("hello"))
             status, data = h.post(h.body("hello"))  # same text -> fork, which fails
             self.assertEqual(status, 200)
-            self.assertEqual(data["choices"][0]["message"]["content"], "VERIFIED_FINAL")
+            self.assertEqual(prose(data["choices"][0]["message"]["content"]), "VERIFIED_FINAL")
         finally:
             h.stop()
 
@@ -889,6 +939,16 @@ class TestOpenWebUIClient(unittest.TestCase):
         self.assertEqual(client.calls[2][2]["type"], "embeds")
         self.assertEqual(client.calls[2][2]["data"]["embeds"], [url])
 
+    def test_post_status_recipe(self):
+        # The live status line/timeline: POST the per-message event route.
+        client = _RecordingClient()
+        self.assertTrue(client.post_status("chat-1", "msg-1", "Running bash…", False))
+        method, path, body = client.calls[-1]
+        self.assertEqual(method, "POST")
+        self.assertEqual(path, "/api/v1/chats/chat-1/messages/msg-1/event")
+        self.assertEqual(body, {"type": "status",
+                                "data": {"description": "Running bash…", "done": False}})
+
     def test_empty_urls_is_a_noop(self):
         client = _RecordingClient()
         self.assertFalse(client.append_widget("c1", []))
@@ -904,6 +964,342 @@ class TestOpenWebUIClient(unittest.TestCase):
         # The poll never sees an assistant node, so it gives up without a GET storm.
         self.assertFalse(client.append_widget("c1", ["data:1"], attempts=3, delay=0.0))
         self.assertGreaterEqual(client._assistant_get_count(), 1)
+
+
+class _Clock:
+    """Injectable monotonic clock for deterministic step durations."""
+
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self):
+        return self.t
+
+
+class TestStepTrace(unittest.TestCase):
+    """Steps carry action metadata; learning flows never carry draft text."""
+
+    def test_tool_card_is_a_complete_parseable_block(self):
+        clock = _Clock()
+        ts = TurnStream(clock=clock)
+        ts.feed({"type": "tool_execution_start", "toolCallId": "call_1",
+                 "toolName": "bash", "args": {"command": "ls -la"}})
+        self.assertEqual(ts.steps, [])  # nothing rendered until it finishes
+        clock.t = 1.25
+        ts.feed({"type": "tool_execution_end", "toolCallId": "call_1",
+                 "toolName": "bash", "isError": False,
+                 "result": {"content": [{"type": "text", "text": "file.txt"}]}})
+        self.assertEqual(len(ts.steps), 1)
+        card = steps.render_step(ts.steps[0], learning=True)
+        self.assertTrue(card.startswith('<details type="tool_calls" done="true"'))
+        self.assertIn('name="bash · 1.2s"', card)
+        self.assertIn('arguments="{&quot;command&quot;:&quot;ls -la&quot;}"', card)
+        # Open WebUI's parser: opening tag + newline, summary on its own line.
+        self.assertRegex(card, r"^<details[^>]*>\n<summary>[^\n]*</summary>\n")
+        self.assertTrue(card.endswith("</details>\n\n"))
+        self.assertNotIn("file.txt", card)  # results stay out of learning flows
+
+    def test_general_chat_includes_the_truncated_result(self):
+        ts = TurnStream(learning=False)
+        ts.feed({"type": "tool_execution_start", "toolCallId": "call_1",
+                 "toolName": "bash", "args": {"command": "ls"}})
+        ts.feed({"type": "tool_execution_end", "toolCallId": "call_1",
+                 "toolName": "bash", "isError": False,
+                 "result": {"content": [{"type": "text", "text": "file.txt " * 500}]}})
+        card = steps.render_step(ts.steps[0], learning=False)
+        self.assertIn("file.txt", card)
+        self.assertIn("…", card)  # truncated preview, not a log dump
+
+    def test_failed_tool_is_marked_failed(self):
+        ts = TurnStream()
+        ts.feed({"type": "tool_execution_start", "toolCallId": "c", "toolName": "bash", "args": {}})
+        ts.feed({"type": "tool_execution_end", "toolCallId": "c", "toolName": "bash", "isError": True})
+        card = steps.render_step(ts.steps[0], learning=True)
+        self.assertIn('status="failed"', card)
+        self.assertNotIn('done="true"', card)
+
+    def test_tool_args_are_truncated_and_escaped(self):
+        ts = TurnStream()
+        ts.feed({"type": "tool_execution_start", "toolCallId": "c", "toolName": "bash",
+                 "args": {"command": 'echo "</details>" ' + "x" * 500}})
+        ts.feed({"type": "tool_execution_end", "toolCallId": "c", "toolName": "bash",
+                 "isError": False})
+        card = steps.render_step(ts.steps[0], learning=True)
+        self.assertEqual(card.count("</details>"), 1)  # cannot close the block early
+        attr = re.search(r'arguments="(.*?)"', card).group(1)
+        self.assertLessEqual(len(html.unescape(attr)), steps.ARGS_PREVIEW + 1)
+        self.assertNotIn('"', attr)  # no raw quote ends the attribute value
+
+    def test_tool_end_without_start_still_renders(self):
+        ts = TurnStream()
+        ts.feed({"type": "tool_execution_end", "toolName": "bash", "isError": False})
+        self.assertEqual(len(ts.steps), 1)
+        self.assertEqual(ts.steps[0]["status"], "done")
+
+    def test_thinking_is_duration_only_in_a_learning_flow(self):
+        clock = _Clock()
+        ts = TurnStream(learning=True, clock=clock)
+        ts.feed({"type": "message_start", "message": {"role": "assistant", "stopReason": "pending"}})
+        clock.t = 0.5
+        ts.feed({"type": "message_update",
+                 "assistantMessageEvent": {"type": "thinking_delta", "delta": SECRET}})
+        clock.t = 2.1
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "stop",
+            "content": [{"type": "thinking", "thinking": SECRET},
+                        {"type": "text", "text": "VERIFIED_FINAL"}]}})
+        thought = [s for s in ts.steps if s["kind"] == "thinking"]
+        self.assertEqual(len(thought), 1)
+        self.assertNotIn("text", thought[0])  # draft reasoning never enters the trace
+        card = steps.render_step(thought[0], learning=True)
+        self.assertIn("<summary>Thought for 1.6s</summary>", card)
+        self.assertNotIn(SECRET, card)
+        self.assertNotIn(SECRET, json.dumps(ts.steps))
+
+    def test_thinking_text_is_shown_in_a_general_chat(self):
+        ts = TurnStream(learning=False)
+        ts.feed({"type": "message_start", "message": {"role": "assistant", "stopReason": "pending"}})
+        ts.feed({"type": "message_update",
+                 "assistantMessageEvent": {"type": "thinking_delta", "delta": SECRET}})
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "stop",
+            "content": [{"type": "thinking", "thinking": "pondering"},
+                        {"type": "text", "text": "answer"}]}})
+        thought = [s for s in ts.steps if s["kind"] == "thinking"][0]
+        self.assertEqual(thought["text"], "pondering")
+        card = steps.render_step(thought, learning=False)
+        self.assertIn("pondering", card)
+
+    def test_deltas_never_become_steps(self):
+        ts = TurnStream()
+        ts.feed({"type": "message_update",
+                 "assistantMessageEvent": {"type": "text_delta", "delta": SECRET}})
+        ts.feed({"type": "message_update",
+                 "assistantMessageEvent": {"type": "thinking_delta", "delta": SECRET}})
+        self.assertEqual(ts.steps, [])
+        self.assertEqual(steps.render_steps(ts.steps), "")
+
+    def test_steps_keep_stream_order(self):
+        ts = TurnStream()
+        ts.feed({"type": "tool_execution_start", "toolCallId": "a", "toolName": "bash", "args": {}})
+        ts.feed({"type": "tool_execution_end", "toolCallId": "a", "toolName": "bash"})
+        ts.feed({"type": "message_start", "message": {"role": "assistant"}})
+        ts.feed({"type": "message_update",
+                 "assistantMessageEvent": {"type": "thinking_delta", "delta": "x"}})
+        ts.feed({"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "stop",
+            "content": [{"type": "text", "text": "done"}]}})
+        ts.feed({"type": "tool_execution_start", "toolCallId": "b", "toolName": "read_file", "args": {}})
+        ts.feed({"type": "tool_execution_end", "toolCallId": "b", "toolName": "read_file"})
+        self.assertEqual([s["kind"] for s in ts.steps], ["tool", "thinking", "tool"])
+
+
+class _FakeOwui:
+    """Records POSTed per-message events; answers 200 `true` like Open WebUI."""
+
+    def __init__(self):
+        import http.server
+
+        events = self.events = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                n = int(self.headers.get("Content-Length", "0"))
+                raw = self.rfile.read(n) if n else b"{}"
+                try:
+                    body = json.loads(raw)
+                except ValueError:
+                    body = {}
+                events.append((self.path, body))
+                payload = b"true"
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def do_GET(self):
+                self.send_response(404)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+        self.httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.port = self.httpd.server_address[1]
+        self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+        self.thread.start()
+
+    def url(self):
+        return f"http://127.0.0.1:{self.port}"
+
+    def stop(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+
+    def statuses(self, message_id="msg-1"):
+        suffix = f"/messages/{message_id}/event"
+        return [b for p, b in self.events if p.endswith(suffix)]
+
+
+class TestLiveSteps(unittest.TestCase):
+    def test_learning_turn_shows_actions_not_results(self):
+        h = ServerHarness("steps")
+        try:
+            status, body = h.post(h.body("/lesson next", stream=True), raw=True)
+            self.assertEqual(status, 200)
+            text = sse_content(body)
+            self.assertIn('type="tool_calls"', text)
+            self.assertIn("bash", text)
+            self.assertIn("ls -la", text)          # the action's input is visible
+            self.assertNotIn("file.txt", text)     # the tool's result is not
+            self.assertNotIn("wrapping up", text)  # neither is draft reasoning
+            self.assertNotIn(SECRET, body)
+            self.assertIn("VERIFIED_FINAL", text)
+        finally:
+            h.stop()
+
+    def test_general_chat_shows_results_and_thinking(self):
+        h = ServerHarness("steps")
+        try:
+            status, data = h.post(h.body("hello"))
+            self.assertEqual(status, 200)
+            content = data["choices"][0]["message"]["content"]
+            self.assertIn("file.txt", content)
+            self.assertIn("wrapping up", content)
+            self.assertEqual(prose(content), "VERIFIED_FINAL")
+        finally:
+            h.stop()
+
+    def test_failed_tool_card_streams(self):
+        h = ServerHarness("steps_error")
+        try:
+            status, body = h.post(h.body("/lesson next", stream=True), raw=True)
+            self.assertEqual(status, 200)
+            self.assertIn('status="failed"', sse_content(body))
+        finally:
+            h.stop()
+
+    def test_step_card_streams_before_the_turn_settles(self):
+        # B-steps-stream-before-settle: the card is on the wire while pi is
+        # still running, not after agent_settled.
+        h = ServerHarness("steps_slow")
+        try:
+            req = h.request(h.body("/lesson next", stream=True))
+            first_card = final = None
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                while True:
+                    line = resp.readline()
+                    if not line:
+                        break
+                    if not line.startswith(b"data: "):
+                        continue
+                    payload = line[6:].strip()
+                    if payload == b"[DONE]":
+                        break
+                    rec = json.loads(payload)
+                    delta = (rec.get("choices") or [{}])[0].get("delta", {})
+                    content = delta.get("content", "")
+                    if "<details" in content and first_card is None:
+                        first_card = time.monotonic()
+                    if "VERIFIED_FINAL" in content:
+                        final = time.monotonic()
+            self.assertIsNotNone(first_card, "no step card reached the client")
+            self.assertIsNotNone(final, "no post-gate prose reached the client")
+            self.assertGreater(final - first_card, 0.4)
+        finally:
+            h.stop()
+
+
+class TestStatusEvents(unittest.TestCase):
+    def setUp(self):
+        self.owui = _FakeOwui()
+        self.headers = {"X-OpenWebUI-Chat-Id": "chat-1", "X-OpenWebUI-Message-Id": "msg-1"}
+
+    def tearDown(self):
+        self.owui.stop()
+
+    def _wait_done(self, timeout=3.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            events = self.owui.statuses()
+            if events and events[-1].get("data", {}).get("done") is True:
+                return events
+            time.sleep(0.02)
+        return self.owui.statuses()
+
+    def test_status_sequence_reports_tools_and_ends_done(self):
+        h = ServerHarness("steps_slow", openwebui_base_url=self.owui.url())
+        try:
+            with mock.patch("bridge.openwebui.read_key", return_value="k"):
+                status, _ = h.post(h.body("/lesson next", stream=True), raw=True,
+                                   headers=self.headers)
+            self.assertEqual(status, 200)
+            events = self._wait_done()
+            self.assertTrue(events, "no status events were posted")
+            self.assertTrue(all(e["type"] == "status" for e in events))
+            self.assertFalse(events[0]["data"]["done"])
+            self.assertTrue(any("bash" in e["data"]["description"] for e in events))
+            self.assertTrue(events[-1]["data"]["done"])
+            self.assertNotIn(SECRET, json.dumps(events))
+        finally:
+            h.stop()
+
+    def test_status_ends_done_after_provider_error(self):
+        h = ServerHarness("steps_provider_error", openwebui_base_url=self.owui.url())
+        try:
+            with mock.patch("bridge.openwebui.read_key", return_value="k"):
+                status, text = h.post(h.body("/lesson next", stream=True), raw=True,
+                                      headers=self.headers)
+            self.assertEqual(status, 200)
+            self.assertIn("pi runtime error", text)
+            events = self._wait_done()
+            self.assertTrue(events)
+            self.assertTrue(events[-1]["data"]["done"])
+        finally:
+            h.stop()
+
+    def test_no_message_id_means_no_status_posts(self):
+        h = ServerHarness("steps", openwebui_base_url=self.owui.url())
+        try:
+            with mock.patch("bridge.openwebui.read_key", return_value="k"):
+                status, _ = h.post(h.body("hello"))
+            self.assertEqual(status, 200)
+            time.sleep(0.2)
+            self.assertEqual(self.owui.statuses(), [])
+        finally:
+            h.stop()
+
+
+class TestStatusReporter(unittest.TestCase):
+    def test_close_always_ends_the_sequence_with_done(self):
+        calls = []
+
+        class Recording:
+            def post_status(self, chat, message, description, done):
+                calls.append((chat, message, description, done))
+
+        reporter = openwebui.StatusReporter(Recording(), "c1", "m1")
+        reporter.status("Running bash…")
+        reporter.close()
+        deadline = time.time() + 2.0
+        while len(calls) < 2 and time.time() < deadline:
+            time.sleep(0.01)
+        self.assertEqual(calls[0][:2], ("c1", "m1"))
+        self.assertIn("bash", calls[0][2])
+        self.assertTrue(calls[-1][3])
+
+    def test_close_without_any_status_posts_nothing(self):
+        calls = []
+
+        class Recording:
+            def post_status(self, *a):
+                calls.append(a)
+
+        reporter = openwebui.StatusReporter(Recording(), "c1", "m1")
+        reporter.close()
+        time.sleep(0.1)
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

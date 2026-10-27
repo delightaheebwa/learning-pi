@@ -40,6 +40,46 @@ def _final_text():
     return "VERIFIED_FINAL"
 
 
+def _steps_trace():
+    """A realistic tool-using turn: think -> tool -> think -> answer.
+
+    Carries `args`, a result, and thinking text (with the secret in the thinking
+    and result) so tests can prove a learning flow renders only action metadata,
+    while a general chat gets the fuller trace.
+    """
+    out({"type": "message_start",
+         "message": {"role": "assistant", "content": [], "stopReason": "pending"}})
+    out({"type": "message_update",
+         "assistantMessageEvent": {"type": "thinking_delta", "delta": "pondering " + SECRET}})
+    out({"type": "message_end",
+         "message": {"role": "assistant", "stopReason": "toolUse",
+                     "content": [{"type": "thinking", "thinking": "pondering " + SECRET}]}})
+    out({"type": "tool_execution_start", "toolCallId": "call_1",
+         "toolName": "bash", "args": {"command": "ls -la"}})
+    if SCENARIO == "steps_slow":
+        time.sleep(0.7)  # the turn stays open: the step must already be on the wire
+    out({"type": "tool_execution_end", "toolCallId": "call_1", "toolName": "bash",
+         "result": {"content": [{"type": "text", "text": "file.txt " + SECRET}],
+                    "details": {}},
+         "isError": SCENARIO == "steps_error"})
+    out({"type": "message_start",
+         "message": {"role": "assistant", "content": [], "stopReason": "pending"}})
+    out({"type": "message_update",
+         "assistantMessageEvent": {"type": "text_delta", "delta": SECRET}})
+    if SCENARIO == "steps_provider_error":
+        out({"type": "message_end",
+             "message": {"role": "assistant", "stopReason": "error", "content": [],
+                         "errorMessage": "429: quota exhausted"}})
+    else:
+        out({"type": "message_end",
+             "message": {"role": "assistant", "stopReason": "stop",
+                         "content": [{"type": "thinking", "thinking": "wrapping up"},
+                                     {"type": "text", "text": _final_text()}]}})
+    out({"type": "turn_end"})
+    out({"type": "agent_end"})
+    out({"type": "agent_settled"})
+
+
 def run_prompt(cid):
     if SCENARIO == "handled":
         # An extension command consumed the prompt: no run starts, so the bridge
@@ -53,6 +93,9 @@ def run_prompt(cid):
         time.sleep(1.5)
     out({"type": "agent_start"})
     out({"type": "turn_start"})
+    if SCENARIO in ("steps", "steps_slow", "steps_error", "steps_provider_error"):
+        _steps_trace()
+        return
     out({"type": "message_start",
          "message": {"role": "assistant", "content": [], "stopReason": "pending"}})
     # The raw draft streams as deltas BEFORE verification — the bridge must drop these.

@@ -403,6 +403,26 @@ coverage check as the deno gate suites.
   learning turn at a time on the shared state repo: a second learning turn in
   another chat is told to wait rather than overlapping the write, while general
   (non-learning) chats are exempt.
+- **B-steps-metadata-only** *(hard)* — the live action trace is emitted as
+  Open WebUI `<details>` content blocks built only from completed records. A tool
+  step carries its name, its arguments truncated to 200 characters, its status
+  and its duration — never its result in a learning flow. A thinking step carries
+  only its duration in a learning flow ("Thought for Ns"); its text appears only
+  in a general (non-learning) chat. `message_update` deltas never become a step
+  (B-deltas-never-forwarded still holds), and a step block is always complete and
+  parseable: nested `<details>` text cannot end it early.
+- **B-steps-stream-before-settle** *(hard)* — in a streaming response each
+  completed step is written as its own `chat.completion.chunk` while the pi turn
+  is still running (before `agent_settled`), in stream order; the post-gate prose
+  is written only after settlement. Open WebUI therefore shows actions as they
+  happen instead of the finished turn all at once.
+- **B-status-done-always** *(hard)* — when Open WebUI supplies the chat/message
+  ids (the connection's custom forwarded headers `{{CHAT_ID}}` /
+  `{{MESSAGE_ID}}`), the bridge posts best-effort `status` events for the live
+  one-line status and its timeline. Any sequence that starts ends with
+  `done: true`, including after a provider error, so the shimmer never sticks;
+  without a message id nothing is posted, and a failed status call never affects
+  the turn.
 
 ### Launcher & update gate
 

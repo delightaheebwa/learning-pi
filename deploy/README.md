@@ -98,6 +98,23 @@ appear. To add or repair it by hand in the UI:
    `learning-tutor`, `learning-review`, `learning-teach`, `learning-ingest` are
    also exposed).
 
+### Live action trace
+
+Tool/thinking step cards need no extra setup: the bridge streams them as message
+content. For the optional live status line (shimmer + timeline), add two custom
+forwarded headers to the OpenAI connection (Open WebUI ≥ 0.10 supports the
+placeholders):
+
+| Header | Value |
+|---|---|
+| `X-OpenWebUI-Chat-Id` | `{{CHAT_ID}}` |
+| `X-OpenWebUI-Message-Id` | `{{MESSAGE_ID}}` |
+
+The bridge needs the same Open WebUI REST configuration as widget delivery
+(`PI_BRIDGE_OPENWEBUI_BASE_URL` + a user API key) to post the `status` events;
+without a message id it posts nothing and the step cards still render. See
+`../bridge/README.md#live-action-trace`.
+
 > Inside the container, `extra_hosts: host.docker.internal:host-gateway` maps
 > `host.docker.internal` to Docker's **default** bridge gateway — `docker0`,
 > normally `172.17.0.1` (confirm with `ip -4 addr show docker0`). The host's

@@ -24,7 +24,7 @@ from typing import Optional
 
 from .rpc import PiSession, PiError
 from .stream import TurnStream
-from . import genui, openwebui
+from . import genui, openwebui, steps
 
 _LEARNING_CMD_RE = re.compile(
     r"^\s*/(review|solo|ingest|teach|lesson|continue|pause|audit)\b",
@@ -62,6 +62,28 @@ def last_user_text(messages) -> str:
 
 def is_learning_flow(text: str) -> bool:
     return bool(text) and (_FLOW_MARKER in text or bool(_LEARNING_CMD_RE.match(text)))
+
+
+def openwebui_ids(headers, body) -> tuple[str, str]:
+    """Open WebUI chat/message ids, for per-message status events.
+
+    Normally supplied by the connection's custom forwarded headers
+    (`{{CHAT_ID}}` / `{{MESSAGE_ID}}`, Open WebUI >= 0.10); `metadata.chat_id`
+    is the fallback the widget path already understands.
+    """
+    md = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
+    chat = ""
+    for cand in (
+        headers.get("X-OpenWebUI-Chat-Id"),
+        md.get("chat_id"),
+        body.get("chat_id"),
+        body.get("conversation_id"),
+    ):
+        if isinstance(cand, str) and cand:
+            chat = cand
+            break
+    message = headers.get("X-OpenWebUI-Message-Id")
+    return chat, message if isinstance(message, str) else ""
 
 
 def session_key(body: dict, messages) -> str:
@@ -392,36 +414,99 @@ class Handler(BaseHTTPRequestHandler):
 
         key = session_key(body, messages)
         learning = is_learning_flow(user)
+        self._client_gone = False
+        chat_id, message_id = openwebui_ids(self.headers, body)
 
         acquired = False
-        if learning:
-            if not self.server.learning.acquire(key):  # type: ignore[attr-defined]
-                note = (
-                    "⛔ Another learning session is currently active in a different chat. "
-                    "Finish or pause it before starting a learning flow here."
-                )
-                if stream:
-                    self._stream_constant(model, note)
-                else:
-                    self._send_json(200, self._completion(model, note))
-                return
-            acquired = True
+        reporter = None
+        turn = None
         try:
-            entry = self.server.registry.get_or_create(key)  # type: ignore[attr-defined]
-            turn = self._run_turn(entry, user)
-        except (PiError, OSError) as exc:
-            turn = TurnStream()
-            turn.text = f"⚠️ pi runtime error: {exc}"
+            if learning:
+                if not self.server.learning.acquire(key):  # type: ignore[attr-defined]
+                    note = (
+                        "⛔ Another learning session is currently active in a different chat. "
+                        "Finish or pause it before starting a learning flow here."
+                    )
+                    if stream:
+                        self._stream_constant(model, note)
+                    else:
+                        self._send_json(200, self._completion(model, note))
+                    return
+                acquired = True
+
+            reporter = self._status_reporter(chat_id, message_id)
+            sink = self._step_sink(model, learning, reporter, stream)
+            if stream:
+                self._sse_headers()
+                self._try_write_sse(self._chunk(model, {"role": "assistant"}))
+
+            try:
+                entry = self.server.registry.get_or_create(key)  # type: ignore[attr-defined]
+                turn = self._run_turn(entry, user, learning=learning, on_step=sink)
+            except (PiError, OSError) as exc:
+                turn = TurnStream(learning=learning)
+                turn.text = f"⚠️ pi runtime error: {exc}"
+            finally:
+                if acquired:
+                    self.server.learning.release(key)  # type: ignore[attr-defined]
+                    acquired = False
+
+            content = turn.final_text()
+            if stream:
+                self._finish_stream(model, content)
+            else:
+                steps_text = steps.render_steps(turn.steps, learning=learning)
+                self._send_json(200, self._completion(model, steps_text + content))
+            self._deliver_widgets(key, model, turn.openui_payloads())
         finally:
             if acquired:
                 self.server.learning.release(key)  # type: ignore[attr-defined]
+            if reporter is not None:
+                failed = turn is not None and (
+                    turn.error or turn.text.startswith("⚠️ pi runtime error")
+                )
+                reporter.close("pi runtime error" if failed else "Done")
 
-        content = turn.final_text()
-        if stream:
-            self._stream_from(model, content)
-        else:
-            self._send_json(200, self._completion(model, content))
-        self._deliver_widgets(key, model, turn.openui_payloads())
+    def _status_reporter(self, chat_id: str, message_id: str):
+        """A live-status reporter, or None without ids / Open WebUI config."""
+        if not chat_id or not message_id:
+            return None
+        client = self.cfg.openwebui_client()
+        if client is None:
+            return None
+        return openwebui.StatusReporter(client, chat_id, message_id)
+
+    def _step_sink(self, model: str, learning: bool, reporter, stream_cards: bool):
+        """Turn a completed step (or a transient start) into UI output.
+
+        Cards are written as complete SSE chunks the moment the step finishes,
+        so Open WebUI shows the action before the turn settles. Status events are
+        supplementary (live shimmer + timeline); failures there are swallowed by
+        the reporter.
+        """
+
+        def sink(step: dict) -> None:
+            kind = step.get("kind")
+            if kind == "tool_start":
+                if reporter is not None:
+                    reporter.status(f"Running {step.get('name') or 'tool'}…")
+                return
+            if kind == "thinking_start":
+                if reporter is not None:
+                    reporter.status("Thinking…")
+                return
+            if stream_cards:
+                text = steps.render_step(step, learning=learning)
+                if text:
+                    self._try_write_sse(self._chunk(model, {"content": text}))
+            if reporter is not None and kind == "tool":
+                state = "failed" if step.get("status") == "error" else "done"
+                duration = steps.format_seconds(step.get("duration"))
+                reporter.status(f"{step.get('name') or 'tool'} {state} ({duration})")
+            elif reporter is not None and kind == "thinking":
+                reporter.status(f"Thought for {steps.format_seconds(step.get('duration'))}")
+
+        return sink
 
     def _deliver_widgets(self, key: str, model: str, payloads: list) -> None:
         """Deliver verified OpenUI payloads as an embed on a 2nd assistant message.
@@ -453,7 +538,14 @@ class Handler(BaseHTTPRequestHandler):
             pass  # best-effort: the learner already has the prose
 
     # -- turn execution ----------------------------------------------------
-    def _run_turn(self, entry: SessionEntry, user: str) -> TurnStream:
+    def _run_turn(
+        self,
+        entry: SessionEntry,
+        user: str,
+        *,
+        learning: bool = True,
+        on_step=None,
+    ) -> TurnStream:
         # Mark in flight before taking the lock so the registry cannot evict this
         # session in the window between get_or_create and the lock.
         entry.inflight = True
@@ -465,7 +557,7 @@ class Handler(BaseHTTPRequestHandler):
                         entry.session.fork_last_user_message()
                     except PiError:
                         pass  # fall back to appending the prompt
-                turn = TurnStream()
+                turn = TurnStream(learning=learning, on_step=on_step)
                 entry.session.prompt(user, turn.feed, timeout=self.cfg.timeout)
                 entry.last_user_text = user
                 entry.answered = True
@@ -511,19 +603,35 @@ class Handler(BaseHTTPRequestHandler):
             "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
         }
 
+    def _try_write_sse(self, payload: dict) -> bool:
+        """Write one SSE chunk unless the client already went away."""
+        if self._client_gone:
+            return False
+        try:
+            self._write_sse(payload)
+            return True
+        except OSError:
+            # Navigating away must not abort the turn or leak into the next one:
+            # mark the client gone, keep consuming pi's records to settlement.
+            self._client_gone = True
+            return False
+
+    def _finish_stream(self, model: str, content: str) -> None:
+        """Emit the post-gate prose, the terminal chunk, and `[DONE]`."""
+        if content:
+            self._try_write_sse(self._chunk(model, {"content": content}))
+        self._try_write_sse(self._chunk(model, {}, "stop"))
+        if not self._client_gone:
+            try:
+                self.wfile.write(b"data: [DONE]\n\n")
+                self.wfile.flush()
+            except OSError:
+                self._client_gone = True
+        self.close_connection = True
+
     def _stream_constant(self, model: str, content: str) -> None:
         self._sse_headers()
         self._write_sse(self._chunk(model, {"role": "assistant", "content": content}))
-        self._write_sse(self._chunk(model, {}, "stop"))
-        self.wfile.write(b"data: [DONE]\n\n")
-        self.wfile.flush()
-        self.close_connection = True
-
-    def _stream_from(self, model: str, content: str) -> None:
-        self._sse_headers()
-        self._write_sse(self._chunk(model, {"role": "assistant"}))
-        if content:
-            self._write_sse(self._chunk(model, {"content": content}))
         self._write_sse(self._chunk(model, {}, "stop"))
         self.wfile.write(b"data: [DONE]\n\n")
         self.wfile.flush()

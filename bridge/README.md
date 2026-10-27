@@ -19,7 +19,9 @@ Open WebUI (Docker, this machine)
 * Assistant text is taken **only** from `message_end`. `message_update` deltas
   carry the raw, *pre-verification* draft — the spike watched a withheld teaching
   draft stream in full before the gate replaced it. The bridge never forwards
-  deltas, so unverified content cannot leak to the learner.
+  deltas, so unverified content cannot leak to the learner. The live action trace
+  (below) is built from completed `tool_execution_*` records and thinking
+  durations — metadata, never delta text.
 * A withheld turn already arrives as a `⛔ WITHHELD (…)` banner inside the
   `message_end` text, so the learner sees the gate's verdict with no extra wiring.
 * Sessions run with `--bash-guard-disabled` (only when bash-guard is installed):
@@ -109,6 +111,45 @@ Open WebUI REST call is swallowed. The fence is lifted from any flow's prose (th
 audit is pi-side correctness; the bridge only transports the already-verified
 payload).
 
+## Live action trace
+
+Each completed pi step is streamed to Open WebUI as a `<details>` content block
+while the turn is still running, so the chat shows the agent's actions as they
+happen instead of the finished turn all at once:
+
+* a tool execution becomes a `type="tool_calls"` block carrying the tool name,
+  its arguments (truncated to 200 characters), its status and its duration.
+  Open WebUI groups consecutive steps into one collapsible "Explored bash,
+  read_file" row with an "Exploring…" spinner while the message streams;
+* a completed thinking block becomes a `type="reasoning"` block ("Thought for
+  Ns"). A learning flow shows only the duration; a general chat shows its text;
+* a tool **result** is never rendered in a learning flow (a result can carry the
+  pre-gate draft); a general chat gets a truncated preview.
+
+`message_update` deltas are still never forwarded: the trace is metadata about
+completed actions, not the draft (`B-deltas-never-forwarded`). Step blocks are
+emitted complete and strictly formatted for Open WebUI's `<details>` parser
+(`bridge/steps.py`).
+
+### Live status line (optional)
+
+Open WebUI also renders a shimmering one-line status plus a clickable timeline
+above the reply. Enable it by adding the connection's custom forwarded headers in
+**Settings → Connections → OpenAI API → Manage** (Open WebUI ≥ 0.10):
+
+```
+X-OpenWebUI-Chat-Id:    {{CHAT_ID}}
+X-OpenWebUI-Message-Id: {{MESSAGE_ID}}
+```
+
+The bridge then POSTs `status` events to
+`/api/v1/chats/<chat>/messages/<message>/event` with the same REST key as widget
+delivery (`--openwebui-base-url`), and always ends a started sequence with
+`done: true` — including after a provider error — so the shimmer never sticks.
+It is best-effort: Open WebUI may only persist a message after the stream ends,
+a rejected event changes nothing, and the step cards are the guaranteed trace.
+Without a message id (or without Open WebUI REST config) no status is posted.
+
 ## Single-writer policy
 
 The learning system forbids two concurrent writers on the state repo. The bridge
@@ -120,8 +161,8 @@ wait. General (non-learning) chats are exempt. Idle pi sessions are evicted LRU
 
 ## Limits
 
-* Tool activity is buffered with the turn (no live status lines yet) — the turn
-  arrives whole, which matches "generated then verified then emitted".
+* The prose and any verified widget payload still arrive only at settlement
+  ("generated then verified then emitted"); only the action trace streams live.
 * Regenerate uses `fork`; if pi cannot fork, the bridge falls back to appending
   the prompt.
 * Interactive extension UI (approval dialogs) is declined, not surfaced.

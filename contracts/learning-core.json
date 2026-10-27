@@ -565,6 +565,37 @@
       ]
     },
     {
+      "id": "B-steps-metadata-only",
+      "severity": "hard",
+      "statement": "The live action trace is emitted as Open WebUI `<details>` content blocks built only from completed records. A tool step carries its name, its arguments truncated to 200 characters, its status and its duration — never its result in a learning flow. A thinking step carries only its duration in a learning flow (\"Thought for Ns\"); its text appears only in a general (non-learning) chat. `message_update` deltas never become a step (B-deltas-never-forwarded still holds), and a step block is always complete and parseable: nested `<details>` text cannot end it early.",
+      "tests": [
+        "test_tool_card_is_a_complete_parseable_block",
+        "test_learning_turn_shows_actions_not_results",
+        "test_thinking_is_duration_only_in_a_learning_flow",
+        "test_deltas_never_become_steps",
+        "test_tool_args_are_truncated_and_escaped"
+      ]
+    },
+    {
+      "id": "B-steps-stream-before-settle",
+      "severity": "hard",
+      "statement": "In a streaming response each completed step is written as its own `chat.completion.chunk` while the pi turn is still running (before `agent_settled`), in stream order; the post-gate prose is written only after settlement. Open WebUI therefore shows actions as they happen instead of the finished turn all at once.",
+      "tests": [
+        "test_step_card_streams_before_the_turn_settles",
+        "test_steps_keep_stream_order"
+      ]
+    },
+    {
+      "id": "B-status-done-always",
+      "severity": "hard",
+      "statement": "When Open WebUI supplies the chat/message ids (the connection's custom forwarded headers {{CHAT_ID}} / {{MESSAGE_ID}}), the bridge posts best-effort `status` events for the live one-line status and its timeline. Any sequence that starts ends with `done: true`, including after a provider error, so the shimmer never sticks; without a message id nothing is posted, and a failed status call never affects the turn.",
+      "tests": [
+        "test_status_sequence_reports_tools_and_ends_done",
+        "test_status_ends_done_after_provider_error",
+        "test_close_always_ends_the_sequence_with_done"
+      ]
+    },
+    {
       "id": "G-interrogation-stance",
       "severity": "policy",
       "statement": "The Tutor is a sparring partner and stress-tester, not a primary teacher. The pi/Open WebUI layer ships the same interrogation stance as the Antigravity layer: never teach a topic cold, read the learner's material, require a closed-book model, bracket the edge when the model is ambiguous, triage the model as a dependency-ordered attack tree, attack one hole at a time, reveal at most one reasoning step when a legal reveal is delivered, patch the learner's model (v1 -> breaking case -> v2), run the entailment check, and graduate it with a naive-student clone. The retired teacher-first loop (probe -> plan -> mini-checkpoint lecture) is gone from the prompt resources; the bracket is diagnostic measurement, not a lecture.",

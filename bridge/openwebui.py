@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import os
+import queue
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -75,6 +77,32 @@ class OpenWebUIClient:
 
     def _history(self, chat: dict) -> dict:
         return ((chat or {}).get("chat") or {}).get("history") or {}
+
+    def post_message_event(self, chat_id: str, message_id: str, event: dict) -> bool:
+        """Post one per-message event (`status`, `embeds`, …) to Open WebUI.
+
+        Requires the Open WebUI chat/message ids, normally supplied by the
+        connection's custom forwarded headers (`{{CHAT_ID}}` / `{{MESSAGE_ID}}`).
+        Best-effort: a non-2xx (e.g. a mid-stream message Open WebUI has not
+        persisted yet) returns False instead of raising.
+        """
+        if not chat_id or not message_id:
+            return False
+        status, ok = self.call(
+            "POST",
+            f"/api/v1/chats/{quote(chat_id, safe='')}/messages/"
+            f"{quote(message_id, safe='')}/event",
+            event,
+        )
+        return status == 200 and ok is True
+
+    def post_status(self, chat_id: str, message_id: str, description: str, done: bool) -> bool:
+        """Post one `status` event (the live line above the reply)."""
+        return self.post_message_event(
+            chat_id,
+            message_id,
+            {"type": "status", "data": {"description": description, "done": bool(done)}},
+        )
 
     def _wait_for_assistant_parent(self, chat_id: str, attempts: int, delay: float):
         """Poll until the chat's current node is the just-saved assistant message.
@@ -152,3 +180,67 @@ class OpenWebUIClient:
         if status != 200 or ok is not True:
             raise OpenWebUIError(f"attach embed failed: HTTP {status}: {ok}")
         return True
+
+
+class StatusReporter:
+    """Fire-and-forget `status` events for one assistant message.
+
+    Open WebUI shows the newest status as a shimmering one-liner above the reply
+    and keeps the whole sequence in a clickable timeline. The bridge cannot use
+    the Filter `__event_emitter__` path (it is an OpenAI-compatible endpoint, not
+    a Pipe), so it posts to the public message-event route instead.
+
+    Posting happens on a daemon worker thread: a slow or unreachable Open WebUI
+    must never stall a pi turn, and every failure is swallowed (the step cards in
+    the content are the guaranteed trace). A status sequence always ends with
+    `done: true` — `close()` guarantees it — or the shimmer never stops.
+    """
+
+    def __init__(self, client: OpenWebUIClient, chat_id: str, message_id: str) -> None:
+        self.client = client
+        self.chat_id = chat_id
+        self.message_id = message_id
+        self._q: "queue.Queue[Optional[dict]]" = queue.Queue()
+        self._mu = threading.Lock()
+        self._thread: Optional[threading.Thread] = None
+        self._closed = False
+        self._started = False
+
+    def _ensure_worker(self) -> None:
+        if self._thread is None:
+            self._thread = threading.Thread(target=self._run, daemon=True)
+            self._thread.start()
+
+    def _run(self) -> None:
+        while True:
+            item = self._q.get()
+            if item is None:
+                return
+            try:
+                self.client.post_status(
+                    self.chat_id, self.message_id, item["description"], item["done"]
+                )
+            except Exception:
+                pass  # best-effort: the trace already renders as step cards
+
+    def status(self, description: str, done: bool = False) -> None:
+        if not description:
+            return
+        with self._mu:
+            if self._closed:
+                return
+            self._started = self._started or not done
+            self._ensure_worker()
+            self._q.put({"description": description, "done": bool(done)})
+
+    def close(self, description: str = "Done") -> None:
+        """End the sequence with `done: true` (only if it ever started)."""
+        with self._mu:
+            if self._closed:
+                return
+            self._closed = True
+            if not self._started:
+                return  # nothing shimmered, so nothing to stop
+            self._ensure_worker()
+            self._q.put({"description": description, "done": True})
+            self._q.put(None)
