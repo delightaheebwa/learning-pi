@@ -573,7 +573,8 @@
         "test_learning_turn_shows_actions_not_results",
         "test_thinking_is_duration_only_in_a_learning_flow",
         "test_deltas_never_become_steps",
-        "test_tool_args_are_truncated_and_escaped"
+        "test_tool_args_are_truncated_and_escaped",
+        "test_opening_details_in_args_cannot_start_a_nested_block"
       ]
     },
     {

@@ -1030,6 +1030,13 @@ class TestStepTrace(unittest.TestCase):
         self.assertLessEqual(len(html.unescape(attr)), steps.ARGS_PREVIEW + 1)
         self.assertNotIn('"', attr)  # no raw quote ends the attribute value
 
+    def test_opening_details_in_args_cannot_start_a_nested_block(self):
+        card = steps.render_tool_step({
+            "kind": "tool", "id": "c", "name": "write_file",
+            "args": {"path": "<details type=\"x\">"}, "status": "done", "duration": 0.1,
+        })
+        self.assertEqual(card.count("<details"), 1)  # opening tokens are escaped too
+
     def test_tool_end_without_start_still_renders(self):
         ts = TurnStream()
         ts.feed({"type": "tool_execution_end", "toolName": "bash", "isError": False})

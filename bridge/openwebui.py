@@ -240,7 +240,11 @@ class StatusReporter:
                 return
             self._closed = True
             if not self._started:
-                return  # nothing shimmered, so nothing to stop
+                # Nothing shimmered. If a stray done-only status already started
+                # a worker, still hand it the sentinel so the thread exits.
+                if self._thread is not None:
+                    self._q.put(None)
+                return
             self._ensure_worker()
             self._q.put({"description": description, "done": True})
             self._q.put(None)
