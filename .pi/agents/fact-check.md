@@ -26,7 +26,7 @@ You receive ONLY data via a `GATE:fact_check` envelope — never freeform tutor 
 
 ## Envelope
 
-`{"gate":"fact_check","turn_kind":"plan|triage|attack|hint|autopsy|answer|repair|grade_feedback|idea","attack":"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis","triage":[{"item":"...","bucket":"solid|missing|suspect","evidence":"learner quote or source citation","requires":["other row item"],"on_path":true}],"step":{"index":1,"total":1,"fact":"the one new fact","rests_on":"what the learner already holds","check":"the question that verifies it landed"},"repair":{"gap":"the attacked claim","miss_class":"cue|discrimination|execution|careless|structural","tactic":"source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach","status":"teaching|done","step":{"index":1,"total":1,"fact":"...","rests_on":"...","check":"..."},"fresh_surface_check":"the exact question the learner passed","learner_restate":"the learner's own words, verbatim"},"learner_model":"the learner's verbatim model this turn targets, or null","learner_notes":"verbatim notes excerpt, or null","prior_knowledge":{"propositions":[{"id":"n_...","name":"...","statement":"..."}],"chains":[{"id":"arg_...","premises":["n_..."],"conclusion":"n_...","statement":"..."}],"prior_models":[{"concept":"...","version":"v1|v2","words":"verbatim prior model","file":"Learning System/..."}],"mistakes":[{"concept":"...","error_type":"structural|deviation|application|metacognitive","self_attribution":"...","date":"YYYY-MM-DD"}]},"grade_verdicts":[{"id":1,"concept":"...","verdict":"pass|fail","trace_step":"..."}],"foundation":{"problem":"...","where_from":"...","conditions":"...","contrast":"..."},"visual_plan":{"kind":"prose|mermaid|widget|html|none","why":"...","widget_file":"..."},"claims":[{"id":1,"claim":"..."}],"rendered_content":"the exact draft the learner will see","source_urls":[...],"raw_files":[{"label":"...","url":"...","path":"Knowledge Wiki/raw/sources/..."}],"reference_excerpt":"...","context":"..."}`
+`{"gate":"fact_check","turn_kind":"plan|triage|attack|hint|autopsy|answer|repair|grade_feedback|idea","attack":"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis","triage":[{"item":"...","bucket":"solid|missing|suspect","evidence":"learner quote or source citation","requires":["other row item"],"on_path":true}],"step":{"index":1,"total":1,"fact":"the one new fact","rests_on":"what the learner already holds","check":"the question that verifies it landed"},"repair":{"gap":"the attacked claim","miss_class":"cue|discrimination|execution|structural","tactic":"source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach","status":"teaching|done","step":{"index":1,"total":1,"fact":"...","rests_on":"...","check":"..."},"fresh_surface_check":"the exact question the learner passed","learner_restate":"the learner's own words, verbatim"},"learner_model":"the learner's verbatim model this turn targets, or null","learner_notes":"verbatim notes excerpt, or null","prior_knowledge":{"propositions":[{"id":"n_...","name":"...","statement":"..."}],"chains":[{"id":"arg_...","premises":["n_..."],"conclusion":"n_...","statement":"..."}],"prior_models":[{"concept":"...","version":"v1|v2","words":"verbatim prior model","file":"Learning System/..."}],"mistakes":[{"concept":"...","error_type":"structural|deviation|application|metacognitive","self_attribution":"...","date":"YYYY-MM-DD"}]},"grade_verdicts":[{"id":1,"concept":"...","verdict":"pass|fail","trace_step":"..."}],"foundation":{"problem":"...","where_from":"...","conditions":"...","contrast":"..."},"visual_plan":{"kind":"prose|mermaid|widget|html|none","why":"...","widget_file":"..."},"claims":[{"id":1,"claim":"..."}],"rendered_content":"the exact draft the learner will see","source_urls":[...],"raw_files":[{"label":"...","url":"...","path":"Knowledge Wiki/raw/sources/..."}],"reference_excerpt":"...","context":"..."}`
 
 `prior_knowledge` is the Scout digest's cross-session context (prior verbatim models, graph
 propositions/chains, open mistakes). It is required on an attack turn that quotes the learner's own
@@ -115,7 +115,11 @@ field where the kind requires one is an `ISSUES` verdict.
      after that attempt failed instead of opening repair mode, is `REPAIR_MODE_SKIPPED`.
    - **Tactic matches the diagnosis.** `cue` → `source_return`/`retrieval_cue`, `discrimination` →
      `contrasting_pair`, `execution` → `worked_step`, `structural` → `push_down`, `missing` →
-     `full_teach`. A tactic that does not fit the declared `miss_class` is `ISSUES`.
+     `full_teach`. A tactic that does not fit the declared `miss_class` is `ISSUES`. A `careless`
+     miss is re-checked, never repaired; a repair opened on one is `REPAIR_MODE_SKIPPED` unless the
+     re-check produced a new classified miss. A `missing` triage row has no miss to diagnose: the
+     declared `miss_class` must be the nearest class `grade-audit` returned (usually `cue`), with
+     tactic `full_teach`.
    - **The method.** The step must start from an unconditional truth the learner holds (or push down
      to the missing foundation) and motivate **one** reasoning step — *how could they have discovered
      this?* Socratic first: the draft poses the step and lets the learner attempt it; expository
@@ -128,9 +132,11 @@ field where the kind requires one is an `ISSUES` verdict.
      merging v1/v2 is `MODEL_GHOSTWRITING` (the repair teaches the missing ground, never the
      restatement).
    - **Receipt.** `status:"done"` is legal only if the draft names the fresh-surface check the learner
-     actually passed and quotes their own-words restatement verbatim. Declaring done on a re-ask of
-     the repair turn, on a recital of the Tutor's prose, or with no restatement is `ISSUES`. Do not
-     demand the answer to a different gap.
+     actually passed and quotes their own-words restatement verbatim. The graded item that passed
+     that check must carry `repair_gap` equal to this repair's `gap` (the gate binds the pass on that
+     field). Declaring done on a re-ask of the repair turn, on a recital of the Tutor's prose, with
+     no restatement, or on a check graded for another gap is `ISSUES`. Do not demand the answer to a
+     different gap.
 
 6. **No ghostwriting.** In every draft, the Tutor must reason from the learner's **verbatim** words or
    the source. Restating the learner's model in cleaner prose, merging v1 and v2 into a polished

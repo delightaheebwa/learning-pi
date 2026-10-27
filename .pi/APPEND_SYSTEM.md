@@ -255,9 +255,12 @@ teaches material the learner is being tested on, and it is **bound to one gap**.
 | `cue` — nothing came | source return + a retrieval cue, one attempt | `source_return` / `retrieval_cue` |
 | `discrimination` — a confusable won | a contrasting-pair nudge, one attempt | `contrasting_pair` |
 | `execution` — right idea, wrong run | one worked step, then re-run | `worked_step` |
-| `careless` | re-read/re-check only | no repair mode |
 | `structural` — the held proposition is wrong | one verification nudge, then repair mode | `push_down` |
-| `missing` — never learned | nothing to cue; repair mode at once | `full_teach` |
+| triage `missing` — never learned (no miss to diagnose) | nothing to cue; repair mode at once | `full_teach` |
+
+`careless` is re-checked, never repaired. A repair turn's `miss_class` is one of
+`cue|discrimination|execution|structural`; for a `missing` triage row use the class `grade-audit`
+returned (usually `cue`).
 
 **Enter it only after the hint ladder's self-repair attempt failed.** For `cue`/`discrimination`/
 `execution` the learner first gets the relevant R0–R2 rung and one genuine self-repair attempt; for a
@@ -280,7 +283,8 @@ check answer.
 **Close it with evidence, not a feeling.** The battery is withheld (`NO_REPAIR_RECEIPT`) until the
 repair is closed. Close it only after the learner passes a **fresh-surface** check on the gap — a new
 surface, not a re-ask of the repair turn or a recital of your prose — graded `pass` by `grade-audit`
-(`qtype:"micro-check"`), and restates the patched bit in their own words. Then emit
+(`qtype:"micro-check"`, with `repair_gap` = this repair's gap on the graded item), and restates the
+patched bit in their own words. Then emit
 `repair:{gap, miss_class, tactic, status:"done", fresh_surface_check:"<the exact question they
 passed>", learner_restate:"<their words, verbatim>"}`. Only then re-attack the gap (fresh surface
 again) and continue the battery.

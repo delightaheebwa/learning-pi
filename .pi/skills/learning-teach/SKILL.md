@@ -79,7 +79,7 @@ fix). Every kind must still send `rendered_content` = the exact draft and every 
   "attack": "mechanism | counterexample | perturbation | source_clash | sabotage | synthesis",
   "triage": [{"item": "...", "bucket": "solid|missing|suspect", "evidence": "learner quote or source citation", "requires": ["other row item"], "on_path": true}],
   "step": {"index": 1, "total": 1, "fact": "the one new fact", "rests_on": "what the learner already holds", "check": "the question that verifies it landed"},
-  "repair": {"gap": "the attacked claim", "miss_class": "cue|discrimination|execution|careless|structural", "tactic": "source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach", "status": "teaching|done", "step": {"index": 1, "total": 1, "fact": "...", "rests_on": "...", "check": "..."}, "fresh_surface_check": "the exact question the learner passed", "learner_restate": "the learner's own words, verbatim"},
+  "repair": {"gap": "the attacked claim", "miss_class": "cue|discrimination|execution|structural", "tactic": "source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach", "status": "teaching|done", "step": {"index": 1, "total": 1, "fact": "...", "rests_on": "...", "check": "..."}, "fresh_surface_check": "the exact question the learner passed", "learner_restate": "the learner's own words, verbatim"},
   "learner_model": "the learner's verbatim v1/current model this turn targets, or null",
   "learner_notes": "verbatim excerpt from the learner's notes this turn reasons about, or null",
   "prior_knowledge": {
@@ -331,9 +331,12 @@ both gate-checked.
 | `cue` | source return + a retrieval cue, one genuine attempt | `source_return` / `retrieval_cue` |
 | `discrimination` | one contrasting-pair nudge, one attempt | `contrasting_pair` |
 | `execution` | one worked step, then re-run | `worked_step` |
-| `careless` | re-read/re-check only | no repair mode |
 | `structural` | one "check the assumption behind the move" nudge, then repair mode | `push_down` |
-| `missing` | nothing to cue — repair mode at once | `full_teach` |
+| triage `missing` (no miss to diagnose) | nothing to cue — repair mode at once | `full_teach` |
+
+`careless` is re-checked, never repaired. A repair block's `miss_class` is one of
+`cue|discrimination|execution|structural`; for a `missing` row use the class `grade-audit` returned
+(usually `cue`).
 
 Re-attacking the same gap instead of repairing after that attempt failed is `REPAIR_MODE_SKIPPED`.
 
@@ -351,7 +354,8 @@ Re-attacking the same gap instead of repairing after that attempt failed is `REP
 
 **Close with evidence.** After the learner passes a **fresh-surface** check on the gap — a new
 surface, not a re-ask of the repair turn and not a recital of your prose — graded `pass`
-(`qtype:"micro-check"`), and restates the patched bit in their own words, emit
+(`qtype:"micro-check"`, `repair_gap` = this repair's gap on the graded item), and restates the
+patched bit in their own words, emit
 `repair:{gap, miss_class, tactic, status:"done", fresh_surface_check:"<the exact question they
 passed>", learner_restate:"<their words, verbatim>"}`. Until that turn renders, the gate withholds the
 next attack (`NO_REPAIR_RECEIPT`). Then re-attack the gap on a fresh surface and continue the triage

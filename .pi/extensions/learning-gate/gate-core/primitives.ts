@@ -219,9 +219,9 @@ export interface RunState {
   openRepair?: { gap: string };
   // Fresh-surface repair checks the learner passed (from agreeing grade-audit
   // receipts whose claimed verdict was `pass`). A repair `done` turn must name
-  // one of these questions verbatim, so "repaired" is a graded fact, not the
-  // Tutor's assertion.
-  repairCheckPasses: { question: string }[];
+  // one of these checks by the same gap, so "repaired" is a graded fact, not
+  // the Tutor's assertion.
+  repairCheckPasses: { question: string; gap?: string }[];
 }
 
 export interface CallRef {
@@ -731,14 +731,13 @@ export const REPAIR_MISS_CLASSES = new Set([
   "cue",
   "discrimination",
   "execution",
-  "careless",
   "structural",
 ]);
 
 /**
- * Repair tactics, one per diagnosed miss class (plus the full pass for a gap
- * the learner never learned). The Tutor selects the tactic from the diagnosis,
- * never from a free-form catalogue.
+ * Repair tactics, one per diagnosed miss class (plus the full pass for a
+ * `missing` triage row, which has no miss to diagnose). The Tutor selects the
+ * tactic from the diagnosis, never from a free-form catalogue.
  */
 export const REPAIR_TACTICS = new Set([
   "source_return",
@@ -755,6 +754,8 @@ export interface GradeClaim {
   question?: string;
   claimedVerdict?: string;
   qtype?: string;
+  /** The repair gap this check closes (the closing check must name it). */
+  repairGap?: string;
 }
 
 export const FOUNDATION_FIELDS = ["problem", "where_from", "conditions", "contrast"] as const;
@@ -980,7 +981,7 @@ export function repairGaps(renderedContent: string | undefined, repair: RepairBl
   const missClass = typeof repair.miss_class === "string" ? repair.miss_class.trim().toLowerCase() : "";
   if (!REPAIR_MISS_CLASSES.has(missClass)) {
     gaps.push(
-      `repair.miss_class (${missClass ? `'${missClass}'` : "missing"} is not cue|discrimination|execution|careless|structural)`
+      `repair.miss_class (${missClass ? `'${missClass}'` : "missing"} is not cue|discrimination|execution|structural; a careless miss is re-checked, not repaired)`
     );
   }
   const tactic = typeof repair.tactic === "string" ? repair.tactic.trim().toLowerCase() : "";
@@ -1376,6 +1377,7 @@ export function gradeClaimsOf(envelope: any): GradeClaim[] | undefined {
         question: typeof it.question === "string" ? it.question : undefined,
         claimedVerdict: typeof it.claimed_verdict === "string" ? it.claimed_verdict.trim().toLowerCase() : undefined,
         qtype: typeof it.qtype === "string" ? it.qtype.trim().toLowerCase() : undefined,
+        repairGap: typeof it.repair_gap === "string" ? it.repair_gap.trim() : undefined,
       })
     )
     .filter((c: GradeClaim) => !!c.question || !!c.claimedVerdict);

@@ -552,6 +552,29 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: tutor-audit checks the repair records")
 
+    # Negative pin (upstream parity): repair is unbounded, so no teaching
+    # resource may carry a bounded-attempt or reveal-and-move-on rule.
+    banned_repair_phrases = ("reveal and move on", "one bounded attempt", "if the repair attempt fails")
+    repair_docs = [
+        root / ".pi" / "APPEND_SYSTEM.md",
+        *sorted((root / ".pi" / "skills").glob("*/SKILL.md")),
+        *sorted((root / ".pi" / "agents").glob("*.md")),
+        *sorted((root / ".pi" / "prompts").glob("*.md")),
+    ]
+    repair_offenders = [
+        p.relative_to(root).as_posix()
+        for p in repair_docs
+        if p.is_file()
+        and any(phrase in p.read_text(encoding="utf-8", errors="replace").lower() for phrase in banned_repair_phrases)
+    ]
+    if repair_offenders:
+        fail(
+            "resources: no teaching resource may bound or abandon a repair "
+            f"(found {banned_repair_phrases} in {', '.join(repair_offenders)})"
+        )
+    else:
+        ok("resources: no prompt bounds or abandons a repair")
+
     # --- Item-targets resource contract ----------------------------------
     target_sources = (
         ("quiz-audit.md", quiz_text, ("targets", "TARGETS_INVALID")),

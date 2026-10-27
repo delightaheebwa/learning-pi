@@ -186,27 +186,35 @@ export function createGate(options: GateOptions = {}): GateEngine {
   };
 
   // Repair mode (G-repair-method / G-repair-complete).
+  const normGap = (s: string | undefined): string =>
+    typeof s === "string" ? s.trim().toLowerCase().replace(/\s+/g, " ") : "";
   const repairShapeGapsOf = (r: P.Receipt): string[] =>
     foundationApplies() && (r.turnKind || "").trim().toLowerCase() === "repair"
       ? P.repairGaps(r.renderedContent, r.repair)
       : [];
   const repairDonePassed = (r: P.Receipt): boolean => {
+    const gap = normGap(r.repair && r.repair.gap);
     const q = r.repair && typeof r.repair.fresh_surface_check === "string" ? r.repair.fresh_surface_check.trim() : "";
-    if (!q) return false;
-    return run.repairCheckPasses.some((p) => P.nearDuplicate(p.question, q) || P.coverage(p.question, q) >= 0.95);
+    if (!gap || !q) return false;
+    // The closing check is bound to a graded pass **for the same gap** (the
+    // grade item names `repair_gap`), so no other passed check can close it.
+    return run.repairCheckPasses.some(
+      (p) => normGap(p.gap) === gap && (P.nearDuplicate(p.question, q) || P.coverage(p.question, q) >= 0.95)
+    );
   };
   const repairRemedy = (gaps: string[]): string => {
     if (gaps.some((g) => g.startsWith("repair.step"))) {
       return (
         `This repair turn does not ship exactly one reasoning step (${gaps.join(", ")}). Send ` +
-        "`\"repair\": {\"gap\": \"<the attacked claim>\", \"miss_class\": \"cue|discrimination|execution|careless|structural\", \"tactic\": \"source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach\", \"status\": \"teaching\", \"step\": {\"index\": 1, \"total\": 1, \"fact\": \"<the one new fact>\", \"rests_on\": \"<what the learner already holds>\", \"check\": \"<the question that verifies it landed>\"}}` " +
+        "`\"repair\": {\"gap\": \"<the attacked claim>\", \"miss_class\": \"cue|discrimination|execution|structural\", \"tactic\": \"source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach\", \"status\": \"teaching\", \"step\": {\"index\": 1, \"total\": 1, \"fact\": \"<the one new fact>\", \"rests_on\": \"<what the learner already holds>\", \"check\": \"<the question that verifies it landed>\"}}` " +
         "and put the `fact` and `check` prose in the draft. A repair that installs several facts at once is a lecture: ship step 1, wait for the learner's check answer, then continue."
       );
     }
     if (gaps.some((g) => g.startsWith("repair."))) {
       return (
         `This repair turn's \`repair\` block is incomplete (${gaps.join(", ")}). A repair is bound to exactly one gap and names the diagnosed miss class ` +
-        "(`cue|discrimination|execution|careless|structural`) and the tactic that diagnosis selects " +
+        "(`cue|discrimination|execution|structural`; a `missing` triage row has nothing to diagnose, so use the class the grade-audit returned — usually `cue`) " +
+        "and the tactic that diagnosis selects " +
         "(`source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach`). A `teaching` turn ships one bound `step`; " +
         "a `done` turn ships `fresh_surface_check` (the question the learner already answered and passed) and `learner_restate` (their own words, verbatim). " +
         "Re-dispatch the fact-check with the corrected block, then emit."
@@ -220,12 +228,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
   const repairSequencingBlock = (r: P.Receipt): string | undefined => {
     if (!foundationApplies()) return undefined;
     const kind = (r.turnKind || "").trim().toLowerCase();
-    const gap = r.repair && typeof r.repair.gap === "string" ? r.repair.gap.trim() : "";
+    const gap = normGap(r.repair && r.repair.gap);
+    const openGap = normGap(run.openRepair?.gap);
     const status = r.repair && typeof r.repair.status === "string" ? r.repair.status.trim().toLowerCase() : "";
     if (kind === "repair" && run.openRepair) {
-      if (gap && run.openRepair.gap && gap !== run.openRepair.gap && status === "teaching") return "REPAIR_INCOMPLETE";
+      if (gap && openGap && gap !== openGap && status === "teaching") return "REPAIR_INCOMPLETE";
       if (status === "done") {
-        if (gap && run.openRepair.gap && gap !== run.openRepair.gap) return "REPAIR_INCOMPLETE";
+        if (gap && openGap && gap !== openGap) return "REPAIR_INCOMPLETE";
         if (!repairDonePassed(r)) return "REPAIR_INCOMPLETE";
       }
       return undefined;
@@ -236,9 +245,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
     if (kind === "attack" && run.openRepair) return "NO_REPAIR_RECEIPT";
     return undefined;
   };
+  const repairBlockNote = (code: string): string =>
+    code === "NO_REPAIR_RECEIPT"
+      ? `A repair is still open on "${run.openRepair?.gap || "the diagnosed gap"}". Finish it before resuming the attack battery: run one fresh-surface check on the gap, grade it with \`repair_gap\` set to the same gap (a pass is the only evidence), then emit a \`turn_kind:"repair"\` turn with \`"repair": {"status": "done", "fresh_surface_check": "<that exact question>", "learner_restate": "<the learner's own words, verbatim>", ...}\`. Do not re-attack the gap until that turn renders.`
+      : `The repair is not closed. A \`done\` repair needs a fresh-surface check the learner already answered and passed with \`repair_gap\` naming this same gap (quote that exact question in \`fresh_surface_check\`) and their own-words restatement (\`learner_restate\`); a different gap cannot be opened while this one is unrepaired. Finish the open gap first.`;
   const applyRepairTransition = (r?: P.Receipt) => {
     if (!r || (r.turnKind || "").trim().toLowerCase() !== "repair" || !r.repair) return;
-    const gap = typeof r.repair.gap === "string" ? r.repair.gap.trim() : "";
+    const gap = normGap(r.repair.gap);
     const status = typeof r.repair.status === "string" ? r.repair.status.trim().toLowerCase() : "";
     if (status === "teaching" && gap) run.openRepair = { gap };
     else if (status === "done") run.openRepair = undefined;
@@ -250,12 +263,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
   const recordRepairPasses = (r: P.Receipt) => {
     if (r.gate !== "grade_audit" || !r.valid) return;
     for (const c of r.gradeClaims || []) {
-      if (
-        c.claimedVerdict === "pass" &&
-        c.question &&
-        (c.qtype === "micro-check" || c.qtype === "explain-back")
-      ) {
-        run.repairCheckPasses.push({ question: c.question });
+      if (c.claimedVerdict === "pass" && c.question && c.qtype === "micro-check" && c.repairGap) {
+        run.repairCheckPasses.push({ question: c.question, gap: c.repairGap });
       }
     }
   };
@@ -1001,10 +1010,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
               verdictNote = repairRemedy(repairGaps);
             } else if (repairBlock) {
               blockers.push(repairBlock);
-              verdictNote =
-                repairBlock === "NO_REPAIR_RECEIPT"
-                  ? `A repair is still open on "${run.openRepair?.gap || "the diagnosed gap"}". Finish it before resuming the attack battery: run one fresh-surface check on the gap, grade it (a pass is the only evidence), then emit a \`turn_kind:"repair"\` turn with \`"repair": {"status": "done", "fresh_surface_check": "<that exact question>", "learner_restate": "<the learner's own words, verbatim>", ...}\`. Do not re-attack the gap until that turn renders.`
-                  : `The repair is not closed. A \`done\` repair needs a fresh-surface check the learner already answered and passed (quote that exact question in \`fresh_surface_check\`) and their own-words restatement (\`learner_restate\`); a different gap cannot be opened while this one is unrepaired. Finish the open gap first.`;
+              verdictNote = repairBlockNote(repairBlock);
             } else {
               claimForRelease = best;
               toConsume.push(best);
@@ -1059,17 +1065,26 @@ export function createGate(options: GateOptions = {}): GateEngine {
             }
           } else if (validGrade && fc) {
             const missing = P.missingHardFacts(fc.renderedContent || "", fc.claimsText);
-            const repairGaps = ideaFoundationGapsOf(fc);
+            const ideaGaps = ideaFoundationGapsOf(fc);
+            const repairGaps = repairShapeGapsOf(fc);
+            const repairBlock = repairSequencingBlock(fc);
             if (missing.length > 0) {
               blockers.push("CLAIMS_INCOMPLETE");
               verdictNote =
                 `The repair prose states load-bearing facts that were not in claims[], so the verifier never checked them: ${missing.join(
                   ", "
                 )}. Re-dispatch the fact-check with these added as claims (formulas may be restated in plain prose — matching is notation-insensitive), then emit.`;
+            } else if (ideaGaps.length > 0) {
+              blockers.push("FOUNDATION_INCOMPLETE");
+              verdictNote = foundationRemedy(fc, ideaGaps);
             } else if (repairGaps.length > 0) {
               blockers.push("FOUNDATION_INCOMPLETE");
-              verdictNote = foundationRemedy(fc, repairGaps);
+              verdictNote = repairRemedy(repairGaps);
+            } else if (repairBlock) {
+              blockers.push(repairBlock);
+              verdictNote = repairBlockNote(repairBlock);
             } else {
+              claimForRelease = fc;
               toConsume.push(validGrade);
               toConsume.push(fc);
             }
@@ -1265,11 +1280,14 @@ export function createGate(options: GateOptions = {}): GateEngine {
         // foundation gate exists to prevent. Non-hard-fact prose still degrades
         // gracefully (G-retry-cap).
         const foundationBlocked = codes.includes("FOUNDATION_INCOMPLETE");
-        if (tag === "claims" && verificationBlocked && (P.extractHardFacts(text).length > 0 || foundationBlocked)) {
+        const repairBlocked = codes.includes("NO_REPAIR_RECEIPT") || codes.includes("REPAIR_INCOMPLETE");
+        if (tag === "claims" && verificationBlocked && (P.extractHardFacts(text).length > 0 || foundationBlocked || repairBlocked)) {
           const reason =
             foundationBlocked && P.extractHardFacts(text).length === 0
               ? "This turn is missing its theoretical foundation and the gate retries are exhausted, so the content is withheld rather than delivered as a complete-sounding but foundation-less summary."
-              : "This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.";
+              : repairBlocked
+                ? "A repair is still open and the gate retries are exhausted, so the turn is withheld rather than resuming the battery on an unrepaired gap."
+                : "This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.";
           const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). ${reason}\n${fallbackNote}\n`;
           return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };
         }
@@ -1493,10 +1511,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
             verdictNote = repairRemedy(repairGaps);
           } else if (repairBlock) {
             blocks.push(repairBlock);
-            verdictNote =
-              repairBlock === "NO_REPAIR_RECEIPT"
-                ? `A repair is still open on "${run.openRepair?.gap || "the diagnosed gap"}". Finish it before resuming the attack battery: run one fresh-surface check on the gap, grade it (a pass is the only evidence), then emit a \`turn_kind:"repair"\` turn with \`"repair": {"status": "done", "fresh_surface_check": "<that exact question>", "learner_restate": "<the learner's own words, verbatim>", ...}\`. Do not re-attack the gap until that turn renders.`
-                : `The repair is not closed. A \`done\` repair needs a fresh-surface check the learner already answered and passed (quote that exact question in \`fresh_surface_check\`) and their own-words restatement (\`learner_restate\`); a different gap cannot be opened while this one is unrepaired. Finish the open gap first.`;
+            verdictNote = repairBlockNote(repairBlock);
           } else {
             claimForRelease = R[fcIdx];
           }
@@ -1699,11 +1714,20 @@ export function createGate(options: GateOptions = {}): GateEngine {
             verdictNote = `The verifier says the correct verdict is "${bad.correctVerdict}". Present that, not your own.`;
           }
         } else if (validGrade && fcCovers) {
-          const repairGaps = ideaFoundationGapsOf(R[fcIdx]);
-          if (repairGaps.length > 0) {
+          const ideaGaps = ideaFoundationGapsOf(R[fcIdx]);
+          const repairGaps = repairShapeGapsOf(R[fcIdx]);
+          const repairBlock = repairSequencingBlock(R[fcIdx]);
+          if (ideaGaps.length > 0) {
             blocks.push("FOUNDATION_INCOMPLETE");
-            verdictNote = foundationRemedy(R[fcIdx], repairGaps);
+            verdictNote = foundationRemedy(R[fcIdx], ideaGaps);
+          } else if (repairGaps.length > 0) {
+            blocks.push("FOUNDATION_INCOMPLETE");
+            verdictNote = repairRemedy(repairGaps);
+          } else if (repairBlock) {
+            blocks.push(repairBlock);
+            verdictNote = repairBlockNote(repairBlock);
           } else {
+            claimForRelease = R[fcIdx];
             toConsume.push(validGrade);
             toConsume.push(R[fcIdx]);
           }
@@ -1939,11 +1963,14 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // hard-fact prose still degrades gracefully (G-retry-cap). M11: only when
       // the block implicates verification (context-only blocks degrade).
       const foundationBlocked = codes.includes("FOUNDATION_INCOMPLETE");
-      if (turnType === "claims" && verificationBlocked && (P.extractHardFacts(text).length > 0 || foundationBlocked)) {
+      const repairBlocked = codes.includes("NO_REPAIR_RECEIPT") || codes.includes("REPAIR_INCOMPLETE");
+      if (turnType === "claims" && verificationBlocked && (P.extractHardFacts(text).length > 0 || foundationBlocked || repairBlocked)) {
         const reason =
           foundationBlocked && P.extractHardFacts(text).length === 0
             ? "This turn is missing its theoretical foundation and the gate retries are exhausted, so the content is withheld rather than delivered as a complete-sounding but foundation-less summary."
-            : "This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.";
+            : repairBlocked
+              ? "A repair is still open and the gate retries are exhausted, so the turn is withheld rather than resuming the battery on an unrepaired gap."
+              : "This turn stated load-bearing facts (numbers, formulas, or URLs) that were never verified, so the content is withheld rather than shown unverified.";
         const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). ${reason}\n${fallbackNote}\n`;
         ledger.decision({ at: new Date().toISOString(), flow: run.flow, turnType: turnType as any, outcome: "block", codes, source: assessment.source,
           escalated: assessment.escalated, reason: assessment.reason });

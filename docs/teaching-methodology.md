@@ -49,9 +49,11 @@ It is entered only after self-repair has failed:
 | `cue` (nothing came) | source return + a retrieval cue, one attempt | `source_return` / `retrieval_cue` |
 | `discrimination` (a confusable won) | a contrasting-pair nudge, one attempt | `contrasting_pair` |
 | `execution` (right idea, wrong run) | one worked step, re-run | `worked_step` |
-| `careless` | re-read/re-check only | — (no repair mode) |
 | `structural` (the held proposition is wrong) | one verification nudge; if the learner cannot name the wrong model, repair mode | `push_down` |
-| `missing` (never learned) | nothing to cue — repair mode at once | `full_teach` |
+| triage `missing` (never learned; no miss to diagnose) | nothing to cue — repair mode at once | `full_teach` |
+
+`careless` is re-checked, never repaired, so it is not a repair `miss_class`. For a `missing` triage
+row the repair declares the class `grade-audit` returned (usually `cue`) and the `full_teach` tactic.
 
 **The method is LearnHarness's one method, at a smaller grain:** start from the unconditional truth
 the gap rests on (or the nearest thing the learner already holds), and build **one motivated
@@ -66,9 +68,10 @@ lecture and is withheld. If the repair needs more steps, ship step 1 and wait fo
 
 **"Fully repaired" is operational, not a feeling.** The Tutor closes the repair with
 `status:"done"`, which requires both (1) a **fresh-surface** check the learner answered and
-`grade-audit` passed — not a re-ask of the repair turn's own question, not a recital of the Tutor's
-prose — and (2) the learner's own-words restatement, quoted verbatim. Until that `done` turn
-renders, the attack battery is withheld (`NO_REPAIR_RECEIPT`). The learner still authors v1 and v2;
+`grade-audit` passed with `repair_gap` naming this same gap — not a re-ask of the repair turn's own
+question, not a recital of the Tutor's prose, and not a check graded for another gap — and (2) the
+learner's own-words restatement, quoted verbatim. Until that `done` turn renders, the attack battery
+is withheld (`NO_REPAIR_RECEIPT`, including at the retry cap). The learner still authors v1 and v2;
 repair mode never writes the model.
 
 ## What is deliberately not imported

@@ -1818,7 +1818,7 @@ const TEACH_REPAIR = {
   const noBlock = JSON.stringify({ ...JSON.parse(repairEnv(TEACH_REPAIR)), repair: undefined });
   const r = await runFoundationClaims('rp2', REPAIR_DRAFT, noBlock);
   assert(
-    'repair turn without one bound step is withheld',
+    'repair turn without a repair block is withheld',
     blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('repair')
   );
 }
@@ -1893,6 +1893,7 @@ const TEACH_REPAIR = {
         id: 1,
         concept: 'entropy',
         qtype: 'micro-check',
+        repair_gap: 'entropy captures the information',
         question: 'with a fair coin, is the surprise per draw high or low?',
         learner_answer: 'High — a fair coin is maximally uncertain.',
         claimed_verdict: 'pass',
@@ -1930,4 +1931,66 @@ const TEACH_REPAIR = {
   );
   assert('attack turn resumes after a repair receipt', allowed(resumed));
 }
+{
+  // A passed check graded for a DIFFERENT gap cannot close this repair: the
+  // receipt binds by `repair_gap`, not by the question string alone.
+  await setPrompt('[[FLOW:resume]] continue the lesson');
+  const teachEnv = repairEnv(TEACH_REPAIR);
+  await dispatch('fact-check', teachEnv, 'rp13');
+  await fg('rp13', 'fact-check', teachEnv, FC_PASS);
+  await msg(`[[TURN:claims]]\n${REPAIR_DRAFT}`, 'stop');
+  const otherQuestion = 'what is the variance of a fair coin?';
+  const gradeEnv = JSON.stringify({
+    gate: 'grade_audit',
+    items: [
+      {
+        id: 1,
+        concept: 'variance',
+        qtype: 'micro-check',
+        repair_gap: 'variance of a fair coin',
+        question: otherQuestion,
+        learner_answer: 'A quarter.',
+        claimed_verdict: 'pass',
+      },
+    ],
+  });
+  await dispatch('grade-audit', gradeEnv, 'rp14');
+  await fg('rp14', 'grade-audit', gradeEnv, GATE);
+  await msg(`[[TURN:grade]]\n${otherQuestion} PASS — you said "A quarter."`, 'stop');
+  const doneDraft = 'Closed: you now hold that entropy is the expected surprise. Next we re-test it.';
+  const doneEnv = repairEnv(
+    {
+      gap: 'entropy captures the information',
+      miss_class: 'structural',
+      tactic: 'push_down',
+      status: 'done',
+      fresh_surface_check: otherQuestion,
+      learner_restate: 'entropy is what a draw surprises you by on average',
+    },
+    doneDraft
+  );
+  await dispatch('fact-check', doneEnv, 'rp15');
+  await fg('rp15', 'fact-check', doneEnv, FC_PASS);
+  const r = await msg(`[[TURN:claims]]\n${doneDraft}`, 'stop');
+  assert('repair done with a check graded for another gap is withheld', blocked(r, 'REPAIR_INCOMPLETE'));
+}
+{
+  // At the retry cap an open repair still withholds the attack: the battery
+  // never resumes on an unrepaired gap, hard facts or not.
+  await setPrompt('[[FLOW:resume]] continue the lesson');
+  const teachEnv = repairEnv(TEACH_REPAIR);
+  await dispatch('fact-check', teachEnv, 'rp16');
+  await fg('rp16', 'fact-check', teachEnv, FC_PASS);
+  await msg(`[[TURN:claims]]\n${REPAIR_DRAFT}`, 'stop');
+  const attack = attackEnv('mechanism');
+  await dispatch('fact-check', attack, 'rp17');
+  await fg('rp17', 'fact-check', attack, FC_PASS);
+  let last;
+  for (let i = 0; i < 3; i++) last = await msg(`[[TURN:claims]]\n${ATTACK_DRAFT}`, 'stop');
+  assert(
+    'attack turn stays withheld at the retry cap while a repair is open',
+    blocked(last, 'NO_REPAIR_RECEIPT')
+  );
+}
+
 

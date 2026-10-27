@@ -172,9 +172,11 @@ its tagged test, change the implementation, all in one reviewed commit.
   follows.
 - **G-repair-method** *(hard)* — a `turn_kind:"repair"` turn ships a `repair`
   block bound to exactly one `gap`, naming the diagnosed `miss_class`
-  (`cue|discrimination|execution|careless|structural`) and the `tactic` that
-  diagnosis selects (`source_return|retrieval_cue|contrasting_pair|worked_step|
-  push_down|full_teach`), with `status:"teaching"|"done"`. A `teaching` turn
+  (`cue|discrimination|execution|structural` — a `careless` miss is re-checked,
+  never repaired; a `missing` triage row uses the class `grade-audit` returned,
+  usually `cue`) and the `tactic` that diagnosis selects
+  (`source_return|retrieval_cue|contrasting_pair|worked_step|push_down|
+  full_teach`), with `status:"teaching"|"done"`. A `teaching` turn
   ships exactly one reasoning `step` (`index`/`total`/`fact`/`rests_on`/`check`)
   whose `fact` and `check` prose are in the draft — a multi-step repair is a
   lecture and is withheld. The verifier additionally enforces the method:
@@ -189,10 +191,12 @@ its tagged test, change the implementation, all in one reviewed commit.
   repair into a lesson is `REPAIR_SCOPE_DRIFT`.
 - **G-repair-complete** *(hard)* — an open repair blocks the attack battery: a
   `turn_kind:"attack"` turn is withheld (`NO_REPAIR_RECEIPT`) while any repair is
-  open, and a second gap cannot be opened before the first is closed
+  open — including at the retry cap, so a soft attack can never leak the battery
+  — and a second gap cannot be opened before the first is closed
   (`REPAIR_INCOMPLETE`). A repair is closed only by a `status:"done"` turn that
   names (a) the **fresh-surface** check the learner already answered and
-  `grade-audit` passed — bound to that graded item, never to the Tutor's prose —
+  `grade-audit` passed, bound to the graded item with `repair_gap` equal to this
+  repair's gap (never to prose, and never to a check graded for another gap),
   and (b) the learner's own-words restatement, quoted verbatim. A done turn with
   no graded pass, a mismatched gap, or no restatement is withheld
   (`REPAIR_INCOMPLETE`). The fresh-surface check must not be a re-ask of the
