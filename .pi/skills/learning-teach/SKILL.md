@@ -24,13 +24,20 @@ stance wins.
   the first turn of every new lesson.
 - **The learner owns the model.** Capture v1 and v2 **verbatim**. Never rewrite, merge, polish, or
   substitute your paraphrase. If you are tempted to "clean up" their words, quote them instead.
-- **One attack per turn.** Expose the hole; never fill it. You may state the counterexample, the
-  mutated assumption, or two conflicting quotes — never the missing mechanism or the patched rule.
+- **One attack per turn.** Expose the hole; never fill it in the attack itself. Repair mode (Step
+  3.5) is the only place you teach it, and only after the learner's own repair has failed. You may
+  state the counterexample, the mutated assumption, or two conflicting quotes — never the missing
+  mechanism or the patched rule *inside the attack*.
 - **Measure before triage.** When v1 is ambiguous, hedged, or triage would be guesswork, run one short
   bracket probe (Step 1.5) before bucketing. The bracket is diagnostic, never a preview or a lesson.
 - **One reasoning step per reveal.** When a legal reveal is delivered (a hint past R2, an `autopsy`
-  patch, or a learner-requested `idea`), it installs exactly one new fact resting on something the
-  learner already holds, followed by one check. A multi-step patch is a lecture; ship step 1 and wait.
+  patch, a learner-requested `idea`, or a repair turn), it installs exactly one new fact resting on
+  something the learner already holds, followed by one check. A multi-step patch is a lecture; ship
+  step 1 and wait.
+- **Repair mode is bound to one gap.** Once self-repair fails (or at once for a `missing` gap), teach
+  that gap one checked step at a time, then close it only with a graded **fresh-surface** check and
+  the learner's own-words restatement. The attack battery is withheld until then
+  (`NO_REPAIR_RECEIPT`).
 - **Every substantive turn is verified.** Draft first, dispatch once, then emit the verified text
   unchanged (see the envelope table).
 - **No state writes mid-session.** Only the pause/lesson-end handoff batch, then one `tutor-audit`.
@@ -48,7 +55,7 @@ Begin every assistant message with `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:g
 | Source-return pointer / hint | `hint` | — |
 | "Just tell me" patch | `autopsy` | `step:{index,total,fact,rests_on,check}` |
 | Short direct answer | `answer` | — |
-| Diagnose-first repair | `repair` | — |
+| Diagnose-first repair | `repair` | `repair:{gap,miss_class,tactic,status,step?,fresh_surface_check?,learner_restate?}` |
 | Review feedback | `grade_feedback` | `grade_verdicts:[...]` |
 | A new idea the learner asked for | `idea` | `foundation:{problem,where_from,conditions,contrast}` |
 
@@ -72,6 +79,7 @@ fix). Every kind must still send `rendered_content` = the exact draft and every 
   "attack": "mechanism | counterexample | perturbation | source_clash | sabotage | synthesis",
   "triage": [{"item": "...", "bucket": "solid|missing|suspect", "evidence": "learner quote or source citation", "requires": ["other row item"], "on_path": true}],
   "step": {"index": 1, "total": 1, "fact": "the one new fact", "rests_on": "what the learner already holds", "check": "the question that verifies it landed"},
+  "repair": {"gap": "the attacked claim", "miss_class": "cue|discrimination|execution|careless|structural", "tactic": "source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach", "status": "teaching|done", "step": {"index": 1, "total": 1, "fact": "...", "rests_on": "...", "check": "..."}, "fresh_surface_check": "the exact question the learner passed", "learner_restate": "the learner's own words, verbatim"},
   "learner_model": "the learner's verbatim v1/current model this turn targets, or null",
   "learner_notes": "verbatim excerpt from the learner's notes this turn reasons about, or null",
   "prior_knowledge": {
@@ -93,8 +101,8 @@ fix). Every kind must still send `rendered_content` = the exact draft and every 
 ```
 
 Only the fields relevant to the kind are needed (`attack` for an attack, `triage` for triage,
-`step` for an autopsy, `foundation` for `idea`, `grade_verdicts` for review feedback). Always send
-`visual_plan` on a substantive turn.
+`step` for an autopsy, `repair` for a repair, `foundation` for `idea`, `grade_verdicts` for review
+feedback). Always send `visual_plan` on a substantive turn.
 
 ### quiz-audit
 
@@ -311,6 +319,47 @@ Rules:
   and `repair_steps[]`, immediately followed by its check. If the patch needs more than one step, ship
   step 1 and continue only after the learner answers.
 
+## Step 3.5 — Repair mode (teach the diagnosed gap, then resume)
+
+Enter repair mode only when the learner's own repair has failed. The declaration and the receipt are
+both gate-checked.
+
+**Trigger — do not teach on the first miss.** The hint ladder runs first:
+
+| Diagnosis (`grade-audit` `miss_class`) | First move | Tactic |
+| :--- | :--- | :--- |
+| `cue` | source return + a retrieval cue, one genuine attempt | `source_return` / `retrieval_cue` |
+| `discrimination` | one contrasting-pair nudge, one attempt | `contrasting_pair` |
+| `execution` | one worked step, then re-run | `worked_step` |
+| `careless` | re-read/re-check only | no repair mode |
+| `structural` | one "check the assumption behind the move" nudge, then repair mode | `push_down` |
+| `missing` | nothing to cue — repair mode at once | `full_teach` |
+
+Re-attacking the same gap instead of repairing after that attempt failed is `REPAIR_MODE_SKIPPED`.
+
+**Teach it with the method, one step at a time.** The repair turn declares
+`turn_kind:"repair"` and
+`repair:{gap, miss_class, tactic, status:"teaching", step:{index,total,fact,rests_on,check}}`:
+
+1. Start from the **unconditional truth** the gap rests on, or the nearest thing the learner already
+   holds. If the ground is missing, push down to it — do not paper over it.
+2. Move **one motivated reasoning step** ("how could you have discovered this?") and ask Socratic
+   first; narrate the discovery only when it is beyond cold reach or the learner asked to be told.
+3. **Check that step landed** with one question, and never build on a step they have not
+   demonstrated. A second step is the next turn, after the answer.
+4. **Scope is the gap.** Do not widen it into a lesson; never write, polish, or merge v1/v2.
+
+**Close with evidence.** After the learner passes a **fresh-surface** check on the gap — a new
+surface, not a re-ask of the repair turn and not a recital of your prose — graded `pass`
+(`qtype:"micro-check"`), and restates the patched bit in their own words, emit
+`repair:{gap, miss_class, tactic, status:"done", fresh_surface_check:"<the exact question they
+passed>", learner_restate:"<their words, verbatim>"}`. Until that turn renders, the gate withholds the
+next attack (`NO_REPAIR_RECEIPT`). Then re-attack the gap on a fresh surface and continue the triage
+in dependency order.
+
+A failed fresh-surface check keeps the gap open: diagnose the new miss, repair the next step, and
+re-check. Repair is unbounded; the hint ladder caps hints, not repair attempts.
+
 ## Step 4 — Graduation (prove the patched model holds)
 
 1. Ask the learner to restate their **patched** model in their own words. Capture it verbatim as
@@ -336,7 +385,9 @@ Rules:
    - `Learning System/Lessons/Lesson — <slug> — <date>.md` with `## Material`,
      `## Bracket` (only when a bracket ran), `## Learner model (v1)` (verbatim), `## Triage` (with
      ordering), `## Attacks` (target, weapon, prompt, learner's verbatim answer, verdict, source
-     excerpt, in dependency order), `## Model patch` (v1 → breaking case → v2, all verbatim),
+     excerpt, in dependency order), `## Repair mode` (only when a gap was taught: gap, miss class,
+     tactic, each step and the learner's check answer, the fresh-surface check + verdict, and the
+     restatement verbatim), `## Model patch` (v1 → breaking case → v2, all verbatim),
      `## Repair steps` (only when an autopsy ran: each `fact`/`rests_on`/`check` + the learner's check
      answer), `## Graduation` (entailment check + clone transcript + `feynman_pass|feynman_fail`), and
      the resume pointer `Checkpoint N/M, mini K/L`.
@@ -344,8 +395,8 @@ Rules:
    - `Learning System/Learning Records/Record — <topic> — <date>.md`.
    - `Learning System/Core/Pending Ingest.json` with `{partial, status, resume_from, lesson_file,
      session_file, material:[{kind,ref}], learner_model:{v1,v2}, triage:[...], open_attacks:[...],
-     repair_steps:[...], concepts:[...], mistakes:[...], attempts:[...], dependency_events:[...],
-     created_at}`.
+     repairs:[...], repair_steps:[...], concepts:[...], mistakes:[...], attempts:[...],
+     dependency_events:[...], created_at}`.
    Then dispatch ONE foreground `tutor-audit` on those four files and fold its verdict before the
    summary. Fix and re-audit until zero issues (no cycle cap).
 7. **Auto-ingest at lesson end:** after `tutor-audit` passes, dispatch `clerk`
@@ -365,10 +416,10 @@ Rules:
    think might break it."* Verify the question with `quiz-audit` (`context:"practice"`) and the
    answer with `grade-audit` (mechanism + proposed breaking case). A fail is recorded, not softened.
 2. Write the partial handoff batch (lesson file with `Status: Paused at Checkpoint N/M, mini K/L` and
-   a `## Resume` section naming the next unresolved attack + its exact source pointer; session note;
-   learning record; `Pending Ingest.json` with `partial:true`, `status:"in-progress"`,
-   `resume_from`, `learner_model:{v1,v2}`, `triage`, `open_attacks`, `repair_steps`, `concepts`,
-   `mistakes`, `attempts`, `dependency_events`).
+   a `## Resume` section naming the next unresolved attack **or the open repair gap** + its exact
+   source pointer; session note; learning record; `Pending Ingest.json` with `partial:true`,
+   `status:"in-progress"`, `resume_from`, `learner_model:{v1,v2}`, `triage`, `open_attacks`,
+   `repairs`, `repair_steps`, `concepts`, `mistakes`, `attempts`, `dependency_events`).
 3. Dispatch ONE foreground `tutor-audit` on the batch; on `ISSUES`, fix and re-audit until zero
    issues.
 4. Tell the learner the model and open attacks are banked, to run `/ingest` to sync the wiki/state,
@@ -386,10 +437,11 @@ Rules:
 4. Read only the named lesson/session files. Identify the learner's last captured model (v1 or a
    patch), the triage buckets still open, and the last graded attack.
 5. State the topic and open item, quoting the learner's last model **verbatim**. Do not re-teach or
-   re-read the material for them. Resume at the next unresolved attack in the triage's dependency
-   order (an `on_path` row whose `requires` are all `solid`), or at graduation if triage is complete.
-   Verify every attack, source-return, hint, counterexample, and grade as above; predict before each
-   attack and compose visuals automatically.
+   re-read the material for them. Resume at the **open repair gap** first (re-run its fresh-surface
+   check; close it with a `done` receipt before attacking), then at the next unresolved attack in the
+   triage's dependency order (an `on_path` row whose `requires` are all `solid`), or at graduation if
+   triage is complete. Verify every attack, source-return, hint, repair, counterexample, and grade as
+   above; predict before each attack and compose visuals automatically.
 
 ## Verifier failures & model fallback
 

@@ -162,6 +162,43 @@ its tagged test, change the implementation, all in one reviewed commit.
   that does not satisfy the learner's statement as written, a perturbation of a
   cosmetic term, or an attack that fills the hole
   (`SPOONFEEDING_DETECTED` / `LECTURE_SLIP`).
+- **G-repair-trigger** *(policy)* — teaching mode is a repair, not a lesson. After
+  a graded miss the learner first gets the hint ladder (R0–R2 + a source return)
+  and one self-repair attempt; `structural` misses get one verification nudge
+  first, and a `missing` gap has nothing to cue and enters repair mode at once.
+  Re-attacking the same gap, or re-asking the same item, without a repair turn
+  once that attempt has failed is `REPAIR_MODE_SKIPPED`. The trigger is
+  verifier-enforced (`fact-check` §4c); the gate enforces the receipt that
+  follows.
+- **G-repair-method** *(hard)* — a `turn_kind:"repair"` turn ships a `repair`
+  block bound to exactly one `gap`, naming the diagnosed `miss_class`
+  (`cue|discrimination|execution|careless|structural`) and the `tactic` that
+  diagnosis selects (`source_return|retrieval_cue|contrasting_pair|worked_step|
+  push_down|full_teach`), with `status:"teaching"|"done"`. A `teaching` turn
+  ships exactly one reasoning `step` (`index`/`total`/`fact`/`rests_on`/`check`)
+  whose `fact` and `check` prose are in the draft — a multi-step repair is a
+  lecture and is withheld. The verifier additionally enforces the method:
+  start from the unconditional truth the gap rests on, one motivated step at a
+  time, Socratic first (expository only when the step is beyond cold reach or
+  the learner asked to be told), check every step, never build on an
+  undemonstrated step, and no wall of text that "covers" the missing ground
+  (`LECTURE_SLIP`).
+- **G-repair-scope** *(policy)* — a repair turn teaches **only** its bound gap,
+  never the wider curriculum, and the learner still authors the model: the Tutor
+  never writes, polishes, or merges v1/v2 (`MODEL_GHOSTWRITING`). Widening a
+  repair into a lesson is `REPAIR_SCOPE_DRIFT`.
+- **G-repair-complete** *(hard)* — an open repair blocks the attack battery: a
+  `turn_kind:"attack"` turn is withheld (`NO_REPAIR_RECEIPT`) while any repair is
+  open, and a second gap cannot be opened before the first is closed
+  (`REPAIR_INCOMPLETE`). A repair is closed only by a `status:"done"` turn that
+  names (a) the **fresh-surface** check the learner already answered and
+  `grade-audit` passed — bound to that graded item, never to the Tutor's prose —
+  and (b) the learner's own-words restatement, quoted verbatim. A done turn with
+  no graded pass, a mismatched gap, or no restatement is withheld
+  (`REPAIR_INCOMPLETE`). The fresh-surface check must not be a re-ask of the
+  repair turn's own question or answerable by reciting its prose (`quiz-audit`
+  repair rule); a recital is `SHALLOW_PASS` (`grade-audit`).
+
 - **G-interrogation-turn-kinds** *(hard)* — every teach/resume claims turn
   declares a valid `turn_kind`; `plan`/`triage`/`attack`/`hint`/`autopsy`/
   `answer`/`repair`/`grade_feedback` need no foundation beat and only `idea`

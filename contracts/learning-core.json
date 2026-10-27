@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
-  "version": 12,
-  "updated": "2026-10-26",
+  "version": 13,
+  "updated": "2026-10-27",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -642,6 +642,46 @@
         "reading-brief plan turn needs no foundation beat",
         "review grade-feedback turn needs no foundation beat",
         "claims turn with an unknown turn_kind is withheld"
+      ]
+    },
+    {
+      "id": "G-repair-trigger",
+      "severity": "policy",
+      "statement": "Teaching mode is a repair, not a lesson. After a graded miss the learner first gets the hint ladder (R0-R2 + a source return) and one self-repair attempt; structural misses get one verification nudge first, and a `missing` gap has nothing to cue and enters repair mode at once. Re-attacking the same gap, or re-asking the same item, without a repair turn once that attempt has failed is REPAIR_MODE_SKIPPED. The trigger is verifier-enforced (fact-check 4c); the gate enforces the receipt that follows.",
+      "tests": [
+        "resources: the repair trigger follows the hint ladder",
+        "resources: fact-check flags an attack that skips repair mode"
+      ]
+    },
+    {
+      "id": "G-repair-method",
+      "severity": "hard",
+      "statement": "A `turn_kind:\"repair\"` turn ships a `repair` block bound to exactly one `gap`, naming the diagnosed `miss_class` (cue|discrimination|execution|careless|structural) and the `tactic` that diagnosis selects (source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach), with `status:\"teaching\"|\"done\"`. A `teaching` turn ships exactly one reasoning `step` (index/total/fact/rests_on/check) whose `fact` and `check` prose are in the draft - a multi-step repair is a lecture and is withheld. The verifier enforces the method: start from the unconditional truth the gap rests on, one motivated step at a time, Socratic first (expository only when beyond cold reach or the learner asked to be told), check every step, never build on an undemonstrated step, no wall of text (LECTURE_SLIP).",
+      "tests": [
+        "repair turn with one bound step renders",
+        "repair turn without one bound step is withheld",
+        "repair turn with an invalid miss class is withheld",
+        "repair turn without a bound step is withheld",
+        "resources: the stance encodes repair mode with one checked step"
+      ]
+    },
+    {
+      "id": "G-repair-scope",
+      "severity": "policy",
+      "statement": "A repair turn teaches only its bound gap, never the wider curriculum, and the learner still authors the model: the Tutor never writes, polishes, or merges v1/v2 (MODEL_GHOSTWRITING). Widening a repair into a lesson is REPAIR_SCOPE_DRIFT.",
+      "tests": [
+        "resources: fact-check audits repair scope and keeps the learner's model"
+      ]
+    },
+    {
+      "id": "G-repair-complete",
+      "severity": "hard",
+      "statement": "An open repair blocks the attack battery: a `turn_kind:\"attack\"` turn is withheld (NO_REPAIR_RECEIPT) while any repair is open, and a second gap cannot be opened before the first is closed (REPAIR_INCOMPLETE). A repair is closed only by a `status:\"done\"` turn naming (a) the fresh-surface check the learner already answered and grade-audit passed - bound to that graded item, never to the Tutor's prose - and (b) the learner's own-words restatement, quoted verbatim. A done turn with no graded pass, a mismatched gap, or no restatement is withheld (REPAIR_INCOMPLETE). The fresh-surface check must not re-ask the repair turn's own question or be answerable by reciting its prose (quiz-audit repair rule); a recital is SHALLOW_PASS (grade-audit).",
+      "tests": [
+        "attack turn withheld while a repair is open",
+        "attack turn resumes after a repair receipt",
+        "repair done without a passing fresh-surface check is withheld",
+        "repair done with a passing fresh-surface check renders"
       ]
     },
     {

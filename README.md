@@ -11,7 +11,9 @@ An AI tutor that teaches and remembers what you know.
 - **You learn real subjects** (`/teach eigenvalue decomposition`, or `/lesson`
   for the next curriculum lesson). You read the material and bring notes plus a
   closed-book model; the tutor triages that model, attacks the holes one at a
-  time, and never lectures the topic cold.
+  time, and never lectures the topic cold. When your own repair fails, it teaches
+  that one gap one checked step at a time and cannot move on until you pass a
+  fresh check and restate it yourself.
 - **It can't bluff you.** Every claim the tutor makes is fact-checked by an
   independent verifier before you see it. Anything unverified is withheld,
   not shown.
@@ -32,8 +34,9 @@ An AI tutor that teaches and remembers what you know.
 
 > **Methodology:** [`docs/teaching-methodology.md`](docs/teaching-methodology.md) covers how the
 > interrogation flow relates to LearnHarness — what is imported (measurement, dependency ordering,
-> predict → attack → check, one-step reveals, the entailment check) and what is deliberately not
-> (teacher-first cold lessons, Tutor-authored v2, numeric confidence, symbolic derivations).
+> predict → attack → check, one-step reveals, repair mode, the entailment check) and what is
+> deliberately not (teacher-first cold lessons, a methodology catalogue, reveal-and-move-on,
+> Tutor-authored v2, numeric confidence, symbolic derivations).
 
 ## The two repos
 
@@ -276,7 +279,8 @@ assistant turn unless the matching, **passing** receipt is present:
 | Turn contains | Required receipt |
 | --- | --- |
 | Teaching claims (Tutor) | `fact-check` whose `rendered_content` covers the emitted text and has no `ISSUES`. With a judge configured the rule is **100% span coverage** (the judge checks every sentence); the legacy path approximates it with ≥85% token coverage + a length guard |
-| A `claims` turn during teach/resume | the `fact-check` envelope carries a valid `turn_kind`: `plan`/`triage`/`attack`/`hint`/`autopsy`/`answer`/`repair`/`grade_feedback`/`idea`. A `triage` turn ships a grounded `triage[]` (learner quote for every `suspect`, source citation for every `missing`); an `attack` turn ships exactly one subtype (`mechanism`/`counterexample`/`perturbation`/`source_clash`/`sabotage`/`synthesis`); only an `idea` turn ships the four-beat `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft. A missing/unknown `turn_kind`, an ungrounded triage table, or an attack with no single subtype is withheld (`FOUNDATION_INCOMPLETE`) — a fluent what-only lecture or a chain of ungrounded attacks cannot render as if complete. The verifier also returns `omitted_foundations[]` (load-bearing *conceptual* theory with no trace in the draft), which is an `ISSUES` verdict; missing derivations are not omissions |
+| A `claims` turn during teach/resume | the `fact-check` envelope carries a valid `turn_kind`: `plan`/`triage`/`attack`/`hint`/`autopsy`/`answer`/`repair`/`grade_feedback`/`idea`. A `triage` turn ships a grounded `triage[]` (learner quote for every `suspect`, source citation for every `missing`); an `attack` turn ships exactly one subtype (`mechanism`/`counterexample`/`perturbation`/`source_clash`/`sabotage`/`synthesis`); a `repair` turn ships its `repair` block; only an `idea` turn ships the four-beat `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft. A missing/unknown `turn_kind`, an ungrounded triage table, an attack with no single subtype, or a repair without its block is withheld (`FOUNDATION_INCOMPLETE`) — a fluent what-only lecture or a chain of ungrounded attacks cannot render as if complete. The verifier also returns `omitted_foundations[]` (load-bearing *conceptual* theory with no trace in the draft), which is an `ISSUES` verdict; missing derivations are not omissions |
+| A `repair` turn (teaching mode) | the `repair` block is bound to one `gap`, names the `miss_class` and the tactic it selects, and ships exactly one checked `step`. A `teaching` turn opens the repair; the attack battery is withheld (`NO_REPAIR_RECEIPT`) until a `done` turn names the **fresh-surface** check a `grade-audit` already passed (bound to that graded item, never to prose) plus the learner's own-words restatement. A second gap cannot open first (`REPAIR_INCOMPLETE`). `fact-check` enforces the trigger (`REPAIR_MODE_SKIPPED`), the method (Socratic-first, one motivated step), and the scope (`REPAIR_SCOPE_DRIFT`); `quiz-audit` enforces that the closing check is a new surface; `grade-audit` treats a recital as `SHALLOW_PASS` |
 | A question batch | `quiz-audit` returning `PASS` (zero issues); any issue, at any severity, blocks until fixed (uncapped — re-check until zero issues). The envelope carries `questions_json` **and** `rendered_content` = the full batch text (intro/instructions + every question + its options), which binds the whole emitted turn |
 | A grade | `grade-audit` with `agrees === true`/`PASS`; disagreement is rejected and the verifier's `correct_verdict` is surfaced. One batched `items[]` envelope grades every answer from a single learner reply (never one subagent per answer). Items may carry `targets[]` (graph `n_…`/`arg_…` ids) as additive record-keeping — copied from the scout digest, ignored by the verdict, and liveness-checked against the graph ledger when recorded on the attempt (`ops.py` rejects a missing or retracted id) |
 | A knowledge-graph write during ingest | when `CLERK_WRITES.graph` lists any created or linked ids, the close is withheld (`NO_GRAPH_AUDIT_PASS`) until an independent `graph-audit` returns `PASS` over **every** written id; `ISSUES` withholds (`GRAPH_AUDIT_ISSUES`) until the Clerk records a fix (retract/correct + re-merge) and a fresh audit passes — no cycle cap. The audit fact-checks each proposition, chain entailment, and link identity against the material |

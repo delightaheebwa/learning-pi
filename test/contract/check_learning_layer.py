@@ -482,6 +482,76 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: quiz-audit enforces inactive-state retrieval")
 
+    # --- Repair-mode resource contract -------------------------------------
+    # Teaching mode is a bounded repair: triggered only after self-repair fails,
+    # one checked step at a time, closed by a graded fresh-surface pass. The gate
+    # enforces the receipt; these checks bind the trigger/method to the prompts.
+    repair_stance_needles = (
+        "Repair mode",
+        "NO_REPAIR_RECEIPT",
+        "REPAIR_INCOMPLETE",
+        "fresh-surface",
+        "one motivated reasoning step",
+        "REPAIR_MODE_SKIPPED",
+    )
+    missing_repair_stance = [n for n in repair_stance_needles if n.lower() not in agents_md.lower()]
+    if missing_repair_stance:
+        fail(f"resources: APPEND_SYSTEM.md missing repair-mode rule(s): {missing_repair_stance}")
+    else:
+        ok("resources: the stance encodes repair mode with one checked step")
+
+    repair_trigger_needles = ("hint ladder", "REPAIR_MODE_SKIPPED", "self-repair attempt")
+    missing_repair_trigger = [n for n in repair_trigger_needles if n.lower() not in agents_md.lower()]
+    if missing_repair_trigger:
+        fail(f"resources: APPEND_SYSTEM.md missing repair-trigger rule(s): {missing_repair_trigger}")
+    else:
+        ok("resources: the repair trigger follows the hint ladder")
+
+    fact_repair_needles = ("REPAIR_MODE_SKIPPED", "one genuine self-repair attempt", "Socratic")
+    missing_fact_repair = [n for n in fact_repair_needles if n.lower() not in fact_check_text.lower()]
+    if missing_fact_repair:
+        fail(f"resources: fact-check.md missing repair-trigger rule(s): {missing_fact_repair}")
+    else:
+        ok("resources: fact-check flags an attack that skips repair mode")
+
+    fact_scope_needles = ("REPAIR_SCOPE_DRIFT", "MODEL_GHOSTWRITING", "fresh-surface")
+    missing_fact_scope = [n for n in fact_scope_needles if n.lower() not in fact_check_text.lower()]
+    if missing_fact_scope:
+        fail(f"resources: fact-check.md missing repair-scope rule(s): {missing_fact_scope}")
+    else:
+        ok("resources: fact-check audits repair scope and keeps the learner's model")
+
+    quiz_repair_needles = ("repair_gap", "fresh surface")
+    missing_quiz_repair = [n for n in quiz_repair_needles if n.lower() not in quiz_text.lower()]
+    if missing_quiz_repair:
+        fail(f"resources: quiz-audit.md missing repair-check rule(s): {missing_quiz_repair}")
+    else:
+        ok("resources: quiz-audit audits repair fresh-surface checks")
+
+    grade_repair_needles = ("repair_gap", "restate")
+    missing_grade_repair = [n for n in grade_repair_needles if n.lower() not in grade_text.lower()]
+    if missing_grade_repair:
+        fail(f"resources: grade-audit.md missing repair-grade rule(s): {missing_grade_repair}")
+    else:
+        ok("resources: grade-audit grades the repair restatement")
+
+    teach_repair_needles = ("Repair mode", "fresh-surface", "NO_REPAIR_RECEIPT")
+    missing_teach_repair = [n for n in teach_repair_needles if n.lower() not in teach_text.lower()]
+    if missing_teach_repair:
+        fail(f"resources: learning-teach/SKILL.md missing repair-mode step(s): {missing_teach_repair}")
+    else:
+        ok("resources: learning-teach runs repair mode before the battery resumes")
+
+    tutor_audit_text = (root / ".pi" / "agents" / "tutor-audit.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    tutor_repair_needles = ("Repair mode", "restatement", "repairs[]")
+    missing_tutor_repair = [n for n in tutor_repair_needles if n.lower() not in tutor_audit_text.lower()]
+    if missing_tutor_repair:
+        fail(f"resources: tutor-audit.md missing repair-record rule(s): {missing_tutor_repair}")
+    else:
+        ok("resources: tutor-audit checks the repair records")
+
     # --- Item-targets resource contract ----------------------------------
     target_sources = (
         ("quiz-audit.md", quiz_text, ("targets", "TARGETS_INVALID")),

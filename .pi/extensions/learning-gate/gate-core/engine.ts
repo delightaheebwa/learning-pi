@@ -151,7 +151,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       return (
         "This teach/resume claims turn declares no valid `turn_kind`. Add `\"turn_kind\": \"idea\"` (with a `foundation` block) " +
         "when the turn introduces a new idea the learner asked for; otherwise use `\"plan\"|\"triage\"|\"attack\"|\"hint\"|\"autopsy\"|\"answer\"|\"repair\"|\"grade_feedback\"` " +
-        "(an `autopsy` also needs one `step` block). Re-dispatch the fact-check envelope with the field, then emit this draft unchanged."
+        "(an `autopsy` also needs one `step` block, and a `repair` also needs a `repair` block). Re-dispatch the fact-check envelope with the field, then emit this draft unchanged."
       );
     }
     if (gaps.some((g) => g.startsWith("triage"))) {
@@ -183,6 +183,81 @@ export function createGate(options: GateOptions = {}): GateEngine {
       "boundary cases), `contrast` (the nearest-neighbour distinction). Put each beat's prose in the draft and list it " +
       "verbatim (or as a close excerpt) in the envelope's `foundation` block, then re-dispatch the fact-check and emit."
     );
+  };
+
+  // Repair mode (G-repair-method / G-repair-complete).
+  const repairShapeGapsOf = (r: P.Receipt): string[] =>
+    foundationApplies() && (r.turnKind || "").trim().toLowerCase() === "repair"
+      ? P.repairGaps(r.renderedContent, r.repair)
+      : [];
+  const repairDonePassed = (r: P.Receipt): boolean => {
+    const q = r.repair && typeof r.repair.fresh_surface_check === "string" ? r.repair.fresh_surface_check.trim() : "";
+    if (!q) return false;
+    return run.repairCheckPasses.some((p) => P.nearDuplicate(p.question, q) || P.coverage(p.question, q) >= 0.95);
+  };
+  const repairRemedy = (gaps: string[]): string => {
+    if (gaps.some((g) => g.startsWith("repair.step"))) {
+      return (
+        `This repair turn does not ship exactly one reasoning step (${gaps.join(", ")}). Send ` +
+        "`\"repair\": {\"gap\": \"<the attacked claim>\", \"miss_class\": \"cue|discrimination|execution|careless|structural\", \"tactic\": \"source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach\", \"status\": \"teaching\", \"step\": {\"index\": 1, \"total\": 1, \"fact\": \"<the one new fact>\", \"rests_on\": \"<what the learner already holds>\", \"check\": \"<the question that verifies it landed>\"}}` " +
+        "and put the `fact` and `check` prose in the draft. A repair that installs several facts at once is a lecture: ship step 1, wait for the learner's check answer, then continue."
+      );
+    }
+    if (gaps.some((g) => g.startsWith("repair."))) {
+      return (
+        `This repair turn's \`repair\` block is incomplete (${gaps.join(", ")}). A repair is bound to exactly one gap and names the diagnosed miss class ` +
+        "(`cue|discrimination|execution|careless|structural`) and the tactic that diagnosis selects " +
+        "(`source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach`). A `teaching` turn ships one bound `step`; " +
+        "a `done` turn ships `fresh_surface_check` (the question the learner already answered and passed) and `learner_restate` (their own words, verbatim). " +
+        "Re-dispatch the fact-check with the corrected block, then emit."
+      );
+    }
+    return (
+      "This `turn_kind:\"repair\"` turn carries no `repair` block. Send " +
+      "`\"repair\": {\"gap\": \"...\", \"miss_class\": \"...\", \"tactic\": \"...\", \"status\": \"teaching|done\", ...}` in the fact-check envelope, then emit the draft unchanged."
+    );
+  };
+  const repairSequencingBlock = (r: P.Receipt): string | undefined => {
+    if (!foundationApplies()) return undefined;
+    const kind = (r.turnKind || "").trim().toLowerCase();
+    const gap = r.repair && typeof r.repair.gap === "string" ? r.repair.gap.trim() : "";
+    const status = r.repair && typeof r.repair.status === "string" ? r.repair.status.trim().toLowerCase() : "";
+    if (kind === "repair" && run.openRepair) {
+      if (gap && run.openRepair.gap && gap !== run.openRepair.gap && status === "teaching") return "REPAIR_INCOMPLETE";
+      if (status === "done") {
+        if (gap && run.openRepair.gap && gap !== run.openRepair.gap) return "REPAIR_INCOMPLETE";
+        if (!repairDonePassed(r)) return "REPAIR_INCOMPLETE";
+      }
+      return undefined;
+    }
+    if (kind === "repair" && status === "done" && !repairDonePassed(r)) return "REPAIR_INCOMPLETE";
+    // The battery may not resume while a repair is open: the learner must pass
+    // a fresh-surface check on the gap and restate it before the next attack.
+    if (kind === "attack" && run.openRepair) return "NO_REPAIR_RECEIPT";
+    return undefined;
+  };
+  const applyRepairTransition = (r?: P.Receipt) => {
+    if (!r || (r.turnKind || "").trim().toLowerCase() !== "repair" || !r.repair) return;
+    const gap = typeof r.repair.gap === "string" ? r.repair.gap.trim() : "";
+    const status = typeof r.repair.status === "string" ? r.repair.status.trim().toLowerCase() : "";
+    if (status === "teaching" && gap) run.openRepair = { gap };
+    else if (status === "done") run.openRepair = undefined;
+  };
+  // A graded pass on an immediate repair check is the only evidence a gap is
+  // repaired. Record it when the grade receipt is consumed by the grade turn it
+  // verified — never before the learner actually saw the verdict, and never
+  // derived from the Tutor's prose.
+  const recordRepairPasses = (r: P.Receipt) => {
+    if (r.gate !== "grade_audit" || !r.valid) return;
+    for (const c of r.gradeClaims || []) {
+      if (
+        c.claimedVerdict === "pass" &&
+        c.question &&
+        (c.qtype === "micro-check" || c.qtype === "explain-back")
+      ) {
+        run.repairCheckPasses.push({ question: c.question });
+      }
+    }
   };
 
   const onBeforeAgentStart = (prompt: any): void => {
@@ -658,6 +733,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       let reviewScoutNeeded = false;
       let surface = "";
       let graphCloseComplete = false;
+      let claimForRelease: P.Receipt | undefined;
       const toConsume: P.Receipt[] = [];
 
       // Ingest terminal summary: the clerk's REVIEW_GATE_VERDICT receipt is the
@@ -915,10 +991,22 @@ export function createGate(options: GateOptions = {}): GateEngine {
               )}. Re-dispatch the fact-check with every one of these added as a claim (a formula written as LaTeX in the draft may be restated in plain prose — matching is notation-insensitive), then emit this draft unchanged.`;
           } else {
             const gaps = foundationGapsOf(best);
+            const repairGaps = repairShapeGapsOf(best);
+            const repairBlock = repairSequencingBlock(best);
             if (gaps.length > 0) {
               blockers.push("FOUNDATION_INCOMPLETE");
               verdictNote = foundationRemedy(best, gaps);
+            } else if (repairGaps.length > 0) {
+              blockers.push("FOUNDATION_INCOMPLETE");
+              verdictNote = repairRemedy(repairGaps);
+            } else if (repairBlock) {
+              blockers.push(repairBlock);
+              verdictNote =
+                repairBlock === "NO_REPAIR_RECEIPT"
+                  ? `A repair is still open on "${run.openRepair?.gap || "the diagnosed gap"}". Finish it before resuming the attack battery: run one fresh-surface check on the gap, grade it (a pass is the only evidence), then emit a \`turn_kind:"repair"\` turn with \`"repair": {"status": "done", "fresh_surface_check": "<that exact question>", "learner_restate": "<the learner's own words, verbatim>", ...}\`. Do not re-attack the gap until that turn renders.`
+                  : `The repair is not closed. A \`done\` repair needs a fresh-surface check the learner already answered and passed (quote that exact question in \`fresh_surface_check\`) and their own-words restatement (\`learner_restate\`); a different gap cannot be opened while this one is unrepaired. Finish the open gap first.`;
             } else {
+              claimForRelease = best;
               toConsume.push(best);
             }
           }
@@ -1121,7 +1209,11 @@ export function createGate(options: GateOptions = {}): GateEngine {
       }
 
       if (blockers.length === 0 && !scoutNeeded && !reviewScoutNeeded) {
-        for (const r of toConsume) consume(r);
+        for (const r of toConsume) {
+          recordRepairPasses(r);
+          consume(r);
+        }
+        applyRepairTransition(claimForRelease);
         run.retries = 0;
         // Only the audited close clears the armed ids; an intermediate released
         // message must not disarm a merge that still owes its audit.
@@ -1159,7 +1251,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
         // M11: withhold hard facts only when verification is implicated. A
         // verified draft blocked on context alone (NO_SCOUT_CONTEXT /
         // NO_REVIEW_CONTEXT) degrades gracefully instead of being suppressed.
-        const verificationBlocked = codes.some((c) => /^(FACT_CHECK|CLAIMS_INCOMPLETE|FOUNDATION_INCOMPLETE|NO_FACT_CHECK_MATCH)/.test(c));
+        const verificationBlocked = codes.some((c) =>
+          /^(FACT_CHECK|CLAIMS_INCOMPLETE|FOUNDATION_INCOMPLETE|NO_FACT_CHECK_MATCH|NO_REPAIR_RECEIPT|REPAIR_INCOMPLETE)/.test(c)
+        );
         if (soloBlocked) {
           const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This is an AI-free solo check: teaching content is withheld rather than delivered.\n${fallbackNote}\n`;
           return { message: P.replaceText(message, withheld), notify: `learning-gate blocked: ${codes.join(", ")}` };
@@ -1186,7 +1280,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const fix = [
         "Start every message with a turn tag: `[[TURN:claims]]`, `[[TURN:quiz]]`, `[[TURN:grade]]`, or `[[TURN:none]]`.",
         "claims: send your exact draft as `rendered_content` with its claims, then emit the verified text unchanged. A `[[TURN:claims]]` tag is also inferred automatically when your text matches an already-verified `rendered_content`, so if a message is withheld here, just re-emit the verified draft with its tag.",
-        "foundation: every teach/resume claims turn needs `turn_kind`; an `idea` turn (new definition, formula, mechanism, or micro-step) also needs a `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft, and an `autopsy` patch needs one `step` block (`index`/`total`/`fact`/`rests_on`/`check`) whose `fact` and `check` prose are in the draft. `answer`/`repair`/`hint`/`plan` need neither.",
+        "foundation: every teach/resume claims turn needs `turn_kind`; an `idea` turn (new definition, formula, mechanism, or micro-step) also needs a `foundation` block (`problem`/`where_from`/`conditions`/`contrast`) whose prose is in the draft, an `autopsy` patch needs one `step` block (`index`/`total`/`fact`/`rests_on`/`check`), and a `repair` turn needs a `repair` block (gap, miss_class, tactic, status, and one bound `step` — or the `fresh_surface_check` + `learner_restate` receipt). `answer`/`hint`/`plan` need none.",
+        "repair: teaching mode is bound to one gap. A `teaching` repair ships exactly one checked step; the battery is withheld (`NO_REPAIR_RECEIPT`) until a `done` repair names the fresh-surface check the learner already passed and their own-words restatement.",
         "quiz: send the exact batch as `questions_json` (not `items[]`) AND the full learner-facing batch text as `rendered_content` (intro/instructions + every question + its options) so the receipt covers the whole emitted turn; fix EVERY issue (any severity blocks), then re-emit the corrected batch instead of looping.",
         "grade: when one learner reply answers several questions, send ONE `grade-audit` envelope with an `items[]` entry per answer (`{id,concept,question,learner_answer,claimed_verdict,source_excerpt}`); a single answer may use the flat object. Use the verifier's per-item `correct_verdict`.",
         "grade mismatch: on GRADE_MISMATCH, re-dispatch the corrected batch once with `claimed_verdict` set to the verifier's `correct_verdict`, then emit those verdicts — do not emit a disputed grade.",
@@ -1324,6 +1419,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
     let scoutNeeded = false;
     let reviewScoutNeeded = false;
     let graphCloseComplete = false;
+    let claimForRelease: P.Receipt | undefined;
     const toConsume: P.Receipt[] = [];
     let turnType = (explicitTag || assessment.turnType) as string;
     const summaryKind = assessment.summaryKind;
@@ -1387,9 +1483,22 @@ export function createGate(options: GateOptions = {}): GateEngine {
             )}. Re-dispatch the fact-check with every one added as a claim (a formula written as LaTeX in the draft may be restated in plain prose — matching is notation-insensitive), then emit this draft unchanged.`;
         } else {
           const gaps = foundationGapsOf(R[fcIdx]);
+          const repairGaps = repairShapeGapsOf(R[fcIdx]);
+          const repairBlock = repairSequencingBlock(R[fcIdx]);
           if (gaps.length > 0) {
             blocks.push("FOUNDATION_INCOMPLETE");
             verdictNote = foundationRemedy(R[fcIdx], gaps);
+          } else if (repairGaps.length > 0) {
+            blocks.push("FOUNDATION_INCOMPLETE");
+            verdictNote = repairRemedy(repairGaps);
+          } else if (repairBlock) {
+            blocks.push(repairBlock);
+            verdictNote =
+              repairBlock === "NO_REPAIR_RECEIPT"
+                ? `A repair is still open on "${run.openRepair?.gap || "the diagnosed gap"}". Finish it before resuming the attack battery: run one fresh-surface check on the gap, grade it (a pass is the only evidence), then emit a \`turn_kind:"repair"\` turn with \`"repair": {"status": "done", "fresh_surface_check": "<that exact question>", "learner_restate": "<the learner's own words, verbatim>", ...}\`. Do not re-attack the gap until that turn renders.`
+                : `The repair is not closed. A \`done\` repair needs a fresh-surface check the learner already answered and passed (quote that exact question in \`fresh_surface_check\`) and their own-words restatement (\`learner_restate\`); a different gap cannot be opened while this one is unrepaired. Finish the open gap first.`;
+          } else {
+            claimForRelease = R[fcIdx];
           }
         }
       }
@@ -1714,7 +1823,11 @@ export function createGate(options: GateOptions = {}): GateEngine {
     if (reviewScoutNeeded) codes.push("NO_REVIEW_CONTEXT");
 
     if (blocks.length === 0 && !scoutNeeded && !reviewScoutNeeded) {
-      for (const r of toConsume) consume(r);
+      for (const r of toConsume) {
+        recordRepairPasses(r);
+        consume(r);
+      }
+      applyRepairTransition(claimForRelease);
       run.retries = 0;
       if (graphCloseComplete) run.clerkGraphIds = [];
       run.agentlessDispatch = false;
@@ -1810,7 +1923,9 @@ export function createGate(options: GateOptions = {}): GateEngine {
     if (run.retries > P.MAX_RETRIES && !remainingIssues) {
       run.retries = 0;
       const soloBlocked = codes.some((c) => c === "SOLO_NO_TEACHING" || c === "SOLO_NO_AIDS");
-      const verificationBlocked = codes.some((c) => /^(FACT_CHECK|CLAIMS_INCOMPLETE|FOUNDATION_INCOMPLETE|NO_FACT_CHECK_MATCH)/.test(c));
+      const verificationBlocked = codes.some((c) =>
+        /^(FACT_CHECK|CLAIMS_INCOMPLETE|FOUNDATION_INCOMPLETE|NO_FACT_CHECK_MATCH|NO_REPAIR_RECEIPT|REPAIR_INCOMPLETE)/.test(c)
+      );
       if (soloBlocked) {
         const withheld = `⛔ WITHHELD — gate retries exhausted (${codes.join(", ")}). This is an AI-free solo check: teaching content is withheld rather than delivered.\n${fallbackNote}\n`;
         ledger.decision({ at: new Date().toISOString(), flow: run.flow, turnType: turnType as any, outcome: "block", codes, source: assessment.source,

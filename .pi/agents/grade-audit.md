@@ -16,7 +16,7 @@ reasoning beyond the supplied `tutor_turns`.
 
 Batched (the normal case — one learner reply may contain many answers):
 
-`{"gate":"grade_audit","items":[{"id":1,"concept":"...","pow":"perturbation|sabotage|clone|none","attack":"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis|none","qtype":"free-recall|discriminative|error-detect|transfer-far|explain-back|micro-check","confidence":"sure|hunch|no-idea","question":"...","learner_answer":"...","trace":"the learner's 3-line qualitative trace","claimed_verdict":"pass|fail","source_excerpt":"...","targets":["n_...","arg_..."],"tutor_turns":["..."],"naive_student_receipt":{"task_succeeded":true,"questions_unanswered":[]}}]}`
+`{"gate":"grade_audit","items":[{"id":1,"concept":"...","pow":"perturbation|sabotage|clone|none","attack":"mechanism|counterexample|perturbation|source_clash|sabotage|synthesis|none","qtype":"free-recall|discriminative|error-detect|transfer-far|explain-back|micro-check","confidence":"sure|hunch|no-idea","question":"...","learner_answer":"...","trace":"the learner's 3-line qualitative trace","claimed_verdict":"pass|fail","repair_gap":"the repair gap this check closes","source_excerpt":"...","targets":["n_...","arg_..."],"tutor_turns":["..."],"naive_student_receipt":{"task_succeeded":true,"questions_unanswered":[]}}]}`
 
 A single answer may use the flat shape (`{"gate":"grade_audit","concept":...,"question":...,
 "learner_answer":...}`); treat it as `items` of length one. Never mix: a batched envelope has `items`
@@ -91,6 +91,12 @@ and no top-level `question`/`learner_answer`/`claimed_verdict`.
    numeric scalar for it.
 8. **Agreement.** Set `agrees:true` only when your evaluation matches `claimed_verdict` across all
    items; otherwise `agrees:false` with the corrected verdict.
+9. **Repair check (`repair_gap` on the item).** This answer is the fresh-surface check that closes a
+   repair, so grade the patched bit **in the learner's own words**, not a recital of the Tutor's
+   repair prose: a lexical or structural remix of the Tutor's last repair turn is `SHALLOW_PASS` and
+   a `fail`. A pass requires them to operate the patched bit on the new surface correctly *and*, when
+   the question asks for it, to restate it in their own words. Do not raise the verdict for a correct
+   answer that merely echoes the Tutor, and do not demand more than the gap's patched claim.
 
 ## Output
 

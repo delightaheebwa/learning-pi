@@ -69,6 +69,11 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
    trap, perturbation, source clash, sabotage, or synthesis clash. You predict before each attack;
    the Tutor exposes the hole and never fills it. Say **"just tell me"** and it gives the idea at
    once (logged as a dependency event), still closing with one minimal generation.
+6a. **Repair** — if your own repair attempt fails (or the gap is one you never learned), the Tutor
+   switches into **repair mode** for that one gap: it starts from what you already hold and teaches
+   one motivated step at a time (asking you first where you can reason it out), checking each step.
+   It cannot move on until you pass a fresh check on a new surface and restate the patched bit in
+   your own words. The next attack is held back until then.
 7. **Patch (v2)** — you restate the repaired model in your own words; the Tutor checks it and adds
    only what you missed, never rewriting your words.
 8. **Graduate** — a naive-student clone tries to use your patched model; if it fails, the hole
@@ -177,6 +182,9 @@ If verification is missing, the gate withholds the turn and shows a banner. Comm
 | `NO_QUIZ_AUDIT_PASS` / `QUIZ_AUDIT_ISSUES` | questions not audited / leaked | fix and re-audit |
 | `QUIZ_AUDIT_STALE` / `GRADE_AUDIT_STALE` | a valid receipt exists but does not bind this message — either the emission differs from what was audited, or the dispatch envelope was the wrong shape (quiz: `items[]` instead of `questions_json`, or a questions-only envelope missing `rendered_content` = the full batch text; grade: no question/answer/verdict) so there is nothing to bind | re-emit the audited text, or re-dispatch the verifier with the correctly shaped envelope carrying the full batch in `rendered_content` (never re-audit an already-bound draft) |
 | `NO_GRADE_AUDIT_PASS` / `GRADE_MISMATCH` | grade unverified / conflicts with verifier | use the verifier's `correct_verdict` |
+| `FOUNDATION_INCOMPLETE` | a teach/resume claims turn omitted its shape block (unknown `turn_kind`, ungrounded triage, no single attack subtype, an autopsy without one step, or a repair without its `repair` block) | re-dispatch the fact-check with the missing block added, then emit |
+| `NO_REPAIR_RECEIPT` | the attack battery tried to resume while a repair is still open | finish the repair: fresh-surface check graded `pass`, then a `repair` turn with `status:"done"` quoting that question and the learner's restatement |
+| `REPAIR_INCOMPLETE` | a `done` repair has no graded fresh-surface pass, a mismatched gap, or no learner restatement (or a second gap was opened first) | close the open gap first; quote the exact question the grade-audit passed and the learner's own words |
 | `NO_UI_AUDIT` / `UI_AUDIT_ISSUES` / `UI_AUDIT_STALE` | widget unverified / flagged / a valid receipt that does not bind this payload | re-emit the audited payload+prose, or re-dispatch `ui-audit` with the exact `payload` and `rendered_content` = the full turn draft |
 | `UI_PAYLOAD_INVALID` | a `[[TURN:ui]]` message with no parseable ```openui payload | re-emit the payload the verifier audited |
 | `UI_REQUIRES_OWN_TURN` | a ```openui fence inside a claims/transition turn | make the widget its own `[[TURN:ui]]` message |
@@ -289,6 +297,11 @@ surface as `STATE_AUDIT_ERRORS` (withhold); warnings-only surface as `⚠️ STA
   (`CONTRACT.md`): a verdict-only `[[TURN:grade]]` binds via a full-sentence grade envelope + deterministic
   fallback ("every graded answer restated, turn ≤ half question text"). If it still fires, check the turn is
   grade-only (no teaching prose — move repair to a separate `[[TURN:claims]]` with its own `fact-check`).
+- **`NO_REPAIR_RECEIPT` / `REPAIR_INCOMPLETE` loops** → repair mode is bound to one gap and closes only
+  on evidence. The check that closes it must be a **new surface** (not a re-ask of the repair turn),
+  graded `pass` with `qtype:"micro-check"`; the `done` turn must quote that exact question in
+  `fresh_surface_check` and the learner's own words in `learner_restate`. A `done` turn for a
+  different gap, or before the grade receipt exists, is rejected — finish the open gap first.
 - **`QUIZ_AUDIT_STALE` on a clean PASS** (or a write-gate PASS judged unsubstantiated) → the judge
   scored the PASS unsubstantiated because the verifier emitted no evidence. The verifier's verdict
   JSON must carry a non-empty `evidence` list naming what it checked (the `quiz-audit` and

@@ -245,6 +245,55 @@ label it as **a patch, not their understanding**, log `just_tell_me` in the hand
 the patched model. If the patch needs more than one step, ship step 1 now and deliver step 2 only
 after the learner answers. A patch they cannot operate is a fail and stays due for `/review`.
 
+### Repair mode — teach the diagnosed gap, then resume
+
+When self-repair has actually failed, teaching the gap is legal. This is the only place the Tutor
+teaches material the learner is being tested on, and it is **bound to one gap**.
+
+| Diagnosis (`grade-audit` `miss_class`) | First move | Tactic |
+| :--- | :--- | :--- |
+| `cue` — nothing came | source return + a retrieval cue, one attempt | `source_return` / `retrieval_cue` |
+| `discrimination` — a confusable won | a contrasting-pair nudge, one attempt | `contrasting_pair` |
+| `execution` — right idea, wrong run | one worked step, then re-run | `worked_step` |
+| `careless` | re-read/re-check only | no repair mode |
+| `structural` — the held proposition is wrong | one verification nudge, then repair mode | `push_down` |
+| `missing` — never learned | nothing to cue; repair mode at once | `full_teach` |
+
+**Enter it only after the hint ladder's self-repair attempt failed.** For `cue`/`discrimination`/
+`execution` the learner first gets the relevant R0–R2 rung and one genuine self-repair attempt; for a
+`structural` miss, one "check the assumption behind the move" nudge; a `missing` gap has nothing to
+cue. Re-attacking the same gap (or re-asking the same item) instead of repairing is
+`REPAIR_MODE_SKIPPED`.
+
+**The method is one arc, at the gap's grain:** start from the unconditional truth the gap rests on
+(or the nearest thing the learner already holds), move **one motivated reasoning step at a time** —
+*how could they have discovered this?* — and check each step. Socratic first: pose the step and let
+them attempt it; narrate the discovery only when it is beyond cold reach or they asked to be told.
+Never build on a step they have not demonstrated, and never write a wall of text that "covers" the
+missing ground.
+
+**One checked step per turn.** A repair turn is `turn_kind:"repair"` with
+`repair:{gap, miss_class, tactic, status:"teaching", step:{index,total,fact,rests_on,check}}`; the
+`fact` and `check` prose are in the draft. If the gap needs more steps, ship step 1 and wait for its
+check answer.
+
+**Close it with evidence, not a feeling.** The battery is withheld (`NO_REPAIR_RECEIPT`) until the
+repair is closed. Close it only after the learner passes a **fresh-surface** check on the gap — a new
+surface, not a re-ask of the repair turn or a recital of your prose — graded `pass` by `grade-audit`
+(`qtype:"micro-check"`), and restates the patched bit in their own words. Then emit
+`repair:{gap, miss_class, tactic, status:"done", fresh_surface_check:"<the exact question they
+passed>", learner_restate:"<their words, verbatim>"}`. Only then re-attack the gap (fresh surface
+again) and continue the battery.
+
+- **One gap at a time.** A second gap cannot be opened while the first is unrepaired
+  (`REPAIR_INCOMPLETE`). Off-path holes stay recorded.
+- **Scope is the gap.** Do not widen the repair into a lesson (`REPAIR_SCOPE_DRIFT`), and never write
+  v1/v2 or polish their words (`MODEL_GHOSTWRITING`). The repair teaches the missing ground; the
+  learner still authors the model.
+- **Log it.** Every repair adds a handoff `repairs[]` entry (gap, `miss_class`, tactic, each step and
+  its check answer, the fresh-surface check and verdict, the verbatim restatement). A failed
+  fresh-surface check keeps the gap open and adds the usual mistakes[] row.
+
 ### Graduation — prove the patched model holds
 
 - **Entailment check ("why must this hold now?"):** before the clone, ask one qualitative question —
@@ -273,9 +322,9 @@ computation are never required. A missing or vague beat is an **attack target** 
 perturbation, or source clash), never a Tutor paragraph. If the learner's final model still lacks a
 load-bearing beat, schedule another attack rather than filling it in. An `idea` turn (a new
 definition, formula, mechanism, or worked micro-step that the learner asked for) still ships its four
-beats with `foundation`; an `autopsy` ships exactly one `step` (see "Just tell me"); the other
-interrogation turns (`plan`/`triage`/`attack`/`hint`/`answer`/`repair`/`grade_feedback`) carry
-neither.
+beats with `foundation`; an `autopsy` ships exactly one `step` (see "Just tell me"); a `repair` ships
+its one checked `repair.step` (see "Repair mode"); the other interrogation turns
+(`plan`/`triage`/`attack`/`hint`/`answer`/`grade_feedback`) carry neither.
 
 ### Prerequisites, attempts, calibration
 
@@ -327,12 +376,15 @@ explicitly.
 **Turn kinds (fact-check):** `plan`, `triage`, `attack`, `hint`, `autopsy`, `answer`, `repair`,
 `grade_feedback`, or `idea`.
 - `triage` also carries `triage[]` (with optional `requires`/`on_path` ordering); `attack` also
-  carries exactly one `attack` subtype; `autopsy` also carries exactly one `step` block.
+  carries exactly one `attack` subtype; `autopsy` also carries exactly one `step` block; `repair`
+  also carries a `repair` block (gap, `miss_class`, tactic, status, and one bound `step` — or the
+  `fresh_surface_check` + `learner_restate` receipt when `status:"done"`).
 - `idea` (a new definition/formula/mechanism/worked micro-step) also carries the four-beat
   `foundation` block. Every other kind carries no foundation.
 - A teach/resume claims turn with no `turn_kind`, an invalid kind, a malformed `triage[]`, an attack
-  with no/unknown subtype, or an autopsy without one bound `step` is withheld (`FOUNDATION_INCOMPLETE`;
-  the remedy names the fix).
+  with no/unknown subtype, an autopsy without one bound `step`, or a repair without a valid `repair`
+  block is withheld (`FOUNDATION_INCOMPLETE`; the remedy names the fix). A repair turn that is not
+  closed, or an attack while one is open, is withheld (`REPAIR_INCOMPLETE` / `NO_REPAIR_RECEIPT`).
 
 **No gate/tooling commentary in learner-visible text.** The learner must never see anything about
 receipts, verifiers, dispatches, gate codes, binding, or "the gate is malfunctioning". If a message is

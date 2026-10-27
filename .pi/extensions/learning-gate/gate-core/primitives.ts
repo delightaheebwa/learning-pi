@@ -94,6 +94,13 @@ export interface Receipt {
   // The single reasoning step an `autopsy` patch ships (see `stepGaps`): one
   // new fact resting on something the learner already holds, plus its check.
   step?: StepBlock;
+  // Repair mode (see `repairGaps`): the gap being repaired, its diagnosed miss
+  // class and repair tactic, and — once the learner has passed a fresh-surface
+  // check — the receipt that closes the repair before the attack battery resumes.
+  repair?: RepairBlock;
+  // Per-item grade envelopes (question / claimed verdict / qtype), used to bind
+  // a repair's fresh-surface check to a graded pass without trusting prose.
+  gradeClaims?: GradeClaim[];
   // Canonical JSON of the verified OpenUI Lang payload (ui_audit). A `[[TURN:ui]]`
   // turn binds only when its emitted ```openui fence canonicalizes to this value.
   uiPayload?: string;
@@ -205,6 +212,16 @@ export interface RunState {
   // guard uses it to tell the learner's language from a drift-prone model's, so
   // a learner who writes in CJK keeps getting CJK.
   learnerText?: string;
+  // Repair mode (G-repair-complete): an open teaching pass, set when a
+  // `turn_kind:"repair"` turn with status `teaching` reaches the learner.
+  // An attack turn is withheld (NO_REPAIR_RECEIPT) until a valid `done` turn
+  // closes it, so the battery never resumes on an unrepaired gap.
+  openRepair?: { gap: string };
+  // Fresh-surface repair checks the learner passed (from agreeing grade-audit
+  // receipts whose claimed verdict was `pass`). A repair `done` turn must name
+  // one of these questions verbatim, so "repaired" is a graded fact, not the
+  // Tutor's assertion.
+  repairCheckPasses: { question: string }[];
 }
 
 export interface CallRef {
@@ -240,6 +257,7 @@ export function newRun(flow: Flow): RunState {
     reviewSessionPaths: [],
     agentlessDispatch: false,
     issueBlocks: {},
+    repairCheckPasses: [],
   };
 }
 
@@ -685,6 +703,60 @@ export interface StepBlock {
   check?: string;
 }
 
+/**
+ * Repair mode: after a graded miss survives the hint ladder (or at once for a
+ * `missing`/structural gap), the Tutor teaches the diagnosed gap one checked
+ * step at a time. The receipt closes it: a fresh-surface check the learner
+ * passed plus the learner's own-words restatement.
+ */
+export interface RepairBlock {
+  /** The triage row / attacked claim this repair is bound to. */
+  gap?: string;
+  /** The diagnosed miss class (same taxonomy as grade-audit). */
+  miss_class?: string;
+  /** The repair tactic chosen for that miss class. */
+  tactic?: string;
+  /** `teaching` (a step) or `done` (the receipt). */
+  status?: string;
+  /** Exactly one reasoning step on a `teaching` turn. */
+  step?: StepBlock;
+  /** The fresh-surface question the learner answered and passed (`done`). */
+  fresh_surface_check?: string;
+  /** The learner's own-words restatement, verbatim (`done`). */
+  learner_restate?: string;
+}
+
+/** Miss classes that select a repair tactic (the grade-audit taxonomy). */
+export const REPAIR_MISS_CLASSES = new Set([
+  "cue",
+  "discrimination",
+  "execution",
+  "careless",
+  "structural",
+]);
+
+/**
+ * Repair tactics, one per diagnosed miss class (plus the full pass for a gap
+ * the learner never learned). The Tutor selects the tactic from the diagnosis,
+ * never from a free-form catalogue.
+ */
+export const REPAIR_TACTICS = new Set([
+  "source_return",
+  "retrieval_cue",
+  "contrasting_pair",
+  "worked_step",
+  "push_down",
+  "full_teach",
+]);
+
+/** One item of a batched grade envelope, kept for repair-check binding. */
+export interface GradeClaim {
+  concept?: string;
+  question?: string;
+  claimedVerdict?: string;
+  qtype?: string;
+}
+
 export const FOUNDATION_FIELDS = ["problem", "where_from", "conditions", "contrast"] as const;
 
 /**
@@ -886,6 +958,47 @@ export function foundationGaps(
     const raw = foundation && typeof foundation[field] === "string" ? foundation[field]!.trim() : "";
     if (raw.length === 0) gaps.push(`${field} (missing)`);
     else if (coverage(raw, draft) < FOUNDATION_BIND_THRESHOLD) gaps.push(`${field} (not in the draft)`);
+  }
+  return gaps;
+}
+
+/**
+ * Shape check for a `turn_kind:"repair"` turn (G-repair-method).
+ *
+ * A repair turn is legal only after a graded miss survives the hint ladder (or
+ * at once for a `missing`/structural gap). It is bound to exactly one gap,
+ * names the diagnosed miss class and the tactic that diagnosis selects, and
+ * ships exactly one reasoning step with its check — or, when `status:"done"`,
+ * the fresh-surface check the learner passed plus their own-words restatement.
+ * A repair that ships a compressed multi-step lecture is withheld.
+ */
+export function repairGaps(renderedContent: string | undefined, repair: RepairBlock | undefined): string[] {
+  if (!repair || typeof repair !== "object" || Array.isArray(repair)) return ["repair (missing)"];
+  const gaps: string[] = [];
+  const gap = typeof repair.gap === "string" ? repair.gap.trim() : "";
+  if (!gap) gaps.push("repair.gap (missing)");
+  const missClass = typeof repair.miss_class === "string" ? repair.miss_class.trim().toLowerCase() : "";
+  if (!REPAIR_MISS_CLASSES.has(missClass)) {
+    gaps.push(
+      `repair.miss_class (${missClass ? `'${missClass}'` : "missing"} is not cue|discrimination|execution|careless|structural)`
+    );
+  }
+  const tactic = typeof repair.tactic === "string" ? repair.tactic.trim().toLowerCase() : "";
+  if (!REPAIR_TACTICS.has(tactic)) {
+    gaps.push(
+      `repair.tactic (${tactic ? `'${tactic}'` : "missing"} is not source_return|retrieval_cue|contrasting_pair|worked_step|push_down|full_teach)`
+    );
+  }
+  const status = typeof repair.status === "string" ? repair.status.trim().toLowerCase() : "";
+  if (status !== "teaching" && status !== "done") {
+    gaps.push(`repair.status (${status ? `'${status}'` : "missing"} is not teaching|done)`);
+  } else if (status === "teaching") {
+    gaps.push(...stepGaps(renderedContent, repair.step).map((g) => `repair.${g}`));
+  } else {
+    const fresh = typeof repair.fresh_surface_check === "string" ? repair.fresh_surface_check.trim() : "";
+    if (!fresh) gaps.push("repair.fresh_surface_check (missing)");
+    const restate = typeof repair.learner_restate === "string" ? repair.learner_restate.trim() : "";
+    if (!restate) gaps.push("repair.learner_restate (missing)");
   }
   return gaps;
 }
@@ -1248,6 +1361,28 @@ export function gradeAnswersOf(envelope: any): string[] | undefined {
 }
 
 /**
+ * The claimed verdict / question / qtype of every graded item, kept so a
+ * repair's fresh-surface check can bind to a real graded pass instead of the
+ * Tutor's prose. A flat single-answer envelope is treated as one item.
+ */
+export function gradeClaimsOf(envelope: any): GradeClaim[] | undefined {
+  if (!envelope || typeof envelope !== "object") return undefined;
+  const items = Array.isArray(envelope.items) ? envelope.items : [envelope];
+  const out = items
+    .filter((it: any) => it && typeof it === "object")
+    .map(
+      (it: any): GradeClaim => ({
+        concept: typeof it.concept === "string" ? it.concept : undefined,
+        question: typeof it.question === "string" ? it.question : undefined,
+        claimedVerdict: typeof it.claimed_verdict === "string" ? it.claimed_verdict.trim().toLowerCase() : undefined,
+        qtype: typeof it.qtype === "string" ? it.qtype.trim().toLowerCase() : undefined,
+      })
+    )
+    .filter((c: GradeClaim) => !!c.question || !!c.claimedVerdict);
+  return out.length > 0 ? out : undefined;
+}
+
+/**
  * Bookkeeping paths a review-gate pass explicitly excludes (state files,
  * session/review/lesson notes, log/index bookkeeping, git/commit metadata).
  * Used only to decide whether a finding that CITES such a location is
@@ -1409,6 +1544,11 @@ export function parseResult(text: string, gate: string, envelope: any): Receipt 
       envelope && envelope.step && typeof envelope.step === "object" && !Array.isArray(envelope.step)
         ? (envelope.step as StepBlock)
         : undefined,
+    repair:
+      envelope && envelope.repair && typeof envelope.repair === "object" && !Array.isArray(envelope.repair)
+        ? (envelope.repair as RepairBlock)
+        : undefined,
+    gradeClaims: gate === "grade_audit" ? gradeClaimsOf(envelope) : undefined,
     uiPayload:
       gate === "ui_audit" && envelope && envelope.payload !== undefined
         ? canonicalUiPayload(envelope.payload)

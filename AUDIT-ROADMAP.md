@@ -660,3 +660,23 @@ Per-checkpoint review by `R-P0`/`R-P1`/`R-P2` (Muse Spark); full findings and de
 **Verify:** `scripts/learn-check --no-load --with-sidecars` → OK; `python3 -m unittest scripts.ops_test`
 → OK; `python3 -m unittest scripts.wiki_provenance_test` → OK; `python3 scripts/wiki_provenance.py
 --check` → exit 0 (220 unverified / 0 missing / 0 malformed).
+
+## 9. Repair mode (2026-10-27)
+
+Teaching mode is now a bounded repair, not a lesson. After a graded miss survives the hint ladder (or
+at once for a `missing`/structural gap), a `turn_kind:"repair"` turn teaches the diagnosed gap one
+checked step at a time, and the attack battery is withheld (`NO_REPAIR_RECEIPT`) until a `done`
+repair names the fresh-surface check a `grade-audit` already passed plus the learner's own-words
+restatement. The repair is bound to one gap (`REPAIR_INCOMPLETE` on a second gap or an unearned
+`done`), and the tactics are selected from the diagnosed `miss_class` — not a methodology catalogue.
+The trigger and method are verifier-enforced (`fact-check` 4c); the shape and sequencing are
+gate-enforced. Contract: `G-repair-trigger` / `G-repair-method` / `G-repair-scope` /
+`G-repair-complete` (`contracts/learning-core.json` v13).
+
+LearnHarness's practice pacing (one problem per turn, retest-at-close, an unfiltered thinking
+channel) was considered and deliberately left out; see `docs/teaching-methodology.md`.
+
+**Deferred:** the Antigravity (`antigravity/`) mirror of repair mode is not wired yet; the pi /
+Open WebUI layer is the reference.
+
+**Verify:** `scripts/learn-check` → OK.

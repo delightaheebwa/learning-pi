@@ -13,7 +13,7 @@ a `GATE:quiz_audit` envelope — never freeform prompts, and never learner answe
 
 ## Envelope
 
-`{"gate":"quiz_audit","context":"probe|predict|practice|review|solo","questions_json":[{"id":"q1","type":"mcq|free_recall|qualitative|synthesis|misapplication|perturbation","concept":"the concept this item retrieves","question":"...","options":[...],"correct_index":N,"target_bloom":"...","targets":["n_...","arg_..."]}],"rendered_content":"the exact full batch text the learner will see (intro/instructions + every question + its options)","concept":"...","source_excerpt":"..."}`
+`{"gate":"quiz_audit","context":"probe|predict|practice|review|solo","questions_json":[{"id":"q1","type":"mcq|free_recall|qualitative|synthesis|misapplication|perturbation","concept":"the concept this item retrieves","question":"...","options":[...],"correct_index":N,"target_bloom":"...","targets":["n_...","arg_..."],"repair_gap":"the repair gap this check closes"}],"rendered_content":"the exact full batch text the learner will see (intro/instructions + every question + its options)","concept":"...","source_excerpt":"..."}`
 
 `questions_json` is what you audit; `rendered_content` is the verbatim emitted batch the gate binds
 the receipt to (it must cover 100% of the learner-facing text, including intro/instructions and every
@@ -79,6 +79,13 @@ present they must describe the item, not replace the question text.
     whether the learner can read it back: it must be answerable by reasoning from the session, must
     not be a recitation of the Tutor's just-stated sentence, should prefer application to a new case,
     and a miss should reveal which wrong model selected it.
+11. **Repair fresh-surface check (when `repair_gap` is present, or the batch follows a repair
+    turn).** The check that closes a repair must be a **fresh surface**: it may not re-ask the repair
+    turn's own question or answerable by reciting the Tutor's repair prose, and it must require the
+    learner to operate the patched bit on a new case (a decision point), plus state the patched bit
+    in their own words when the Tutor asks for the restatement. A re-ask or a recitation-shaped item
+    is `ISSUES` (it cannot distinguish a repaired model from an echoed one). The concept-label ban,
+    trace requirement, and no-MCQ rule are unchanged.
 
 ## Output
 

@@ -1775,3 +1775,159 @@ const AUTOPSY_STEP = {
   );
   assert('lesson-end auto-ingest summary renders after tutor-audit + clerk + review-gate', allowed(summary));
 }
+
+// ============================================================================
+// Repair mode (G-repair-trigger / G-repair-method / G-repair-scope /
+// G-repair-complete). After a graded miss survives the hint ladder the Tutor
+// teaches the diagnosed gap one checked step at a time; the battery may not
+// resume (NO_REPAIR_RECEIPT) until a `done` repair names the fresh-surface
+// check the learner already passed plus their own-words restatement.
+// ============================================================================
+const REPAIR_DRAFT =
+  'Build it from what you already hold: a rare outcome carries more surprise than a common one, so ' +
+  'entropy is the expected surprise of a draw. Check: with a fair coin, is the surprise per draw high or low?';
+const REPAIR_STEP = {
+  index: 1,
+  total: 1,
+  fact: 'entropy is the expected surprise of a draw',
+  rests_on: 'you already hold that a rare outcome carries more surprise',
+  check: 'with a fair coin, is the surprise per draw high or low?',
+};
+const repairEnv = (repair, draft = REPAIR_DRAFT) =>
+  JSON.stringify({
+    gate: 'fact_check',
+    turn_kind: 'repair',
+    repair,
+    visual_plan: { kind: 'prose', why: 'a one-step repair and its check are carried by prose' },
+    claims: [{ id: 1, claim: 'the repair installs one motivated step and checks it' }],
+    rendered_content: draft,
+    source_urls: ['https://e.com'],
+  });
+const TEACH_REPAIR = {
+  gap: 'entropy captures the information',
+  miss_class: 'structural',
+  tactic: 'push_down',
+  status: 'teaching',
+  step: REPAIR_STEP,
+};
+{
+  const r = await runFoundationClaims('rp1', REPAIR_DRAFT, repairEnv(TEACH_REPAIR));
+  assert('repair turn with one bound step renders', allowed(r));
+}
+{
+  const noBlock = JSON.stringify({ ...JSON.parse(repairEnv(TEACH_REPAIR)), repair: undefined });
+  const r = await runFoundationClaims('rp2', REPAIR_DRAFT, noBlock);
+  assert(
+    'repair turn without one bound step is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('repair')
+  );
+}
+{
+  const badClass = { ...TEACH_REPAIR, miss_class: 'vibes' };
+  const r = await runFoundationClaims('rp3', REPAIR_DRAFT, repairEnv(badClass));
+  assert(
+    'repair turn with an invalid miss class is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('miss_class')
+  );
+}
+{
+  const noStep = { ...TEACH_REPAIR };
+  delete noStep.step;
+  const r = await runFoundationClaims('rp4', REPAIR_DRAFT, repairEnv(noStep));
+  assert(
+    'repair turn without a bound step is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('step')
+  );
+}
+{
+  // Open a repair, then try to resume the attack battery before closing it.
+  await setPrompt('[[FLOW:resume]] continue the lesson');
+  const teachEnv = repairEnv(TEACH_REPAIR);
+  await dispatch('fact-check', teachEnv, 'rp5');
+  await fg('rp5', 'fact-check', teachEnv, FC_PASS);
+  const opened = await msg(`[[TURN:claims]]\n${REPAIR_DRAFT}`, 'stop');
+  const attack = attackEnv('mechanism');
+  await dispatch('fact-check', attack, 'rp6');
+  await fg('rp6', 'fact-check', attack, FC_PASS);
+  const r = await msg(`[[TURN:claims]]\n${ATTACK_DRAFT}`, 'stop');
+  assert(
+    'attack turn withheld while a repair is open',
+    allowed(opened) && blocked(r, 'NO_REPAIR_RECEIPT')
+  );
+}
+{
+  // A `done` repair without a graded fresh-surface pass is not a receipt.
+  await setPrompt('[[FLOW:resume]] continue the lesson');
+  const teachEnv = repairEnv(TEACH_REPAIR);
+  await dispatch('fact-check', teachEnv, 'rp7');
+  await fg('rp7', 'fact-check', teachEnv, FC_PASS);
+  await msg(`[[TURN:claims]]\n${REPAIR_DRAFT}`, 'stop');
+  const doneEnv = repairEnv(
+    {
+      gap: 'entropy captures the information',
+      miss_class: 'structural',
+      tactic: 'push_down',
+      status: 'done',
+      fresh_surface_check: 'with a fair coin, is the surprise per draw high or low?',
+      learner_restate: 'entropy is what a draw surprises you by on average',
+    },
+    'Closed: you now hold that entropy is the expected surprise. Next we re-test it.'
+  );
+  await dispatch('fact-check', doneEnv, 'rp8');
+  await fg('rp8', 'fact-check', doneEnv, FC_PASS);
+  const r = await msg('[[TURN:claims]]\nClosed: you now hold that entropy is the expected surprise. Next we re-test it.', 'stop');
+  assert('repair done without a passing fresh-surface check is withheld', blocked(r, 'REPAIR_INCOMPLETE'));
+}
+{
+  // The full loop: teach one step → grade the fresh-surface check pass → close
+  // the repair → the battery resumes.
+  await setPrompt('[[FLOW:resume]] continue the lesson');
+  const teachEnv = repairEnv(TEACH_REPAIR);
+  await dispatch('fact-check', teachEnv, 'rp9');
+  await fg('rp9', 'fact-check', teachEnv, FC_PASS);
+  await msg(`[[TURN:claims]]\n${REPAIR_DRAFT}`, 'stop');
+  const gradeEnv = JSON.stringify({
+    gate: 'grade_audit',
+    items: [
+      {
+        id: 1,
+        concept: 'entropy',
+        qtype: 'micro-check',
+        question: 'with a fair coin, is the surprise per draw high or low?',
+        learner_answer: 'High — a fair coin is maximally uncertain.',
+        claimed_verdict: 'pass',
+      },
+    ],
+  });
+  await dispatch('grade-audit', gradeEnv, 'rp10');
+  await fg('rp10', 'grade-audit', gradeEnv, GATE);
+  const gradeTurn = await msg(
+    '[[TURN:grade]]\nwith a fair coin, is the surprise per draw high or low? PASS — you said "High — a fair coin is maximally uncertain."',
+    'stop'
+  );
+  const doneDraft = 'Closed: you now hold that entropy is the expected surprise, and a fair coin is maximally uncertain. Next we re-test it.';
+  const doneEnv = repairEnv(
+    {
+      gap: 'entropy captures the information',
+      miss_class: 'structural',
+      tactic: 'push_down',
+      status: 'done',
+      fresh_surface_check: 'with a fair coin, is the surprise per draw high or low?',
+      learner_restate: 'entropy is what a draw surprises you by on average',
+    },
+    doneDraft
+  );
+  await dispatch('fact-check', doneEnv, 'rp11');
+  await fg('rp11', 'fact-check', doneEnv, FC_PASS);
+  const closed = await msg(`[[TURN:claims]]\n${doneDraft}`, 'stop');
+  const attack = attackEnv('mechanism');
+  await dispatch('fact-check', attack, 'rp12');
+  await fg('rp12', 'fact-check', attack, FC_PASS);
+  const resumed = await msg(`[[TURN:claims]]\n${ATTACK_DRAFT}`, 'stop');
+  assert(
+    'repair done with a passing fresh-surface check renders',
+    allowed(gradeTurn) && allowed(closed)
+  );
+  assert('attack turn resumes after a repair receipt', allowed(resumed));
+}
+
