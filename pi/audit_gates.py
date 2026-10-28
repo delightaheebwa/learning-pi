@@ -52,8 +52,18 @@ VERIFIER_AGENTS = {
 WORKER_AGENTS = {"scout", "clerk", "review-scout", "review-clerk"}
 
 RUNID_RE = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
-REVIEW_MARKER_RE = re.compile(r"REVIEW_GATE_VERDICT\s*:\s*(\{.*?\})", re.S)
-STATE_MARKER_RE = re.compile(r'STATE_AUDIT_VERDICT\s*:\s*\{\s*"errors"\s*:\s*\d+\s*,\s*"warnings"\s*:\s*\d+')
+# Keep these in step with the live gate's marker matchers (`parseStateAudit` /
+# `parseClerkReview` in `.pi/extensions/learning-gate/gate-core/primitives.ts`):
+# a lowercase or pretty-printed marker must not read as "no verdict" here while
+# the gate accepted it. Only presence is used, never the JSON body. The gate
+# additionally falls back to bare "N errors, M warnings" prose, but only in
+# subagent completion text; that fallback is deliberately not mirrored here —
+# this audit reads the whole session, so it would flag the learner's own prose.
+REVIEW_MARKER_RE = re.compile(r"REVIEW_GATE_VERDICT\s*:", re.I)
+STATE_MARKER_RE = re.compile(
+    r'STATE_AUDIT_VERDICT\s*:\s*\{\s*"errors"\s*:\s*\d+\s*,\s*"warnings"\s*:\s*\d+',
+    re.I,
+)
 AUDIT_CMD_RE = re.compile(r"audit_state\.py")
 
 findings: list[dict] = []
