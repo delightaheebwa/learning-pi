@@ -22,5 +22,6 @@ while :; do
 		echo "pi-bridge: ${host} not available after ${timeout}s; is Docker running?" >&2
 		exit 1
 	fi
-	sleep 0.5
+	# Whole-second sleep: POSIX sh only requires integer arguments.
+	sleep 1
 done
