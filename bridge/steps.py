@@ -24,7 +24,9 @@ Display policy (the learner-facing half of `B-steps-metadata-only`):
 * a tool step shows its name, a truncated JSON of its `args`, its status and its
   duration — **never** its result in a learning flow;
 * a thinking step shows its duration in a learning flow ("Thought for Ns") and
-  its text only in a general (non-learning) chat;
+  its text only in a general (non-learning) chat. The block's `duration`
+  attribute is bare seconds (e.g. `"1.6"`) because Open WebUI feeds it to
+  `dayjs.duration(…, 'seconds')`; the human string lives in the `<summary>`;
 * `message_update` delta text never enters a step (see `stream.py`).
 """
 from __future__ import annotations
@@ -75,11 +77,30 @@ def _body(text: str, limit: int = RESULT_PREVIEW) -> str:
     return text
 
 
-def format_seconds(duration) -> str:
+def _seconds(duration) -> float:
+    """Coerce a step duration to non-negative seconds (0.0 when unusable)."""
     try:
-        return f"{max(0.0, float(duration)):.1f}s"
+        return max(0.0, float(duration))
     except (TypeError, ValueError):
-        return "0.0s"
+        return 0.0
+
+
+def format_seconds(duration) -> str:
+    """Human-readable duration for summaries and the live status line."""
+    return f"{_seconds(duration):.1f}s"
+
+
+def format_duration_attr(duration) -> str:
+    """Bare seconds for Open WebUI's `duration` attribute.
+
+    Open WebUI's `Collapsible` (v0.12.2) compares this attribute numerically
+    (`< 1`, `< 60`) and otherwise renders `dayjs.duration(value, 'seconds')
+    .humanize()`. A human string like `"1.6s"` compares as NaN — both branches
+    are skipped — and dayjs turns it into an invalid duration whose
+    `.humanize()` is the last unit, "a month". The attribute must therefore be
+    a number; the `<summary>` keeps the human string.
+    """
+    return f"{_seconds(duration):.1f}"
 
 
 def render_tool_step(step: dict, *, learning: bool = True) -> str:
@@ -112,9 +133,10 @@ def render_tool_step(step: dict, *, learning: bool = True) -> str:
 def render_thinking_step(step: dict, *, learning: bool = True) -> str:
     """One `type="reasoning"` block; learning flows show only the duration."""
     dur = format_seconds(step.get("duration"))
+    seconds = format_duration_attr(step.get("duration"))
     body = "" if learning else _body(str(step.get("text") or ""))
     return (
-        f'<details type="reasoning" done="true" duration="{_escape(dur)}">\n'
+        f'<details type="reasoning" done="true" duration="{_escape(seconds)}">\n'
         f"<summary>Thought for {html.escape(dur, quote=False)}</summary>\n"
         f"{body}\n"
         f"</details>\n\n"

@@ -1060,8 +1060,22 @@ class TestStepTrace(unittest.TestCase):
         self.assertNotIn("text", thought[0])  # draft reasoning never enters the trace
         card = steps.render_step(thought[0], learning=True)
         self.assertIn("<summary>Thought for 1.6s</summary>", card)
+        # The attribute is bare seconds: Open WebUI feeds it to
+        # `dayjs.duration(value, 'seconds')`, and "1.6s" humanizes to "a month".
+        self.assertIn('duration="1.6"', card)
+        self.assertNotIn('duration="1.6s"', card)
         self.assertNotIn(SECRET, card)
         self.assertNotIn(SECRET, json.dumps(ts.steps))
+
+    def test_thinking_duration_attribute_is_bare_seconds(self):
+        card = steps.render_thinking_step({"kind": "thinking", "duration": 75.0})
+        self.assertIn('duration="75.0"', card)
+        self.assertIn("<summary>Thought for 75.0s</summary>", card)
+
+    def test_thinking_duration_attribute_defaults_to_zero(self):
+        card = steps.render_thinking_step({"kind": "thinking"})
+        self.assertIn('duration="0.0"', card)
+        self.assertIn("<summary>Thought for 0.0s</summary>", card)
 
     def test_thinking_text_is_shown_in_a_general_chat(self):
         ts = TurnStream(learning=False)
