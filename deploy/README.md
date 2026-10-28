@@ -22,6 +22,7 @@ Files in this directory:
 | `docker-compose.search.yml` | Optional searxng (web search), added on demand |
 | `searxng/settings.yml` | Enables JSON output for Open WebUI's web search |
 | `pi-bridge.service` | systemd `--user` unit for the bridge |
+| `pi-bridge-wait-docker0` | ExecStartPre gate: waits for `PI_BRIDGE_HOST` (docker0) before bind |
 | `pi-bridge.env.example` | EnvironmentFile for that unit |
 | `.env.example` | Compose secrets (key, webui secret) |
 | `openui/` | installer-written OpenUI widget assets, mounted read-only (see below) |
@@ -65,12 +66,14 @@ sudo docker compose ps         # wait for open-webui "healthy"
 sudo ufw allow from 172.16.0.0/12 to 172.17.0.1 port 8790 proto tcp \
   comment 'pi-bridge (docker only)'
 
-# 4. Bridge service (start after Docker so docker0 exists; it retries anyway)
-mkdir -p ~/.config/systemd/user
+# 4. Bridge service. ExecStartPre waits for PI_BRIDGE_HOST (docker0) to exist,
+#    so this is safe even when the user session starts before Docker does.
+mkdir -p ~/.config/systemd/user ~/.local/bin
 cp pi-bridge.env.example ~/.config/pi-bridge.env
 $EDITOR ~/.config/pi-bridge.env   # SAME PI_BRIDGE_API_KEY; set PI_BRIDGE_STATE_REPO
 chmod 600 ~/.config/pi-bridge.env
 cp pi-bridge.service ~/.config/systemd/user/
+cp pi-bridge-wait-docker0 ~/.local/bin/ && chmod 755 ~/.local/bin/pi-bridge-wait-docker0
 systemctl --user daemon-reload
 systemctl --user enable --now pi-bridge.service
 sudo loginctl enable-linger "$USER"     # keep pi-bridge running after logout/reboot
@@ -251,6 +254,7 @@ cd ~/learning-pi/deploy && sudo docker compose down
 sudo ufw delete allow from 172.16.0.0/12 to 172.17.0.1 port 8790 proto tcp
 systemctl --user disable --now pi-bridge.service
 rm ~/.config/systemd/user/pi-bridge.service
+rm -f ~/.local/bin/pi-bridge-wait-docker0
 systemctl --user daemon-reload
 # optionally remove data: sudo docker compose down -v   (DELETES webui.db)
 # optionally stop docker if you enabled it just for this:

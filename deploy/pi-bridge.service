@@ -1,16 +1,19 @@
 # pi-bridge as a systemd --user service (Phase 3).
 #
 # Install:
-#   mkdir -p ~/.config/systemd/user
+#   mkdir -p ~/.config/systemd/user ~/.local/bin
 #   cp pi-bridge.env.example ~/.config/pi-bridge.env   # then edit + chmod 600
 #   cp pi-bridge.service ~/.config/systemd/user/
+#   cp pi-bridge-wait-docker0 ~/.local/bin/ && chmod 755 ~/.local/bin/pi-bridge-wait-docker0
 #   systemctl --user daemon-reload
 #   systemctl --user enable --now pi-bridge.service
 #
 # The bridge binds to Docker's default bridge gateway (PI_BRIDGE_HOST, usually
 # 172.17.0.1) so the Open WebUI container can reach it and nothing on the LAN can
-# (a ufw rule in deploy/README.md admits docker traffic). Start Docker first; if
-# docker0 is not up yet the bind fails and the service retries.
+# (a ufw rule in deploy/README.md admits docker traffic). The user session can
+# start before the system-level Docker daemon has created docker0, so ExecStartPre
+# waits for that address instead of failing with "Cannot assign requested address"
+# and relying on a blind restart.
 #
 # Logs:  journalctl --user -u pi-bridge -f
 
@@ -24,6 +27,10 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=%h/learning-pi
 EnvironmentFile=%h/.config/pi-bridge.env
+# Blocks until PI_BRIDGE_HOST exists on an interface (docker0 after Docker
+# starts), up to PI_BRIDGE_WAIT_TIMEOUT seconds (default 60). Exits 1 if absent
+# so Restart=on-failure retries instead of the bind dying with EADDRNOTAVAIL.
+ExecStartPre=%h/.local/bin/pi-bridge-wait-docker0
 ExecStart=/usr/bin/python3 -m bridge
 Restart=on-failure
 RestartSec=3s
