@@ -46,6 +46,14 @@ services:
       # RAG_WEB_SEARCH_ENGINE). Set ENABLE_RAG_WEB_SEARCH=false to disable.
       ENABLE_RAG_WEB_SEARCH: ${ENABLE_RAG_WEB_SEARCH:-true}
       RAG_WEB_SEARCH_ENGINE: ${RAG_WEB_SEARCH_ENGINE:-duckduckgo}
+      # Do NOT revalidate the embedding model against huggingface.co at boot.
+      # Open WebUI loads SentenceTransformer inside the lifespan startup hook, so
+      # the hub round-trip (snapshot_download) blocks the API socket: a slow or
+      # flaky link turns every boot into a multi-minute hang where 127.0.0.1:3000
+      # accepts and immediately resets, and nothing logs meanwhile. The model is
+      # baked into the image / already in the volume, so skip the check; set
+      # this to true (or delete the line) when deliberately changing models.
+      RAG_EMBEDDING_MODEL_AUTO_UPDATE: ${RAG_EMBEDDING_MODEL_AUTO_UPDATE:-false}
       SEARXNG_QUERY_URL: ${SEARXNG_QUERY_URL:-http://searxng:8080/search?q=<query>}
       # CSP injected into sandboxed iframe documents (Artifacts previews etc.).
       # The OpenUI bundle is self-hosted same-origin, so no CDN origin is needed;
@@ -67,8 +75,11 @@ services:
       test: ["CMD", "python3", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=4).status==200 else 1)"]
       interval: 30s
       timeout: 5s
-      retries: 5
-      start_period: 60s
+      retries: 10
+      # A cold boot imports torch/transformers before uvicorn binds 8080, which
+      # is well past the old 60s window; a too-short start_period only makes
+      # `compose ps` scream "unhealthy" at a container that is still loading.
+      start_period: 120s
 
 networks:
   pi-net:
