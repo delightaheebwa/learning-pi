@@ -1293,6 +1293,47 @@ def test_hook_behaviors(root: Path) -> None:
         else:
             fail(f"behavior: uppercase SOLO flow must gate writes, got {res}")
 
+        # --- Test 32: cross-hook consistency on GENERIC tool output. The two
+        # hooks implement the flow scan separately; a marker inside a GENERIC
+        # (tool-output) step must not arm either one. The control case proves
+        # the same marker does arm both when it sits in a real step. ---
+        payload_write = {
+            "toolCall": {"name": "write_to_file", "args": {"TargetFile": "/repo/artifact/widget.html"}},
+        }
+        payload_stop = {"fullyIdle": True}
+
+        transcript_generic_flow = tmp_path / "trans_generic_flow.jsonl"
+        with open(transcript_generic_flow, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/solo"}) + "\n")
+            f.write(json.dumps({
+                "source": "TOOL",
+                "type": "GENERIC",
+                "content": "an artifact that happens to contain [[FLOW:solo]] in its body",
+            }) + "\n")
+        pre = run_hook(pre_tool_script, {**payload_write, "transcriptPath": str(transcript_generic_flow)})
+        stop = run_hook(stop_script, {**payload_stop, "transcriptPath": str(transcript_generic_flow)})
+        if pre.get("decision") == "allow" and stop.get("decision") == "allow":
+            ok("behavior: both hooks ignore a flow marker inside GENERIC tool output")
+        else:
+            fail(f"behavior: GENERIC flow marker must not arm either hook, got pre={pre} stop={stop}")
+
+        transcript_real_flow = tmp_path / "trans_real_flow.jsonl"
+        with open(transcript_real_flow, "w") as f:
+            f.write(json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "/solo"}) + "\n")
+            f.write(json.dumps({
+                "source": "MODEL",
+                "type": "PLANNER_RESPONSE",
+                "content": "[[FLOW:solo]] closed-book question — " + ("a substantive solo turn " * 5),
+            }) + "\n")
+        pre = run_hook(pre_tool_script, {**payload_write, "transcriptPath": str(transcript_real_flow)})
+        stop = run_hook(stop_script, {**payload_stop, "transcriptPath": str(transcript_real_flow)})
+        pre_armed = pre.get("decision") == "deny" and "SOLO_NO_AIDS" in pre.get("reason", "")
+        stop_armed = stop.get("decision") == "continue"
+        if pre_armed and stop_armed:
+            ok("behavior: both hooks arm on the same real-step flow marker (cross-hook agreement)")
+        else:
+            fail(f"behavior: real-step solo flow must arm both hooks, got pre={pre} stop={stop}")
+
 
 def main() -> None:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
