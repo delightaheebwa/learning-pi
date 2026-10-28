@@ -22,19 +22,28 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from bridge import steps  # noqa: E402
-from bridge.stream import TurnStream, text_of_content  # noqa: E402
-from bridge import genui, openwebui  # noqa: E402
+from bridge.stream import (  # noqa: E402
+    ARGS_PREVIEW,
+    Step,
+    TurnStream,
+    render_steps,
+    text_of_content,
+)
+from bridge import openwebui  # noqa: E402
 from bridge.rpc import PiSession  # noqa: E402
 from bridge.server import (  # noqa: E402
+    OPENUI_BUNDLE_VERSION,
     BridgeConfig,
     BridgeServer,
     LearningLock,
+    default_bundle_base,
     is_learning_flow,
     last_user_text,
     openwebui_ids,
+    payload_fragment,
     session_id_for,
     session_key,
+    widget_embed_url,
 )
 
 FAKE_PI = str(ROOT / "test" / "bridge" / "fake_pi.py")
@@ -855,28 +864,28 @@ class TestGenUiEmbedUrl(unittest.TestCase):
     BASE = "http://127.0.0.1:3000/static/openui/0.2.1"
 
     def test_embed_url_targets_the_self_hosted_shell(self):
-        url = genui.widget_embed_url('root = Card([])', bundle_base=self.BASE)
+        url = widget_embed_url('root = Card([])', bundle_base=self.BASE)
         self.assertTrue(url.startswith(self.BASE + "/widget.html#"))
         self.assertNotIn("data:", url)
 
     def test_payload_roundtrips_through_the_fragment(self):
         payload = 'root = Card([t])\nt = TextContent("Unicode — ok", "large")'
-        url = genui.widget_embed_url(payload, bundle_base=self.BASE)
+        url = widget_embed_url(payload, bundle_base=self.BASE)
         frag = url.split("#", 1)[1]
         pad = "=" * (-len(frag) % 4)
         decoded = base64.urlsafe_b64decode(frag + pad).decode("utf-8")
         self.assertEqual(decoded, payload)
 
     def test_fragment_is_unpadded_and_url_safe(self):
-        frag = genui.payload_fragment("a/b+c=?& d")
+        frag = payload_fragment("a/b+c=?& d")
         self.assertNotIn("=", frag)
         self.assertNotIn("/", frag)
         self.assertNotIn("+", frag)
 
     def test_default_bundle_base_is_pinned_same_origin(self):
         self.assertEqual(
-            genui.default_bundle_base("http://127.0.0.1:3000/"),
-            "http://127.0.0.1:3000/static/openui/" + genui.OPENUI_BUNDLE_VERSION,
+            default_bundle_base("http://127.0.0.1:3000/"),
+            "http://127.0.0.1:3000/static/openui/" + OPENUI_BUNDLE_VERSION,
         )
 
 
@@ -990,7 +999,7 @@ class TestStepTrace(unittest.TestCase):
                  "toolName": "bash", "isError": False,
                  "result": {"content": [{"type": "text", "text": "file.txt"}]}})
         self.assertEqual(len(ts.steps), 1)
-        card = steps.render_step(ts.steps[0], learning=True)
+        card = ts.steps[0].render(learning=True)
         self.assertTrue(card.startswith('<details type="tool_calls" done="true"'))
         self.assertIn('name="bash · 1.2s"', card)
         self.assertIn('arguments="{&quot;command&quot;:&quot;ls -la&quot;}"', card)
@@ -1006,7 +1015,7 @@ class TestStepTrace(unittest.TestCase):
         ts.feed({"type": "tool_execution_end", "toolCallId": "call_1",
                  "toolName": "bash", "isError": False,
                  "result": {"content": [{"type": "text", "text": "file.txt " * 500}]}})
-        card = steps.render_step(ts.steps[0], learning=False)
+        card = ts.steps[0].render(learning=False)
         self.assertIn("file.txt", card)
         self.assertIn("…", card)  # truncated preview, not a log dump
 
@@ -1014,7 +1023,7 @@ class TestStepTrace(unittest.TestCase):
         ts = TurnStream()
         ts.feed({"type": "tool_execution_start", "toolCallId": "c", "toolName": "bash", "args": {}})
         ts.feed({"type": "tool_execution_end", "toolCallId": "c", "toolName": "bash", "isError": True})
-        card = steps.render_step(ts.steps[0], learning=True)
+        card = ts.steps[0].render(learning=True)
         self.assertIn('status="failed"', card)
         self.assertNotIn('done="true"', card)
 
@@ -1024,24 +1033,24 @@ class TestStepTrace(unittest.TestCase):
                  "args": {"command": 'echo "</details>" ' + "x" * 500}})
         ts.feed({"type": "tool_execution_end", "toolCallId": "c", "toolName": "bash",
                  "isError": False})
-        card = steps.render_step(ts.steps[0], learning=True)
+        card = ts.steps[0].render(learning=True)
         self.assertEqual(card.count("</details>"), 1)  # cannot close the block early
         attr = re.search(r'arguments="(.*?)"', card).group(1)
-        self.assertLessEqual(len(html.unescape(attr)), steps.ARGS_PREVIEW + 1)
+        self.assertLessEqual(len(html.unescape(attr)), ARGS_PREVIEW + 1)
         self.assertNotIn('"', attr)  # no raw quote ends the attribute value
 
     def test_opening_details_in_args_cannot_start_a_nested_block(self):
-        card = steps.render_tool_step({
-            "kind": "tool", "id": "c", "name": "write_file",
-            "args": {"path": "<details type=\"x\">"}, "status": "done", "duration": 0.1,
-        })
+        card = Step(
+            kind="tool", step_id="c", name="write_file",
+            args={"path": "<details type=\"x\">"}, status="done", duration=0.1,
+        ).render()
         self.assertEqual(card.count("<details"), 1)  # opening tokens are escaped too
 
     def test_tool_end_without_start_still_renders(self):
         ts = TurnStream()
         ts.feed({"type": "tool_execution_end", "toolName": "bash", "isError": False})
         self.assertEqual(len(ts.steps), 1)
-        self.assertEqual(ts.steps[0]["status"], "done")
+        self.assertEqual(ts.steps[0].status, "done")
 
     def test_thinking_is_duration_only_in_a_learning_flow(self):
         clock = _Clock()
@@ -1055,25 +1064,25 @@ class TestStepTrace(unittest.TestCase):
             "role": "assistant", "stopReason": "stop",
             "content": [{"type": "thinking", "thinking": SECRET},
                         {"type": "text", "text": "VERIFIED_FINAL"}]}})
-        thought = [s for s in ts.steps if s["kind"] == "thinking"]
+        thought = [s for s in ts.steps if s.kind == "thinking"]
         self.assertEqual(len(thought), 1)
-        self.assertNotIn("text", thought[0])  # draft reasoning never enters the trace
-        card = steps.render_step(thought[0], learning=True)
+        self.assertEqual(thought[0].text, "")  # draft reasoning never enters the trace
+        card = thought[0].render(learning=True)
         self.assertIn("<summary>Thought for 1.6s</summary>", card)
         # The attribute is bare seconds: Open WebUI feeds it to
         # `dayjs.duration(value, 'seconds')`, and "1.6s" humanizes to "a month".
         self.assertIn('duration="1.6"', card)
         self.assertNotIn('duration="1.6s"', card)
         self.assertNotIn(SECRET, card)
-        self.assertNotIn(SECRET, json.dumps(ts.steps))
+        self.assertNotIn(SECRET, repr(ts.steps))
 
     def test_thinking_duration_attribute_is_bare_seconds(self):
-        card = steps.render_thinking_step({"kind": "thinking", "duration": 75.0})
+        card = Step(kind="thinking", duration=75.0).render()
         self.assertIn('duration="75.0"', card)
         self.assertIn("<summary>Thought for 75.0s</summary>", card)
 
     def test_thinking_duration_attribute_defaults_to_zero(self):
-        card = steps.render_thinking_step({"kind": "thinking"})
+        card = Step(kind="thinking").render()
         self.assertIn('duration="0.0"', card)
         self.assertIn("<summary>Thought for 0.0s</summary>", card)
 
@@ -1086,9 +1095,9 @@ class TestStepTrace(unittest.TestCase):
             "role": "assistant", "stopReason": "stop",
             "content": [{"type": "thinking", "thinking": "pondering"},
                         {"type": "text", "text": "answer"}]}})
-        thought = [s for s in ts.steps if s["kind"] == "thinking"][0]
-        self.assertEqual(thought["text"], "pondering")
-        card = steps.render_step(thought, learning=False)
+        thought = [s for s in ts.steps if s.kind == "thinking"][0]
+        self.assertEqual(thought.text, "pondering")
+        card = thought.render(learning=False)
         self.assertIn("pondering", card)
 
     def test_deltas_never_become_steps(self):
@@ -1098,7 +1107,7 @@ class TestStepTrace(unittest.TestCase):
         ts.feed({"type": "message_update",
                  "assistantMessageEvent": {"type": "thinking_delta", "delta": SECRET}})
         self.assertEqual(ts.steps, [])
-        self.assertEqual(steps.render_steps(ts.steps), "")
+        self.assertEqual(render_steps(ts.steps), "")
 
     def test_steps_keep_stream_order(self):
         ts = TurnStream()
@@ -1112,7 +1121,7 @@ class TestStepTrace(unittest.TestCase):
             "content": [{"type": "text", "text": "done"}]}})
         ts.feed({"type": "tool_execution_start", "toolCallId": "b", "toolName": "read_file", "args": {}})
         ts.feed({"type": "tool_execution_end", "toolCallId": "b", "toolName": "read_file"})
-        self.assertEqual([s["kind"] for s in ts.steps], ["tool", "thinking", "tool"])
+        self.assertEqual([s.kind for s in ts.steps], ["tool", "thinking", "tool"])
 
 
 class _FakeOwui:

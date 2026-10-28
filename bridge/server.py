@@ -11,6 +11,7 @@ behaviour lives in pi (the gate, subagents, skills).
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -23,14 +24,44 @@ from pathlib import Path
 from typing import Optional
 
 from .rpc import PiSession, PiError
-from .stream import TurnStream
-from . import genui, openwebui, steps
+from .stream import TurnStream, render_steps
+from . import openwebui
 
 _LEARNING_CMD_RE = re.compile(
     r"^\s*/(review|solo|ingest|teach|lesson|continue|pause|audit)\b",
     re.IGNORECASE,
 )
 _FLOW_MARKER = "[[FLOW:"
+
+# --- widget embeds ----------------------------------------------------------
+# A verified `[[TURN:ui]]` payload is delivered as an Open WebUI Rich UI embed.
+# It cannot be a `data:` URL: Open WebUI's `FullHeightIframe` only treats an
+# `http(s)://` (or protocol-relative) string as a URL, and renders a `data:`
+# embed as literal text. So the shell document, the pinned OpenUI bundle, and
+# its stylesheet are self-hosted same-origin (written by
+# `learning-system/scripts/setup_openwebui.py`), and the payload rides in the
+# URL fragment (persisted as chat embed metadata alongside the transcript). The
+# payload is declarative OpenUI Lang (no script, no network), so a data-only
+# fragment is safe. See `docs/plans/intelligent-ui/`.
+OPENUI_BUNDLE_VERSION = "0.2.1"  # pinned per docs/plans/intelligent-ui/PHASE0-FINDINGS.md
+_OPENUI_STATIC_PATH = "/static/openui"
+_OPENUI_WIDGET_FILE = "widget.html"
+
+
+def default_bundle_base(openwebui_base_url: str) -> str:
+    """Absolute same-origin URL of the self-hosted pinned bundle + shell."""
+    return f"{openwebui_base_url.rstrip('/')}{_OPENUI_STATIC_PATH}/{OPENUI_BUNDLE_VERSION}"
+
+
+def payload_fragment(payload: str) -> str:
+    """URL-safe (unpadded) base64 of the payload — safe to place in a fragment."""
+    encoded = base64.urlsafe_b64encode((payload or "").encode("utf-8")).decode("ascii")
+    return encoded.rstrip("=")
+
+
+def widget_embed_url(payload: str, *, bundle_base: str) -> str:
+    """Deliverable embed URL for a verified OpenUI payload."""
+    return f"{bundle_base.rstrip('/')}/{_OPENUI_WIDGET_FILE}#" + payload_fragment(payload)
 
 
 def message_text(message: dict) -> str:
@@ -455,7 +486,7 @@ class Handler(BaseHTTPRequestHandler):
             if stream:
                 self._finish_stream(model, content)
             else:
-                steps_text = steps.render_steps(turn.steps, learning=learning)
+                steps_text = render_steps(turn.steps, learning=learning)
                 self._send_json(200, self._completion(model, steps_text + content))
             self._deliver_widgets(key, model, turn.openui_payloads())
         finally:
@@ -477,34 +508,22 @@ class Handler(BaseHTTPRequestHandler):
         return openwebui.StatusReporter(client, chat_id, message_id)
 
     def _step_sink(self, model: str, learning: bool, reporter, stream_cards: bool):
-        """Turn a completed step (or a transient start) into UI output.
+        """Turn a `Step` into UI output.
 
-        Cards are written as complete SSE chunks the moment the step finishes,
-        so Open WebUI shows the action before the turn settles. Status events are
+        A completed step is written as a complete SSE chunk the moment it
+        finishes, so Open WebUI shows the action before the turn settles; a
+        transient start step has no card, only a status line. Status events are
         supplementary (live shimmer + timeline); failures there are swallowed by
         the reporter.
         """
 
-        def sink(step: dict) -> None:
-            kind = step.get("kind")
-            if kind == "tool_start":
-                if reporter is not None:
-                    reporter.status(f"Running {step.get('name') or 'tool'}…")
-                return
-            if kind == "thinking_start":
-                if reporter is not None:
-                    reporter.status("Thinking…")
-                return
+        def sink(step) -> None:
             if stream_cards:
-                text = steps.render_step(step, learning=learning)
+                text = step.render(learning=learning)
                 if text:
                     self._try_write_sse(self._chunk(model, {"content": text}))
-            if reporter is not None and kind == "tool":
-                state = "failed" if step.get("status") == "error" else "done"
-                duration = steps.format_seconds(step.get("duration"))
-                reporter.status(f"{step.get('name') or 'tool'} {state} ({duration})")
-            elif reporter is not None and kind == "thinking":
-                reporter.status(f"Thought for {steps.format_seconds(step.get('duration'))}")
+            if reporter is not None:
+                reporter.status(step.status_line())
 
         return sink
 
@@ -521,8 +540,8 @@ class Handler(BaseHTTPRequestHandler):
         client = self.cfg.openwebui_client()
         if client is None:
             return
-        bundle_base = genui.default_bundle_base(self.cfg.openwebui_base_url)
-        urls = [genui.widget_embed_url(p, bundle_base=bundle_base) for p in payloads]
+        bundle_base = default_bundle_base(self.cfg.openwebui_base_url)
+        urls = [widget_embed_url(p, bundle_base=bundle_base) for p in payloads]
         chat_id = key[len("chat:") :]
         threading.Thread(
             target=self._deliver_widgets_bg,

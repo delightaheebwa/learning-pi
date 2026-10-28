@@ -84,7 +84,7 @@ without it the Tutor would fall back to plain Unicode. Set `PI_MATH_MODE=unicode
 A verified `[[TURN:ui]]` turn carries one ` ```openui ` OpenUI Lang payload. The
 learning-gate's `ui-audit` verifies the payload and prose; the bridge then lifts
 the fence out of the prose, builds a same-origin embed URL
-(`bridge/genui.py`: `/static/openui/<version>/widget.html#<base64url payload>`), and
+(`bridge/server.py`: `/static/openui/<version>/widget.html#<base64url payload>`), and
 — when configured — appends a second assistant message to the Open WebUI chat with
 an `embeds` event (`bridge/openwebui.py`), so the widget renders **below** the
 prose. Mermaid/HTML fences are left in the prose for Open WebUI's native rendering.
@@ -129,7 +129,7 @@ happen instead of the finished turn all at once:
 `message_update` deltas are still never forwarded: the trace is metadata about
 completed actions, not the draft (`B-deltas-never-forwarded`). Step blocks are
 emitted complete and strictly formatted for Open WebUI's `<details>` parser
-(`bridge/steps.py`).
+(`bridge/stream.py`).
 
 ### Live status line (optional)
 

@@ -484,7 +484,7 @@ A weekly `learning-pi-audit.timer` runs `pi/audit_gates.py` over the last 7 days
 can be the face while pi stays the brain** (gate, subagents, skills run unchanged; Open WebUI
 holds only chat transcripts). `deploy/` runs Open WebUI in Docker in front of a host
 `pi-bridge` systemd service. A verified `[[TURN:ui]]` turn rides out as a self-hosted OpenUI
-widget embed below the prose (`bridge/genui.py` + `deploy/openui/`, served by the installer).
+widget embed below the prose (`bridge/server.py` + `deploy/openui/`, served by the installer).
 Behavior contract: `B-*` invariants in `CONTRACT.md` / `contracts/learning-core.json` (v12, 72
 invariants). Details: [`bridge/README.md`](bridge/README.md),
 [`deploy/README.md`](deploy/README.md), [`deploy/SECURITY.md`](deploy/SECURITY.md).
