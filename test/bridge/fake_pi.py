@@ -89,6 +89,25 @@ def run_prompt(cid):
         return
     out({"id": cid, "type": "response", "command": "prompt", "success": True,
          "data": {"disposition": "started"}})
+    if SCENARIO == "silent":
+        # A hung turn: the prompt is accepted, then pi emits nothing at all. The
+        # bridge's idle budget must abort it with an actionable reason.
+        return
+    if SCENARIO in ("trickle", "trickle_endless"):
+        # An active-but-long turn: records arrive faster than the idle budget but
+        # the turn outlives it, so only an idle (not wall-clock) budget finishes.
+        rounds = 40 if SCENARIO == "trickle_endless" else 6
+        for i in range(rounds):
+            time.sleep(0.05 if SCENARIO == "trickle_endless" else 0.15)
+            out({"type": "message_update",
+                 "assistantMessageEvent": {"type": "thinking_delta", "delta": "tick %d" % i}})
+        out({"type": "message_end",
+             "message": {"role": "assistant", "stopReason": "stop",
+                         "content": [{"type": "text", "text": _final_text()}]}})
+        out({"type": "turn_end"})
+        out({"type": "agent_end"})
+        out({"type": "agent_settled"})
+        return
     if SCENARIO == "slow":
         time.sleep(1.5)
     out({"type": "agent_start"})
@@ -150,6 +169,10 @@ def main():
         elif t == "abort":
             out({"id": rec.get("id"), "type": "response", "command": "abort",
                  "success": True, "data": {}})
+            if SCENARIO == "silent":
+                # Exit so the bridge's post-abort drain sees EOF instead of
+                # waiting out its grace window.
+                return 0
         elif t == "extension_ui_response":
             continue
     return 0

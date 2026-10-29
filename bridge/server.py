@@ -17,6 +17,7 @@ import hmac
 import json
 import os
 import re
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -274,7 +275,8 @@ class BridgeConfig:
         api_key: str,
         host: str = "127.0.0.1",
         port: int = 8790,
-        timeout: float = 900.0,
+        timeout: float = 1800.0,
+        max_turn: float = 7200.0,
         models: Optional[list] = None,
         agent_dir: Optional[str] = None,
         session_dir: Optional[str] = None,
@@ -290,7 +292,14 @@ class BridgeConfig:
         self.api_key = api_key
         self.host = host
         self.port = port
+        # Idle budget: the longest pi may stay silent mid-turn. A learning turn
+        # can spend ~15 minutes inside one scout subagent with no records in
+        # between, so a wall-clock cap here would abort healthy turns (the
+        # 2026-10-29 Open WebUI "pi runtime error" sessions).
         self.timeout = timeout
+        # Absolute ceiling for one turn: a runaway turn must still release the
+        # single-writer learning lock.
+        self.max_turn = max_turn
         self.models = models or ["learning"]
         self.agent_dir = agent_dir
         self.session_dir = session_dir
@@ -475,6 +484,9 @@ class Handler(BaseHTTPRequestHandler):
                 entry = self.server.registry.get_or_create(key)  # type: ignore[attr-defined]
                 turn = self._run_turn(entry, user, learning=learning, on_step=sink)
             except (PiError, OSError) as exc:
+                # Surface the reason in the journal too: a bare UI bubble left no
+                # trace of the 2026-10-29 turn-timeout incident.
+                print(f"pi-bridge: turn failed: {exc}", file=sys.stderr, flush=True)
                 turn = TurnStream(learning=learning)
                 turn.text = f"⚠️ pi runtime error: {exc}"
             finally:
@@ -577,7 +589,12 @@ class Handler(BaseHTTPRequestHandler):
                     except PiError:
                         pass  # fall back to appending the prompt
                 turn = TurnStream(learning=learning, on_step=on_step)
-                entry.session.prompt(user, turn.feed, timeout=self.cfg.timeout)
+                entry.session.prompt(
+                    user,
+                    turn.feed,
+                    timeout=self.cfg.timeout,
+                    max_turn=self.cfg.max_turn,
+                )
                 entry.last_user_text = user
                 entry.answered = True
                 entry.last_used = time.monotonic()

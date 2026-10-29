@@ -166,9 +166,17 @@ class PiSession:
         self,
         message: str,
         on_record: Callable[[dict], None],
-        timeout: float = 900.0,
+        timeout: float = 1800.0,
+        max_turn: float = 7200.0,
     ) -> list[dict]:
         """Run one prompt to `agent_settled`, streaming records to `on_record`.
+
+        `timeout` is an **idle** budget: the longest pi may stay silent. Every
+        record resets it, so a long but working turn (a scout subagent can run
+        ~15 minutes without emitting anything between `tool_execution_start`
+        and its result) is not killed by a fixed wall-clock cap.
+        `max_turn` is the absolute ceiling for one turn, so a runaway turn still
+        releases the single-writer learning lock.
 
         Returns every non-response record observed for the turn.
         """
@@ -177,18 +185,30 @@ class PiSession:
         try:
             cid = uuid.uuid4().hex
             self._write({"id": cid, "type": "prompt", "message": message})
-            deadline = time.monotonic() + timeout
+            now = time.monotonic()
+            idle_deadline = now + timeout
+            turn_deadline = now + max_turn
             seen: list[dict] = []
             accepted = False
             while True:
-                rec = self._next(deadline)
+                rec = self._next(min(idle_deadline, turn_deadline))
                 if rec is None:
+                    hit_ceiling = time.monotonic() >= turn_deadline
                     self.abort()
                     # Give the aborted turn a moment to flush its trailing
                     # records/agent_settled so they cannot bleed into the next
                     # prompt (the fast default grace is only for handled prompts).
                     self._drain(grace=1.0)
-                    raise PiError("prompt timed out")
+                    if hit_ceiling:
+                        raise PiError(
+                            f"turn ran longer than {max_turn:g}s and was aborted "
+                            "(raise PI_BRIDGE_MAX_TURN for a longer ceiling)"
+                        )
+                    raise PiError(
+                        f"pi went quiet for {timeout:g}s and the turn was aborted "
+                        "(raise PI_BRIDGE_TIMEOUT if a subagent legitimately needs longer)"
+                    )
+                idle_deadline = time.monotonic() + timeout
                 t = rec.get("type")
                 if t == "response" and rec.get("id") == cid:
                     if not rec.get("success", True):

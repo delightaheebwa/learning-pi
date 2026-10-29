@@ -33,7 +33,10 @@ def build_config(argv=None) -> BridgeConfig:
     ap.add_argument("--port", type=int, default=int(os.environ.get("PI_BRIDGE_PORT", "8790")))
     ap.add_argument("--api-key", default=None)
     ap.add_argument("--models", default=os.environ.get("PI_BRIDGE_MODELS", DEFAULT_MODELS))
-    ap.add_argument("--timeout", type=float, default=float(os.environ.get("PI_BRIDGE_TIMEOUT", "900")))
+    ap.add_argument("--timeout", type=float, default=float(os.environ.get("PI_BRIDGE_TIMEOUT", "1800")),
+                    help="seconds pi may stay silent mid-turn before the turn is aborted")
+    ap.add_argument("--max-turn", type=float, default=float(os.environ.get("PI_BRIDGE_MAX_TURN", "7200")),
+                    help="absolute ceiling in seconds for one turn, even while active")
     ap.add_argument("--max-sessions", type=int, default=int(os.environ.get("PI_BRIDGE_MAX_SESSIONS", "8")))
     ap.add_argument("--agent-dir", default=os.environ.get("PI_BRIDGE_AGENT_DIR"))
     ap.add_argument("--session-dir", default=os.environ.get("PI_BRIDGE_SESSION_DIR"))
@@ -68,6 +71,7 @@ def build_config(argv=None) -> BridgeConfig:
         host=args.host,
         port=args.port,
         timeout=args.timeout,
+        max_turn=args.max_turn,
         models=[m.strip() for m in args.models.split(",") if m.strip()],
         agent_dir=args.agent_dir,
         session_dir=args.session_dir,

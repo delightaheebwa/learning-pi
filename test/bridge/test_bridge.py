@@ -30,7 +30,7 @@ from bridge.stream import (  # noqa: E402
     text_of_content,
 )
 from bridge import openwebui  # noqa: E402
-from bridge.rpc import PiSession  # noqa: E402
+from bridge.rpc import PiError, PiSession  # noqa: E402
 from bridge.server import (  # noqa: E402
     OPENUI_BUNDLE_VERSION,
     BridgeConfig,
@@ -189,6 +189,72 @@ class TestSessionId(unittest.TestCase):
             session.command_line(),
             ["pi", "--mode", "rpc", "--name", "bridge-x"],
         )
+
+
+class TestPromptBudgets(unittest.TestCase):
+    """A turn is bounded by silence, not by wall-clock time.
+
+    A learning turn can spend ~15 minutes inside one scout subagent with no
+    record in between (2026-10-29: a fixed 900 s cap aborted exactly such a
+    turn and Open WebUI showed `pi runtime error`). Idle time aborts a hung
+    turn; an absolute ceiling still frees the single-writer lock.
+    """
+
+    def _session(self, scenario):
+        env = dict(os.environ, FAKE_PI_SCENARIO=scenario)
+        return PiSession(pi_bin=FAKE_PI, cwd=str(ROOT), env=env, name="bridge-t")
+
+    def test_silent_turn_aborts_with_an_actionable_reason(self):
+        session = self._session("silent")
+        session.start()
+        try:
+            with self.assertRaises(PiError) as ctx:
+                session.prompt("hello", lambda rec: None, timeout=0.3, max_turn=60)
+        finally:
+            session.close()
+        self.assertIn("went quiet for 0.3s", str(ctx.exception))
+        self.assertIn("PI_BRIDGE_TIMEOUT", str(ctx.exception))
+
+    def test_activity_resets_the_idle_budget(self):
+        # Records arrive every 0.15 s, so the turn outlives a 0.6 s idle budget
+        # but never goes quiet for it: only an idle budget lets it finish.
+        session = self._session("trickle")
+        session.start()
+        try:
+            seen = []
+            records = session.prompt(
+                "hello", seen.append, timeout=0.6, max_turn=60)
+        finally:
+            session.close()
+        self.assertTrue(seen)
+        self.assertTrue(any(r.get("type") == "agent_settled" for r in records))
+
+    def test_ceiling_aborts_an_active_runaway_turn(self):
+        session = self._session("trickle_endless")
+        session.start()
+        try:
+            with self.assertRaises(PiError) as ctx:
+                session.prompt("hello", lambda rec: None, timeout=60, max_turn=0.35)
+        finally:
+            session.close()
+        self.assertIn("ran longer than 0.35s", str(ctx.exception))
+        self.assertIn("PI_BRIDGE_MAX_TURN", str(ctx.exception))
+
+    def test_bridge_defaults_allow_a_long_learning_turn(self):
+        cfg = BridgeConfig(pi_bin=FAKE_PI, state_repo=str(ROOT), api_key="k")
+        self.assertEqual(cfg.timeout, 1800.0)
+        self.assertEqual(cfg.max_turn, 7200.0)
+
+    def test_cli_reads_both_budgets_from_the_environment(self):
+        from bridge.__main__ import build_config
+        with mock.patch.dict(os.environ, {
+            "PI_BRIDGE_API_KEY": "k",
+            "PI_BRIDGE_TIMEOUT": "2400",
+            "PI_BRIDGE_MAX_TURN": "10800",
+        }):
+            cfg = build_config([])
+        self.assertEqual(cfg.timeout, 2400.0)
+        self.assertEqual(cfg.max_turn, 10800.0)
 
 
 class TestTurnStream(unittest.TestCase):
@@ -417,13 +483,13 @@ class ServerHarness:
     def __init__(self, scenario="default", pi_bin=FAKE_PI, env_extra=None, **cfg):
         env = {"FAKE_PI_SCENARIO": scenario}
         env.update(env_extra or {})
+        cfg.setdefault("timeout", 30)
         self.httpd = BridgeServer(BridgeConfig(
             pi_bin=pi_bin,
             state_repo=str(ROOT),
             api_key="test-key",
             host="127.0.0.1",
             port=0,
-            timeout=30,
             models=["learning"],
             child_env_extra=env,
             **cfg,
@@ -716,6 +782,22 @@ class TestProviderError(unittest.TestCase):
             self.assertIn("pi runtime error", body)
             self.assertIn("[DONE]", body)
             self.assertNotIn(SECRET, body)
+        finally:
+            h.stop()
+
+
+class TestTurnTimeoutSurface(unittest.TestCase):
+    def test_silent_turn_surfaces_the_budget_to_raise(self):
+        # The learner must be able to act on an aborted turn, not see a blank
+        # bubble: the reason names the env var to tune.
+        h = ServerHarness("silent", timeout=0.3)
+        try:
+            status, data = h.post(h.body("hello"))
+            self.assertEqual(status, 200)
+            content = data["choices"][0]["message"]["content"]
+            self.assertIn("pi runtime error", content)
+            self.assertIn("went quiet for 0.3s", content)
+            self.assertIn("PI_BRIDGE_TIMEOUT", content)
         finally:
             h.stop()
 

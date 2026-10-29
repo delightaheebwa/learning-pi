@@ -52,10 +52,22 @@ with `--network host` and use `http://127.0.0.1:8790/v1`. (A bridge bound to
 `host.docker.internal` on Linux.) Set the API key to your bridge key, then pick
 the `learning` model.
 
-Options: `--host/--port`, `--models a,b,c`, `--timeout`, `--max-sessions`,
-`--agent-dir`, `--session-dir`, `--ledger-dir`, `--openwebui-base-url`,
-`--openwebui-key-file`, `--allow-bash-guard` (do **not**
+Options: `--host/--port`, `--models a,b,c`, `--timeout`, `--max-turn`,
+`--max-sessions`, `--agent-dir`, `--session-dir`, `--ledger-dir`,
+`--openwebui-base-url`, `--openwebui-key-file`, `--allow-bash-guard` (do **not**
 pass `--bash-guard-disabled`; not recommended headless).
+
+### Turn timeouts
+
+`--timeout` (env `PI_BRIDGE_TIMEOUT`, default **1800 s**) is an **idle** budget:
+the longest pi may stay silent mid-turn. Every record resets it, so a turn that
+spends 15 minutes inside a scout subagent — no records between
+`tool_execution_start` and its result — is not killed. `--max-turn` (env
+`PI_BRIDGE_MAX_TURN`, default **7200 s**) is the absolute ceiling for one turn,
+so a runaway turn still releases the single-writer learning lock. An expired
+budget aborts the turn and surfaces `⚠️ pi runtime error: …` naming the budget to
+raise. (Before 2026-10-29 `--timeout` was a 900 s wall-clock cap; it aborted
+healthy resume turns in Open WebUI.)
 
 ### Sessions and restarts
 
