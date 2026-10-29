@@ -13,6 +13,12 @@ import time
 
 SECRET = "SECRET_DRAFT_MUST_NOT_LEAK"
 SCENARIO = os.environ.get("FAKE_PI_SCENARIO", "default")
+SESSION_FILE = os.environ.get("FAKE_PI_SESSION_FILE") or os.path.join(
+    os.environ.get("TMPDIR", "/tmp"), f"fake-pi-{os.getpid()}.jsonl"
+)
+# The active branch's user messages, so fork/regenerate/edit alignment can be
+# exercised end to end. Entry ids are e1, e2, ... in conversation order.
+USERS: list[str] = []
 
 
 def out(obj):
@@ -153,22 +159,43 @@ def main():
             continue
         t = rec.get("type")
         if t == "prompt":
-            note(os.environ.get("FAKE_PI_PROMPT_LOG"), str(rec.get("message", "")))
+            message = str(rec.get("message", ""))
+            note(os.environ.get("FAKE_PI_PROMPT_LOG"), message)
             if rec.get("images"):
                 note(os.environ.get("FAKE_PI_IMAGE_LOG"), json.dumps(rec["images"]))
+            USERS.append(message)
             run_prompt(rec.get("id"))
+        elif t == "get_state":
+            out({"id": rec.get("id"), "type": "response", "command": "get_state",
+                 "success": True,
+                 "data": {"sessionFile": SESSION_FILE, "sessionId": "fake-session"}})
+        elif t == "switch_session":
+            out({"id": rec.get("id"), "type": "response", "command": "switch_session",
+                 "success": True, "data": {"cancelled": False}})
         elif t == "get_fork_messages":
             out({"id": rec.get("id"), "type": "response", "command": "get_fork_messages",
-                 "success": True, "data": {"messages": [{"entryId": "e1", "text": "hello"}]}})
+                 "success": True,
+                 "data": {"messages": [
+                     {"entryId": f"e{i + 1}", "text": text}
+                     for i, text in enumerate(USERS)
+                 ]}})
         elif t == "fork":
             if SCENARIO == "forkfail":
                 out({"id": rec.get("id"), "type": "response", "command": "fork",
                      "success": False, "error": "cannot fork"})
             else:
-                note(os.environ.get("FAKE_PI_FORK_LOG"), str(rec.get("entryId", "")))
+                entry = str(rec.get("entryId", ""))
+                note(os.environ.get("FAKE_PI_FORK_LOG"), entry)
+                index = None
+                if entry.startswith("e") and entry[1:].isdigit():
+                    index = int(entry[1:]) - 1
+                text = USERS[index] if index is not None and 0 <= index < len(USERS) else ""
+                if index is not None:
+                    del USERS[index:]
                 out({"id": rec.get("id"), "type": "response", "command": "fork",
-                     "success": True, "data": {"text": "hello", "cancelled": False}})
+                     "success": True, "data": {"text": text, "cancelled": False}})
         elif t == "abort":
+            note(os.environ.get("FAKE_PI_ABORT_LOG"), "abort")
             out({"id": rec.get("id"), "type": "response", "command": "abort",
                  "success": True, "data": {}})
             if SCENARIO == "silent":

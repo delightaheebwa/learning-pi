@@ -16,6 +16,8 @@ import hmac
 import json
 import os
 import re
+import select
+import socket
 import sys
 import threading
 import time
@@ -23,6 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional
 
+from .align import plan_turn
 from .chatsync import ChatSync
 from .rpc import PiSession, PiError
 from .session_key import session_id_for, session_key
@@ -86,6 +89,23 @@ def message_text(message: dict) -> str:
 
 def is_learning_flow(text: str) -> bool:
     return bool(text) and (_FLOW_MARKER in text or bool(_LEARNING_CMD_RE.match(text)))
+
+
+def transcript_is_learning_flow(messages) -> bool:
+    """Whether any user message in the transcript starts a learning flow.
+
+    The gate keeps its run state across bare learner answers, so the bridge must
+    too: a chat that began with `/lesson` or `[[FLOW:…]]` stays a learning flow
+    for display policy and the single-writer lock even when the newest user
+    message is just an answer.
+    """
+    if not isinstance(messages, list):
+        return False
+    return any(
+        is_learning_flow(message_text(m))
+        for m in messages
+        if isinstance(m, dict) and m.get("role") == "user"
+    )
 
 
 def openwebui_ids(headers, body) -> tuple[str, str]:
@@ -175,6 +195,21 @@ def last_user_text(messages) -> str:
     return last_user_message(messages)[0]
 
 
+def transcript_user_texts(messages) -> list[str]:
+    """Every user-message text in the posted transcript, in order."""
+    if not isinstance(messages, list):
+        return []
+    return [
+        message_text(message) for message in messages
+        if isinstance(message, dict) and message.get("role") == "user"
+    ]
+
+
+def ends_with_assistant(messages) -> bool:
+    """Whether the posted transcript ends on an assistant message."""
+    return bool(messages) and isinstance(messages[-1], dict) and messages[-1].get("role") == "assistant"
+
+
 class LearningLock:
     """One learning turn at a time on the shared state repo.
 
@@ -219,6 +254,9 @@ class SessionEntry:
         self.inflight = False
         self.last_user_text = ""
         self.answered = False
+        # Sticky learning-flow marker: Open WebUI may compact the transcript and
+        # drop the `/lesson` message, but the gate's run state is still active.
+        self.learning_flow = False
         self.last_used = time.monotonic()
 
 
@@ -269,6 +307,11 @@ class SessionRegistry:
             entry.inflight = True
             self._entries[key] = entry
             return entry
+
+    def peek(self, key: str) -> Optional[SessionEntry]:
+        """The current entry without creating one or marking it in flight."""
+        with self._mu:
+            return self._entries.get(key)
 
     def has_live(self, key: str) -> bool:
         """Whether this key already has a running pi session."""
@@ -327,6 +370,7 @@ class BridgeConfig:
         openwebui_base_url: str = "",
         openwebui_key_file: str = openwebui.DEFAULT_KEY_FILE,
         sync_interval: float = 60.0,
+        abort_on_disconnect: bool = True,
     ) -> None:
         self.pi_bin = pi_bin
         self.state_repo = state_repo
@@ -352,6 +396,8 @@ class BridgeConfig:
         self.openwebui_key_file = openwebui_key_file
         # Seconds between delete sweeps; 0 disables the background worker.
         self.sync_interval = sync_interval
+        # Treat a streaming client disconnect as Stop (abort the pi turn).
+        self.abort_on_disconnect = abort_on_disconnect
 
     def openwebui_client(self) -> Optional[openwebui.OpenWebUIClient]:
         """A client for the post-turn widget embed, or None when unconfigured."""
@@ -500,8 +546,26 @@ class Handler(BaseHTTPRequestHandler):
 
         chat_id, message_id = openwebui_ids(self.headers, body)
         key = session_key(body, messages, chat_id=chat_id)
-        learning = is_learning_flow(user)
+        transcript_users = transcript_user_texts(messages)
+        if not (transcript_users and transcript_users[-1].strip()):
+            # An image-only turn has no text; keep alignment's last user equal
+            # to the neutral prompt actually sent to pi.
+            if transcript_users:
+                transcript_users[-1] = user
+            else:
+                transcript_users = [user]
+        # A learning flow stays active for its bare learner answers (the gate
+        # keeps its run state across prompts), so classify the whole transcript:
+        # a bare answer after `/lesson` must still take the single-writer lock
+        # and hide tool results/thinking. The per-entry flag survives transcript
+        # compaction, which can drop the original `/lesson` message.
+        existing = self.server.registry.peek(key)  # type: ignore[attr-defined]
+        learning = transcript_is_learning_flow(messages) or bool(
+            existing is not None and existing.learning_flow
+        )
+        continuation = ends_with_assistant(messages)
         self._client_gone = False
+        self._disconnect_done = threading.Event()
 
         acquired = False
         reporter = None
@@ -528,8 +592,27 @@ class Handler(BaseHTTPRequestHandler):
 
             try:
                 entry = self._session_entry(key, chat_id, model)
+                if learning:
+                    entry.learning_flow = True
+                if stream and self.cfg.abort_on_disconnect:
+                    threading.Thread(
+                        target=self._watch_disconnect,
+                        args=(self._disconnect_done,),
+                        daemon=True,
+                    ).start()
                 turn = self._run_turn(
-                    entry, user, images=images, learning=learning, on_step=sink
+                    entry,
+                    user,
+                    images=images,
+                    transcript_users=transcript_users,
+                    continuation=continuation,
+                    learning=learning,
+                    on_step=sink,
+                    should_abort=(
+                        (lambda: self._client_gone)
+                        if stream and self.cfg.abort_on_disconnect
+                        else None
+                    ),
                 )
             except (PiError, OSError) as exc:
                 # Surface the reason in the journal too: a bare UI bubble left no
@@ -550,6 +633,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, self._completion(model, steps_text + content))
             self._deliver_widgets(key, model, turn.openui_payloads())
         finally:
+            self._disconnect_done.set()
             if acquired:
                 self.server.learning.release(key)  # type: ignore[attr-defined]
             if reporter is not None:
@@ -634,34 +718,81 @@ class Handler(BaseHTTPRequestHandler):
         user: str,
         *,
         images=None,
+        transcript_users=None,
+        continuation: bool = False,
         learning: bool = True,
         on_step=None,
+        should_abort=None,
     ) -> TurnStream:
         # Mark in flight before taking the lock so the registry cannot evict this
         # session in the window between get_or_create and the lock.
         entry.inflight = True
         try:
             with entry.lock:
-                regenerate = entry.answered and entry.last_user_text == user
-                if regenerate and entry.session.alive():
+                plan = self._turn_plan(entry, transcript_users or [], continuation)
+                if plan.fork_entry_id and entry.session.alive():
+                    try:
+                        entry.session.fork_to_entry(plan.fork_entry_id)
+                    except PiError:
+                        pass  # fall back to appending the prompt
+                elif plan.fork_last and entry.session.alive():
                     try:
                         entry.session.fork_last_user_message()
                     except PiError:
                         pass  # fall back to appending the prompt
+
                 turn = TurnStream(learning=learning, on_step=on_step)
-                entry.session.prompt(
-                    user,
-                    turn.feed,
-                    timeout=self.cfg.timeout,
-                    max_turn=self.cfg.max_turn,
-                    images=images,
-                )
+                try:
+                    entry.session.prompt(
+                        plan.prompt,
+                        turn.feed,
+                        timeout=self.cfg.timeout,
+                        max_turn=self.cfg.max_turn,
+                        # An assistant continuation has no new upload; do not
+                        # re-send the previous user message's images.
+                        images=None if plan.continuation else images,
+                        should_abort=should_abort,
+                    )
+                finally:
+                    if entry.session.alive():
+                        try:
+                            entry.session.persist_fork()
+                        except Exception as exc:
+                            print(
+                                f"pi-bridge: could not persist forked session: {exc}",
+                                file=sys.stderr,
+                                flush=True,
+                            )
                 entry.last_user_text = user
                 entry.answered = True
                 entry.last_used = time.monotonic()
                 return turn
         finally:
             entry.inflight = False
+
+    @staticmethod
+    def _turn_plan(
+        entry: SessionEntry,
+        transcript_users: list,
+        continuation: bool,
+    ):
+        """Plan alignment against pi's own user messages (fallback if unknown)."""
+        pi_messages = []
+        known = False
+        if entry.session.alive():
+            try:
+                pi_messages = entry.session.get_fork_messages(timeout=10.0)
+                known = True
+            except PiError:
+                known = False
+        return plan_turn(
+            transcript_users,
+            pi_messages,
+            trailing_assistant=continuation,
+            answered=entry.answered,
+            last_user_text=entry.last_user_text,
+            pi_known=known,
+        )
 
     # -- serialisation -----------------------------------------------------
     def _completion(self, model: str, content: str) -> dict:
@@ -700,6 +831,36 @@ class Handler(BaseHTTPRequestHandler):
             "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
         }
 
+    def _watch_disconnect(self, done: threading.Event) -> None:
+        """Mark the client gone when the streaming socket reaches EOF.
+
+        Open WebUI's Stop aborts the fetch; the bridge otherwise only notices
+        on the next failed write, which may not happen while pi is silent in a
+        long tool call. The watcher polls the socket directly so the turn can be
+        aborted promptly.
+        """
+        conn = self.connection
+        while not done.wait(0.25):
+            if self._client_gone:
+                return
+            try:
+                readable, _, _ = select.select([conn], [], [], 0)
+            except (OSError, ValueError):
+                return
+            if not readable:
+                continue
+            try:
+                chunk = conn.recv(1, socket.MSG_PEEK)
+            except (BlockingIOError, InterruptedError):
+                continue
+            except (OSError, ValueError):
+                chunk = b""
+            if chunk == b"":
+                self._client_gone = True
+                return
+            # Unexpected client data mid-request: back off instead of spinning.
+            time.sleep(0.25)
+
     def _try_write_sse(self, payload: dict) -> bool:
         """Write one SSE chunk unless the client already went away."""
         if self._client_gone:
@@ -708,8 +869,8 @@ class Handler(BaseHTTPRequestHandler):
             self._write_sse(payload)
             return True
         except OSError:
-            # Navigating away must not abort the turn or leak into the next one:
-            # mark the client gone, keep consuming pi's records to settlement.
+            # The disconnect watcher will abort the turn; keep consuming until
+            # pi settles so records cannot bleed into the next prompt.
             self._client_gone = True
             return False
 

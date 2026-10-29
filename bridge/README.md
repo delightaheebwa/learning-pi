@@ -30,12 +30,15 @@ Open WebUI (Docker, this machine)
   `git reset --hard`, …) stays blocked — bash-guard's default in a headless
   session blocks even read-only `git`, which would make computer use unusable.
 * One pi session per chat, with a deterministic `--session-id` derived from the
-  chat key (`chat-<uuid>` or `fp-<hash>`); only the **newest** user message is
-  forwarded (pi owns the session context). Because pi resumes that id, a bridge
+  chat key (`chat-<uuid>` or `fp-<hash>`). Because pi resumes that id, a bridge
   restart or a pi crash reconnects the chat to its saved transcript instead of
-  starting blank and re-deriving context from the state repo. A resend of the
-  same message is treated as a regenerate and forks the session back to that
-  user message first.
+  starting blank and re-deriving context from the state repo. Before each
+  prompt the bridge aligns the posted transcript with pi's own user messages:
+  a new message appends, a regenerate re-answers the last user, an edited or
+  deleted message forks pi at the replaced turn, and a Continue click extends
+  the previous answer without forking. After a fork the bridge moves the new
+  branch over the chat's deterministic file and has pi switch to it, so a
+  restart resumes the post-fork branch and deleting the chat removes it.
 
 ## Run
 
@@ -55,8 +58,8 @@ the `learning` model.
 Options: `--host/--port`, `--models a,b,c`, `--timeout`, `--max-turn`,
 `--max-sessions`, `--agent-dir`, `--session-dir`, `--ledger-dir`,
 `--openwebui-base-url`, `--openwebui-key-file`, `--sync-interval`,
-`--allow-bash-guard` (do **not** pass `--bash-guard-disabled`; not recommended
-headless).
+`--no-abort-on-disconnect`, `--allow-bash-guard` (do **not** pass
+`--bash-guard-disabled`; not recommended headless).
 
 ### Turn timeouts
 
@@ -113,6 +116,20 @@ bridge closes that gap with the same REST key it uses for widgets
   the new chat id. A fork at a user message keeps that message; a fork at an
   assistant message keeps the turn that produced it. The copy is reused after a
   bridge restart, not duplicated.
+* **Edit / delete / regenerate / Continue.** The bridge compares the posted
+  transcript's user messages with pi's active branch. An edited or deleted
+  message forks pi at the turn being replaced before prompting; a regenerate
+  re-answers the last user; a Continue click (the transcript ends with the
+  assistant) sends a marked continuation prompt without forking. The marker is
+  filtered from later alignment. After any fork, the new branch replaces the
+  chat's session file and pi switches to it, so restart and delete see the
+  active transcript.
+* **Stop.** Open WebUI's Stop closes the streaming connection. The bridge watches
+  the socket and aborts the pi turn (even while pi is silent inside a long tool
+  call), drains to settlement, and releases the learning lock. Leaving a chat
+  mid-turn counts as Stop too; `--no-abort-on-disconnect` (or
+  `PI_BRIDGE_ABORT_ON_DISCONNECT=false`) restores the old
+  consume-to-settlement behavior.
 * **Delete.** A background sweep (`--sync-interval`, default 60 s, 0 disables)
   proves the API key with the chat-list probe, then asks Open WebUI about every
   `chat-<id>` session and closes/removes it on a per-chat 401/404/422 (Open
@@ -211,15 +228,18 @@ The learning system forbids two concurrent writers on the state repo. The bridge
 holds a learning lock for the duration of each learning turn and releases it when
 the turn ends, so concurrent learning turns — including two from the same chat —
 cannot overlap; a second chat that starts a learning turn meanwhile is told to
-wait. General (non-learning) chats are exempt. Idle pi sessions are evicted LRU
-(`--max-sessions`).
+wait. General (non-learning) chats are exempt. A chat counts as a learning flow
+if **any** user message in the transcript starts one (`/lesson`, `[[FLOW:…]]`,
+…), so a bare learner answer after `/lesson` still takes the lock and keeps the
+learning display policy. Idle pi sessions are evicted LRU (`--max-sessions`).
 
 ## Limits
 
 * The prose and any verified widget payload still arrive only at settlement
   ("generated then verified then emitted"); only the action trace streams live.
-* Regenerate uses `fork`; if pi cannot fork, the bridge falls back to appending
-  the prompt.
+* Regenerate/edit/delete use pi's `fork`; if pi cannot fork, the bridge falls
+  back to appending the prompt. A fork whose file has not been written yet is
+  adopted after the next settlement.
 * Interactive extension UI (approval dialogs) is declined, not surfaced.
 
 ## Tests

@@ -11,8 +11,10 @@ record bookkeeping simple.
 from __future__ import annotations
 
 import json
+import os
 import queue
 import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -59,6 +61,9 @@ class PiSession:
         self._reader: Optional[threading.Thread] = None
         self._stderr: list[str] = []
         self._closed = False
+        # Set after a `fork` command; `persist_fork` moves the new branch into
+        # the chat's deterministic file once the turn has written it.
+        self._forked = False
 
     # -- lifecycle ---------------------------------------------------------
     def command_line(self) -> list[str]:
@@ -153,22 +158,121 @@ class PiSession:
         finally:
             self._turn_lock.release()
 
+    def get_fork_messages(self, timeout: float = 30.0) -> list[dict]:
+        """User messages on the active branch, oldest first."""
+        data = self.command({"type": "get_fork_messages"}, "get_fork_messages", timeout)
+        messages = data.get("messages")
+        return messages if isinstance(messages, list) else []
+
+    def _ensure_session_file(self) -> Optional[str]:
+        """Learn the active session file (a `--session-id` start does not tell us)."""
+        if self.session_file:
+            return self.session_file
+        try:
+            data = self.command({"type": "get_state"}, "get_state", timeout=10.0)
+        except PiError:
+            return None
+        path = data.get("sessionFile")
+        if isinstance(path, str) and path:
+            self.session_file = path
+        return self.session_file
+
+    def fork_to_entry(self, entry_id: str, timeout: float = 30.0) -> Optional[str]:
+        """Fork the active branch at `entry_id` (removing it and everything after)."""
+        if not entry_id:
+            return None
+        self._ensure_session_file()
+        res = self.command({"type": "fork", "entryId": entry_id}, "fork", timeout)
+        if res.get("cancelled"):
+            return None
+        self._forked = True
+        return res.get("text")
+
     def fork_last_user_message(self, timeout: float = 30.0) -> Optional[str]:
         """Rewind the active branch to the last user message (for regenerate).
 
         Returns the forked-from text, or None if there is nothing to fork.
         """
-        data = self.command({"type": "get_fork_messages"}, "get_fork_messages", timeout)
-        messages = data.get("messages") or []
+        messages = self.get_fork_messages(timeout)
         if not messages:
             return None
         entry = messages[-1].get("entryId")
         if not entry:
             return None
-        res = self.command({"type": "fork", "entryId": entry}, "fork", timeout)
+        return self.fork_to_entry(entry, timeout)
+
+    def persist_fork(self) -> bool:
+        """Move a just-forked branch into the chat's deterministic session file.
+
+        pi's `fork` command switches to a new file with a random id. Left alone,
+        a bridge restart would resume the pre-fork file and a deleted chat would
+        leave the forked transcript behind. After the fork's prompt has written
+        the new file, rename it over the chat's file and `switch_session` so pi
+        keeps writing to the same path. Returns True once the branch is adopted.
+        """
+        if not self._forked:
+            return True
+        target = self.session_file
+        if not target:
+            return False
+        try:
+            data = self.command({"type": "get_state"}, "get_state", timeout=10.0)
+        except PiError:
+            return False
+        new_file = data.get("sessionFile")
+        if not isinstance(new_file, str) or not new_file:
+            return False
+        if os.path.abspath(new_file) == os.path.abspath(target):
+            self._forked = False
+            return True
+        if not os.path.exists(new_file):
+            # The fork file is created lazily on the first message. Keep the
+            # flag so the next settlement can adopt it.
+            return False
+        try:
+            os.replace(new_file, target)
+        except OSError as exc:
+            print(
+                f"pi-bridge: could not adopt forked session {new_file}: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+            self.session_file = new_file
+            self._forked = False
+            return False
+        try:
+            res = self.command(
+                {"type": "switch_session", "sessionPath": target},
+                "switch_session",
+                timeout=10.0,
+            )
+        except PiError as exc:
+            # Putting the file back keeps pi's internal path and the file on
+            # disk together; this turn still works, but the next restart will
+            # resume the pre-fork file.
+            print(
+                f"pi-bridge: could not switch to forked session {target}: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+            try:
+                os.replace(target, new_file)
+            except OSError:
+                pass
+            self.session_file = new_file
+            self._forked = False
+            return False
         if res.get("cancelled"):
-            return None
-        return res.get("text")
+            try:
+                os.replace(target, new_file)
+            except OSError:
+                pass
+            self.session_file = new_file
+            self._forked = False
+            return False
+        self.session_file = target
+        self._forked = False
+        return True
 
     def prompt(
         self,
@@ -177,6 +281,7 @@ class PiSession:
         timeout: float = 1800.0,
         max_turn: float = 7200.0,
         images: Optional[list] = None,
+        should_abort: Optional[Callable[[], bool]] = None,
     ) -> list[dict]:
         """Run one prompt to `agent_settled`, streaming records to `on_record`.
 
@@ -186,6 +291,11 @@ class PiSession:
         and its result) is not killed by a fixed wall-clock cap.
         `max_turn` is the absolute ceiling for one turn, so a runaway turn still
         releases the single-writer learning lock.
+
+        `should_abort` is polled while the turn runs. When it returns true (the
+        streaming client disconnected, i.e. Open WebUI Stop), the bridge sends
+        `abort`, drains to settlement and returns, so a canceled turn does not
+        keep working or hold the learning lock.
 
         Returns every non-response record observed for the turn.
         """
@@ -205,8 +315,23 @@ class PiSession:
             seen: list[dict] = []
             accepted = False
             while True:
-                rec = self._next(min(idle_deadline, turn_deadline))
+                if should_abort and should_abort():
+                    self.abort()
+                    self._drain(grace=1.0)
+                    return seen
+                deadline = min(idle_deadline, turn_deadline)
+                if should_abort:
+                    # Wake periodically so a client disconnect is noticed even
+                    # while pi is silent inside a long tool/subagent call.
+                    deadline = min(deadline, time.monotonic() + 0.5)
+                rec = self._next(deadline)
                 if rec is None:
+                    if should_abort and should_abort():
+                        self.abort()
+                        self._drain(grace=1.0)
+                        return seen
+                    if time.monotonic() < min(idle_deadline, turn_deadline):
+                        continue
                     hit_ceiling = time.monotonic() >= turn_deadline
                     self.abort()
                     # Give the aborted turn a moment to flush its trailing

@@ -455,6 +455,23 @@ coverage check as the deno gate suites.
   parent's pi branch at the fork point into a session owned by the new chat id:
   a user-message fork keeps that message, an assistant fork keeps its turn, and
   the copy is reused after a bridge restart instead of duplicated.
+- **B-transcript-branch-alignment** *(hard)* — the posted Open WebUI transcript
+  is aligned with pi's own user messages before prompting: a new message
+  appends, a regenerate re-answers the last user, an edited/replaced/truncated
+  message forks pi at the replaced turn, and a Continue click sends a marked
+  continuation prompt without forking. Continue markers are excluded from
+  alignment; if pi's user list cannot be read, the old last-message heuristic
+  is the fallback.
+- **B-fork-persisted** *(hard)* — a regenerate/edit fork is moved over the
+  chat's deterministic session file after its turn writes the branch, and pi
+  switches to that path, so a restart resumes the post-fork branch and deleting
+  the chat removes the active transcript. An unwritten fork is adopted after
+  the next settlement.
+- **B-stop-aborts** *(hard)* — a streaming client disconnect is Open WebUI
+  Stop: the bridge aborts the pi turn, drains to settlement, and releases the
+  single-writer learning lock instead of consuming the turn to completion. A
+  socket watcher notices EOF even while pi is silent in a long tool call.
+  `--no-abort-on-disconnect` restores the old behavior.
 - **B-bash-guard-floor** *(hard)* — the bridge passes `--bash-guard-disabled`
   only when bash-guard is actually installed in the agent dir. A headless session
   needs the catastrophic-command floor disabled to stay usable, but pi rejects an
@@ -463,7 +480,9 @@ coverage check as the deno gate suites.
 - **B-single-learning-writer** *(hard)* — a single-writer learning lock admits one
   learning turn at a time on the shared state repo: a second learning turn in
   another chat is told to wait rather than overlapping the write, while general
-  (non-learning) chats are exempt.
+  (non-learning) chats are exempt. A learning flow is detected from any user
+  message in the transcript, not just the newest one, so a bare learner answer
+  after `/lesson` still takes the lock and keeps the learning display policy.
 - **B-steps-metadata-only** *(hard)* — the live action trace is emitted as
   Open WebUI `<details>` content blocks built only from completed records. A tool
   step carries its name, its arguments truncated to 200 characters, its status

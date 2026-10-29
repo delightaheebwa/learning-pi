@@ -25,6 +25,13 @@ def _api_key(explicit: str | None) -> str:
     return ""
 
 
+def _env_flag(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in ("", "0", "false", "no", "off")
+
+
 def build_config(argv=None) -> BridgeConfig:
     ap = argparse.ArgumentParser(prog="pi-bridge", description="OpenAI-compatible bridge to pi")
     ap.add_argument("--pi-bin", default=os.environ.get("PI_BRIDGE_PI_BIN", DEFAULT_PI))
@@ -62,6 +69,11 @@ def build_config(argv=None) -> BridgeConfig:
         action="store_true",
         help="do NOT pass --bash-guard-disabled (default keeps the catastrophic floor only)",
     )
+    ap.add_argument(
+        "--no-abort-on-disconnect",
+        action="store_true",
+        help="keep a turn running when the streaming client disconnects (default aborts)",
+    )
     args = ap.parse_args(argv)
 
     key = _api_key(args.api_key)
@@ -87,6 +99,10 @@ def build_config(argv=None) -> BridgeConfig:
         openwebui_base_url=args.openwebui_base_url,
         openwebui_key_file=args.openwebui_key_file,
         sync_interval=args.sync_interval,
+        abort_on_disconnect=(
+            not args.no_abort_on_disconnect
+            and _env_flag("PI_BRIDGE_ABORT_ON_DISCONNECT", True)
+        ),
     )
 
 

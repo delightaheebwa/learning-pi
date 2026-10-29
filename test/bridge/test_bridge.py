@@ -10,6 +10,7 @@ import html
 import json
 import os
 import re
+import socket
 import sys
 import tempfile
 import threading
@@ -48,6 +49,7 @@ from bridge.server import (  # noqa: E402
     payload_fragment,
     session_id_for,
     session_key,
+    transcript_is_learning_flow,
     widget_embed_url,
 )
 
@@ -123,6 +125,19 @@ class TestHelpers(unittest.TestCase):
         self.assertFalse(is_learning_flow("continue with that"))
         self.assertFalse(is_learning_flow("what is a vector?"))
         self.assertFalse(is_learning_flow(""))
+
+    def test_transcript_is_learning_flow_keeps_bare_answers_in_the_flow(self):
+        messages = [
+            {"role": "user", "content": "/lesson next"},
+            {"role": "assistant", "content": "question"},
+            {"role": "user", "content": "my answer"},
+        ]
+        self.assertTrue(transcript_is_learning_flow(messages))
+        self.assertFalse(transcript_is_learning_flow([
+            {"role": "user", "content": "just chat"},
+            {"role": "assistant", "content": "reply"},
+            {"role": "user", "content": "another"},
+        ]))
 
     def test_session_key_prefers_metadata_chat_id(self):
         body = {"metadata": {"chat_id": "abc"}, "model": "learning"}
@@ -341,6 +356,17 @@ class TestPromptBudgets(unittest.TestCase):
         cfg = BridgeConfig(pi_bin=FAKE_PI, state_repo=str(ROOT), api_key="k",
                            sync_interval=0)
         self.assertEqual(cfg.sync_interval, 0.0)
+
+    def test_disconnect_abort_defaults_on_and_can_be_disabled(self):
+        from bridge.__main__ import build_config
+        with mock.patch.dict(os.environ, {"PI_BRIDGE_API_KEY": "k"}, clear=False):
+            self.assertTrue(build_config([]).abort_on_disconnect)
+            self.assertFalse(build_config(["--no-abort-on-disconnect"]).abort_on_disconnect)
+        with mock.patch.dict(os.environ, {
+            "PI_BRIDGE_API_KEY": "k",
+            "PI_BRIDGE_ABORT_ON_DISCONNECT": "false",
+        }):
+            self.assertFalse(build_config([]).abort_on_disconnect)
 
 
 class TestTurnStream(unittest.TestCase):
@@ -784,6 +810,106 @@ class TestLearningLockConcurrent(unittest.TestCase):
             self.assertEqual(results["a"][0], 200)
         finally:
             h.stop()
+
+
+class TestLearningFlowStickiness(unittest.TestCase):
+    """Bare learner answers after a learning flow stay learning turns."""
+
+    def test_bare_answer_after_lesson_hides_tool_results(self):
+        h = ServerHarness("steps")
+        try:
+            h.post(h.body("/lesson next"))
+            status, data = h.post({
+                "model": "learning",
+                "stream": False,
+                "metadata": {"chat_id": "c1"},
+                "messages": [
+                    {"role": "user", "content": "/lesson next"},
+                    {"role": "assistant", "content": "question"},
+                    {"role": "user", "content": "my answer"},
+                ],
+            })
+            self.assertEqual(status, 200)
+            content = data["choices"][0]["message"]["content"]
+            self.assertIn('type="tool_calls"', content)
+            self.assertNotIn("file.txt", content)  # learning display policy
+        finally:
+            h.stop()
+
+    def test_learning_flag_survives_transcript_compaction(self):
+        # Open WebUI can compact a long chat and drop the original `/lesson`
+        # message; the per-chat flag keeps the learning display policy.
+        h = ServerHarness("steps")
+        try:
+            h.post(h.body("/lesson next"))
+            status, data = h.post(h.body("my answer"))
+            self.assertEqual(status, 200)
+            content = data["choices"][0]["message"]["content"]
+            self.assertIn('type="tool_calls"', content)
+            self.assertNotIn("file.txt", content)
+        finally:
+            h.stop()
+
+    def test_bare_answer_after_lesson_takes_the_learning_lock(self):
+        h = ServerHarness("slow")
+        try:
+            results = {}
+
+            def first():
+                results["a"] = h.post(h.body("/review now", chat_id="A"))
+
+            thread = threading.Thread(target=first)
+            thread.start()
+            time.sleep(0.4)  # let the first turn acquire the lock
+            status, data = h.post({
+                "model": "learning",
+                "stream": False,
+                "metadata": {"chat_id": "B"},
+                "messages": [
+                    {"role": "user", "content": "/lesson next"},
+                    {"role": "assistant", "content": "question"},
+                    {"role": "user", "content": "my answer"},
+                ],
+            })
+            self.assertEqual(status, 200)
+            self.assertIn("Another learning session", data["choices"][0]["message"]["content"])
+            thread.join(timeout=15)
+            self.assertEqual(results["a"][0], 200)
+        finally:
+            h.stop()
+
+
+class TestStopAborts(unittest.TestCase):
+    """Open WebUI Stop closes the stream; the bridge must abort pi."""
+
+    def test_stream_disconnect_aborts_pi(self):
+        with tempfile.TemporaryDirectory() as d:
+            abort_log = Path(d) / "abort.log"
+            h = ServerHarness("silent", timeout=30, env_extra={
+                "FAKE_PI_ABORT_LOG": str(abort_log),
+            })
+            try:
+                payload = json.dumps(h.body("hello", stream=True)).encode()
+                request = (
+                    b"POST /v1/chat/completions HTTP/1.1\r\n"
+                    b"Host: 127.0.0.1\r\n"
+                    b"Authorization: Bearer test-key\r\n"
+                    b"Content-Type: application/json\r\n"
+                    b"Content-Length: " + str(len(payload)).encode() + b"\r\n"
+                    b"\r\n" + payload
+                )
+                sock = socket.create_connection(("127.0.0.1", h.port), timeout=10)
+                try:
+                    sock.sendall(request)
+                    sock.recv(4096)  # headers + the role chunk
+                finally:
+                    sock.close()
+                deadline = time.time() + 8
+                while time.time() < deadline and not abort_log.exists():
+                    time.sleep(0.05)
+                self.assertTrue(abort_log.exists(), "pi was not aborted after disconnect")
+            finally:
+                h.stop()
 
 
 class TestWithholdScenario(unittest.TestCase):
@@ -1822,6 +1948,154 @@ class TestChatSync(unittest.TestCase):
             self.assertEqual(sync.sweep(), 0)
             self.assertTrue(path.exists())
             self.assertIn("chat:abc", registry.chat_keys())
+
+
+class TestTranscriptAlignment(unittest.TestCase):
+    """Edits, deletes, regenerate, and Continue map to the right pi branch."""
+
+    def _harness(self, d):
+        return ServerHarness("default", env_extra={
+            "FAKE_PI_FORK_LOG": str(Path(d) / "fork.log"),
+            "FAKE_PI_PROMPT_LOG": str(Path(d) / "prompt.log"),
+        })
+
+    @staticmethod
+    def _body(messages, chat_id="c1"):
+        return {
+            "model": "learning",
+            "stream": False,
+            "metadata": {"chat_id": chat_id},
+            "messages": messages,
+        }
+
+    def test_edited_message_forks_the_replaced_turn(self):
+        with tempfile.TemporaryDirectory() as d:
+            h = self._harness(d)
+            try:
+                h.post(self._body([{"role": "user", "content": "one"}]))
+                h.post(self._body([
+                    {"role": "user", "content": "one"},
+                    {"role": "assistant", "content": "reply one"},
+                    {"role": "user", "content": "two"},
+                ]))
+                h.post(self._body([
+                    {"role": "user", "content": "one"},
+                    {"role": "assistant", "content": "reply one"},
+                    {"role": "user", "content": "two edited"},
+                ]))
+                self.assertIn("e2", (Path(d) / "fork.log").read_text().splitlines()[-1])
+                self.assertEqual(
+                    (Path(d) / "prompt.log").read_text().splitlines()[-1],
+                    "two edited",
+                )
+            finally:
+                h.stop()
+
+    def test_edited_first_message_forks_the_first_turn(self):
+        with tempfile.TemporaryDirectory() as d:
+            h = self._harness(d)
+            try:
+                h.post(self._body([{"role": "user", "content": "one"}]))
+                h.post(self._body([{"role": "user", "content": "one edited"}]))
+                self.assertIn("e1", (Path(d) / "fork.log").read_text())
+                self.assertEqual(
+                    (Path(d) / "prompt.log").read_text().splitlines()[-1],
+                    "one edited",
+                )
+            finally:
+                h.stop()
+
+    def test_continue_sends_a_marked_prompt_and_does_not_fork(self):
+        with tempfile.TemporaryDirectory() as d:
+            h = self._harness(d)
+            try:
+                h.post(self._body([{"role": "user", "content": "hello"}]))
+                status, data = h.post(self._body([
+                    {"role": "user", "content": "hello"},
+                    {"role": "assistant", "content": "reply"},
+                ]))
+                self.assertEqual(status, 200)
+                self.assertFalse((Path(d) / "fork.log").exists())
+                self.assertIn(
+                    "[[BRIDGE:CONTINUE]]",
+                    (Path(d) / "prompt.log").read_text().splitlines()[-1],
+                )
+            finally:
+                h.stop()
+
+    def test_a_new_turn_after_continue_does_not_misalign(self):
+        with tempfile.TemporaryDirectory() as d:
+            h = self._harness(d)
+            try:
+                h.post(self._body([{"role": "user", "content": "hello"}]))
+                h.post(self._body([
+                    {"role": "user", "content": "hello"},
+                    {"role": "assistant", "content": "reply"},
+                ]))
+                h.post(self._body([
+                    {"role": "user", "content": "hello"},
+                    {"role": "assistant", "content": "reply"},
+                    {"role": "user", "content": "next"},
+                ]))
+                self.assertFalse((Path(d) / "fork.log").exists())
+                self.assertEqual(
+                    (Path(d) / "prompt.log").read_text().splitlines()[-1],
+                    "next",
+                )
+            finally:
+                h.stop()
+
+
+class TestForkPersistence(unittest.TestCase):
+    """A pi fork is moved into the chat's file so restart/delete see it."""
+
+    def _session(self, target):
+        session = PiSession(pi_bin="pi", cwd="/tmp", env={}, name="bridge-x")
+        session.session_file = str(target)
+        session._forked = True
+        return session
+
+    def test_persist_fork_moves_the_branch_and_switches_pi(self):
+        with tempfile.TemporaryDirectory() as d:
+            target = Path(d) / "2026-01-01T00-00-00-000Z_chat-1.jsonl"
+            target.write_text("old branch\n", encoding="utf-8")
+            forked = Path(d) / "2026-01-01T00-00-04-000Z_random.jsonl"
+            forked.write_text("new branch\n", encoding="utf-8")
+            session = self._session(target)
+            calls = []
+
+            def fake_command(obj, name, timeout=30.0):
+                calls.append((name, obj))
+                if name == "get_state":
+                    return {"sessionFile": str(forked)}
+                if name == "switch_session":
+                    return {"cancelled": False}
+                raise AssertionError(name)
+
+            session.command = fake_command
+            self.assertTrue(session.persist_fork())
+            self.assertEqual(target.read_text(encoding="utf-8"), "new branch\n")
+            self.assertFalse(forked.exists())
+            self.assertEqual(session.session_file, str(target))
+            self.assertEqual(calls[-1][0], "switch_session")
+            self.assertEqual(calls[-1][1]["sessionPath"], str(target))
+
+    def test_persist_fork_waits_while_the_new_file_is_not_written(self):
+        with tempfile.TemporaryDirectory() as d:
+            target = Path(d) / "2026-01-01T00-00-00-000Z_chat-1.jsonl"
+            target.write_text("old branch\n", encoding="utf-8")
+            missing = Path(d) / "2026-01-01T00-00-04-000Z_random.jsonl"
+            session = self._session(target)
+
+            def fake_command(obj, name, timeout=30.0):
+                if name == "get_state":
+                    return {"sessionFile": str(missing)}
+                raise AssertionError(name)
+
+            session.command = fake_command
+            self.assertFalse(session.persist_fork())
+            self.assertTrue(session._forked)
+            self.assertEqual(target.read_text(encoding="utf-8"), "old branch\n")
 
 
 class TestAttachmentIntegration(unittest.TestCase):

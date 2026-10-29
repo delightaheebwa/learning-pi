@@ -597,6 +597,42 @@
       ]
     },
     {
+      "id": "B-transcript-branch-alignment",
+      "severity": "hard",
+      "statement": "Each posted Open WebUI transcript is aligned with pi's own user messages before prompting. A new message appends; a regenerate re-answers the last user; an edited/replaced/truncated user message forks pi at the replaced turn first; and a Continue click (the transcript ends with the assistant being extended) sends a marked continuation prompt without forking. Continue markers are excluded from alignment so a later turn is not misread as an edit, and when pi's user list cannot be read the bridge falls back to the old last-message heuristic.",
+      "tests": [
+        "test_new_turn_appends_without_forking",
+        "test_regenerate_forks_the_last_user_turn",
+        "test_edited_message_forks_the_replaced_turn",
+        "test_edited_first_message_forks_the_first_turn",
+        "test_truncated_transcript_reanswers_the_last_visible_turn",
+        "test_continue_prompts_without_forking",
+        "test_continue_after_deleted_turns_drops_the_extra_branch",
+        "test_continue_after_an_edit_answers_the_edited_turn",
+        "test_continuation_prompts_are_excluded_from_alignment",
+        "test_unknown_pi_messages_fall_back_to_last_message_heuristic",
+        "test_a_new_turn_after_continue_does_not_misalign"
+      ]
+    },
+    {
+      "id": "B-fork-persisted",
+      "severity": "hard",
+      "statement": "After pi forks a branch for regenerate/edit, the forked file is moved over the chat's deterministic session file and pi switches to that path once the turn has written it. A bridge restart therefore resumes the post-fork branch and deleting the chat removes the active transcript instead of leaving a random-id orphan. If the fork file has not been written yet, adoption is retried after the next settlement.",
+      "tests": [
+        "test_persist_fork_moves_the_branch_and_switches_pi",
+        "test_persist_fork_waits_while_the_new_file_is_not_written"
+      ]
+    },
+    {
+      "id": "B-stop-aborts",
+      "severity": "hard",
+      "statement": "When a streaming client disconnects, the bridge treats it as Open WebUI Stop: it sends pi `abort`, drains the turn to settlement, and returns so a canceled turn neither keeps working nor holds the single-writer learning lock. A socket watcher notices EOF even while pi is silent inside a long tool call. `--no-abort-on-disconnect` (or `PI_BRIDGE_ABORT_ON_DISCONNECT=false`) restores the old consume-to-settlement behavior.",
+      "tests": [
+        "test_stream_disconnect_aborts_pi",
+        "test_disconnect_abort_defaults_on_and_can_be_disabled"
+      ]
+    },
+    {
       "id": "B-bash-guard-floor",
       "severity": "hard",
       "statement": "The bridge passes `--bash-guard-disabled` only when bash-guard is actually installed in the agent dir. A headless session needs the catastrophic-command floor disabled to stay usable, but pi rejects an extension flag no loaded extension registered, so passing the flag when bash-guard is absent would stop pi from starting.",
@@ -608,11 +644,15 @@
     {
       "id": "B-single-learning-writer",
       "severity": "hard",
-      "statement": "A single-writer learning lock admits one learning turn at a time on the shared state repo: a second learning turn in another chat is told to wait rather than overlapping the write, while general (non-learning) chats are exempt.",
+      "statement": "A single-writer learning lock admits one learning turn at a time on the shared state repo: a second learning turn in another chat is told to wait rather than overlapping the write, while general (non-learning) chats are exempt. A learning flow is detected from any user message in the transcript, not just the newest one, so a bare learner answer after `/lesson` still takes the lock and keeps the learning display policy.",
       "tests": [
         "test_single_learning_writer",
         "test_two_chats_cannot_run_learning_turns_at_once",
-        "test_general_chat_exempt_from_learning_lock"
+        "test_general_chat_exempt_from_learning_lock",
+        "test_transcript_is_learning_flow_keeps_bare_answers_in_the_flow",
+        "test_learning_flag_survives_transcript_compaction",
+        "test_bare_answer_after_lesson_takes_the_learning_lock",
+        "test_bare_answer_after_lesson_hides_tool_results"
       ]
     },
     {
