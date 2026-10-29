@@ -210,6 +210,18 @@ def ends_with_assistant(messages) -> bool:
     return bool(messages) and isinstance(messages[-1], dict) and messages[-1].get("role") == "assistant"
 
 
+def has_conversation_summary(messages) -> bool:
+    """Whether Open WebUI compacted this transcript into a summary."""
+    if not isinstance(messages, list):
+        return False
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") != "system":
+            continue
+        if "[CONVERSATION SUMMARY]" in message_text(message):
+            return True
+    return False
+
+
 class LearningLock:
     """One learning turn at a time on the shared state repo.
 
@@ -256,7 +268,14 @@ class SessionEntry:
         self.answered = False
         # Sticky learning-flow marker: Open WebUI may compact the transcript and
         # drop the `/lesson` message, but the gate's run state is still active.
+        # It is intentionally never cleared; a chat that ran a learning flow
+        # stays conservative (lock + hidden tool output) rather than risk
+        # exposing an active gate's draft.
         self.learning_flow = False
+        # Visible user messages from the previous turn. Comparing the next
+        # transcript against this list is exact even when pi stored a RAG
+        # envelope instead of the original query.
+        self.open_user_texts = None
         self.last_used = time.monotonic()
 
 
@@ -564,6 +583,7 @@ class Handler(BaseHTTPRequestHandler):
             existing is not None and existing.learning_flow
         )
         continuation = ends_with_assistant(messages)
+        compacted = has_conversation_summary(messages)
         self._client_gone = False
         self._disconnect_done = threading.Event()
 
@@ -606,6 +626,7 @@ class Handler(BaseHTTPRequestHandler):
                     images=images,
                     transcript_users=transcript_users,
                     continuation=continuation,
+                    compacted=compacted,
                     learning=learning,
                     on_step=sink,
                     should_abort=(
@@ -720,6 +741,7 @@ class Handler(BaseHTTPRequestHandler):
         images=None,
         transcript_users=None,
         continuation: bool = False,
+        compacted: bool = False,
         learning: bool = True,
         on_step=None,
         should_abort=None,
@@ -729,7 +751,9 @@ class Handler(BaseHTTPRequestHandler):
         entry.inflight = True
         try:
             with entry.lock:
-                plan = self._turn_plan(entry, transcript_users or [], continuation)
+                plan = self._turn_plan(
+                    entry, transcript_users or [], continuation, compacted
+                )
                 if plan.fork_entry_id and entry.session.alive():
                     try:
                         entry.session.fork_to_entry(plan.fork_entry_id)
@@ -763,6 +787,7 @@ class Handler(BaseHTTPRequestHandler):
                                 file=sys.stderr,
                                 flush=True,
                             )
+                entry.open_user_texts = list(transcript_users or [])
                 entry.last_user_text = user
                 entry.answered = True
                 entry.last_used = time.monotonic()
@@ -775,6 +800,7 @@ class Handler(BaseHTTPRequestHandler):
         entry: SessionEntry,
         transcript_users: list,
         continuation: bool,
+        compacted: bool = False,
     ):
         """Plan alignment against pi's own user messages (fallback if unknown)."""
         pi_messages = []
@@ -792,6 +818,8 @@ class Handler(BaseHTTPRequestHandler):
             answered=entry.answered,
             last_user_text=entry.last_user_text,
             pi_known=known,
+            previous_open_users=entry.open_user_texts,
+            compacted=compacted,
         )
 
     # -- serialisation -----------------------------------------------------

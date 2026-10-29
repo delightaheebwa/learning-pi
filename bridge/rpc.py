@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import shutil
 import subprocess
 import sys
 import threading
@@ -229,9 +230,27 @@ class PiSession:
             # The fork file is created lazily on the first message. Keep the
             # flag so the next settlement can adopt it.
             return False
+        backup = target + ".bridge-bak"
+        had_target = os.path.exists(target)
+        if had_target:
+            try:
+                shutil.copy2(target, backup)
+            except OSError as exc:
+                # Do not risk destroying the pre-fork branch; retry next turn.
+                print(
+                    f"pi-bridge: could not back up {target} before adopting fork: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                return False
         try:
             os.replace(new_file, target)
         except OSError as exc:
+            if had_target:
+                try:
+                    os.unlink(backup)
+                except OSError:
+                    pass
             print(
                 f"pi-bridge: could not adopt forked session {new_file}: {exc}",
                 file=sys.stderr,
@@ -240,6 +259,27 @@ class PiSession:
             self.session_file = new_file
             self._forked = False
             return False
+
+        def restore():
+            # Keep pi's open (forked) branch reachable at its own path, then put
+            # the pre-fork branch back at the chat's deterministic path.
+            try:
+                shutil.copy2(target, new_file)
+            except OSError:
+                pass
+            if had_target:
+                try:
+                    os.replace(backup, target)
+                except OSError:
+                    pass
+            else:
+                try:
+                    os.unlink(target)
+                except OSError:
+                    pass
+            self.session_file = new_file
+            self._forked = False
+
         try:
             res = self.command(
                 {"type": "switch_session", "sessionPath": target},
@@ -247,29 +287,21 @@ class PiSession:
                 timeout=10.0,
             )
         except PiError as exc:
-            # Putting the file back keeps pi's internal path and the file on
-            # disk together; this turn still works, but the next restart will
-            # resume the pre-fork file.
             print(
                 f"pi-bridge: could not switch to forked session {target}: {exc}",
                 file=sys.stderr,
                 flush=True,
             )
-            try:
-                os.replace(target, new_file)
-            except OSError:
-                pass
-            self.session_file = new_file
-            self._forked = False
+            restore()
             return False
         if res.get("cancelled"):
+            restore()
+            return False
+        if had_target:
             try:
-                os.replace(target, new_file)
+                os.unlink(backup)
             except OSError:
                 pass
-            self.session_file = new_file
-            self._forked = False
-            return False
         self.session_file = target
         self._forked = False
         return True

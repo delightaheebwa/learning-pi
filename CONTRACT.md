@@ -456,12 +456,14 @@ coverage check as the deno gate suites.
   a user-message fork keeps that message, an assistant fork keeps its turn, and
   the copy is reused after a bridge restart instead of duplicated.
 - **B-transcript-branch-alignment** *(hard)* — the posted Open WebUI transcript
-  is aligned with pi's own user messages before prompting: a new message
-  appends, a regenerate re-answers the last user, an edited/replaced/truncated
-  message forks pi at the replaced turn, and a Continue click sends a marked
+  is aligned with the previous turn's visible user list before prompting
+  (falling back to pi's user messages after a restart): a new message appends,
+  a regenerate re-answers the last user, an edited/replaced/truncated message
+  forks pi at the replaced turn, and a Continue click sends a marked
   continuation prompt without forking. Continue markers are excluded from
-  alignment; if pi's user list cannot be read, the old last-message heuristic
-  is the fallback.
+  alignment; a compacted transcript (`[CONVERSATION SUMMARY]`) appends or
+  continues without dropping pi's older context; if pi's user list cannot be
+  read, the old last-message heuristic is the fallback.
 - **B-fork-persisted** *(hard)* — a regenerate/edit fork is moved over the
   chat's deterministic session file after its turn writes the branch, and pi
   switches to that path, so a restart resumes the post-fork branch and deleting

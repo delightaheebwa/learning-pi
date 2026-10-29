@@ -27,9 +27,9 @@ def _api_key(explicit: str | None) -> str:
 
 def _env_flag(name: str, default: bool) -> bool:
     raw = os.environ.get(name)
-    if raw is None:
+    if raw is None or raw.strip() == "":
         return default
-    return raw.strip().lower() not in ("", "0", "false", "no", "off")
+    return raw.strip().lower() not in ("0", "false", "no", "off")
 
 
 def build_config(argv=None) -> BridgeConfig:

@@ -124,6 +124,59 @@ class TestAlignment(unittest.TestCase):
         self.assertFalse(plan.fork_entry_id)
         self.assertEqual(plan.prompt, "next")
 
+    def test_compacted_transcript_appends_without_dropping_pi_context(self):
+        plan = plan_turn(
+            ["recent", "next"], _pi("old", "recent"),
+            trailing_assistant=False, answered=True, last_user_text="recent",
+            previous_open_users=["old", "recent"], compacted=True,
+        )
+        self.assertIsNone(plan.fork_entry_id)
+        self.assertEqual(plan.prompt, "next")
+        self.assertEqual(plan.reason, "compacted")
+
+    def test_compacted_continue_does_not_fork(self):
+        plan = plan_turn(
+            ["recent"], _pi("old", "recent"),
+            trailing_assistant=True, answered=True, last_user_text="recent",
+            previous_open_users=["old", "recent"], compacted=True,
+        )
+        self.assertTrue(plan.continuation)
+        self.assertIsNone(plan.fork_entry_id)
+
+    def test_previous_visible_list_detects_a_rag_turn_edit(self):
+        # pi stored a RAG envelope, but the in-memory visible list still knows
+        # the learner replaced the first message (and Open WebUI truncated the
+        # later turn).
+        rag = "### Task:\nRespond using the context.\n\n<context><source>notes</source></context>"
+        plan = plan_turn(
+            ["one edited"], _pi(rag, "two"),
+            trailing_assistant=False, answered=True, last_user_text=rag,
+            previous_open_users=["one", "two"],
+        )
+        self.assertEqual(plan.fork_entry_id, "e1")
+        self.assertEqual(plan.prompt, "one edited")
+        self.assertEqual(plan.reason, "edit")
+
+    def test_previous_visible_list_detects_an_extension_edit(self):
+        plan = plan_turn(
+            ["summarise this briefly"], _pi("summarise this"),
+            trailing_assistant=False, answered=True, last_user_text="summarise this",
+            previous_open_users=["summarise this"],
+        )
+        self.assertEqual(plan.fork_entry_id, "e1")
+        self.assertEqual(plan.prompt, "summarise this briefly")
+
+    def test_previous_visible_list_keeps_rag_new_turns_aligned(self):
+        rag = "### Task:\nRespond using the context.\n\n<context><source>notes</source></context>"
+        plan = plan_turn(
+            ["summarise my notes", "next"], _pi(rag),
+            trailing_assistant=False, answered=True, last_user_text=rag,
+            previous_open_users=["summarise my notes"],
+        )
+        self.assertFalse(plan.fork_entry_id)
+        self.assertEqual(plan.prompt, "next")
+        self.assertEqual(plan.reason, "new-turn")
+
     def test_unknown_pi_messages_fall_back_to_last_message_heuristic(self):
         plan = plan_turn(
             ["one"], [],

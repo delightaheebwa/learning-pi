@@ -41,6 +41,7 @@ from bridge.server import (  # noqa: E402
     SessionEntry,
     SessionRegistry,
     default_bundle_base,
+    has_conversation_summary,
     is_learning_flow,
     last_user_message,
     last_user_text,
@@ -125,6 +126,16 @@ class TestHelpers(unittest.TestCase):
         self.assertFalse(is_learning_flow("continue with that"))
         self.assertFalse(is_learning_flow("what is a vector?"))
         self.assertFalse(is_learning_flow(""))
+
+    def test_has_conversation_summary(self):
+        self.assertTrue(has_conversation_summary([
+            {"role": "system", "content": "[CONVERSATION SUMMARY]\nolder turns"},
+            {"role": "user", "content": "next"},
+        ]))
+        self.assertFalse(has_conversation_summary([
+            {"role": "system", "content": "normal system prompt"},
+            {"role": "user", "content": "next"},
+        ]))
 
     def test_transcript_is_learning_flow_keeps_bare_answers_in_the_flow(self):
         messages = [
@@ -367,6 +378,11 @@ class TestPromptBudgets(unittest.TestCase):
             "PI_BRIDGE_ABORT_ON_DISCONNECT": "false",
         }):
             self.assertFalse(build_config([]).abort_on_disconnect)
+        with mock.patch.dict(os.environ, {
+            "PI_BRIDGE_API_KEY": "k",
+            "PI_BRIDGE_ABORT_ON_DISCONNECT": "",
+        }):
+            self.assertTrue(build_config([]).abort_on_disconnect)
 
 
 class TestTurnStream(unittest.TestCase):
@@ -2079,6 +2095,27 @@ class TestForkPersistence(unittest.TestCase):
             self.assertEqual(session.session_file, str(target))
             self.assertEqual(calls[-1][0], "switch_session")
             self.assertEqual(calls[-1][1]["sessionPath"], str(target))
+
+    def test_persist_fork_restores_the_old_branch_if_switch_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            target = Path(d) / "2026-01-01T00-00-00-000Z_chat-1.jsonl"
+            target.write_text("old branch\n", encoding="utf-8")
+            forked = Path(d) / "2026-01-01T00-00-04-000Z_random.jsonl"
+            forked.write_text("new branch\n", encoding="utf-8")
+            session = self._session(target)
+
+            def fake_command(obj, name, timeout=30.0):
+                if name == "get_state":
+                    return {"sessionFile": str(forked)}
+                if name == "switch_session":
+                    raise PiError("switch blocked")
+                raise AssertionError(name)
+
+            session.command = fake_command
+            self.assertFalse(session.persist_fork())
+            self.assertEqual(target.read_text(encoding="utf-8"), "old branch\n")
+            self.assertEqual(forked.read_text(encoding="utf-8"), "new branch\n")
+            self.assertEqual(session.session_file, str(forked))
 
     def test_persist_fork_waits_while_the_new_file_is_not_written(self):
         with tempfile.TemporaryDirectory() as d:

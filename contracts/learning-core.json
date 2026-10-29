@@ -599,7 +599,7 @@
     {
       "id": "B-transcript-branch-alignment",
       "severity": "hard",
-      "statement": "Each posted Open WebUI transcript is aligned with pi's own user messages before prompting. A new message appends; a regenerate re-answers the last user; an edited/replaced/truncated user message forks pi at the replaced turn first; and a Continue click (the transcript ends with the assistant being extended) sends a marked continuation prompt without forking. Continue markers are excluded from alignment so a later turn is not misread as an edit, and when pi's user list cannot be read the bridge falls back to the old last-message heuristic.",
+      "statement": "Each posted Open WebUI transcript is aligned with the previous turn's visible user-message list before prompting (falling back to pi's own user messages after a restart). A new message appends; a regenerate re-answers the last user; an edited/replaced/truncated user message forks pi at the replaced turn first; and a Continue click (the transcript ends with the assistant being extended) sends a marked continuation prompt without forking. Continue markers are excluded from alignment so a later turn is not misread as an edit; a compacted transcript (Open WebUI's `[CONVERSATION SUMMARY]` system message) appends/continues without dropping pi's older context; and when pi's user list cannot be read the bridge falls back to the old last-message heuristic.",
       "tests": [
         "test_new_turn_appends_without_forking",
         "test_regenerate_forks_the_last_user_turn",
@@ -610,6 +610,14 @@
         "test_continue_after_deleted_turns_drops_the_extra_branch",
         "test_continue_after_an_edit_answers_the_edited_turn",
         "test_continuation_prompts_are_excluded_from_alignment",
+        "test_rag_context_matches_the_original_query_by_position",
+        "test_attached_file_tags_do_not_look_like_an_edit",
+        "test_previous_visible_list_detects_a_rag_turn_edit",
+        "test_previous_visible_list_detects_an_extension_edit",
+        "test_previous_visible_list_keeps_rag_new_turns_aligned",
+        "test_compacted_transcript_appends_without_dropping_pi_context",
+        "test_compacted_continue_does_not_fork",
+        "test_has_conversation_summary",
         "test_unknown_pi_messages_fall_back_to_last_message_heuristic",
         "test_a_new_turn_after_continue_does_not_misalign"
       ]
@@ -620,6 +628,7 @@
       "statement": "After pi forks a branch for regenerate/edit, the forked file is moved over the chat's deterministic session file and pi switches to that path once the turn has written it. A bridge restart therefore resumes the post-fork branch and deleting the chat removes the active transcript instead of leaving a random-id orphan. If the fork file has not been written yet, adoption is retried after the next settlement.",
       "tests": [
         "test_persist_fork_moves_the_branch_and_switches_pi",
+        "test_persist_fork_restores_the_old_branch_if_switch_fails",
         "test_persist_fork_waits_while_the_new_file_is_not_written"
       ]
     },

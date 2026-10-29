@@ -48,9 +48,11 @@ def _same_user(open_text: str, pi_text: str) -> bool:
         return True
     if not left or not right:
         return False
+    # Fallback only: after a restart the visible user list is unavailable, so a
+    # RAG envelope cannot be matched back to the original query. Treat the
+    # envelope as the same turn by position; the length-based cases still fork
+    # correctly when Open WebUI truncated the transcript.
     if any(marker in right for marker in ("<context>", "### Task:", "<source", "<attached_files>")):
-        return True
-    if min(len(left), len(right)) >= 4 and (left in right or right in left):
         return True
     return False
 
@@ -87,6 +89,8 @@ def plan_turn(
     answered: bool = False,
     last_user_text: str = "",
     pi_known: bool = True,
+    previous_open_users: Optional[Sequence[str]] = None,
+    compacted: bool = False,
 ) -> TurnPlan:
     """Decide the next prompt and optional fork for one posted transcript.
 
@@ -95,9 +99,22 @@ def plan_turn(
     conversation ends with the assistant message being extended). `pi_known`
     is false when `get_fork_messages` failed; the caller then falls back to the
     old last-message heuristic.
+
+    `previous_open_users` is the visible transcript list from the previous turn
+    (in memory). Comparing against it is exact and is the normal path; the pi
+    texts are only the fallback after a bridge restart, where a RAG envelope can
+    hide the original query.
     """
     users = list(open_users)
     last = users[-1] if users else ""
+
+    if compacted:
+        # Open WebUI dropped older visible turns into a summary. That is not a
+        # learner deletion: pi keeps its full context and the new prompt is
+        # appended (or the visible answer is continued).
+        if trailing_assistant:
+            return TurnPlan(CONTINUATION_PROMPT, continuation=True, reason="continue-compacted")
+        return TurnPlan(last, reason="compacted")
 
     if not pi_known:
         if trailing_assistant:
@@ -110,7 +127,8 @@ def plan_turn(
 
     pi_users = pi_user_messages(pi_messages)
     pi_texts = [text for _, text in pi_users]
-    common = _common_prefix(users, pi_texts)
+    reference = list(previous_open_users) if previous_open_users is not None else pi_texts
+    common = _common_prefix(users, reference)
 
     if trailing_assistant:
         if common < len(users):
@@ -118,25 +136,27 @@ def plan_turn(
             # that message instead of extending a turn pi does not have.
             fork = pi_users[common][0] if common < len(pi_users) else None
             return TurnPlan(last, fork_entry_id=fork, reason="continue-after-change")
-        if len(users) < len(pi_users):
+        if len(users) < len(reference):
             # Open WebUI no longer has pi's later turns; drop them before
             # extending the visible assistant message.
             return TurnPlan(
                 CONTINUATION_PROMPT,
-                fork_entry_id=pi_users[len(users)][0],
+                fork_entry_id=(
+                    pi_users[len(users)][0] if len(users) < len(pi_users) else None
+                ),
                 continuation=True,
                 reason="continue-after-delete",
             )
         return TurnPlan(CONTINUATION_PROMPT, continuation=True, reason="continue")
 
-    if common == len(users) == len(pi_users):
+    if common == len(users) == len(reference):
         # Regenerate: the same user messages, posted again with the answer gone.
         return TurnPlan(
             last,
             fork_entry_id=pi_users[-1][0] if pi_users else None,
             reason="regenerate",
         )
-    if common == len(pi_users) and common == len(users) - 1:
+    if common == len(reference) and common == len(users) - 1:
         # A normal new user message after the previous turn.
         return TurnPlan(last, reason="new-turn")
     if common < len(users):
@@ -144,11 +164,11 @@ def plan_turn(
         # `common`; fork off the pi turn it replaces.
         fork = pi_users[common][0] if common < len(pi_users) else None
         return TurnPlan(last, fork_entry_id=fork, reason="edit")
-    if common == len(users) < len(pi_users):
+    if common == len(users) < len(reference):
         # Open WebUI truncated after a user message; re-answer that message.
         return TurnPlan(
             last,
-            fork_entry_id=pi_users[common - 1][0] if common > 0 else None,
+            fork_entry_id=pi_users[common - 1][0] if common > 0 and common <= len(pi_users) else None,
             reason="truncate",
         )
     return TurnPlan(last, reason="fallback")
