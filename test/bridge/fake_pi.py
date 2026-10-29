@@ -154,6 +154,8 @@ def main():
         t = rec.get("type")
         if t == "prompt":
             note(os.environ.get("FAKE_PI_PROMPT_LOG"), str(rec.get("message", "")))
+            if rec.get("images"):
+                note(os.environ.get("FAKE_PI_IMAGE_LOG"), json.dumps(rec["images"]))
             run_prompt(rec.get("id"))
         elif t == "get_fork_messages":
             out({"id": rec.get("id"), "type": "response", "command": "get_fork_messages",

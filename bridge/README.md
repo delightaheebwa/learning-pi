@@ -54,8 +54,9 @@ the `learning` model.
 
 Options: `--host/--port`, `--models a,b,c`, `--timeout`, `--max-turn`,
 `--max-sessions`, `--agent-dir`, `--session-dir`, `--ledger-dir`,
-`--openwebui-base-url`, `--openwebui-key-file`, `--allow-bash-guard` (do **not**
-pass `--bash-guard-disabled`; not recommended headless).
+`--openwebui-base-url`, `--openwebui-key-file`, `--sync-interval`,
+`--allow-bash-guard` (do **not** pass `--bash-guard-disabled`; not recommended
+headless).
 
 ### Turn timeouts
 
@@ -78,10 +79,51 @@ resume the same transcript. The id is `chat-<uuid>` when the client supplies a
 chat id and `fp-<fingerprint>` otherwise; any other key collapses to a stable
 hash.
 
-Open WebUI strips `metadata` before forwarding to an OpenAI-compatible backend,
-so the fingerprint path is the normal one. Its input is the **first** user
-message plus the model name: two chats whose first user message is identical will
-share one pi session, and editing that first message starts a new one.
+With the connection's forwarded headers configured (recommended, and required
+for fork/delete mirroring):
+
+```
+X-OpenWebUI-Chat-Id:    {{CHAT_ID}}
+X-OpenWebUI-Message-Id: {{MESSAGE_ID}}
+```
+
+the chat id is authoritative and two chats never share a pi session. Without the
+chat-id header the bridge falls back to a fingerprint of the **first** user
+message plus the model name: two chats whose first user message is identical then
+share one pi session, and editing that first message starts a new one. The first
+turn of an existing chat that has no chat-id session is migrated once from its
+fingerprint session (only when the chat already has an assistant message), so
+upgrading does not blank an ongoing conversation.
+
+## Chat actions mirror into pi
+
+Open WebUI calls the bridge only for completions; it never tells an
+OpenAI-compatible backend that a chat was uploaded to, forked, or deleted. The
+bridge closes that gap with the same REST key it uses for widgets
+(`--openwebui-base-url` + `--openwebui-key-file`):
+
+* **Uploads.** Image content parts are turned into pi `ImageContent` blocks and
+  sent on the `prompt` (`{type: image, data, mimeType}`). An image with no text
+  gets a neutral prompt; text plus images keep both. Non-image files follow
+  Open WebUI's own file-context/RAG path, which puts the extracted text into the
+  user message the bridge already forwards.
+* **Fork / clone.** On the first turn of a chat whose metadata says it was
+  forked (`meta.forked_from` / `chat.originalChatId`), the bridge copies the
+  parent pi session's branch at the fork point into a new session file owned by
+  the new chat id. A fork at a user message keeps that message; a fork at an
+  assistant message keeps the turn that produced it. The copy is reused after a
+  bridge restart, not duplicated.
+* **Delete.** A background sweep (`--sync-interval`, default 60 s, 0 disables)
+  asks Open WebUI about every `chat-<id>` session and closes/removes it only on
+  an explicit 404. A network error, a bad key, an existing chat, or a turn still
+  in flight never deletes a transcript; an in-flight session is retried on the
+  next pass.
+
+Requires the chat-id header above and the Open WebUI REST configuration. Without
+them the bridge keeps working, but fork starts a fresh chat and delete leaves the
+pi transcript alone. The sweep reads all chats individually, so it is intended
+for the normal single-user self-hosted deployment, not a large multi-tenant
+instance.
 
 ## Math
 

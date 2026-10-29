@@ -52,6 +52,12 @@ def build_config(argv=None) -> BridgeConfig:
         help="file holding the Open WebUI API key used for the embed REST calls",
     )
     ap.add_argument(
+        "--sync-interval",
+        type=float,
+        default=float(os.environ.get("PI_BRIDGE_SYNC_INTERVAL", "60")),
+        help="seconds between Open WebUI chat delete sweeps (0 disables)",
+    )
+    ap.add_argument(
         "--allow-bash-guard",
         action="store_true",
         help="do NOT pass --bash-guard-disabled (default keeps the catastrophic floor only)",
@@ -80,6 +86,7 @@ def build_config(argv=None) -> BridgeConfig:
         max_sessions=args.max_sessions,
         openwebui_base_url=args.openwebui_base_url,
         openwebui_key_file=args.openwebui_key_file,
+        sync_interval=args.sync_interval,
     )
 
 

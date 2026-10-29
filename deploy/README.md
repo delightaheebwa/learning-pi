@@ -118,6 +118,12 @@ The bridge needs the same Open WebUI REST configuration as widget delivery
 without a message id it posts nothing and the step cards still render. See
 `../bridge/README.md#live-action-trace`.
 
+The `X-OpenWebUI-Chat-Id` header is also what lets the bridge mirror **fork**
+and **delete** into pi: the chat id becomes the pi session identity, a fork
+copies the parent's branch, and a delete sweep removes the session. Without it,
+fork starts a fresh pi chat and deleting an Open WebUI chat leaves the pi
+transcript behind. See `../bridge/README.md#chat-actions-mirror-into-pi`.
+
 > Inside the container, `extra_hosts: host.docker.internal:host-gateway` maps
 > `host.docker.internal` to Docker's **default** bridge gateway — `docker0`,
 > normally `172.17.0.1` (confirm with `ip -4 addr show docker0`). The host's

@@ -12,7 +12,6 @@ behaviour lives in pi (the gate, subagents, skills).
 from __future__ import annotations
 
 import base64
-import hashlib
 import hmac
 import json
 import os
@@ -24,7 +23,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional
 
+from .chatsync import ChatSync
 from .rpc import PiSession, PiError
+from .session_key import session_id_for, session_key
 from .stream import TurnStream, render_steps
 from . import openwebui
 
@@ -83,15 +84,6 @@ def message_text(message: dict) -> str:
     return ""
 
 
-def last_user_text(messages) -> str:
-    if not isinstance(messages, list):
-        return ""
-    for m in reversed(messages):
-        if isinstance(m, dict) and m.get("role") == "user":
-            return message_text(m)
-    return ""
-
-
 def is_learning_flow(text: str) -> bool:
     return bool(text) and (_FLOW_MARKER in text or bool(_LEARNING_CMD_RE.match(text)))
 
@@ -118,52 +110,69 @@ def openwebui_ids(headers, body) -> tuple[str, str]:
     return chat, message if isinstance(message, str) else ""
 
 
-def session_key(body: dict, messages) -> str:
-    """Stable per-conversation key.
-
-    Prefer a client-supplied id (Open WebUI can send `metadata.chat_id`); fall
-    back to a fingerprint of the first user message plus the requested model,
-    which is stable across the turns of one conversation. Open WebUI currently
-    strips `metadata` before forwarding to an OpenAI-compatible backend, so in
-    practice the fingerprint is the path that is used.
-    """
-    md = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    for cand in (md.get("chat_id"), body.get("chat_id"), body.get("conversation_id")):
-        if isinstance(cand, str) and cand:
-            return "chat:" + cand
-    first = ""
-    if isinstance(messages, list):
-        for m in messages:
-            if isinstance(m, dict) and m.get("role") == "user":
-                first = message_text(m)
-                break
-    seed = f"{body.get('model', '')}|{first}"
-    return "fp:" + hashlib.sha1(seed.encode("utf-8")).hexdigest()[:16]
+# Images reach the bridge as OpenAI `image_url` / `input_image` content parts
+# (Open WebUI converts uploaded URLs to base64 data URIs before forwarding).
+_IMAGE_PART_TYPES = {"image_url", "input_image", "image"}
 
 
-# pi's `--session-id` accepts letters, numbers, `.`, `_`, and `-`, and requires
-# the id to start and end with a letter or number.
-_PI_SESSION_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]")
+def _image_from_part(part: dict) -> Optional[dict]:
+    """One pi `ImageContent` (`{type, data, mimeType}`) from an OpenAI part."""
+    if not isinstance(part, dict):
+        return None
+    kind = part.get("type")
+    if kind not in _IMAGE_PART_TYPES:
+        return None
+    if kind == "image":
+        data = part.get("data")
+        mime = part.get("mimeType") or part.get("mime_type") or "image/png"
+        if isinstance(data, str) and data:
+            return {"type": "image", "data": data, "mimeType": str(mime)}
+        return None
+    value = part.get("image_url")
+    if isinstance(value, dict):
+        url = value.get("url")
+    else:
+        url = value
+    if not isinstance(url, str) or not url:
+        return None
+    header, sep, data = url.partition(",")
+    if not sep or not header.startswith("data:") or ";base64" not in header:
+        # Open WebUI normally converts uploads to data URIs; a remote URL is
+        # not something pi's prompt command accepts, so leave it out rather
+        # than inventing a fetch policy here.
+        return None
+    mime = header[len("data:"):].split(";", 1)[0] or "image/png"
+    if not mime.startswith("image/") or not data:
+        return None
+    return {"type": "image", "data": data, "mimeType": mime}
 
 
-def session_id_for(key: str) -> str:
-    """Deterministic pi session id for a bridge chat key.
+def message_images(message: dict) -> list[dict]:
+    """Image content of one chat message, in the order the client sent it."""
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(content, list):
+        return []
+    images = []
+    for part in content:
+        image = _image_from_part(part)
+        if image is not None:
+            images.append(image)
+    return images
 
-    Passing this id to `pi --session-id` makes pi resume the transcript it
-    already wrote for this chat. The bridge's registry is in memory only, so
-    without a stable id a systemd restart (or a pi crash) would start a blank
-    session and pi would re-derive context from the state repo — which is
-    exactly how a lesson chat once answered from a review in another chat.
 
-    `chat:<uuid>` -> `chat-<uuid>`, `fp:<hex>` -> `fp-<hex>`. Any other key — or
-    one that would be too long or contain characters pi rejects — collapses to a
-    stable hash, so two different keys do not collide by sanitising.
-    """
-    if key.startswith("chat:") or key.startswith("fp:"):
-        sid = key.replace(":", "-", 1)
-        if len(sid) <= 100 and _PI_SESSION_ID_RE.fullmatch(sid):
-            return sid
-    return "s-" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:24]
+def last_user_message(messages) -> tuple[str, list[dict]]:
+    """Text and images of the newest user message."""
+    if not isinstance(messages, list):
+        return "", []
+    for message in reversed(messages):
+        if isinstance(message, dict) and message.get("role") == "user":
+            return message_text(message), message_images(message)
+    return "", []
+
+
+def last_user_text(messages) -> str:
+    """Text of the newest user message (kept as the narrow test/helper API)."""
+    return last_user_message(messages)[0]
 
 
 class LearningLock:
@@ -219,7 +228,7 @@ class SessionRegistry:
         self._mu = threading.Lock()
         self._entries: dict[str, SessionEntry] = {}
 
-    def get_or_create(self, key: str) -> SessionEntry:
+    def get_or_create(self, key: str, *, session_file=None) -> SessionEntry:
         with self._mu:
             entry = self._entries.get(key)
             if entry is not None and entry.session.alive():
@@ -253,12 +262,43 @@ class SessionRegistry:
                 name=f"bridge-{session_id_for(key)}",
                 extra_args=self.config.session_args(),
                 session_id=session_id_for(key),
+                session_file=str(session_file) if session_file else None,
             )
             session.start()
             entry = SessionEntry(key, session)
             entry.inflight = True
             self._entries[key] = entry
             return entry
+
+    def has_live(self, key: str) -> bool:
+        """Whether this key already has a running pi session."""
+        with self._mu:
+            entry = self._entries.get(key)
+            if entry is not None and entry.session.alive():
+                entry.last_used = time.monotonic()
+                return True
+            return False
+
+    def chat_keys(self) -> list[str]:
+        """Keys for chats that may need cleanup, snapshot under the lock."""
+        with self._mu:
+            return [k for k in self._entries if k.startswith("chat:")]
+
+    def pop_if_idle(self, key: str) -> tuple[Optional[SessionEntry], bool]:
+        """Remove an idle entry for deletion; `(entry, busy)`.
+
+        A session with a turn in flight is left in place so the next sweep can
+        retry: deleting the transcript while pi is writing it is worse than a
+        short delay.
+        """
+        with self._mu:
+            entry = self._entries.get(key)
+            if entry is None:
+                return None, False
+            if entry.inflight or entry.lock.locked():
+                return None, True
+            self._entries.pop(key, None)
+            return entry, False
 
     def close_all(self) -> None:
         with self._mu:
@@ -286,6 +326,7 @@ class BridgeConfig:
         child_env_extra: Optional[dict] = None,
         openwebui_base_url: str = "",
         openwebui_key_file: str = openwebui.DEFAULT_KEY_FILE,
+        sync_interval: float = 60.0,
     ) -> None:
         self.pi_bin = pi_bin
         self.state_repo = state_repo
@@ -309,6 +350,8 @@ class BridgeConfig:
         self.child_env_extra = child_env_extra or {}
         self.openwebui_base_url = openwebui_base_url
         self.openwebui_key_file = openwebui_key_file
+        # Seconds between delete sweeps; 0 disables the background worker.
+        self.sync_interval = sync_interval
 
     def openwebui_client(self) -> Optional[openwebui.OpenWebUIClient]:
         """A client for the post-turn widget embed, or None when unconfigured."""
@@ -358,6 +401,7 @@ class BridgeServer(ThreadingHTTPServer):
         self.config = config
         self.registry = SessionRegistry(config)
         self.learning = LearningLock()
+        self.sync = ChatSync(config, self.registry)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -447,15 +491,17 @@ class Handler(BaseHTTPRequestHandler):
         stream = bool(body.get("stream", False))
         model = str(body.get("model") or (self.cfg.models[0] if self.cfg.models else "learning"))
         messages = body.get("messages") or []
-        user = last_user_text(messages)
-        if not user.strip():
+        user, images = last_user_message(messages)
+        if not user.strip() and not images:
             self._send_json(400, {"error": {"message": "no user message"}})
             return
+        if not user.strip():
+            user = "Describe the attached image." if len(images) == 1 else "Describe the attached images."
 
-        key = session_key(body, messages)
+        chat_id, message_id = openwebui_ids(self.headers, body)
+        key = session_key(body, messages, chat_id=chat_id)
         learning = is_learning_flow(user)
         self._client_gone = False
-        chat_id, message_id = openwebui_ids(self.headers, body)
 
         acquired = False
         reporter = None
@@ -481,8 +527,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._try_write_sse(self._chunk(model, {"role": "assistant"}))
 
             try:
-                entry = self.server.registry.get_or_create(key)  # type: ignore[attr-defined]
-                turn = self._run_turn(entry, user, learning=learning, on_step=sink)
+                entry = self._session_entry(key, chat_id, model)
+                turn = self._run_turn(
+                    entry, user, images=images, learning=learning, on_step=sink
+                )
             except (PiError, OSError) as exc:
                 # Surface the reason in the journal too: a bare UI bubble left no
                 # trace of the 2026-10-29 turn-timeout incident.
@@ -509,6 +557,17 @@ class Handler(BaseHTTPRequestHandler):
                     turn.error or turn.text.startswith("⚠️ pi runtime error")
                 )
                 reporter.close("pi runtime error" if failed else "Done")
+
+    def _session_entry(self, key: str, chat_id: str, model: str):
+        """A live session, preparing a forked chat's branch on first use."""
+        registry = self.server.registry  # type: ignore[attr-defined]
+        session_file = None
+        if key.startswith("chat:") and not registry.has_live(key):
+            # Idempotent: an existing fork file is reused across bridge restarts.
+            session_file = self.server.sync.plan_fork(  # type: ignore[attr-defined]
+                chat_id, model, session_id_for(key)
+            )
+        return registry.get_or_create(key, session_file=session_file)
 
     def _status_reporter(self, chat_id: str, message_id: str):
         """A live-status reporter, or None without ids / Open WebUI config."""
@@ -574,6 +633,7 @@ class Handler(BaseHTTPRequestHandler):
         entry: SessionEntry,
         user: str,
         *,
+        images=None,
         learning: bool = True,
         on_step=None,
     ) -> TurnStream:
@@ -594,6 +654,7 @@ class Handler(BaseHTTPRequestHandler):
                     turn.feed,
                     timeout=self.cfg.timeout,
                     max_turn=self.cfg.max_turn,
+                    images=images,
                 )
                 entry.last_user_text = user
                 entry.answered = True
@@ -676,10 +737,12 @@ class Handler(BaseHTTPRequestHandler):
 
 def serve(config: BridgeConfig) -> None:
     httpd = BridgeServer(config)
+    httpd.sync.start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        httpd.sync.stop()
         httpd.registry.close_all()
         httpd.server_close()

@@ -547,6 +547,53 @@
       ]
     },
     {
+      "id": "B-chat-identity-routing",
+      "severity": "hard",
+      "statement": "When Open WebUI forwards `X-OpenWebUI-Chat-Id`, that chat id is the pi session identity: two chats with the same first user message (a fork) never share a session, and the session can be found again after a restart. A chat that already has an assistant message but no chat-id session is migrated once from its legacy first-message fingerprint session, while a brand-new chat with a matching first prompt never inherits that old transcript.",
+      "tests": [
+        "test_session_key_prefers_forwarded_chat_header",
+        "test_two_chats_with_the_same_first_message_do_not_share_a_session",
+        "test_existing_conversation_migrates_its_fingerprint_session",
+        "test_brand_new_chat_does_not_inherit_a_matching_fingerprint"
+      ]
+    },
+    {
+      "id": "B-attachments-forwarded",
+      "severity": "hard",
+      "statement": "An image uploaded in Open WebUI reaches pi as an `ImageContent` block on the prompt (`{type: image, data, mimeType}`), including an image-only message (which gets a neutral prompt). Text parts are still forwarded exactly, and non-image file content follows Open WebUI's own file-context/RAG path into the user message. A remote image URL the bridge cannot turn into data is skipped rather than guessed at.",
+      "tests": [
+        "test_message_images_extracts_openai_data_uri",
+        "test_message_images_accepts_pi_shaped_and_input_image_parts",
+        "test_message_images_skips_remote_urls",
+        "test_image_only_message_reaches_pi",
+        "test_text_and_image_are_both_forwarded"
+      ]
+    },
+    {
+      "id": "B-chat-delete-mirrored",
+      "severity": "hard",
+      "statement": "Deleting an Open WebUI chat removes its pi session: the background sweep asks Open WebUI about every `chat-<id>` session and closes/removes it only on an explicit 404. A network error, a bad key, an existing chat, or a turn still in flight never deletes a transcript; an in-flight session is retried on the next sweep.",
+      "tests": [
+        "test_sweep_deletes_the_pi_session_for_a_deleted_chat",
+        "test_sweep_keeps_a_session_whose_chat_still_exists",
+        "test_network_error_never_deletes_a_session",
+        "test_sweep_leaves_an_inflight_session_for_the_next_pass"
+      ]
+    },
+    {
+      "id": "B-chat-fork-mirrored",
+      "severity": "hard",
+      "statement": "Forking or cloning an Open WebUI chat gives the new chat its own pi session copied from the parent's branch at the fork point, not a blank transcript and not the parent's later messages. A fork at a user message keeps that message; a fork at an assistant message keeps the turn that produced it; the new session file carries the new chat id, points at the parent session, and is reused (not duplicated) after a bridge restart.",
+      "tests": [
+        "test_fork_plan_copies_the_parent_branch",
+        "test_fork_plan_is_idempotent",
+        "test_user_fork_keeps_that_user_message",
+        "test_assistant_fork_keeps_the_turn_that_produced_it",
+        "test_write_fork_copies_only_the_selected_branch",
+        "test_pi_command_opens_an_explicit_fork_file"
+      ]
+    },
+    {
       "id": "B-bash-guard-floor",
       "severity": "hard",
       "statement": "The bridge passes `--bash-guard-disabled` only when bash-guard is actually installed in the agent dir. A headless session needs the catastrophic-command floor disabled to stay usable, but pi rejects an extension flag no loaded extension registered, so passing the flag when bash-guard is absent would stop pi from starting.",

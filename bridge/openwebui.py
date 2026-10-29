@@ -74,6 +74,17 @@ class OpenWebUIClient:
             except Exception:
                 parsed = raw.decode("utf-8", "replace")
             return exc.code, parsed
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            # A down/slow Open WebUI must look different from a 404: chat cleanup
+            # only removes a pi session on an explicit "missing", never on a
+            # transient network failure.
+            return 0, str(exc)
+
+    def get_chat(self, chat_id: str) -> tuple[int, Optional[dict]]:
+        """Fetch one chat (`(200, chat)`, `(404, …)`, or `(0, error)`)."""
+        if not chat_id:
+            return 404, None
+        return self.call("GET", f"/api/v1/chats/{quote(chat_id, safe='')}")
 
     def _history(self, chat: dict) -> dict:
         return ((chat or {}).get("chat") or {}).get("history") or {}

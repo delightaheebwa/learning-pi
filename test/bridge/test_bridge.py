@@ -11,6 +11,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -29,16 +30,20 @@ from bridge.stream import (  # noqa: E402
     render_steps,
     text_of_content,
 )
-from bridge import openwebui  # noqa: E402
+from bridge import chatsync, openwebui, session_store  # noqa: E402
 from bridge.rpc import PiError, PiSession  # noqa: E402
 from bridge.server import (  # noqa: E402
     OPENUI_BUNDLE_VERSION,
     BridgeConfig,
     BridgeServer,
     LearningLock,
+    SessionEntry,
+    SessionRegistry,
     default_bundle_base,
     is_learning_flow,
+    last_user_message,
     last_user_text,
+    message_images,
     openwebui_ids,
     payload_fragment,
     session_id_for,
@@ -138,6 +143,60 @@ class TestHelpers(unittest.TestCase):
         # but without a message id there is nothing to attach a status to.
         self.assertEqual(openwebui_ids({}, {"metadata": {"chat_id": "c"}}), ("c", ""))
 
+    def test_session_key_prefers_forwarded_chat_header(self):
+        # B-chat-identity-routing: the header is the only signal that separates
+        # two chats with the same first message (a fork), and it survives after
+        # the chat is deleted so cleanup can find the session.
+        body = {"model": "learning", "metadata": {"chat_id": "stale"}}
+        msgs = [{"role": "user", "content": "same first message"}]
+        self.assertEqual(session_key(body, msgs, chat_id="fresh"), "chat:fresh")
+
+    def test_two_chats_with_the_same_first_message_do_not_share_a_session(self):
+        body = {"model": "learning"}
+        msgs = [{"role": "user", "content": "same first message"}]
+        self.assertNotEqual(
+            session_key(body, msgs, chat_id="parent"),
+            session_key(body, msgs, chat_id="fork"),
+        )
+
+    def test_message_images_extracts_openai_data_uri(self):
+        # B-attachments-forwarded: Open WebUI converts an uploaded image to a
+        # data URI before forwarding; the bridge turns it into pi ImageContent.
+        message = {"role": "user", "content": [
+            {"type": "text", "text": "what is this?"},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}},
+        ]}
+        self.assertEqual(
+            message_images(message),
+            [{"type": "image", "data": "QUJD", "mimeType": "image/png"}],
+        )
+
+    def test_message_images_accepts_pi_shaped_and_input_image_parts(self):
+        message = {"content": [
+            {"type": "image", "data": "QUJD", "mimeType": "image/jpeg"},
+            {"type": "input_image", "image_url": "data:image/webp;base64,REVG"},
+        ]}
+        self.assertEqual([i["data"] for i in message_images(message)], ["QUJD", "REVG"])
+
+    def test_message_images_skips_remote_urls(self):
+        message = {"content": [
+            {"type": "image_url", "image_url": {"url": "https://example.test/a.png"}},
+        ]}
+        self.assertEqual(message_images(message), [])
+
+    def test_last_user_message_returns_text_and_images(self):
+        msgs = [
+            {"role": "user", "content": "old"},
+            {"role": "assistant", "content": "reply"},
+            {"role": "user", "content": [
+                {"type": "text", "text": "look"},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}},
+            ]},
+        ]
+        text, images = last_user_message(msgs)
+        self.assertEqual(text, "look")
+        self.assertEqual(images[0]["data"], "QUJD")
+
 
 class TestSessionId(unittest.TestCase):
     """A chat's pi session id must be stable across bridge restarts.
@@ -188,6 +247,19 @@ class TestSessionId(unittest.TestCase):
         self.assertEqual(
             session.command_line(),
             ["pi", "--mode", "rpc", "--name", "bridge-x"],
+        )
+
+    def test_pi_command_opens_an_explicit_fork_file(self):
+        # A forked chat's branch is a file the bridge wrote beside the parent;
+        # open it by path rather than relying on id lookup.
+        session = PiSession(
+            pi_bin="pi", cwd="/tmp", env={}, name="bridge-chat-new",
+            session_id="chat-new", session_file="/sessions/2026_x_chat-new.jsonl",
+        )
+        self.assertEqual(
+            session.command_line(),
+            ["pi", "--mode", "rpc", "--name", "bridge-chat-new",
+             "--session", "/sessions/2026_x_chat-new.jsonl"],
         )
 
 
@@ -255,6 +327,20 @@ class TestPromptBudgets(unittest.TestCase):
             cfg = build_config([])
         self.assertEqual(cfg.timeout, 2400.0)
         self.assertEqual(cfg.max_turn, 10800.0)
+
+    def test_cli_reads_the_delete_sweep_interval(self):
+        from bridge.__main__ import build_config
+        with mock.patch.dict(os.environ, {
+            "PI_BRIDGE_API_KEY": "k",
+            "PI_BRIDGE_SYNC_INTERVAL": "15",
+        }):
+            cfg = build_config([])
+        self.assertEqual(cfg.sync_interval, 15.0)
+
+    def test_sweep_is_disabled_by_zero_interval(self):
+        cfg = BridgeConfig(pi_bin=FAKE_PI, state_repo=str(ROOT), api_key="k",
+                           sync_interval=0)
+        self.assertEqual(cfg.sync_interval, 0.0)
 
 
 class TestTurnStream(unittest.TestCase):
@@ -1412,6 +1498,325 @@ class TestStatusReporter(unittest.TestCase):
         reporter.close()
         time.sleep(0.1)
         self.assertEqual(calls, [])
+
+
+def _pi_message(mid, parent, role, text):
+    return {
+        "type": "message",
+        "id": mid,
+        "parentId": parent,
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "message": {"role": role, "content": text, "timestamp": 1},
+    }
+
+
+def _write_pi_session(directory, session_id, entries):
+    header = {
+        "type": "session",
+        "version": 3,
+        "id": session_id,
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "cwd": str(ROOT),
+    }
+    path = Path(directory) / f"2026-01-01T00-00-00-000Z_{session_id}.jsonl"
+    with path.open("w", encoding="utf-8") as fh:
+        for rec in [header, *entries]:
+            fh.write(json.dumps(rec) + "\n")
+    return path
+
+
+def _parent_entries():
+    return [
+        _pi_message("u1", None, "user", "first question"),
+        _pi_message("a1", "u1", "assistant", "first answer"),
+        _pi_message("u2", "a1", "user", "second question"),
+        _pi_message("a2", "u2", "assistant", "second answer"),
+    ]
+
+
+class _ChatClient:
+    """Canned Open WebUI chat REST responses."""
+
+    def __init__(self, chats=None, status=200):
+        self.chats = chats or {}
+        self.status = status
+        self.requests = []
+
+    def get_chat(self, chat_id):
+        self.requests.append(chat_id)
+        if self.status != 200:
+            return self.status, None
+        chat = self.chats.get(chat_id)
+        return (200, chat) if chat is not None else (404, None)
+
+
+def _fork_chat(chat_id, messages, current_id, parent_id):
+    return {
+        "id": chat_id,
+        "meta": {
+            "forked_from": parent_id,
+            "forked_from_message_id": current_id,
+        },
+        "chat": {
+            "id": chat_id,
+            "models": ["learning"],
+            "originalChatId": parent_id,
+            "branchPointMessageId": current_id,
+            "history": {"currentId": current_id, "messages": messages},
+        },
+    }
+
+
+class TestSessionStore(unittest.TestCase):
+    """Branch selection and file operations for mirrored Open WebUI actions."""
+
+    def test_user_fork_keeps_that_user_message(self):
+        entries = _parent_entries()
+        self.assertEqual(
+            session_store.choose_fork_leaf(entries, 2, "user"),
+            "u2",
+        )
+
+    def test_assistant_fork_keeps_the_turn_that_produced_it(self):
+        # Forking at a1 while the parent later asked u2 must keep u1 + a1 and
+        # drop u2/a2.
+        self.assertEqual(
+            session_store.choose_fork_leaf(_parent_entries(), 1, "assistant"),
+            "a1",
+        )
+
+    def test_assistant_fork_at_the_latest_turn_uses_the_leaf(self):
+        self.assertEqual(
+            session_store.choose_fork_leaf(_parent_entries(), 2, "assistant"),
+            "a2",
+        )
+
+    def test_write_fork_copies_only_the_selected_branch(self):
+        with tempfile.TemporaryDirectory() as d:
+            parent = _write_pi_session(d, "chat-parent", _parent_entries())
+            forked = session_store.write_fork(parent, "chat-child", "a1")
+            _, entries = session_store.read_session(forked)
+            self.assertEqual([e["id"] for e in entries], ["u1", "a1"])
+
+    def test_write_fork_header_identifies_the_new_chat_and_parent(self):
+        with tempfile.TemporaryDirectory() as d:
+            parent = _write_pi_session(d, "chat-parent", _parent_entries())
+            forked = session_store.write_fork(parent, "chat-child", "u2")
+            header, _ = session_store.read_session(forked)
+            self.assertEqual(header["id"], "chat-child")
+            self.assertEqual(header["parentSession"], str(parent))
+            self.assertIn("_chat-child.jsonl", forked.name)
+
+    def test_find_and_delete_session_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = _write_pi_session(d, "chat-abc", [])
+            found = session_store.find_session_file(
+                "chat-abc", session_dir=d, cwd=str(ROOT)
+            )
+            self.assertEqual(found, path)
+            removed = session_store.delete_session_files(
+                "chat-abc", session_dir=d, cwd=str(ROOT)
+            )
+            self.assertEqual(removed, [path])
+            self.assertFalse(path.exists())
+
+    def test_bridge_session_ids_lists_only_chat_sessions(self):
+        with tempfile.TemporaryDirectory() as d:
+            _write_pi_session(d, "chat-abc", [])
+            _write_pi_session(d, "fp-deadbeef", [])
+            self.assertEqual(session_store.bridge_session_ids(session_dir=d), ["chat-abc"])
+
+
+class TestChatSync(unittest.TestCase):
+    """Open WebUI fork/delete mirroring, without pi or a live server."""
+
+    def _config(self, directory):
+        return BridgeConfig(
+            pi_bin=FAKE_PI,
+            state_repo=str(ROOT),
+            api_key="k",
+            session_dir=directory,
+            sync_interval=0,
+        )
+
+    def test_fork_plan_copies_the_parent_branch(self):
+        with tempfile.TemporaryDirectory() as d:
+            _write_pi_session(d, "chat-parent", _parent_entries())
+            child_messages = {
+                "u1": {"id": "u1", "parentId": None, "role": "user", "content": "first question"},
+                "a1": {"id": "a1", "parentId": "u1", "role": "assistant", "content": "first answer"},
+            }
+            client = _ChatClient({"child": _fork_chat("child", child_messages, "a1", "parent")})
+            cfg = self._config(d)
+            sync = chatsync.ChatSync(cfg, SessionRegistry(cfg), client=client)
+
+            path = sync.plan_fork("child", "learning", "chat-child")
+            self.assertIsNotNone(path)
+            header, entries = session_store.read_session(path)
+            self.assertEqual(header["id"], "chat-child")
+            self.assertEqual([e["id"] for e in entries], ["u1", "a1"])
+
+    def test_fork_plan_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as d:
+            _write_pi_session(d, "chat-parent", _parent_entries())
+            child_messages = {
+                "u1": {"id": "u1", "parentId": None, "role": "user", "content": "first question"},
+                "a1": {"id": "a1", "parentId": "u1", "role": "assistant", "content": "first answer"},
+            }
+            client = _ChatClient({"child": _fork_chat("child", child_messages, "a1", "parent")})
+            cfg = self._config(d)
+            sync = chatsync.ChatSync(cfg, SessionRegistry(cfg), client=client)
+
+            first = sync.plan_fork("child", "learning", "chat-child")
+            second = sync.plan_fork("child", "learning", "chat-child")
+            self.assertEqual(first, second)
+            self.assertEqual(len(list(Path(d).glob("*_chat-child.jsonl"))), 1)
+
+    def test_existing_conversation_migrates_its_fingerprint_session(self):
+        # B-chat-identity-routing: before the chat-id header was used every
+        # chat shared an `fp-*` session. The first turn after the upgrade copies
+        # that transcript into a chat-id session instead of starting blank.
+        with tempfile.TemporaryDirectory() as d:
+            legacy_id = session_id_for(
+                session_key({"model": "learning"}, [{"role": "user", "content": "first question"}])
+            )
+            _write_pi_session(d, legacy_id, _parent_entries())
+            messages = {
+                "u1": {"id": "u1", "parentId": None, "role": "user", "content": "first question"},
+                "a1": {"id": "a1", "parentId": "u1", "role": "assistant", "content": "first answer"},
+            }
+            chat = {"id": "legacy", "meta": {}, "chat": {
+                "models": ["learning"],
+                "history": {"currentId": "a1", "messages": messages},
+            }}
+            cfg = self._config(d)
+            sync = chatsync.ChatSync(
+                cfg, SessionRegistry(cfg), client=_ChatClient({"legacy": chat})
+            )
+
+            path = sync.plan_fork("legacy", "learning", "chat-legacy")
+            self.assertIsNotNone(path)
+            header, entries = session_store.read_session(path)
+            self.assertEqual(header["id"], "chat-legacy")
+            self.assertEqual([e["id"] for e in entries], ["u1", "a1"])
+
+    def test_brand_new_chat_does_not_inherit_a_matching_fingerprint(self):
+        with tempfile.TemporaryDirectory() as d:
+            legacy_id = session_id_for(
+                session_key({"model": "learning"}, [{"role": "user", "content": "first question"}])
+            )
+            _write_pi_session(d, legacy_id, _parent_entries())
+            messages = {
+                "u1": {"id": "u1", "parentId": None, "role": "user", "content": "first question"},
+            }
+            chat = {"id": "fresh", "meta": {}, "chat": {
+                "models": ["learning"],
+                "history": {"currentId": "u1", "messages": messages},
+            }}
+            cfg = self._config(d)
+            sync = chatsync.ChatSync(
+                cfg, SessionRegistry(cfg), client=_ChatClient({"fresh": chat})
+            )
+
+            self.assertIsNone(sync.plan_fork("fresh", "learning", "chat-fresh"))
+
+    def test_sweep_deletes_the_pi_session_for_a_deleted_chat(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = _write_pi_session(d, "chat-abc", [])
+            cfg = self._config(d)
+            registry = SessionRegistry(cfg)
+            entry = SessionEntry("chat:abc", FakeSession())
+            registry._entries["chat:abc"] = entry
+            sync = chatsync.ChatSync(cfg, registry, client=_ChatClient())
+
+            self.assertEqual(sync.sweep(), 1)
+            self.assertFalse(path.exists())
+            self.assertTrue(entry.session.closed)
+            self.assertEqual(registry.chat_keys(), [])
+
+    def test_sweep_keeps_a_session_whose_chat_still_exists(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = _write_pi_session(d, "chat-abc", [])
+            cfg = self._config(d)
+            registry = SessionRegistry(cfg)
+            client = _ChatClient({"abc": {"id": "abc"}})
+            sync = chatsync.ChatSync(cfg, registry, client=client)
+
+            self.assertEqual(sync.sweep(), 0)
+            self.assertTrue(path.exists())
+
+    def test_network_error_never_deletes_a_session(self):
+        # A down Open WebUI returns 0, not 404; cleanup must not treat that as
+        # "chat deleted".
+        with tempfile.TemporaryDirectory() as d:
+            path = _write_pi_session(d, "chat-abc", [])
+            cfg = self._config(d)
+            registry = SessionRegistry(cfg)
+            sync = chatsync.ChatSync(cfg, registry, client=_ChatClient(status=0))
+
+            self.assertEqual(sync.sweep(), 0)
+            self.assertTrue(path.exists())
+
+    def test_sweep_leaves_an_inflight_session_for_the_next_pass(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = _write_pi_session(d, "chat-abc", [])
+            cfg = self._config(d)
+            registry = SessionRegistry(cfg)
+            entry = SessionEntry("chat:abc", FakeSession())
+            entry.inflight = True
+            registry._entries["chat:abc"] = entry
+            sync = chatsync.ChatSync(cfg, registry, client=_ChatClient())
+
+            self.assertEqual(sync.sweep(), 0)
+            self.assertTrue(path.exists())
+            self.assertIn("chat:abc", registry.chat_keys())
+
+
+class TestAttachmentIntegration(unittest.TestCase):
+    """An uploaded image is forwarded to pi, not silently dropped."""
+
+    def test_image_only_message_reaches_pi(self):
+        with tempfile.TemporaryDirectory() as d:
+            image_log = Path(d) / "images.log"
+            prompt_log = Path(d) / "prompt.log"
+            h = ServerHarness("default", env_extra={
+                "FAKE_PI_IMAGE_LOG": str(image_log),
+                "FAKE_PI_PROMPT_LOG": str(prompt_log),
+            })
+            try:
+                body = h.body("")
+                body["messages"] = [{"role": "user", "content": [
+                    {"type": "image_url",
+                     "image_url": {"url": "data:image/png;base64,QUJD"}},
+                ]}]
+                status, data = h.post(body)
+                self.assertEqual(status, 200)
+                self.assertIn("QUJD", image_log.read_text())
+                self.assertIn("Describe the attached image.", prompt_log.read_text())
+            finally:
+                h.stop()
+
+    def test_text_and_image_are_both_forwarded(self):
+        with tempfile.TemporaryDirectory() as d:
+            image_log = Path(d) / "images.log"
+            prompt_log = Path(d) / "prompt.log"
+            h = ServerHarness("default", env_extra={
+                "FAKE_PI_IMAGE_LOG": str(image_log),
+                "FAKE_PI_PROMPT_LOG": str(prompt_log),
+            })
+            try:
+                body = h.body("what is this?")
+                body["messages"] = [{"role": "user", "content": [
+                    {"type": "text", "text": "what is this?"},
+                    {"type": "image_url",
+                     "image_url": {"url": "data:image/jpeg;base64,REVG"}},
+                ]}]
+                status, _ = h.post(body)
+                self.assertEqual(status, 200)
+                self.assertIn('"mimeType": "image/jpeg"', image_log.read_text())
+                self.assertIn("what is this?", prompt_log.read_text())
+            finally:
+                h.stop()
 
 
 if __name__ == "__main__":

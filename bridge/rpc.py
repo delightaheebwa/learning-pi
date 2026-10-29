@@ -40,6 +40,7 @@ class PiSession:
         name: str,
         extra_args: Iterable[str] = (),
         session_id: Optional[str] = None,
+        session_file: Optional[str] = None,
     ) -> None:
         self.pi_bin = pi_bin
         self.cwd = cwd
@@ -47,6 +48,10 @@ class PiSession:
         self.name = name
         self.extra_args = list(extra_args)
         self.session_id = session_id
+        # An explicit file is used for a forked chat: the bridge writes the
+        # branch under pi's session root, then opens it directly so the chat is
+        # independent of any later parent-session bookkeeping.
+        self.session_file = session_file
         self.proc: Optional[subprocess.Popen] = None
         self._q: "queue.Queue[dict]" = queue.Queue()
         self._write_lock = threading.Lock()
@@ -58,7 +63,10 @@ class PiSession:
     # -- lifecycle ---------------------------------------------------------
     def command_line(self) -> list[str]:
         cmd = [self.pi_bin, "--mode", "rpc", "--name", self.name]
-        if self.session_id:
+        if self.session_file:
+            # A forked chat: open the exact branch file the bridge wrote.
+            cmd += ["--session", self.session_file]
+        elif self.session_id:
             # Resume this chat's transcript when it exists; create it otherwise.
             cmd += ["--session-id", self.session_id]
         cmd += self.extra_args
@@ -168,6 +176,7 @@ class PiSession:
         on_record: Callable[[dict], None],
         timeout: float = 1800.0,
         max_turn: float = 7200.0,
+        images: Optional[list] = None,
     ) -> list[dict]:
         """Run one prompt to `agent_settled`, streaming records to `on_record`.
 
@@ -184,7 +193,12 @@ class PiSession:
             raise PiError("session busy; a turn is already running")
         try:
             cid = uuid.uuid4().hex
-            self._write({"id": cid, "type": "prompt", "message": message})
+            payload = {"id": cid, "type": "prompt", "message": message}
+            if images:
+                # pi accepts `ImageContent` blocks directly on the prompt, so an
+                # Open WebUI upload reaches the model instead of being dropped.
+                payload["images"] = images
+            self._write(payload)
             now = time.monotonic()
             idle_deadline = now + timeout
             turn_deadline = now + max_turn
