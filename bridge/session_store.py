@@ -87,6 +87,18 @@ def find_session_file(
     return files[0] if files else None
 
 
+def delete_paths(paths) -> list[Path]:
+    """Delete an explicit set of session files; return what was removed."""
+    removed = []
+    for path in paths or []:
+        try:
+            Path(path).unlink()
+            removed.append(Path(path))
+        except FileNotFoundError:
+            pass
+    return removed
+
+
 def delete_session_files(
     session_id: str,
     *,
@@ -94,14 +106,9 @@ def delete_session_files(
     cwd: Optional[str] = None,
 ) -> list[Path]:
     """Delete every session file for `session_id`; return what was removed."""
-    removed = []
-    for path in find_session_files(session_id, session_dir=session_dir, cwd=cwd):
-        try:
-            path.unlink()
-            removed.append(path)
-        except FileNotFoundError:
-            pass
-    return removed
+    return delete_paths(
+        find_session_files(session_id, session_dir=session_dir, cwd=cwd)
+    )
 
 
 def bridge_session_ids(

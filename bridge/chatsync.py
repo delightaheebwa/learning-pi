@@ -95,20 +95,24 @@ class ChatSync:
         if not chat_id:
             return None
         with self._plan_lock:
-            existing = session_store.find_session_file(
-                session_id,
-                session_dir=self._session_dir(),
-                cwd=self.config.state_repo,
-            )
+            existing = self._existing(session_id)
             if existing is not None:
                 return existing
 
-            client = self.client()
-            if client is None:
-                return None
-            status, chat = client.get_chat(chat_id)
-            if status != 200 or not isinstance(chat, dict):
-                return None
+        # The REST round-trip must not hold the plan lock: a slow Open WebUI
+        # would serialise every other new chat's first turn behind it.
+        client = self.client()
+        if client is None:
+            return None
+        status, chat = client.get_chat(chat_id)
+        if status != 200 or not isinstance(chat, dict):
+            return None
+
+        with self._plan_lock:
+            # Another request may have created the file while we fetched.
+            existing = self._existing(session_id)
+            if existing is not None:
+                return existing
             parent_id, branch_id = _fork_origin(chat)
             if not parent_id:
                 # An existing chat from before chat-id routing has a fingerprint
@@ -136,6 +140,13 @@ class ChatSync:
                     flush=True,
                 )
                 return None
+
+    def _existing(self, session_id: str) -> Optional[Path]:
+        return session_store.find_session_file(
+            session_id,
+            session_dir=self._session_dir(),
+            cwd=self.config.state_repo,
+        )
 
     def _migrate_fingerprint(self, chat: dict, model: str, session_id: str) -> Optional[Path]:
         """Give a pre-chat-id conversation its own session file.
@@ -251,23 +262,28 @@ class ChatSync:
     def delete_chat(self, chat_id: str) -> bool:
         """Close and remove one chat's pi session (False when a turn is active)."""
         key = "chat:" + chat_id
+        # Snapshot the files before removing the registry entry: a turn starting
+        # in between may legitimately create a new file, which this sweep must
+        # not unlink underneath it. The next sweep will see that file if the
+        # chat is still gone.
+        files = session_store.find_session_files(
+            "chat-" + chat_id,
+            session_dir=self._session_dir(),
+            cwd=self.config.state_repo,
+        )
         entry, busy = self.registry.pop_if_idle(key)
         if busy:
             return False  # retry on the next sweep, after the turn settles
         if entry is not None:
             entry.session.close()
-        files = session_store.delete_session_files(
-            "chat-" + chat_id,
-            session_dir=self._session_dir(),
-            cwd=self.config.state_repo,
-        )
-        if entry is not None or files:
+        removed = session_store.delete_paths(files)
+        if entry is not None or removed:
             print(
                 f"pi-bridge: removed pi session for deleted chat {chat_id}",
                 file=sys.stderr,
                 flush=True,
             )
-        return entry is not None or bool(files)
+        return entry is not None or bool(removed)
 
 
 # ---------------------------------------------------------------------------
@@ -333,6 +349,14 @@ def _first_user_text(chat: dict) -> str:
         if message.get("role") == "user":
             return session_store.message_text(message.get("content"))
     messages = _history_messages(chat)
+    # Fall back to a root user message, not arbitrary dict insertion order.
+    for message in messages.values():
+        if (
+            isinstance(message, dict)
+            and message.get("role") == "user"
+            and message.get("parentId") not in messages
+        ):
+            return session_store.message_text(message.get("content"))
     for message in messages.values():
         if isinstance(message, dict) and message.get("role") == "user":
             return session_store.message_text(message.get("content"))

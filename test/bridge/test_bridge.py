@@ -1757,6 +1757,26 @@ class TestChatSync(unittest.TestCase):
             self.assertEqual(sync.sweep(), 0)
             self.assertTrue(path.exists())
 
+    def test_auth_or_server_error_never_deletes_a_session(self):
+        for status in (401, 500):
+            with self.subTest(status=status):
+                with tempfile.TemporaryDirectory() as d:
+                    path = _write_pi_session(d, "chat-abc", [])
+                    cfg = self._config(d)
+                    registry = SessionRegistry(cfg)
+                    sync = chatsync.ChatSync(cfg, registry, client=_ChatClient(status=status))
+
+                    self.assertEqual(sync.sweep(), 0)
+                    self.assertTrue(path.exists())
+
+    def test_fork_plan_without_rest_returns_none(self):
+        with tempfile.TemporaryDirectory() as d:
+            cfg = BridgeConfig(
+                pi_bin=FAKE_PI, state_repo=str(ROOT), api_key="k", session_dir=d
+            )
+            sync = chatsync.ChatSync(cfg, SessionRegistry(cfg))
+            self.assertIsNone(sync.plan_fork("child", "learning", "chat-child"))
+
     def test_sweep_leaves_an_inflight_session_for_the_next_pass(self):
         with tempfile.TemporaryDirectory() as d:
             path = _write_pi_session(d, "chat-abc", [])
@@ -1815,6 +1835,22 @@ class TestAttachmentIntegration(unittest.TestCase):
                 self.assertEqual(status, 200)
                 self.assertIn('"mimeType": "image/jpeg"', image_log.read_text())
                 self.assertIn("what is this?", prompt_log.read_text())
+            finally:
+                h.stop()
+
+    def test_two_images_only_get_the_plural_prompt(self):
+        with tempfile.TemporaryDirectory() as d:
+            prompt_log = Path(d) / "prompt.log"
+            h = ServerHarness("default", env_extra={"FAKE_PI_PROMPT_LOG": str(prompt_log)})
+            try:
+                body = h.body("")
+                body["messages"] = [{"role": "user", "content": [
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}},
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,REVG"}},
+                ]}]
+                status, _ = h.post(body)
+                self.assertEqual(status, 200)
+                self.assertIn("Describe the attached images.", prompt_log.read_text())
             finally:
                 h.stop()
 
