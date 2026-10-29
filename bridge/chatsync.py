@@ -38,6 +38,7 @@ class ChatSync:
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._started = False
+        self._probe_status = None
 
     # -- Open WebUI access -------------------------------------------------
     def client(self):
@@ -249,7 +250,16 @@ class ChatSync:
         # an invalid key returns 401 for the list too and must delete nothing.
         list_status, _ = client.call("GET", "/api/v1/chats/")
         if list_status != 200:
+            if list_status != self._probe_status:
+                print(
+                    f"pi-bridge: chat sweep disabled: Open WebUI chat-list probe "
+                    f"returned {list_status}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._probe_status = list_status
             return 0
+        self._probe_status = None
         chat_ids = set()
         for key in self.registry.chat_keys():
             chat_ids.add(key[len("chat:"):])
@@ -263,7 +273,7 @@ class ChatSync:
             status, _ = client.get_chat(chat_id)
             # 401/404/422 all mean "no such chat for this key"; the list above
             # already proved the key itself is good.
-            if status in (400, 401, 404, 422) and self.delete_chat(chat_id):
+            if status in (401, 404, 422) and self.delete_chat(chat_id):
                 removed += 1
         return removed
 
