@@ -1537,10 +1537,16 @@ def _parent_entries():
 class _ChatClient:
     """Canned Open WebUI chat REST responses."""
 
-    def __init__(self, chats=None, status=200):
+    def __init__(self, chats=None, status=200, list_status=200):
         self.chats = chats or {}
         self.status = status
+        self.list_status = list_status
         self.requests = []
+
+    def call(self, method, path, body=None):
+        if method == "GET" and path == "/api/v1/chats/":
+            return self.list_status, list(self.chats)
+        return 404, None
 
     def get_chat(self, chat_id):
         self.requests.append(chat_id)
@@ -1757,17 +1763,43 @@ class TestChatSync(unittest.TestCase):
             self.assertEqual(sync.sweep(), 0)
             self.assertTrue(path.exists())
 
-    def test_auth_or_server_error_never_deletes_a_session(self):
-        for status in (401, 500):
-            with self.subTest(status=status):
-                with tempfile.TemporaryDirectory() as d:
-                    path = _write_pi_session(d, "chat-abc", [])
-                    cfg = self._config(d)
-                    registry = SessionRegistry(cfg)
-                    sync = chatsync.ChatSync(cfg, registry, client=_ChatClient(status=status))
+    def test_invalid_key_never_deletes_a_session(self):
+        # An invalid key makes the list probe fail; per-chat 401s must not be
+        # interpreted as deleted chats.
+        with tempfile.TemporaryDirectory() as d:
+            path = _write_pi_session(d, "chat-abc", [])
+            cfg = self._config(d)
+            registry = SessionRegistry(cfg)
+            sync = chatsync.ChatSync(
+                cfg, registry, client=_ChatClient(status=401, list_status=401)
+            )
 
-                    self.assertEqual(sync.sweep(), 0)
-                    self.assertTrue(path.exists())
+            self.assertEqual(sync.sweep(), 0)
+            self.assertTrue(path.exists())
+
+    def test_server_error_never_deletes_a_session(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = _write_pi_session(d, "chat-abc", [])
+            cfg = self._config(d)
+            registry = SessionRegistry(cfg)
+            sync = chatsync.ChatSync(cfg, registry, client=_ChatClient(status=500))
+
+            self.assertEqual(sync.sweep(), 0)
+            self.assertTrue(path.exists())
+
+    def test_missing_chat_401_with_a_valid_key_deletes(self):
+        # Open WebUI reports a missing chat as 401, not 404, once the key itself
+        # is proven good by the chat-list probe.
+        with tempfile.TemporaryDirectory() as d:
+            path = _write_pi_session(d, "chat-abc", [])
+            cfg = self._config(d)
+            registry = SessionRegistry(cfg)
+            sync = chatsync.ChatSync(
+                cfg, registry, client=_ChatClient(status=401, list_status=200)
+            )
+
+            self.assertEqual(sync.sweep(), 1)
+            self.assertFalse(path.exists())
 
     def test_fork_plan_without_rest_returns_none(self):
         with tempfile.TemporaryDirectory() as d:

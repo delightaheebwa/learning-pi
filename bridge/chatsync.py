@@ -244,6 +244,12 @@ class ChatSync:
         client = self.client()
         if client is None:
             return 0
+        # Validate the key before interpreting per-chat 401s. Open WebUI returns
+        # 401 (not 404) for a chat the user cannot see, including a deleted one;
+        # an invalid key returns 401 for the list too and must delete nothing.
+        list_status, _ = client.call("GET", "/api/v1/chats/")
+        if list_status != 200:
+            return 0
         chat_ids = set()
         for key in self.registry.chat_keys():
             chat_ids.add(key[len("chat:"):])
@@ -255,7 +261,9 @@ class ChatSync:
         removed = 0
         for chat_id in sorted(chat_ids):
             status, _ = client.get_chat(chat_id)
-            if status == 404 and self.delete_chat(chat_id):
+            # 401/404/422 all mean "no such chat for this key"; the list above
+            # already proved the key itself is good.
+            if status in (400, 401, 404, 422) and self.delete_chat(chat_id):
                 removed += 1
         return removed
 

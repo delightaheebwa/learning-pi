@@ -572,11 +572,14 @@
     {
       "id": "B-chat-delete-mirrored",
       "severity": "hard",
-      "statement": "Deleting an Open WebUI chat removes its pi session: the background sweep asks Open WebUI about every `chat-<id>` session and closes/removes it only on an explicit 404. A network error, a bad key, an existing chat, or a turn still in flight never deletes a transcript; an in-flight session is retried on the next sweep.",
+      "statement": "Deleting an Open WebUI chat removes its pi session: the background sweep first proves the API key with the chat-list probe, then asks Open WebUI about every `chat-<id>` session and closes/removes it on a per-chat 401/404/422 (Open WebUI reports a missing chat as 401). A network error, an invalid key, a server error, an existing chat, or a turn still in flight never deletes a transcript; an in-flight session is retried on the next sweep.",
       "tests": [
         "test_sweep_deletes_the_pi_session_for_a_deleted_chat",
         "test_sweep_keeps_a_session_whose_chat_still_exists",
         "test_network_error_never_deletes_a_session",
+        "test_invalid_key_never_deletes_a_session",
+        "test_server_error_never_deletes_a_session",
+        "test_missing_chat_401_with_a_valid_key_deletes",
         "test_sweep_leaves_an_inflight_session_for_the_next_pass"
       ]
     },

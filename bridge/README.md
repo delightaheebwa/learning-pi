@@ -114,10 +114,11 @@ bridge closes that gap with the same REST key it uses for widgets
   assistant message keeps the turn that produced it. The copy is reused after a
   bridge restart, not duplicated.
 * **Delete.** A background sweep (`--sync-interval`, default 60 s, 0 disables)
-  asks Open WebUI about every `chat-<id>` session and closes/removes it only on
-  an explicit 404. A network error, a bad key, an existing chat, or a turn still
-  in flight never deletes a transcript; an in-flight session is retried on the
-  next pass.
+  proves the API key with the chat-list probe, then asks Open WebUI about every
+  `chat-<id>` session and closes/removes it on a per-chat 401/404/422 (Open
+  WebUI reports a missing chat as 401). A network error, an invalid key, a
+  server error, an existing chat, or a turn still in flight never deletes a
+  transcript; an in-flight session is retried on the next pass.
 
 Requires the chat-id header above and the Open WebUI REST configuration. Without
 them the bridge keeps working, but fork starts a fresh chat and delete leaves the

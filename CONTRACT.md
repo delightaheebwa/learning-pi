@@ -447,8 +447,10 @@ coverage check as the deno gate suites.
   parts are forwarded unchanged. Non-image files follow Open WebUI's own
   file-context/RAG path into the user message.
 - **B-chat-delete-mirrored** *(hard)* — deleting an Open WebUI chat removes its
-  pi session. A background sweep deletes only on an explicit 404, never on a
-  network error, and leaves an in-flight turn for the next pass.
+  pi session. A background sweep first proves the API key with the chat-list
+  probe, then deletes on a per-chat 401/404/422 (Open WebUI reports a missing
+  chat as 401), never on a network error, and leaves an in-flight turn for the
+  next pass.
 - **B-chat-fork-mirrored** *(hard)* — forking or cloning a chat copies the
   parent's pi branch at the fork point into a session owned by the new chat id:
   a user-message fork keeps that message, an assistant fork keeps its turn, and
