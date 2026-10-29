@@ -111,6 +111,47 @@ def delete_session_files(
     )
 
 
+def _project_dirs(session_dir: Optional[str], cwd: Optional[str]) -> list[Path]:
+    root = default_session_dir(session_dir)
+    if cwd:
+        project = root / project_dir_name(cwd)
+        if project.is_dir():
+            return [project]
+    # A fallback to the root is safe for these artifacts: backups are redundant
+    # safety copies, and a chat id is unique across projects.
+    return [root] if root.is_dir() else []
+
+
+def delete_session_backups(
+    session_id: str,
+    *,
+    session_dir: Optional[str] = None,
+    cwd: Optional[str] = None,
+) -> list[Path]:
+    """Delete a chat's stale `<session>.jsonl.bridge-bak` fork backups."""
+    paths = []
+    for directory in _project_dirs(session_dir, cwd):
+        paths.extend(directory.glob(f"*_{session_id}{SESSION_EXT}.bridge-bak"))
+    return delete_paths(paths)
+
+
+def cleanup_backups(
+    *,
+    session_dir: Optional[str] = None,
+    cwd: Optional[str] = None,
+) -> list[Path]:
+    """Remove leftover fork backups in the project session directory.
+
+    A backup is only a safety copy made immediately before adopting a fork; a
+    completed adoption deletes it, and a failed one restores it. Anything left
+    is from a crash and is redundant with the active/target file.
+    """
+    paths = []
+    for directory in _project_dirs(session_dir, cwd):
+        paths.extend(directory.glob(f"*{SESSION_EXT}.bridge-bak"))
+    return delete_paths(paths)
+
+
 def bridge_session_ids(
     *,
     session_dir: Optional[str] = None,

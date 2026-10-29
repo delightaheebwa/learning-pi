@@ -1768,6 +1768,16 @@ class TestSessionStore(unittest.TestCase):
             self.assertEqual(removed, [path])
             self.assertFalse(path.exists())
 
+    def test_cleanup_backups_removes_stale_fork_backups(self):
+        with tempfile.TemporaryDirectory() as d:
+            session = _write_pi_session(d, "chat-abc", [])
+            backup = session.with_name(session.name + ".bridge-bak")
+            backup.write_text("old branch\n", encoding="utf-8")
+            removed = session_store.cleanup_backups(session_dir=d)
+            self.assertEqual(removed, [backup])
+            self.assertFalse(backup.exists())
+            self.assertTrue(session.exists())
+
     def test_bridge_session_ids_lists_only_chat_sessions(self):
         with tempfile.TemporaryDirectory() as d:
             _write_pi_session(d, "chat-abc", [])
@@ -1871,6 +1881,8 @@ class TestChatSync(unittest.TestCase):
     def test_sweep_deletes_the_pi_session_for_a_deleted_chat(self):
         with tempfile.TemporaryDirectory() as d:
             path = _write_pi_session(d, "chat-abc", [])
+            backup = path.with_name(path.name + ".bridge-bak")
+            backup.write_text("old branch\n", encoding="utf-8")
             cfg = self._config(d)
             registry = SessionRegistry(cfg)
             entry = SessionEntry("chat:abc", FakeSession())
@@ -1879,6 +1891,7 @@ class TestChatSync(unittest.TestCase):
 
             self.assertEqual(sync.sweep(), 1)
             self.assertFalse(path.exists())
+            self.assertFalse(backup.exists())
             self.assertTrue(entry.session.closed)
             self.assertEqual(registry.chat_keys(), [])
 

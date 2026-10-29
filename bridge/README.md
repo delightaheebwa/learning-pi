@@ -121,9 +121,11 @@ bridge closes that gap with the same REST key it uses for widgets
   message forks pi at the turn being replaced before prompting; a regenerate
   re-answers the last user; a Continue click (the transcript ends with the
   assistant) sends a marked continuation prompt without forking. The marker is
-  filtered from later alignment. After any fork, the new branch replaces the
-  chat's session file and pi switches to it, so restart and delete see the
-  active transcript.
+  filtered from later alignment. A compacted transcript (`[CONVERSATION
+  SUMMARY]` system message) appends/continues without forking, so pi keeps its
+  fuller context rather than losing the summarized turns. After any fork, the
+  new branch replaces the chat's session file and pi switches to it, so restart
+  and delete see the active transcript.
 * **Stop.** Open WebUI's Stop closes the streaming connection. The bridge watches
   the socket and aborts the pi turn (even while pi is silent inside a long tool
   call), drains to settlement, and releases the learning lock. Leaving a chat

@@ -245,6 +245,10 @@ class ChatSync:
         client = self.client()
         if client is None:
             return 0
+        # A crash during fork adoption can leave a redundant backup file.
+        session_store.cleanup_backups(
+            session_dir=self._session_dir(), cwd=self.config.state_repo
+        )
         # Validate the key before interpreting per-chat 401s. Open WebUI returns
         # 401 (not 404) for a chat the user cannot see, including a deleted one;
         # an invalid key returns 401 for the list too and must delete nothing.
@@ -295,6 +299,11 @@ class ChatSync:
         if entry is not None:
             entry.session.close()
         removed = session_store.delete_paths(files)
+        removed += session_store.delete_session_backups(
+            "chat-" + chat_id,
+            session_dir=self._session_dir(),
+            cwd=self.config.state_repo,
+        )
         if entry is not None or removed:
             print(
                 f"pi-bridge: removed pi session for deleted chat {chat_id}",

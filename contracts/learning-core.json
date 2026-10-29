@@ -629,7 +629,8 @@
       "tests": [
         "test_persist_fork_moves_the_branch_and_switches_pi",
         "test_persist_fork_restores_the_old_branch_if_switch_fails",
-        "test_persist_fork_waits_while_the_new_file_is_not_written"
+        "test_persist_fork_waits_while_the_new_file_is_not_written",
+        "test_cleanup_backups_removes_stale_fork_backups"
       ]
     },
     {
