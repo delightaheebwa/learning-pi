@@ -39,8 +39,8 @@ The session closes in three phases: **verified feedback → learner Q&A pause �
    - **Decoy / near-miss items**: include at least one item whose surface vocabulary resembles a due concept but violates one of its `conditions`, so that blindly applying the due concept fails. It actually requires an older tool.
    - **Perturbation items**: for at least one due concept, mutate a load-bearing assumption and ask the learner to predict the qualitative downstream behaviour (which way it moves, what breaks).
    - **Misapplication items**: include an item presenting a plausible real-world use where a `condition` is violated; the learner names the broken assumption and what should have been done instead.
-   - For `concept`/`design` types, the Feynman check is the **clone protocol**, run in two phases: in this batch, add a "teach the clone" item asking the learner to explain the (unlabeled) concept in their reply. Do **not** dispatch `naive-student` yet — there is nothing to teach it until the learner answers.
-3. **Qualitative Trace Requirement**: Instruct the learner to reply with the 3-line qualitative trace — cue & principle (why it applies) → mechanism/knob-turn → direction & extreme check — not only a final answer. No derivation or calculation prompts: this review tests the mental model.
+   - For `concept`/`design` types, the Feynman check is the **clone protocol**, run in two phases: in this batch, add a "teach the clone" item asking the learner to explain the (unlabeled) concept in their reply — terse is fine, but the transcript must carry: what it is → when/why it applies → the mechanism in **one full causal clause** → a **failure regime** (when it breaks) → the nearest-neighbour contrast. The failure-regime line is load-bearing: the clone needs it to test the model, and an example does not replace it. Do **not** dispatch `naive-student` yet — there is nothing to teach it until the learner answers.
+3. **Qualitative Trace Requirement (terse by default)**: Instruct the learner to reply with the 3-line qualitative trace — cue & principle (why it applies) → mechanism/knob-turn → direction & extreme check — not only a final answer. Say plainly that keyword/telegraphic lines are welcome and form is never graded, content is: all three lines are still required, but a phrase per line is the default, not a sentence. Grading must not dock brevity — a conclusion-only line fails as a missing mechanism, never as verbosity. No derivation or calculation prompts: this review tests the mental model.
 4. **Verify Batch**:
    ```python
    invoke_subagent(
@@ -60,7 +60,7 @@ The session closes in three phases: **verified feedback → learner Q&A pause �
 
 1. When the learner replies, build the grade items with the learner's **trace** included per item.
 2. **Run the Clone Phase (if the batch contained a teach-the-clone item)**:
-   - Dispatch **`naive-student`** now, with `concept`, a seeded plausible `misconception`, `prereq_level` (the concept's prerequisites), a **qualitative** `target_task` (a prediction or tool choice), and `learner_transcript` = the learner's teaching reply verbatim.
+   - Dispatch **`naive-student`** now, with `concept`, a seeded plausible `misconception`, `prereq_level` (the concept's prerequisites), a **qualitative** `target_task` (a prediction or tool choice) drawn from the contrast the learner taught, and `learner_transcript` = the learner's teaching reply verbatim.
    - Await `NAIVE_STUDENT_RECEIPT` (it attempts the target task using only what the learner explicitly taught).
 3. **Verify Grades**:
    ```python

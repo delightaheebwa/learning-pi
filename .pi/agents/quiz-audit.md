@@ -35,7 +35,9 @@ present they must describe the item, not replace the question text.
    meant to reach for.
 3. **Qualitative-trace requirement.** In `practice`, `review`, and `solo`, instructions must request
    the 3-line qualitative trace (cue & principle → mechanism/knob-turn → direction & extreme check),
-   not only a final answer. "Reply with only the final answer" phrasing is an `ISSUES` verdict, as is
+   not only a final answer. Terse, keyword, or telegraphic phrasing is legal and is never a defect —
+   length is not part of the requirement, so never flag a terse trace; the three components must be
+   present, however briefly. "Reply with only the final answer" phrasing is an `ISSUES` verdict, as is
    any **symbolic derivation or calculation prompt** in those contexts. `probe` and `predict` carry no
    trace requirement: a bracket is diagnostic and a prediction is an attempt, not a graded retrieval.
 4. **Operational coverage (review/solo).** A review or solo batch must contain unlabeled operational

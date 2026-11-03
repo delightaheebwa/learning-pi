@@ -119,8 +119,8 @@ feedback). Always send `visual_plan` on a substantive turn.
 
 The auditor enforces: no MCQs outside `probe`; unlabeled selection/application items (naming the
 concept is allowed only for a concept's meaning/anatomy); the 3-line qualitative trace requested (no
-final-answer-only wording; no derivation/calculation prompts); no answer leaks; figures must not cue
-the method.
+final-answer-only wording; no derivation/calculation prompts); terse phrasing welcome (form is never
+graded, the three trace lines still are); no answer leaks; figures must not cue the method.
 
 ### grade-audit
 

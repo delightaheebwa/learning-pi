@@ -95,7 +95,7 @@ Envelope fields:
 ### Verification Checklist:
 1. **MCQ Legality**: `mcq` items are permitted ONLY when `context` is `"probe"` (legacy diagnostics). Any `mcq` in `practice`, `review`, or `solo` context is an `ISSUES` verdict — recognition is not retrieval. The stress-test flow does not use probes at all.
 2. **Concept-Label Ban (selection items only)**: For items testing *tool selection or application*, stems and intro prose must NOT name the concept (the learner must choose the tool, not be handed it) — a stem that names it is `CUE_LEAKAGE`. For items that directly test a concept's *meaning or anatomy* (read this formula / explain this mechanism), naming the concept is allowed.
-3. **Qualitative Trace Requirement**: Instructions must request the 3-line qualitative trace (cue & principle → mechanism/knob-turn → direction & extreme check), not only a final answer. "Reply with only the final answer" phrasing is an `ISSUES` verdict, as is any **derivation or calculation prompt** in `practice`, `review`, or `solo` context.
+3. **Qualitative Trace Requirement**: Instructions must request the 3-line qualitative trace (cue & principle → mechanism/knob-turn → direction & extreme check), not only a final answer. Terse, keyword, or telegraphic phrasing is legal and is never a defect — length is not part of the requirement, so never flag a terse trace; the three components must be present, however briefly. "Reply with only the final answer" phrasing is an `ISSUES` verdict, as is any **derivation or calculation prompt** in `practice`, `review`, or `solo` context.
 4. **Distractor Integrity (probe MCQs only)**: 4 options of comparable length and grammatical structure; the correct answer must not stand out; distractors plausible (right in another context, one step off), never nonsense or "all of the above"; randomized positions; zero leakage in stems or intro.
 5. **No Leaks**: Instructions, stems, and introductory prose must not give away any answer key or reference internal position numbers.
 6. **Figures**: Any diagram or chart included in the batch must be necessary to pose the item and must not cue the method, the concept label, or the answer. A cueing figure is `CUE_LEAKAGE`; a decorative one is noise. (`visual_plan` applies to `fact_check` turns; question figures are audited here.)
@@ -108,13 +108,13 @@ Envelope fields:
 - `items`: `[{"id": 1, "concept": "...", "pow": "perturbation|sabotage|clone|none", "attack": "mechanism|counterexample|perturbation|source_clash|sabotage|synthesis|none", "qtype": "...", "confidence": "sure|hunch|no-idea", "question": "...", "learner_answer": "...", "trace": "...", "claimed_verdict": "pass|fail", "source_excerpt": "...", "tutor_turns": ["..."], "naive_student_receipt": {...}}]`
   - `pow` names the Operational Intuition Battery protocol when applicable.
   - `attack` names the interrogation weapon when applicable (e.g. `counterexample`).
-  - `trace` is the learner's 3-line qualitative trace.
+  - `trace` is the learner's 3-line qualitative trace; terse phrase-level lines are normal.
   - `tutor_turns` carries the Tutor's recent substantive turns for shallow-pass detection.
   - `naive_student_receipt` (required when `pow` is `"clone"`): the parsed `NAIVE_STUDENT_RECEIPT` from the `naive-student` subagent run.
 
 ### Verification Checklist:
 1. **Independent Evaluation**: Compare the learner's raw answer against the question, the attacked claim, and `source_excerpt`. Determine your own `correct_verdict` (`"pass"` or `"fail"`). Recompute any math.
-2. **Trace Grading (qualitative items)**: Grade the **mechanism and the direction/extreme check**, not the wording. A correct-looking conclusion with a broken mechanism, a missing direction, or no extreme check is a `fail`. Judge the mental model, not the phrasing — and never require algebra, a derivation, or a numeric scalar.
+2. **Trace Grading (qualitative items)**: Grade the **mechanism and the direction/extreme check**, not the wording. A correct-looking conclusion with a broken mechanism, a missing direction, or no extreme check is a `fail`. Judge the mental model, not the phrasing — and never require algebra, a derivation, or a numeric scalar. Brevity is not a defect: a terse line that names the knob, the direction, and the extreme passes; a conclusion-only terse line fails as a missing mechanism, never as verbosity — never raise or lower a verdict for how long the answer is.
 3. **Attack-Specific Rubric**:
    - `counterexample`: pass requires the learner to explain why the case satisfies their rule as written and why the rule therefore fails, then patch the rule. "That's an edge case" with no diagnosis is a fail.
    - `mechanism`: pass requires the causal chain (which knob, which way, why), not a restated conclusion.

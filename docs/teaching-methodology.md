@@ -39,6 +39,16 @@ pacing, and repair** — not its authorship.
 | Question craft | Checks answerable from the session, application-first, diagnostic distractors, answer-is-signal | `quiz-audit` §10; `grade-audit` |
 | Voice | No praise, no agreement bias, no performed profundity | `APPEND_SYSTEM.md` |
 
+## Answer format: brevity is not rigor
+
+The review/solo trace is a **content** requirement, not a prose one: the 3-line trace must carry the
+cue, the mechanism, and the direction/extreme check, but keyword or telegraphic phrasing is the
+default and is never docked — `grade-audit` grades the model, not the wording (`G-review-no-mcq`,
+`G-practice-difficulty`). A conclusion-only trace fails as a *missing mechanism*, never as brevity.
+The clone is the exception where completeness matters: its transcript must carry a **failure regime**
+(when the model breaks), because `naive-student` tests whether the explanation survives an
+uncharitable read (`G-clone-protocol`).
+
 ## Repair mode — teaching the diagnosed gap
 
 Repair mode is the one legal place the Tutor *teaches* the material the learner is being tested on.

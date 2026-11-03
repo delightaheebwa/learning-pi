@@ -40,14 +40,14 @@ An AI-free closed-book assessment. Evaluates your true retention and independent
 ## Step 1: Closed-Book Operational Batch
 
 1. Compose the batch from the due queue with **unlabeled items** (stems never name the concept for selection/application items; naming is allowed only for a concept's meaning/anatomy):
-   - Qualitative items requiring the 3-line trace (cue & principle → mechanism/knob-turn → direction & extreme check). No derivations or calculations.
+   - Qualitative items requiring a terse 3-line trace (cue & principle → mechanism/knob-turn → direction & extreme check); keyword/phrase lines are the default — form is never graded, content is. No derivations or calculations.
    - At least one **perturbation** item (mutate a load-bearing assumption; predict the qualitative downstream behaviour).
    - At least one **misapplication** item (a plausible real-world use that violates a `condition`; name the broken assumption and the right tool).
    - At least one **decoy / near-miss** item (surface resembles a due concept, but violates its `conditions`; requires an older tool).
-   - One `concept`/`design` item closed out via the **clone protocol**, in two phases: in this batch, add a "teach the clone" item asking the learner to explain the (unlabeled) concept. Do **not** dispatch `naive-student` yet — there is nothing to teach it until the learner answers. This is solo's Feynman replacement and is logged as `feynman_pass`/`feynman_fail`.
+   - One `concept`/`design` item closed out via the **clone protocol**, in two phases: in this batch, add a "teach the clone" item asking the learner to explain the (unlabeled) concept — terse is fine, but the transcript must carry: what it is → when/why it applies → the mechanism in **one full causal clause** → a **failure regime** (when it breaks) → the nearest-neighbour contrast. The failure-regime line is load-bearing: the clone needs it to test the model, and an example does not replace it. Do **not** dispatch `naive-student` yet — there is nothing to teach it until the learner answers. This is solo's Feynman replacement and is logged as `feynman_pass`/`feynman_fail`.
 2. Verify the batch with **`verifier`** (`mode: "quiz_audit", context: "solo"`).
 3. Present the batch with explicit instructions:
-   *"Closed-book check. Work independently without hints or references. Include your 3-line qualitative trace for each item. Reply with your final answers."*
+   *"Closed-book check. Work independently without hints or references. Include your 3-line qualitative trace for each item — phrases and keywords are fine; form is never graded. Reply with your answers and traces."*
 
 ---
 
@@ -55,7 +55,7 @@ An AI-free closed-book assessment. Evaluates your true retention and independent
 
 1. When the learner answers, build grade items including each learner trace.
 2. **Run the Clone Phase (if the batch contained a teach-the-clone item)**:
-   - Dispatch **`naive-student`** now, with `concept`, a seeded plausible `misconception`, `prereq_level` (the concept's prerequisites), a **qualitative** `target_task` (a prediction or tool choice), and `learner_transcript` = the learner's teaching reply verbatim.
+   - Dispatch **`naive-student`** now, with `concept`, a seeded plausible `misconception`, `prereq_level` (the concept's prerequisites), a **qualitative** `target_task` (a prediction or tool choice) drawn from the contrast the learner taught, and `learner_transcript` = the learner's teaching reply verbatim.
    - Await `NAIVE_STUDENT_RECEIPT` (it makes the qualitative call using only what the learner explicitly taught).
 3. Dispatch **`verifier`** (`mode: "grade_audit"`, with `naive_student_receipt` on clone items) to verify all verdicts — it grades the mechanism and the direction/extreme check, not a scalar, flags shallow passes, and audits the clone receipt against the claimed verdict.
 4. Report the verified verdicts (Pass/Fail) directly without providing teaching repairs.

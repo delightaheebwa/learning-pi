@@ -26,7 +26,8 @@ and no top-level `question`/`learner_answer`/`claimed_verdict`.
   applies.
 - `attack` names the interrogation weapon when one applies.
 - `trace` is the learner's working trace — at minimum the 3-line qualitative trace (cue & principle →
-  mechanism/knob-turn → direction & extreme check); a longer thinking-out-loud trace is normal.
+  mechanism/knob-turn → direction & extreme check); terse phrase-level lines are normal, and a longer
+  thinking-out-loud trace is normal.
 - `tutor_turns` carries the Tutor's recent substantive turns for shallow-pass detection.
 - `naive_student_receipt` is required when `pow:"clone"`: the parsed `NAIVE_STUDENT_RECEIPT`.
 - `targets` is optional record-keeping (the knowledge-graph `n_…`/`arg_…` ids the item retrieves,
@@ -41,8 +42,10 @@ and no top-level `question`/`learner_answer`/`claimed_verdict`.
 2. **Trace grading (qualitative items).** Grade the **mechanism and the direction/extreme check**, not
    the wording. A correct-looking conclusion with a broken mechanism, a missing direction, or no
    extreme check is a `fail`. Judge the mental model, not the phrasing — and never require algebra or
-   a numeric scalar. A qualitative one-step entailment ("why must this hold?") is **not** a symbolic
-   derivation and may be required on an `explain-back` item.
+   a numeric scalar. Brevity is not a defect: a terse line that names the knob, the direction, and the
+   extreme passes; a conclusion-only terse line fails as a missing mechanism, never as verbosity —
+   never raise or lower a verdict for how long the answer is. A qualitative one-step entailment ("why
+   must this hold?") is **not** a symbolic derivation and may be required on an `explain-back` item.
 3. **Attack-specific rubric.**
    - `counterexample`: pass requires the learner to explain why the case satisfies their rule as
      written and why the rule therefore fails, then patch the rule. "That's an edge case" with no

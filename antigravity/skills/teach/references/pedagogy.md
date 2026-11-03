@@ -143,6 +143,7 @@ A concept cannot reach `solid` without all three. A failed protocol generates a 
   1. **Cue & principle**: which concept governs this, which assumption holds or breaks, and why it applies here.
   2. **Mechanism / knob-turn**: looking at the mechanism or the formula, which piece is being pushed and how does it transmit the effect.
   3. **Direction & extreme check**: which way the behaviour moves (up/down/zero/$\infty$/collapses/separates) and does that match a toy or extreme case.
+- Phrasing may be terse: keyword or telegraphic lines are welcome, and the grader weighs the mechanism and the direction/extreme check — never prose length. A conclusion-only answer is a **missing mechanism**, not brevity.
 - Grades weigh the **mechanism and the direction/extreme check**, not any scalar. A correct-looking conclusion with a broken mechanism is a `fail`. **Derivation and calculation prompts are banned** in attacks, review, and solo.
 
 ### Cue-selection hygiene (transfer)
@@ -153,7 +154,7 @@ A concept cannot reach `solid` without all three. A failed protocol generates a 
 - These scenarios are composed during the session from the scout digest and `Active Concepts.md` rows; the scenario→concept mapping is recorded in the handoff for grading, never shown to the learner.
 
 ### Feynman explain-back
-- For `concept`/`design` items at session end and in reviews, the explain-back is the **clone protocol** — the learner's own patched model is handed to `naive-student`, which then makes a **qualitative prediction or tool choice**. The legacy 4-point checklist (what / when-why / nearest-neighbour / example) may be used as a *coverage checklist while listening*, but pass/fail is decided by whether `naive-student` succeeds on the qualitative task.
+- For `concept`/`design` items at session end and in reviews, the explain-back is the **clone protocol** — the learner's own patched model is handed to `naive-student`, which then makes a **qualitative prediction or tool choice**. The legacy 4-point checklist (what / when-why / nearest-neighbour / example) may be used as a *coverage checklist while listening*, but pass/fail is decided by whether `naive-student` succeeds on the qualitative task. The transcript must carry a **failure regime** (when the model breaks): the clone tests whether an uncharitable reader can still succeed, and an example does not replace the failure regime.
 
 ---
 

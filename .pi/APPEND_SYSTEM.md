@@ -444,7 +444,9 @@ declare in `visual_plan`, not a default.
   **No MCQs in a review or solo batch** (recognition is not retrieval); MCQs are legal only in the
   bracket probe.
   Review/solo items are unlabeled and require the 3-line qualitative trace
-  (cue & principle → mechanism/knob-turn → direction & extreme check).
+  (cue & principle → mechanism/knob-turn → direction & extreme check). Terse, keyword-style lines are
+  the default and are never penalized for brevity — **form is never graded, content is**; the cue,
+  mechanism, and direction/extreme check must still be there.
 - Before presenting any grade, `dispatch` a `grade-audit` with the question, the raw learner answer,
   the learner's trace when one was requested, the claimed verdict, and (for a clone item) the
   `naive_student_receipt`. Batch every answer from one learner reply into ONE `items[]` envelope.
