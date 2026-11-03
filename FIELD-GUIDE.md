@@ -97,8 +97,7 @@ the Tutor falls back to plain Unicode.
 ## 4. Review sessions (`/review`)
 
 - **Review Scout** runs first: it reads your learner state in one bundle and builds the queue.
-- Queue: up to 2 due mistakes (priority) + 3 due concepts, shuffled.
-- Batched scenarios: up to 2 due mistakes (priority) + 3 due concepts, shuffled; composite scenarios when the queue is large.
+- Queue: up to 2 due mistakes (priority) + 3 due concepts, shuffled; composite scenarios when the queue is large.
 - Answers may be terse: the 3-line qualitative trace (cue → mechanism → direction/extreme) is required, but phrases and keywords are fine — length is never graded. The teach-the-clone item's explanation must carry a failure regime.
 - Every grade is verified by an independent `grade-audit` subagent before it is shown. When several questions are answered in one reply, all answers go in ONE batched `items[]` envelope (one subagent call per reply, not per answer).
 - The Reviewer writes nothing. At the close, **review-clerk** writes the Review note(s) + session note, updates `Attempts.json` / `📚 Active Concepts.md` / `🧯 Mistakes.md`, runs the state audit, and commits; then the Reviewer dispatches a `review-session-audit` over those writes.
