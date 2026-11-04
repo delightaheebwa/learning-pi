@@ -54,6 +54,14 @@ services:
       # baked into the image / already in the volume, so skip the check; set
       # this to true (or delete the line) when deliberately changing models.
       RAG_EMBEDDING_MODEL_AUTO_UPDATE: ${RAG_EMBEDDING_MODEL_AUTO_UPDATE:-false}
+      # The hybrid-search reranker (Admin -> Documents -> Reranking) is loaded
+      # inside that same lifespan hook, so it has the same boot-hang risk. It is
+      # NOT baked into the image: the first boot after enabling hybrid search
+      # needs network access to download the model into the open-webui volume.
+      # After that, keep this false; set it to true (or delete the line) when
+      # deliberately changing the reranking model. Env-only: no Admin-settings
+      # toggle corresponds to it.
+      RAG_RERANKING_MODEL_AUTO_UPDATE: ${RAG_RERANKING_MODEL_AUTO_UPDATE:-false}
       SEARXNG_QUERY_URL: ${SEARXNG_QUERY_URL:-http://searxng:8080/search?q=<query>}
       # CSP injected into sandboxed iframe documents (Artifacts previews etc.).
       # The OpenUI bundle is self-hosted same-origin, so no CDN origin is needed;
