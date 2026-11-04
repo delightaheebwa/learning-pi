@@ -962,13 +962,21 @@
           "q_type": "micro-check",
           "confidence": "sure",
           "hints": 0
+        },
+        {
+          "date": "2026-11-04",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0
         }
       ],
-      "interval_index": 1,
-      "consecutive_correct": 1,
-      "consecutive_wrong": 0,
-      "last_reviewed": "2026-10-17",
-      "next_review": "2026-10-24",
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-11-04",
+      "next_review": "2026-11-07",
       "feynman": "fail"
     },
     "Softmax Subtract-Max Trick": {
@@ -1675,13 +1683,21 @@
           "q_type": "micro-check",
           "confidence": "hunch",
           "hints": 0
+        },
+        {
+          "date": "2026-11-04",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional",
+          "confidence": "hunch",
+          "hints": 0
         }
       ],
-      "interval_index": 1,
-      "consecutive_correct": 1,
+      "interval_index": 3,
+      "consecutive_correct": 2,
       "consecutive_wrong": 0,
-      "last_reviewed": "2026-10-17",
-      "next_review": "2026-10-24",
+      "last_reviewed": "2026-11-04",
+      "next_review": "2026-12-04",
       "feynman": "fail"
     },
     "Bayesian A/B Testing": {
@@ -1775,13 +1791,21 @@
           "q_type": "micro-check",
           "confidence": "sure",
           "hints": 0
+        },
+        {
+          "date": "2026-11-04",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "hunch",
+          "hints": 0
         }
       ],
-      "interval_index": 1,
-      "consecutive_correct": 1,
-      "consecutive_wrong": 0,
-      "last_reviewed": "2026-10-20",
-      "next_review": "2026-10-27",
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-11-04",
+      "next_review": "2026-11-07",
       "feynman": null
     },
     "Momentum (SGD with Momentum)": {
@@ -2199,13 +2223,21 @@
           "is_correct": true,
           "result": "pass",
           "q_type": "definitional"
+        },
+        {
+          "date": "2026-11-04",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "explain-back",
+          "confidence": "no-idea",
+          "hints": 0
         }
       ],
-      "interval_index": 3,
-      "consecutive_correct": 2,
-      "consecutive_wrong": 0,
-      "last_reviewed": "2026-10-05",
-      "next_review": "2026-11-04",
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-11-04",
+      "next_review": "2026-11-18",
       "feynman": "fail",
       "note": "Alias 'Entropy' (the Tutor's 2026-09-24 lesson logging) canonicalized into this row at the 2026-09-24 final ingest by the Clerk; 3 + 2 attempts preserved in date order; interval_index / consecutive_* / last_reviewed / next_review taken from the 2026-09-24 state (fail on quiz Q1, pass on the isomorphic re-test)."
     },
@@ -2520,13 +2552,21 @@
           "is_correct": true,
           "result": "pass",
           "q_type": null
+        },
+        {
+          "date": "2026-11-04",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0
         }
       ],
-      "interval_index": 3,
-      "consecutive_correct": 2,
-      "consecutive_wrong": 0,
-      "last_reviewed": "2026-09-24",
-      "next_review": "2026-10-24",
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-11-04",
+      "next_review": "2026-11-18",
       "feynman": null
     },
     "Label Smoothing": {
