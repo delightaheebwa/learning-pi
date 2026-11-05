@@ -15,7 +15,8 @@ than resolved. Everything else is a fuzzy relevance score for ranking only.
 
 The graph stores world knowledge only (G-graph-world-only). This view is the
 learner side of that join: it never writes to the ledgers and never gates a
-review.
+review. A full `report` is proportional to the ledger (~580 KB at 898 nodes);
+prompt consumers should ask for a single node (`--node`) or use `audit`.
 
 Usage:
   node_mastery.py [--root R] report [--json] [--node ID] [--today YYYY-MM-DD]
@@ -44,7 +45,6 @@ ERROR_TYPES = {"structural", "deviation", "application", "metacognitive"}
 TIERS = ("active", "review", "graduated")
 GRADUATED_HALF_LIFE_DAYS = 90
 
-_ID_RE = re.compile(r"^(?:n|arg)_[a-z0-9]{6,}$")
 _PREFIX_RE = re.compile(r"^\s*\[(prereq|miss|targets):\s*([^\]]*)\]\s*", re.IGNORECASE)
 
 
@@ -59,10 +59,6 @@ def _norm(text: str) -> str:
 
 def _tokens(text: str) -> set[str]:
     return {token for token in _norm(text).split() if len(token) >= 3}
-
-
-def _valid_id(value: str) -> bool:
-    return bool(_ID_RE.match(value.strip()))
 
 
 def _targets(value) -> list[str]:
@@ -168,7 +164,7 @@ def _load_mistakes(root: Path) -> list[dict]:
                 "self_attribution": attribution,
                 "prereq": prereq,
                 "miss_class": miss_class,
-                "targets": [target for target in targets if _valid_id(target)],
+                "targets": targets,
                 "status": cells[-3].lower(),
                 "retries": cells[-2],
                 "next_retry": cells[-1],
@@ -287,8 +283,9 @@ def _join(root: Path, today: date) -> dict:
         return matches
 
     # Attempts: strict by explicit targets, else by a unique concept match.
+    # Concept matching is only consulted when an attempt has no targets, so a
+    # fully target-linked concept never shows up as ambiguous or unmatched.
     for concept, entry in attempts.items():
-        candidates = concept_links(str(concept))
         rows = entry.get("attempts") if isinstance(entry, dict) else None
         for attempt in rows or []:
             if not isinstance(attempt, dict):
@@ -305,18 +302,19 @@ def _join(root: Path, today: date) -> dict:
                     if conclusion:
                         _attach_attempt(node_evidence[conclusion], attempt, "chain")
                     attached = True
-                elif _valid_id(target):
+                elif target:
+                    # Malformed or non-live: visible as stale, never resolved.
                     stale_targets.add(target)
-                # Malformed ids are ignored: they can never be graph records.
-            if not attached and not target_ids and len(candidates) == 1:
-                _attach_attempt(node_evidence[candidates[0]], attempt, "concept")
+            if not attached and not target_ids:
+                candidates = concept_links(str(concept))
+                if len(candidates) == 1:
+                    _attach_attempt(node_evidence[candidates[0]], attempt, "concept")
 
     # Mistakes: strict by `[targets:]`, else by a unique concept match.
     looks_like_mistake: set[str] = set()
     for mistake in mistakes:
         concept = str(mistake["concept"])
         looks_like_mistake.add(concept)
-        candidates = concept_links(concept)
         attached = False
         for target in mistake["targets"]:
             if target in nodes:
@@ -326,11 +324,15 @@ def _join(root: Path, today: date) -> dict:
                 conclusion = conclusions.get(target)
                 if conclusion:
                     _attach_mistake(node_evidence[conclusion], mistake, "chain", today)
-                attached = True
+                    attached = True
+                else:
+                    stale_targets.add(target)
             else:
                 stale_targets.add(target)
-        if not attached and not mistake["targets"] and len(candidates) == 1:
-            _attach_mistake(node_evidence[candidates[0]], mistake, "concept", today)
+        if not attached and not mistake["targets"]:
+            candidates = concept_links(concept)
+            if len(candidates) == 1:
+                _attach_mistake(node_evidence[candidates[0]], mistake, "concept", today)
 
     # Fuzzy relevance for ranking only: it never attributes evidence.
     relevance = {ident: {"score": 0.0, "concepts": set()} for ident in nodes}
@@ -340,17 +342,20 @@ def _join(root: Path, today: date) -> dict:
             if isinstance(attempt, dict):
                 concept_rows.setdefault(str(concept), []).append(attempt)
     all_concepts = set(concept_rows) | looks_like_mistake
+    node_token_sets = {
+        ident: _tokens(
+            " ".join(
+                [node.get("name", ""), node.get("statement", ""),
+                 *(node.get("aliases", []) or [])]
+            )
+        )
+        for ident, node in nodes.items()
+    }
     for concept in all_concepts:
         concept_tokens = _tokens(concept)
         if not concept_tokens:
             continue
-        for ident, node in nodes.items():
-            node_tokens = _tokens(
-                " ".join(
-                    [node.get("name", ""), node.get("statement", ""),
-                     *(node.get("aliases", []) or [])]
-                )
-            )
+        for ident, node_tokens in node_token_sets.items():
             shared = concept_tokens & node_tokens
             if not shared:
                 continue

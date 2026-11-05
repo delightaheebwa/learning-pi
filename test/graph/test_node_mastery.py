@@ -88,13 +88,13 @@ class NodeMasteryCase(unittest.TestCase):
             entry["targets"] = targets
         return {concept: {"type": "concept", "attempts": [entry]}}
 
-    def ledger_bytes(self) -> tuple[bytes, bytes]:
+    def state_bytes(self) -> tuple[bytes, ...]:
         nodes = self.root / graph.GRAPH_DIR / graph.NODES_FILE
         chains = self.root / graph.GRAPH_DIR / graph.CHAINS_FILE
-        return (
-            nodes.read_bytes() if nodes.is_file() else b"",
-            chains.read_bytes() if chains.is_file() else b"",
-        )
+        attempts = self.core / "Attempts.json"
+        mistakes = self.core / "🧯 Mistakes.md"
+        paths = (nodes, chains, attempts, mistakes)
+        return tuple(path.read_bytes() if path.is_file() else b"" for path in paths)
 
     # -- read-only ---------------------------------------------------------
     def test_report_leaves_the_graph_ledgers_untouched(self) -> None:
@@ -110,10 +110,10 @@ class NodeMasteryCase(unittest.TestCase):
                 "self_attribution": f"[targets: {ident}] treated PSD as sufficient",
             }
         ])
-        before = self.ledger_bytes()
+        before = self.state_bytes()
         node_mastery.build(self.root, TODAY)
         node_mastery.audit(self.root, TODAY)
-        self.assertEqual(before, self.ledger_bytes())
+        self.assertEqual(before, self.state_bytes())
 
     # -- strict links ------------------------------------------------------
     def test_target_links_attach_attempts_and_mistakes(self) -> None:
@@ -180,9 +180,75 @@ class NodeMasteryCase(unittest.TestCase):
         for record in view["nodes"].values():
             self.assertEqual(record["strict"]["attempts"], [])
 
+        self.write_mistakes([
+            {
+                "date": "2026-10-30",
+                "concept": "Hessian matrix",
+                "error_type": "application",
+                "self_attribution": "could be either proposition",
+            }
+        ])
+        view = node_mastery.build(self.root, TODAY)
+        for record in view["nodes"].values():
+            self.assertEqual(record["strict"]["mistakes"], [])
+
         result = node_mastery.audit(self.root, TODAY)
         self.assertEqual(result["links"]["ambiguous_concepts"], 1)
         self.assertEqual(result["coverage"]["nodes_with_evidence"], 0)
+
+    def test_pipes_inside_table_cells_are_tolerated(self) -> None:
+        self.seed({
+            "name": "Hessian matrix",
+            "statement": "The Hessian is the matrix of second partials.",
+        })
+        ident = graph.node_id("The Hessian is the matrix of second partials.")
+        (self.core / "🧯 Mistakes.md").write_text(
+            "| Date | Concept | Question | Expected | Error Type | Self-Attribution | Status | Retries | Next Retry |\n"
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+            "| 2026-10-30 | Hessian matrix | q | expected a | expected b | application "
+            "| [miss: cue] why | more detail | active | 0 | 2026-12-01 |\n",
+            encoding="utf-8",
+        )
+        record = node_mastery.build(self.root, TODAY)["nodes"][ident]
+        self.assertEqual(len(record["strict"]["mistakes"]), 1)
+        mistake = record["strict"]["mistakes"][0]
+        self.assertEqual(mistake["miss_class"], "cue")
+        self.assertEqual(mistake["self_attribution"], "why | more detail")
+
+    def test_chain_target_attaches_to_chain_and_conclusion(self) -> None:
+        receipt = self.merge({
+            "nodes": [
+                {"name": "A", "statement": "A is true.", "provenance": [prov()]},
+                {"name": "E", "statement": "E is true.", "provenance": [prov()]},
+            ],
+            "chains": [{"premises": ["@0"], "conclusion": "@1", "provenance": [prov()]}],
+        })
+        chain = receipt["created_chains"][0]
+        conclusion = graph.node_id("E is true.")
+        self.write_attempts(self.attempt("E", targets=[chain]))
+
+        view = node_mastery.build(self.root, TODAY)
+        self.assertEqual(len(view["chains"][chain]["strict"]["attempts"]), 1)
+        self.assertEqual(view["chains"][chain]["strict"]["fails"], 1)
+        self.assertEqual(view["nodes"][conclusion]["strict"]["links"]["by_chain"], 1)
+        self.assertEqual(view["nodes"][conclusion]["strict"]["attempts"][0]["link"], "chain")
+
+    def test_string_and_mixed_targets_are_classified(self) -> None:
+        self.seed({"name": "A", "statement": "A is true."})
+        ident = graph.node_id("A is true.")
+        self.write_attempts(self.attempt("A", targets=f"{ident}, n_zzzzzz"))
+        view = node_mastery.build(self.root, TODAY)
+        self.assertEqual(view["nodes"][ident]["strict"]["links"]["by_target"], 1)
+        self.assertIn("n_zzzzzz", view["stale_targets"])
+
+    def test_prefixes_strip_in_any_order(self) -> None:
+        prereq, miss_class, targets, text = node_mastery._strip_prefixes(
+            "[targets: n_aaaaaa] [miss: execution] [prereq: Linear Algebra] why"
+        )
+        self.assertEqual(prereq, "Linear Algebra")
+        self.assertEqual(miss_class, "execution")
+        self.assertEqual(targets, ["n_aaaaaa"])
+        self.assertEqual(text, "why")
 
     # -- history tiers -----------------------------------------------------
     def test_graduated_mistakes_are_kept_with_decay(self) -> None:
