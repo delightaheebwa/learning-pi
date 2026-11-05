@@ -603,8 +603,11 @@ coverage check as the deno gate suites.
   (`24000 + 4000 × concepts`, capped at 48000 bytes; `--max-bytes` overrides).
   Scout and review-scout merge the generated block instead of retyping it, and
   fold the `PRIOR_BUDGET_OK` receipt from `node_mastery.py verify`; verify
-  recomputes body bytes and index coverage but deliberately does not re-check
-  liveness (`ops.py` still does that at record time).
+  recomputes body bytes, index coverage, and retained-chain endpoints. It
+  catches arithmetic/coverage drift, not a deliberately rebalanced forgery,
+  and does not re-derive the ceiling; liveness stays with `ops.py` at record
+  time. Prior models are passed into the generator so they count in the
+  budget rather than being appended afterwards.
 
 ### Practice doctrine (hints and misses)
 

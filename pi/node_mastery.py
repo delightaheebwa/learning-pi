@@ -21,6 +21,10 @@ prompt consumers should ask for a single node (`--node`) or use `audit`.
 Usage:
   node_mastery.py [--root R] report [--json] [--node ID] [--today YYYY-MM-DD]
   node_mastery.py [--root R] audit  [--json] [--today YYYY-MM-DD]
+  node_mastery.py [--root R] context --concepts TEXT [--prereq TEXT]
+                               [--prior-models FILE] [--out FILE]
+                               [--max-bytes N] [--today YYYY-MM-DD]
+  node_mastery.py verify --file FILE
 """
 
 from __future__ import annotations
@@ -50,7 +54,6 @@ BUDGET_BASE_BYTES = 24_000
 BUDGET_PER_CONCEPT_BYTES = 4_000
 BUDGET_MAX_BYTES = 48_000
 INDEX_RESERVE_MAX_BYTES = 8_000
-INDEX_LINE_BYTES = 200
 DETAIL_STATEMENT_CHARS = 400
 DETAIL_MISTAKE_CHARS = 300
 DETAIL_MAX_MISTAKES = 2
@@ -520,7 +523,7 @@ def _match_quality(text: str, tokens: set[str], concepts: list[str], doc_freq: d
     best = 0.0
     for concept in concepts:
         normalized = _norm(concept)
-        if normalized and normalized in text:
+        if len(normalized) >= 3 and normalized in text:
             best = max(best, 2.0)
             continue
         concept_tokens = _tokens(concept)
@@ -633,7 +636,9 @@ def build_context(
 ) -> dict:
     """Budgeted `prior_knowledge` block: complete index + scored detail."""
     today = today or date.today()
-    concepts = [term.strip() for term in concepts if term and term.strip()]
+    concepts = list(dict.fromkeys(
+        term.strip() for term in concepts if term and term.strip()
+    ))
     if not concepts:
         raise graph.GraphError("context needs at least one --concepts term")
     prereqs = [term.strip() for term in (prereqs or []) if term and term.strip()]
@@ -686,8 +691,9 @@ def build_context(
         for row in matched
     ]
 
-    # Index reserve: one line per match, capped; overflow is visible.
-    reserve = min(INDEX_RESERVE_MAX_BYTES, INDEX_LINE_BYTES * max(1, len(index)))
+    # Index reserve: enough for the full index when the ceiling has room,
+    # capped at a third of the budget; overflow is visible in `omitted`.
+    reserve = min(INDEX_RESERVE_MAX_BYTES, max(2_000, ceiling // 3))
     index_kept = list(index)
     index_dropped = 0
     while index_kept and _json_bytes(index_kept) > reserve:
@@ -740,7 +746,6 @@ def build_context(
             break
         chain_candidates.append(entry)
 
-    matched_ids = {row["id"] for row in matched}
     omitted["propositions"] = len(matched) - len(propositions)
     omitted["chains"] = sum(
         1
@@ -778,23 +783,33 @@ def build_context(
             today.isoformat(), body["propositions"], body["chains"], index_kept, omitted, prior_models
         )
 
-    # A kept proposition must have its index line; drop any orphaned by the trim.
+    # A kept proposition must have its index line; drop any orphaned by the trim,
+    # and drop chains that depended on a dropped endpoint with them.
     kept_index_ids = {entry["id"] for entry in index_kept}
     if any(prop["id"] not in kept_index_ids for prop in body["propositions"]):
         survivors = [prop for prop in body["propositions"] if prop["id"] in kept_index_ids]
+        survivor_ids = {prop["id"] for prop in survivors}
+        chains_kept = [
+            chain
+            for chain in body["chains"]
+            if chain.get("conclusion") in survivor_ids
+            and all(premise in survivor_ids for premise in chain.get("premises", []))
+        ]
         omitted["propositions"] += len(body["propositions"]) - len(survivors)
+        omitted["chains"] += len(body["chains"]) - len(chains_kept)
         body = _assemble(
-            today.isoformat(), survivors, body["chains"], index_kept, omitted, prior_models
+            today.isoformat(), survivors, chains_kept, index_kept, omitted, prior_models
         )
     total_mistakes = sum(len(row["record"]["strict"]["mistakes"]) for row in matched)
     omitted["mistakes"] = max(
         0, total_mistakes - sum(len(prop["mistakes"]) for prop in body["propositions"])
     )
-    omitted["reason"] = (
-        "budget"
-        if any(omitted[key] for key in ("index", "propositions", "chains", "mistakes"))
-        else ""
-    )
+    if any(omitted[key] for key in ("index", "propositions", "chains")):
+        omitted["reason"] = "budget"
+    elif omitted["mistakes"]:
+        omitted["reason"] = "detail-caps"
+    else:
+        omitted["reason"] = ""
 
     body_bytes = _json_bytes(body)
     if body_bytes > ceiling:
@@ -856,6 +871,16 @@ def verify_block(path: Path) -> dict:
     if missing_from_index:
         errors.append(f"propositions missing from index: {missing_from_index}")
 
+    detail_ids = set(prop_ids)
+    chains = data.get("chains") if isinstance(data.get("chains"), list) else []
+    for chain in chains:
+        if not isinstance(chain, dict):
+            errors.append("chain entry is not an object")
+            continue
+        endpoints = list(chain.get("premises") or []) + [chain.get("conclusion")]
+        if any(endpoint not in detail_ids for endpoint in endpoints):
+            errors.append(f"chain {chain.get('id')} has an endpoint outside the retained detail")
+
     mistakes = data.get("mistakes") if isinstance(data.get("mistakes"), list) else []
     orphan_mistakes = [
         row.get("node") for row in mistakes
@@ -864,6 +889,8 @@ def verify_block(path: Path) -> dict:
     if orphan_mistakes:
         errors.append(f"mistakes attached to omitted propositions: {orphan_mistakes}")
 
+    if not isinstance(data.get("prior_models"), list):
+        errors.append("prior_models must be a list")
     omitted = data.get("omitted") if isinstance(data.get("omitted"), dict) else {}
     for key in ("index", "propositions", "chains", "mistakes"):
         value = omitted.get(key)
@@ -928,6 +955,11 @@ def build_parser() -> argparse.ArgumentParser:
     context.add_argument(
         "--prereq", action="append", default=[], help="prereq terms that boost matching nodes"
     )
+    context.add_argument(
+        "--prior-models",
+        default=None,
+        help="JSON array of verbatim prior models to include inside the budget",
+    )
     context.add_argument("--out", default=None, help="write the block here (else stdout)")
     context.add_argument("--max-bytes", type=int, default=None, help="ceiling override (bytes)")
     context.add_argument("--today", default=None, help="YYYY-MM-DD (deterministic decay)")
@@ -951,7 +983,17 @@ def main(argv: list[str] | None = None) -> int:
         today = _today(args.today)
         if args.command == "context":
             terms = [term for value in args.concepts for term in value.split(",")]
-            block = build_context(root, terms, args.prereq, today, args.max_bytes)
+            prior_models = None
+            if args.prior_models:
+                try:
+                    prior_models = json.loads(Path(args.prior_models).read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as exc:
+                    raise graph.GraphError(f"--prior-models unreadable: {exc}") from exc
+                if not isinstance(prior_models, list):
+                    raise graph.GraphError("--prior-models must be a JSON array")
+            block = build_context(
+                root, terms, args.prereq, today, args.max_bytes, prior_models=prior_models
+            )
             payload = json.dumps(block, ensure_ascii=False, indent=2, sort_keys=True)
             if args.out:
                 path = Path(args.out)

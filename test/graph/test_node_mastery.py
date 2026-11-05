@@ -362,6 +362,36 @@ class NodeMasteryCase(unittest.TestCase):
         self.assertGreater(block["omitted"]["propositions"], 0)
         self.assertEqual(block["omitted"]["reason"], "budget")
         self.assertTrue(block["omitted"]["next_best"])
+        # Every retained chain must have both endpoints in the retained detail.
+        detail_ids = {prop["id"] for prop in block["propositions"]}
+        for chain in block["chains"]:
+            self.assertIn(chain["conclusion"], detail_ids)
+            self.assertTrue(set(chain["premises"]) <= detail_ids)
+        self.assertTrue(node_mastery.verify_block(self._write_block(block))["ok"])
+
+    def test_context_is_deterministic(self) -> None:
+        self.seed({"name": "Hessian matrix", "statement": "The Hessian is symmetric."})
+        first = json.dumps(
+            node_mastery.build_context(self.root, ["Hessian"], today=TODAY, max_bytes=8000),
+            sort_keys=True,
+        )
+        second = json.dumps(
+            node_mastery.build_context(self.root, ["Hessian"], today=TODAY, max_bytes=8000),
+            sort_keys=True,
+        )
+        self.assertEqual(first, second)
+
+    def test_prior_models_are_counted_inside_the_budget(self) -> None:
+        self.seed({"name": "Hessian matrix", "statement": "The Hessian is symmetric."})
+        models = [
+            {"concept": "Hessian matrix", "version": f"v{index}", "words": "w" * 600, "file": "x"}
+            for index in range(3)
+        ]
+        block = node_mastery.build_context(
+            self.root, ["Hessian matrix"], today=TODAY, max_bytes=6000, prior_models=models
+        )
+        self.assertEqual(len(block["prior_models"]), 3)
+        self.assertLessEqual(block["budget"]["body_bytes"], 6000)
         self.assertTrue(node_mastery.verify_block(self._write_block(block))["ok"])
 
     def test_context_keeps_graduated_mistakes_with_decay(self) -> None:
@@ -389,18 +419,16 @@ class NodeMasteryCase(unittest.TestCase):
     def test_context_chains_join_only_when_every_endpoint_is_in_detail(self) -> None:
         receipt = self.merge({
             "nodes": [
-                {"name": "A", "statement": "A is true.", "provenance": [prov()]},
-                {"name": "B", "statement": "B is true.", "provenance": [prov()]},
+                {"name": "Alpha", "statement": "Alpha is true.", "provenance": [prov()]},
+                {"name": "Beta", "statement": "Beta is true.", "provenance": [prov()]},
             ],
             "chains": [{"premises": ["@0"], "conclusion": "@1", "provenance": [prov()]}],
         })
         block = node_mastery.build_context(
-            self.root, ["A", "B"], today=TODAY, max_bytes=8000
+            self.root, ["Alpha", "Beta"], today=TODAY, max_bytes=8000
         )
         self.assertEqual([chain["id"] for chain in block["chains"]], [receipt["created_chains"][0]])
-        self.assertEqual(block["budget"]["body_bytes"], node_mastery._json_bytes(
-            {key: value for key, value in block.items() if key != "budget"}
-        ))
+        self.assertTrue(node_mastery.verify_block(self._write_block(block))["ok"])
 
     def test_verify_rejects_broken_index_or_budget_math(self) -> None:
         self.seed({"name": "Hessian matrix", "statement": "The Hessian is symmetric."})
@@ -417,6 +445,11 @@ class NodeMasteryCase(unittest.TestCase):
 
         tampered = json.loads(json.dumps(block))
         tampered["budget"]["body_bytes"] = 1
+        path.write_text(json.dumps(tampered))
+        self.assertFalse(node_mastery.verify_block(path)["ok"])
+
+        tampered = json.loads(json.dumps(block))
+        tampered["budget"]["ceiling_bytes"] = tampered["budget"]["body_bytes"] - 1
         path.write_text(json.dumps(tampered))
         self.assertFalse(node_mastery.verify_block(path)["ok"])
 
