@@ -340,6 +340,13 @@ def check_resources(root: Path) -> None:
         else:
             ok("resources: graph agents keep learner state out")
 
+    concept_alias_needles = ("Active Concepts", "concept name", "aliases")
+    missing_concept_alias = [n for n in concept_alias_needles if n.lower() not in extract_text.lower()]
+    if missing_concept_alias:
+        fail(f"resources: graph-extract missing concept-alias rule(s): {missing_concept_alias}")
+    else:
+        ok("resources: graph extraction aliases the concept name")
+
     audit_path = root / ".pi" / "agents" / "graph-audit.md"
     audit_needles = ("LEARNER_STATE_LEAK", "entailment", "BAD_LINK", "connection", "evidence", "PASS", "ISSUES")
     if not audit_path.is_file():
@@ -464,6 +471,20 @@ def check_resources(root: Path) -> None:
         fail(f"resources: review-session-audit missing miss-prefix check(s): {missing_session_miss}")
     else:
         ok("resources: review-session-audit checks the miss-class prefix")
+
+    clerk_target_needles = ("[targets:", "never invent", "never substitute")
+    missing_clerk_target = [n for n in clerk_target_needles if n.lower() not in review_clerk_text.lower()]
+    if missing_clerk_target:
+        fail(f"resources: review-clerk missing mistake-targets rule(s): {missing_clerk_target}")
+    else:
+        ok("resources: review-clerk writes the mistake-targets prefix")
+
+    session_target_needles = ("[targets:", "Attempts.json", "deduplicated")
+    missing_session_target = [n for n in session_target_needles if n.lower() not in review_session_text.lower()]
+    if missing_session_target:
+        fail(f"resources: review-session-audit missing mistake-targets check(s): {missing_session_target}")
+    else:
+        ok("resources: review-session-audit checks the mistake-targets prefix")
 
     practice_needles = ("inactive state", "decision point", "interleav", "85%")
     missing_practice = [n for n in practice_needles if n.lower() not in skill_text.lower()]

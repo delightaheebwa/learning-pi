@@ -572,8 +572,10 @@ coverage check as the deno gate suites.
   (attempt `targets[]`, `[targets: …]` mistake prefixes) link strictly, a
   concept links only when it matches exactly one proposition name or alias,
   ambiguous concepts are reported rather than attributed, and non-live ids are
-  reported as stale instead of being resolved. The view is advisory; it never
-  gates a review.
+  reported as stale instead of being resolved. Graph extraction also aliases
+  each proposition with the coarse concept name it was taught under (from
+  `Active Concepts`), so the concept tier has a join key rather than relying
+  on the proposition label. The view is advisory; it never gates a review.
 - **G-history-tiers** (policy) — the Mistakes status cell is the tier
   (`active`/`review`/`graduated`). All three stay in the derived view, and
   graduated evidence is weighted by a 90-day half-life rather than dropped, so
@@ -606,6 +608,13 @@ coverage check as the deno gate suites.
   execution | careless | structural` by `grade-audit` and recorded as a
   `[miss: …]` Self-Attribution prefix by `review-clerk`. It layers on the
   existing `error_type` enum; no new enum values, no invented classes.
+- **G-mistake-targets** (policy) — a failed item's graph ids are recorded on
+  its Mistakes row as a `[targets: …]` prefix (after `[prereq: …]`/`[miss: …]`),
+  copied from the fail's `grade_verdicts[].targets` after `ops.py attempt`
+  drops non-live ids. Never invented, resolved, or substituted; omitted when
+  the item had none. Record-only: no effect on `error_type`, `miss_class`,
+  status, retries, or scheduling, and the review-session audit cross-checks
+  the prefix against the attempt's recorded targets.
 - **G-practice-difficulty** (policy) — review items are retrieval from an
   inactive state: interleaved targets, no immediate re-ask, decision points
   rather than restatements, ~85% success per retrieval event with hint rescue
