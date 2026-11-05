@@ -920,6 +920,16 @@
       ]
     },
     {
+      "id": "G-prior-drilldown",
+      "severity": "policy",
+      "statement": "Detail the digest omits stays recoverable without reopening the whole ledger: `pi/node_mastery.py drill --node <id> --already <ids>` returns one node record capped at 4096 bytes (statement/mistakes truncate with `truncated:true`, never invented) and refuses after six drills in a session. Drilled records enter the fact-check envelope as `prior_knowledge.drilldown[]` with `origin:\"drilldown\"`, and the envelope carries only the prior items the attack cites, never the whole digest. Every quoted drill item must appear verbatim there; more than six entries is DRILL_OVER_BUDGET, and `verify-envelope` checks the count, shape, and per-record size.",
+      "tests": [
+        "test_drill_caps_payload_and_session",
+        "test_verify_envelope_rejects_too_many_drills",
+        "resources: the tutor drills omitted detail and cites a subset"
+      ]
+    },
+    {
       "id": "G-hint-ladder",
       "severity": "policy",
       "statement": "Hints follow the R0–R5 ladder (attention redirect → pattern re-description → candidate class → proposition named → move outlined → worked step), one rung per request, chosen to answer the first break in the learner's trace — the stall is not always where their attention is. Statement repairs are free and immediate; solution information is metered (one rung). The rung needed is a difficulty readout (R3 or above means the item was over the edge). The independence budget still caps rungs (2/1/0), and solo sessions get no hints at all.",

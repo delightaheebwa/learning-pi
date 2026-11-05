@@ -430,6 +430,25 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: scouts generate prior knowledge under a byte budget")
 
+    drill_files = [
+        ("APPEND_SYSTEM.md", (root / ".pi" / "APPEND_SYSTEM.md").read_text(encoding="utf-8", errors="replace")),
+        ("learning-teach/SKILL.md", (root / ".pi" / "skills" / "learning-teach" / "SKILL.md").read_text(encoding="utf-8", errors="replace")),
+        ("fact-check.md", fact_check_text),
+    ]
+    drill_needles = ("drill", "drilldown", "prior_knowledge")
+    missing_drill = [
+        f"{name}: {needle}"
+        for name, text in drill_files
+        for needle in drill_needles
+        if needle.lower() not in text.lower()
+    ]
+    if "DRILL_OVER_BUDGET".lower() not in fact_check_text.lower():
+        missing_drill.append("fact-check.md: DRILL_OVER_BUDGET")
+    if missing_drill:
+        fail(f"resources: tutor missing the drill-down/cited-subset rule(s): {missing_drill}")
+    else:
+        ok("resources: the tutor drills omitted detail and cites a subset")
+
     teach_prior_text = (root / ".pi" / "skills" / "learning-teach" / "SKILL.md").read_text(
         encoding="utf-8", errors="replace"
     )

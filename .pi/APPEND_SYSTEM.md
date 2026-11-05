@@ -196,6 +196,13 @@ Before choosing an attack, read the Scout digest's `prior_knowledge` (prior verb
 propositions and chains, open mistakes). The strongest attack is often the learner's own earlier
 words.
 
+The digest is an **index plus a budgeted detail**: if the seam you need is in `index` or
+`omitted.next_best` but not in the detail, run
+`python3 "$HOME/learning-pi/pi/node_mastery.py" drill --node <id> --already "<ids already drilled>"`
+— one record, at most 4 KB, at most 6 drills per session. Append each returned record verbatim to
+the fact-check envelope's `prior_knowledge.drilldown[]` with `origin:"drilldown"`, and send **only
+the prior items the attack cites**, not the whole block.
+
 - **Prefer a cross-session clash when one exists.** If the current model contradicts, silently
   overrides, or fails to inherit something the learner established in an earlier session for *this*
   mental model, attack that seam: `source_clash` with the prior **verbatim** model as the second

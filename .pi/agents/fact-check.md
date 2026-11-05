@@ -96,7 +96,10 @@ field where the kind requires one is an `ISSUES` verdict.
     cross-session attacks follow the source-clash/synthesis rules: both sides verbatim, no
     announcement of which is right, and no filling. For a cross-session clash, "both sides" means
     the current model (`learner_model`/`learner_notes`) plus the quoted prior item
-    (`prior_knowledge`) — not two external sources.
+    (`prior_knowledge`) — not two external sources. The envelope carries only the prior items the
+    attack cites, not the whole digest. When `prior_knowledge.drilldown[]` is present, every entry
+    must carry `origin:"drilldown"`, a graph-shaped `node.id`, and a `statement`; more than six
+    entries is `DRILL_OVER_BUDGET`, and a quoted drill item must appear verbatim in that list.
 5. **Autopsy (`turn_kind:"autopsy"`).** A post-"just tell me" patch is legal, but it is **one
    reasoning step**, not a compressed lecture. It must ship the `step` block: `fact` (the one new
    fact), `rests_on` (what the learner already holds that the fact attaches to), and `check` (the

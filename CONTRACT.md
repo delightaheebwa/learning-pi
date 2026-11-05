@@ -609,6 +609,14 @@ coverage check as the deno gate suites.
   time. Prior models are passed into the generator so they count in the
   budget rather than being appended afterwards.
 
+- **G-prior-drilldown** (policy) — the digest's index makes the tail discoverable,
+  and `node_mastery.py drill --node <id> --already <ids>` recovers one record
+  (≤4 KB, ≤6 per session; truncation is visible, never invented). Drilled records
+  ride the fact-check envelope as `prior_knowledge.drilldown[]`
+  (`origin:"drilldown"`), which carries only the cited subset, and every quoted
+  drill item must appear verbatim there; >6 entries is `DRILL_OVER_BUDGET`.
+  `verify-envelope` checks count, shape, and per-record size.
+
 ### Practice doctrine (hints and misses)
 
 - **G-hint-ladder** (policy) — the stuck ladder is R0–R5 (attention redirect,

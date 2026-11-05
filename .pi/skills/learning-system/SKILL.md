@@ -28,7 +28,7 @@ Sessions die when the running conversation outgrows the model's context window: 
 - **Batch all writes.** Persistence at session end = ONE apply call, not N writes:
   `python3 scripts/ops.py apply <<'SPEC'` then a JSON spec, then `SPEC`.
   Spec: `{"writes":[{"path","content"}],"appends":[{"path","content"}],"replaces":[{"path","find","replace_with"}]}`.
-- Target **≤12 tool calls per flow**. Never re-read a file already in context. Never dump whole files you only need one row of. For git, use `git diff --stat` (not a full diff) and `git diff -- <path>` only for a file you need; do not switch models mid-flow (it invalidates the prompt cache and re-bills the whole context).
+- Budget **new tool output, not call count**: never re-read a file already in context, never dump whole files you only need one row of, and treat every tool result as permanent. Prior knowledge comes from `node_mastery.py` inside its byte budget; a drill-down costs one node record (≤4 KB, ≤6 per session). For git, use `git diff --stat` (not a full diff) and `git diff -- <path>` only for a file you need; do not switch models mid-flow (it invalidates the prompt cache and re-bills the whole context).
 
 ## State files (relative to the working repository root)
 

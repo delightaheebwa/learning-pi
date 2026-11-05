@@ -286,6 +286,11 @@ For each `missing` or `suspect` item choose the sharpest weapon for that flaw:
    `synthesis` (two of their own models disagree). Quote both sides verbatim from
    `prior_knowledge`; never invent or paraphrase the past; keep it about this mental model. Do not
    announce which is right.
+   **Drill the tail:** when the digest's `index`/`omitted.next_best` names the seam but the detail
+   does not, run `node_mastery.py drill --node <id> --already <ids>` (≤4 KB per record, ≤6 per
+   session), append the record to the fact-check envelope as `prior_knowledge.drilldown[]`
+   (`origin:"drilldown"`), and send only the cited subset of prior knowledge — never the whole
+   digest.
 
 Rules:
 

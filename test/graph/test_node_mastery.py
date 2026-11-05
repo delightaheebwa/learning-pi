@@ -511,6 +511,61 @@ class NodeMasteryCase(unittest.TestCase):
         path.write_text(json.dumps(block), encoding="utf-8")
         return path
 
+    # -- drill-down --------------------------------------------------------
+    def test_drill_caps_payload_and_session(self) -> None:
+        self.seed({
+            "name": "Hessian symmetry",
+            "statement": "Hessian " + ("curvature " * 400),
+        })
+        ident = graph.node_id("Hessian " + ("curvature " * 400))
+        record = node_mastery.drill_node(self.root, ident, TODAY)
+        self.assertEqual(record["origin"], "drilldown")
+        self.assertLessEqual(record["bytes"], node_mastery.DRILL_MAX_BYTES)
+        self.assertIn("statement", record["node"])
+
+        tiny = node_mastery.drill_node(self.root, ident, TODAY, max_bytes=600)
+        self.assertTrue(tiny["truncated"])
+        self.assertLessEqual(tiny["bytes"], 600)
+
+        with self.assertRaises(graph.GraphError) as caught:
+            node_mastery.drill_node(
+                self.root,
+                ident,
+                TODAY,
+                already=[f"n_aaaaa{index}" for index in range(6)],
+            )
+        self.assertIn("DRILL_BUDGET_EXHAUSTED", str(caught.exception))
+
+    def test_verify_envelope_rejects_too_many_drills(self) -> None:
+        def drill(index: int) -> dict:
+            return {
+                "origin": "drilldown",
+                "node": {"id": f"n_aaaaa{index}", "statement": "x"},
+            }
+
+        envelope = {"prior_knowledge": {"drilldown": [drill(i) for i in range(6)]}}
+        path = self.root / ".tmp" / "envelope.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(envelope))
+        self.assertTrue(node_mastery.verify_envelope(path)["ok"])
+
+        envelope["prior_knowledge"]["drilldown"].append(drill(6))
+        path.write_text(json.dumps(envelope))
+        receipt = node_mastery.verify_envelope(path)
+        self.assertFalse(receipt["ok"])
+        self.assertTrue(any("exceeds" in error for error in receipt["errors"]))
+
+    def test_verify_envelope_rejects_missing_or_duplicate_drills(self) -> None:
+        path = self.root / ".tmp" / "envelope.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"prior_knowledge": {"drilldown": [
+            {"origin": "drilldown", "node": {"id": "n_aaaaaa", "statement": "x"}},
+            {"origin": "drilldown", "node": {"id": "n_aaaaaa", "statement": "x"}},
+        ]}}))
+        receipt = node_mastery.verify_envelope(path)
+        self.assertFalse(receipt["ok"])
+        self.assertTrue(any("duplicates" in error for error in receipt["errors"]))
+
     def test_cli_audit_emits_json(self) -> None:
         self.seed({"name": "A", "statement": "A is true."})
         buffer = io.StringIO()

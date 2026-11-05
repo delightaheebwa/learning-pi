@@ -24,7 +24,9 @@ Usage:
   node_mastery.py [--root R] context --concepts TEXT [--prereq TEXT]
                                [--prior-models FILE] [--out FILE]
                                [--max-bytes N] [--today YYYY-MM-DD]
+  node_mastery.py [--root R] drill --node ID [--already ID,ID] [--today YYYY-MM-DD]
   node_mastery.py verify --file FILE
+  node_mastery.py verify-envelope --file FILE
 """
 
 from __future__ import annotations
@@ -59,6 +61,8 @@ DETAIL_MISTAKE_CHARS = 300
 DETAIL_MAX_MISTAKES = 2
 DETAIL_MAX_ATTEMPTS = 4
 RECENT_FAIL_DAYS = 90
+DRILL_MAX_BYTES = 4_096
+DRILL_SESSION_MAX = 6
 
 _PREFIX_RE = re.compile(r"^\s*\[(prereq|miss|targets):\s*([^\]]*)\]\s*", re.IGNORECASE)
 
@@ -598,7 +602,7 @@ def _detail(ident: str, record: dict) -> dict:
         "last_fail": strict["last_fail"],
         "mistakes": mistakes,
         "links": strict["links"],
-        "score": record["_score"],
+        "score": record.get("_score", 0.0),
     }
 
 
@@ -848,6 +852,122 @@ def _sweep(
     return body
 
 
+def drill_node(
+    root: Path,
+    node_id: str,
+    today: date | None = None,
+    already: list[str] | None = None,
+    max_bytes: int = DRILL_MAX_BYTES,
+) -> dict:
+    """One node record for the tail the digest omitted, capped at 4 KB.
+
+    Stateless: the caller passes the ids it already drilled (`--already`) and
+    the envelope carries the cumulative list, so no per-session file is needed.
+    """
+    already = [item.strip() for item in (already or []) if item and item.strip()]
+    if len(already) >= DRILL_SESSION_MAX:
+        raise graph.GraphError(
+            f"DRILL_BUDGET_EXHAUSTED: {len(already)} drills already used "
+            f"(max {DRILL_SESSION_MAX} per session)"
+        )
+    view = build(root, today)
+    record = view["nodes"].get(node_id)
+    if not record:
+        raise graph.GraphError(f"unknown node {node_id}")
+    entry = _detail(node_id, dict(record))
+
+    truncated = False
+    if _json_bytes(entry) > max_bytes:
+        truncated = True
+        entry["mistakes"] = entry["mistakes"][:1]
+        while entry["mistakes"] and _json_bytes(entry) > max_bytes:
+            entry["mistakes"].pop()
+        if _json_bytes(entry) > max_bytes:
+            entry["statement"] = entry["statement"][:200]
+        if _json_bytes(entry) > max_bytes:
+            entry["statement"] = entry["statement"][:80]
+        if _json_bytes(entry) > max_bytes:
+            entry["attempts"] = []
+        if _json_bytes(entry) > max_bytes:
+            entry["links"] = {}
+        if _json_bytes(entry) > max_bytes:
+            raise graph.GraphError(
+                f"cannot fit the drill record in {max_bytes} bytes"
+            )
+
+    entry["origin"] = "drilldown"
+    return {
+        "origin": "drilldown",
+        "node": entry,
+        "truncated": truncated,
+        "bytes": _json_bytes(entry),
+        "session": {
+            "drilled": len(already) + 1,
+            "remaining": DRILL_SESSION_MAX - len(already) - 1,
+        },
+    }
+
+
+def verify_envelope(path: Path) -> dict:
+    """Check the cited prior-knowledge subset a fact-check envelope carries."""
+    errors: list[str] = []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"file": str(path), "ok": False, "errors": [f"unreadable: {exc}"]}
+    if not isinstance(data, dict):
+        return {"file": str(path), "ok": False, "errors": ["not a JSON object"]}
+
+    prior = data.get("prior_knowledge")
+    if not isinstance(prior, dict):
+        errors.append("prior_knowledge must be an object")
+        drills = []
+    else:
+        drills = prior.get("drilldown", [])
+        if not isinstance(drills, list):
+            errors.append("prior_knowledge.drilldown must be a list")
+            drills = []
+    if len(drills) > DRILL_SESSION_MAX:
+        errors.append(f"{len(drills)} drilldown records exceeds {DRILL_SESSION_MAX} per session")
+
+    seen: set[str] = set()
+    total_bytes = 0
+    for index, drill in enumerate(drills):
+        if not isinstance(drill, dict):
+            errors.append(f"drilldown[{index}] is not an object")
+            continue
+        if drill.get("origin") != "drilldown":
+            errors.append(f"drilldown[{index}] is missing origin:drilldown")
+        node = drill.get("node") if isinstance(drill.get("node"), dict) else {}
+        ident = node.get("id")
+        if not isinstance(ident, str) or not _shape_ok(ident):
+            errors.append(f"drilldown[{index}] has no graph-shaped node id")
+        elif ident in seen:
+            errors.append(f"drilldown[{index}] duplicates {ident}")
+        else:
+            seen.add(ident)
+        if not node.get("statement"):
+            errors.append(f"drilldown[{index}] has no statement")
+        size = _json_bytes(drill)
+        total_bytes += size
+        if size > DRILL_MAX_BYTES:
+            errors.append(f"drilldown[{index}] is {size} bytes (max {DRILL_MAX_BYTES})")
+    if total_bytes > DRILL_SESSION_MAX * DRILL_MAX_BYTES:
+        errors.append(f"drilldown total {total_bytes} bytes exceeds the session allowance")
+
+    return {
+        "file": str(path),
+        "drills": len(drills),
+        "drill_bytes": total_bytes,
+        "ok": not errors,
+        "errors": errors,
+    }
+
+
+def _shape_ok(ident: str) -> bool:
+    return bool(re.fullmatch(r"(?:n|arg)_[a-z0-9]{6,}", ident))
+
+
 def verify_block(path: Path) -> dict:
     """Structural verification: schema, budget arithmetic, index coverage.
 
@@ -989,6 +1109,18 @@ def build_parser() -> argparse.ArgumentParser:
     verify_cmd = sub.add_parser("verify", help="structural check of a generated block")
     verify_cmd.add_argument("--file", required=True)
     verify_cmd.add_argument("--json", action="store_true")
+
+    drill = sub.add_parser("drill", help="one omitted node record (<=4 KB, <=6/session)")
+    drill.add_argument("--node", required=True)
+    drill.add_argument(
+        "--already",
+        default="",
+        help="comma-separated ids already drilled this session (cumulative cap)",
+    )
+    drill.add_argument("--today", default=None, help="YYYY-MM-DD (deterministic decay)")
+
+    envelope = sub.add_parser("verify-envelope", help="check the cited drilldown subset")
+    envelope.add_argument("--file", required=True)
     return parser
 
 
@@ -1001,8 +1133,23 @@ def main(argv: list[str] | None = None) -> int:
             prefix = "PRIOR_BUDGET_OK: " if receipt["ok"] else "PRIOR_BUDGET_FAILED: "
             print(prefix + json.dumps(receipt, ensure_ascii=False, sort_keys=True))
             return 0 if receipt["ok"] else 1
+        if args.command == "verify-envelope":
+            receipt = verify_envelope(Path(args.file))
+            prefix = "DRILL_BUDGET_OK: " if receipt["ok"] else "DRILL_BUDGET_FAILED: "
+            print(prefix + json.dumps(receipt, ensure_ascii=False, sort_keys=True))
+            return 0 if receipt["ok"] else 1
         root = graph.resolve_root(args.root)
         today = _today(args.today)
+        if args.command == "drill":
+            record = drill_node(
+                root,
+                args.node,
+                today,
+                already=[part for part in args.already.split(",") if part.strip()],
+            )
+            print("DRILL_RECORD: " + json.dumps(record, ensure_ascii=False, sort_keys=True))
+            print("DRILL_SPEND: " + json.dumps(record["session"], sort_keys=True))
+            return 0
         if args.command == "context":
             terms = [term for value in args.concepts for term in value.split(",")]
             prior_models = None
