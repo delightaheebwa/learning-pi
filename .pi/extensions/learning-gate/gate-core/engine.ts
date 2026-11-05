@@ -1212,7 +1212,10 @@ export function createGate(options: GateOptions = {}): GateEngine {
         if (run.reviewScoutCalled) {
           surface += priorBudgetBanner(run);
           const priorBlock = run.reviewScoutReceiptSeen ? priorBudgetBlock(run) : undefined;
-          if (priorBlock) blockers.push(priorBlock);
+          if (priorBlock) {
+            blockers.push(priorBlock);
+            verdictNote = verdictNote ? verdictNote + "\n" + priorBudgetRemedy : priorBudgetRemedy;
+          }
         }
       }
 
@@ -1864,7 +1867,10 @@ export function createGate(options: GateOptions = {}): GateEngine {
       if (run.reviewScoutCalled) {
         surface += priorBudgetBanner(run);
         const priorBlock = run.reviewScoutReceiptSeen ? priorBudgetBlock(run) : undefined;
-        if (priorBlock) blocks.push(priorBlock);
+        if (priorBlock) {
+          blocks.push(priorBlock);
+          verdictNote = verdictNote ? verdictNote + "\n" + priorBudgetRemedy : priorBudgetRemedy;
+        }
       }
     }
 

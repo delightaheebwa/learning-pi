@@ -930,7 +930,8 @@
         "prior-budget skipped does not banner",
         "prior-budget cap degrades to UNVERIFIED",
         "review prior-budget missing withholds",
-        "prior-budget payload overrides a lying label"
+        "prior-budget payload overrides a lying label",
+        "prior-budget last receipt wins"
       ]
     },
     {
