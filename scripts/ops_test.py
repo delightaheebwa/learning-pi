@@ -977,5 +977,44 @@ class TestMistakePrereqLink(unittest.TestCase):
         self.assertEqual(rows[0]["self_attribution"], "just a slip")
 
 
+class TestLearnerHistoryOpenMistakes(unittest.TestCase):
+    """learner_history must read the ledger with ops.py's anchor rule, not by
+    indexing cells[7]: a literal '|' in a free-text cell shifts that index and
+    silently hides a live mistake."""
+
+    def _seed(self, rows):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        core = Path(tmp.name) / "Learning System" / "Core"
+        core.mkdir(parents=True)
+        header = ("| Date | Concept | Question | Expected | Error Type | Self-Attribution | "
+                  "Status | Retries | Next Retry |")
+        sep = "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        (core / "🧯 Mistakes.md").write_text(
+            "\n".join(["# Mistakes", "", header, sep, *rows]) + "\n", encoding="utf-8")
+        import learner_history  # noqa: E402
+
+        old_core = learner_history.CORE
+        learner_history.CORE = str(core)
+        self.addCleanup(setattr, learner_history, "CORE", old_core)
+        return learner_history
+
+    def test_literal_pipes_do_not_hide_open_rows(self):
+        lh = self._seed([
+            # Two literal '|' cells shift the error type, so cells[7] used to be
+            # "self" and this active row was silently skipped.
+            "| 2026-10-01 | Piped | Q with | two | pipes | Expected | structural | "
+            "self | active | 0 | 2026-10-02 |",
+            "| 2026-10-02 | Closed | Q | Expected | deviation | self | graduated | 2 | 2026-10-03 |",
+        ])
+        self.assertEqual(lh.load_open_mistakes(), {"Piped"})
+
+    def test_review_status_is_open(self):
+        lh = self._seed([
+            "| 2026-10-01 | Retry | Q | E | application | self | review | 1 | 2026-10-02 |",
+        ])
+        self.assertEqual(lh.load_open_mistakes(), {"Retry"})
+
+
 if __name__ == "__main__":
     unittest.main()

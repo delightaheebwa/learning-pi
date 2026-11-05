@@ -652,13 +652,16 @@ def _extract_prereq(text: str):
     return m.group(1).strip(), (text or "")[m.end():].lstrip()
 
 
-def _mistakes_rows():
-    """Parse the mistakes ledger. error_type is located by matching the enum
-    (robust to literal '|' in the question/expected/self-attribution cells);
-    status/retries/next_retry are always the last three cells. An optional
-    `[prereq: NAME]` prefix on Self-Attribution links the mistake to the
-    prerequisite it exposes (P2.8); `prereq` is "" when absent."""
-    rows = _parse_table_rows(_resolve(MISTAKES_PATH), 9)
+def _mistakes_rows_from(path: Path):
+    """Parse one mistakes ledger file. error_type is located by matching the
+    enum (robust to literal '|' in the question/expected/self-attribution
+    cells); status/retries/next_retry are always the last three cells. An
+    optional `[prereq: NAME]` prefix on Self-Attribution links the mistake to
+    the prerequisite it exposes (P2.8); `prereq` is "" when absent.
+
+    Shared with learner_history.py so the live and archived ledgers are read
+    by one rule instead of by a fixed column index."""
+    rows = _parse_table_rows(path, 9)
     out = []
     for c in rows:
         if c[0].lower() == "date":
@@ -676,6 +679,11 @@ def _mistakes_rows():
             "status": c[-3].lower(), "retries": c[-2], "next_retry": c[-1],
         })
     return out
+
+
+def _mistakes_rows():
+    """Parse the live mistakes ledger (see `_mistakes_rows_from`)."""
+    return _mistakes_rows_from(_resolve(MISTAKES_PATH))
 
 
 def _source_key(entry: dict) -> str:

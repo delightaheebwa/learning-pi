@@ -27,6 +27,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
 # P0.4: reuse ops.py's dimension model for the independence gate. Imported
 # defensively so a path/setup problem degrades to "unknown" (grandfather), never
@@ -47,6 +48,35 @@ def load_attempts():
         return json.load(f).get("concepts", {})
 
 
+def _mistakes_rows_from(path):
+    """Rows from one mistakes ledger, parsed by ops.py's anchor rule.
+
+    ops.py owns the ledger layout: it anchors on the error_type enum and reads
+    status/retries/next-retry as the last three cells, so literal '|' inside a
+    free-text cell cannot shift the status column. The fallback only runs when
+    the defensive ops import failed; it reads status from that same last-three
+    position.
+    """
+    if ops is not None:
+        return ops._mistakes_rows_from(Path(path))
+    rows = []
+    try:
+        text = open(path, encoding="utf-8", errors="replace").read()
+    except FileNotFoundError:
+        return rows
+    for line in text.splitlines():
+        s = line.strip()
+        if not s.startswith("|"):
+            continue
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if len(cells) < 9 or cells[0].lower() == "date":
+            continue
+        if all(re.fullmatch(r":?-{2,}:?", c) for c in cells if c):
+            continue
+        rows.append({"concept": cells[1], "status": cells[-3].lower()})
+    return rows
+
+
 def load_open_mistakes(include_archived=False):
     """Concepts with active/review mistake rows.
 
@@ -61,19 +91,9 @@ def load_open_mistakes(include_archived=False):
             os.path.join(REPO_ROOT, "Learning System", "Archive", "C-project", "mistakes.md"),
         ]
     for path in paths:
-        try:
-            text = open(path, encoding="utf-8").read()
-        except FileNotFoundError:
-            continue
-        for line in text.splitlines():
-            if not line.startswith("|"):
-                continue
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            if len(cells) < 9 or cells[0] == "Date" or set(cells[0]) <= set("- "):
-                continue
-            concept, status = cells[1], cells[7]
-            if status in ("active", "review"):
-                open_m.add(concept)
+        for row in _mistakes_rows_from(path):
+            if row["status"] in ("active", "review"):
+                open_m.add(row["concept"])
     return open_m
 
 

@@ -1,4 +1,4 @@
-# Learner History — compact tutor context (generated 2026-10-29)
+# Learner History — compact tutor context (generated 2026-11-05)
 
 > **For models: read THIS file for learner background, not `Archive/`.**
 > One row per concept ever studied: strict `solid` / `neutral` / `fuzzy` tag +
@@ -14,71 +14,78 @@ Tag rules (strict): `solid` = 2+ consecutive passes, interval_index ≥ 2,
 Tutor use: build directly on `solid`; probe-then-teach `neutral`;
 reteach-from-scratch `fuzzy` (check its mistake row / review note first).
 
-Totals: 320 concepts (91 with attempt history + 229 paused) — aiefs 42 · swe 66 · aie 212 · solid 10 · neutral 296 · fuzzy 14
+Totals: 320 concepts (91 with attempt history + 229 paused) — aiefs 42 · swe 66 · aie 212 · solid 8 · neutral 273 · fuzzy 39
 
 ## AIEFS — living (updated by Clerk each session)
 
 | Concept | Type | Tag | Prereqs | Last evidenced | Evidence |
 | --- | --- | --- | --- | --- | --- |
+| Adam (adaptive moments) | procedure | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Adam (adaptive moments) — 2026-11-04.md |
+| Bits vs Nats | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Bits vs Nats — 2026-11-04.md |
+| Chain Rule for Neural Networks | procedure | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Chain Rule for Neural Networks — 2026-10-20.md |
+| Conditional Independence | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Conditional Independence — 2026-10-20 (II).md |
+| Conjugate Priors | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Conjugate Priors — 2026-11-04.md |
+| Cosine Similarity | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Cosine Similarity — 2026-10-20 (II).md |
+| Entropy (Average Surprise) | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Entropy (Average Surprise) — 2026-11-04.md |
 | KL Divergence | concept | fuzzy |  | 2026-10-22 | Learning System/Reviews/Review — KL Divergence — 2026-10-22.md |
 | Laplace Smoothing | concept | fuzzy |  | 2026-10-22 | Learning System/Reviews/Review — Laplace Smoothing — 2026-10-22.md |
 | Learning-rate Schedules (four types) | concept | fuzzy |  | 2026-10-22 | Learning System/Reviews/Review — Learning-rate Schedules (four types) — 2026-10-22.md |
+| Likelihood | concept | fuzzy |  | 2026-10-09 | Learning System/Reviews/Review — Likelihood — 2026-10-09.md |
+| Mini-batch Noise (two effects) | concept | fuzzy |  | 2026-10-17 | Learning System/Reviews/Review — Mini-batch Noise (two effects) — 2026-10-17.md |
+| Mutual Information | concept | fuzzy |  | 2026-09-28 | Learning System/Reviews/Review — Mutual Information — 2026-09-28.md |
 | Naive Bayes | concept | fuzzy |  | 2026-10-09 | Learning System/Reviews/Review — Naive Bayes — 2026-10-09.md |
 | Optimizer Selection (Rohit heuristic) | concept | fuzzy |  | 2026-10-10 | Learning System/Reviews/Review — Optimizer Selection (Rohit heuristic) — 2026-10-10.md |
+| PCA (Dimensionality Reduction) | concept | fuzzy |  | 2026-10-23 | last reviewed 2026-10-23 |
+| Perplexity | concept | fuzzy |  | 2026-10-03 | Learning System/Reviews/Review — Perplexity — 2026-10-03.md |
+| PMF vs PDF | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — PMF vs PDF — 2026-11-04.md |
+| Prompt Engineering | concept | fuzzy |  | 2026-10-29 | last reviewed 2026-10-29 |
+| Saddle Points (critical point triage) | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Saddle Points (critical point triage) — 2026-10-20 (II).md |
 | Sequential Bayesian Updating | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Sequential Bayesian Updating — 2026-10-20.md |
+| Softmax Subtract-Max Trick | procedure | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Softmax Subtract-Max Trick — 2026-10-20.md |
 | UMAP (Dimensionality Reduction) | concept | fuzzy | t-SNE (Dimensionality Reduction): neutral | 2026-10-19 | last reviewed 2026-10-19 |
+| Variance & Covariance | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Variance & Covariance — 2026-10-20 (II).md |
 | 4-Layer AI Environment Stack | concept | neutral |  | 2026-10-03 | Learning System/Reviews/Review — 4-Layer AI Environment Stack — 2026-10-03.md |
-| Adam (adaptive moments) | procedure | neutral |  | 2026-10-20 | Learning System/Reviews/Review — Adam (adaptive moments) — 2026-10-20.md |
 | Base Rate Fallacy | concept | neutral |  | 2026-10-05 | Learning System/Reviews/Review — Base Rate Fallacy — 2026-10-05.md |
 | Bayes' Theorem | concept | solid |  | 2026-10-20 | Learning System/Reviews/Review — Bayes' Theorem — 2026-10-20.md |
 | Bayesian A/B Testing | concept | neutral |  | 2026-10-05 | last reviewed 2026-10-05 |
-| Bits vs Nats | concept | neutral |  | 2026-09-24 | last reviewed 2026-09-24 |
-| Chain Rule for Neural Networks | procedure | neutral |  | 2026-10-20 | Learning System/Reviews/Review — Chain Rule for Neural Networks — 2026-10-20.md |
-| Conditional Independence | concept | neutral |  | 2026-10-20 | Learning System/Reviews/Review — Conditional Independence — 2026-10-20 (II).md |
-| Conjugate Priors | concept | neutral |  | 2026-10-17 | Learning System/Reviews/Review — Conjugate Priors — 2026-10-17.md |
-| Cosine Similarity | concept | neutral |  | 2026-10-20 | Learning System/Reviews/Review — Cosine Similarity — 2026-10-20 (II).md |
 | Cross-Entropy from NLL | concept | neutral |  | 2026-09-23 | Learning System/Reviews/Review — Cross-Entropy from NLL — 2026-09-23.md |
 | Curse of dimensionality | concept | solid |  | 2026-10-10 | Learning System/Reviews/Review — Curse of dimensionality — 2026-10-10.md |
 | Eigenvalues & Eigenvectors | concept | neutral |  | 2026-10-03 | Learning System/Archive/AIE-2026-07-28/reviews/Review — Eigenvalues & Eigenvectors — 2026-07-16.md |
-| Entropy (Average Surprise) | concept | neutral |  | 2026-10-05 | Learning System/Reviews/Review — Entropy (Average Surprise) — 2026-10-05.md |
 | Gradient Descent (vanilla) | procedure | solid |  | 2026-10-10 | Learning System/Reviews/Review — Gradient Descent (vanilla) — 2026-10-10.md |
 | Gradient Descent Failure Modes (zigzag vs overshoot) | concept | solid |  | 2026-10-02 | Learning System/Reviews/Review — Gradient Descent Failure Modes (zigzag vs overshoot) — 2026-10-02.md |
 | Information Content (Surprise) | concept | solid |  | 2026-10-11 | Learning System/Reviews/Review — Information Content (Surprise) — 2026-10-11.md |
 | Label Smoothing | concept | neutral |  | 2026-10-02 | Learning System/Reviews/Review — Label Smoothing — 2026-10-02.md |
 | Learning Rate | concept | neutral |  | 2026-09-23 | Learning System/Reviews/Review — Learning Rate — 2026-09-23.md |
-| Likelihood | concept | neutral |  | 2026-10-09 | Learning System/Reviews/Review — Likelihood — 2026-10-09.md |
-| Mini-batch Noise (two effects) | concept | neutral |  | 2026-10-17 | Learning System/Reviews/Review — Mini-batch Noise (two effects) — 2026-10-17.md |
 | MLE vs MAP Estimation | concept | neutral |  | 2026-09-30 | Learning System/Reviews/Review — MLE vs MAP Estimation — 2026-09-30.md |
 | Momentum (SGD with Momentum) | procedure | solid |  | 2026-10-17 | Learning System/Reviews/Review — Momentum (SGD with Momentum) — 2026-10-17.md |
-| Mutual Information | concept | neutral |  | 2026-09-28 | Learning System/Reviews/Review — Mutual Information — 2026-09-28.md |
-| PCA (Dimensionality Reduction) | concept | neutral |  | 2026-10-23 | last reviewed 2026-10-23 |
-| Perplexity | concept | neutral |  | 2026-10-03 | Learning System/Reviews/Review — Perplexity — 2026-10-03.md |
-| PMF vs PDF | concept | neutral |  | 2026-10-17 | Learning System/Reviews/Review — PMF vs PDF — 2026-10-17.md |
 | Posterior Probability | concept | solid |  | 2026-10-08 | Learning System/Reviews/Review — Posterior Probability — 2026-10-08.md |
 | Prior Probability | concept | solid |  | 2026-10-17 | Learning System/Reviews/Review — Prior Probability — 2026-10-17.md |
-| Prompt Engineering | concept | solid |  | 2026-10-29 | last reviewed 2026-10-29 |
-| Saddle Points (critical point triage) | concept | neutral |  | 2026-10-20 | Learning System/Reviews/Review — Saddle Points (critical point triage) — 2026-10-20 (II).md |
-| Softmax Subtract-Max Trick | procedure | solid |  | 2026-10-20 | Learning System/Reviews/Review — Softmax Subtract-Max Trick — 2026-10-20.md |
 | t-SNE (Dimensionality Reduction) | concept | neutral | KL Divergence: fuzzy | 2026-10-12 | last reviewed 2026-10-12 |
-| Variance & Covariance | concept | neutral |  | 2026-10-20 | Learning System/Reviews/Review — Variance & Covariance — 2026-10-20 (II).md |
 | Variation of Information | concept | neutral |  | 2026-09-24 | last reviewed 2026-09-24 |
 
 ## SWE era — frozen 2026-09-01 (see `Archive/SWE-2026-09-01/`)
 
 | Concept | Type | Tag | Prereqs | Last evidenced | Evidence |
 | --- | --- | --- | --- | --- | --- |
+| Bash Quoting | concept | fuzzy |  | 2026-08-25 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Bash Quoting — 2026-08-20.md |
 | fd | memory | fuzzy |  | 2026-08-26 | Learning System/Archive/SWE-2026-09-01/reviews/Review — fd — 2026-08-29.md |
+| find | procedure | fuzzy |  | 2026-08-28 | Learning System/Archive/SWE-2026-09-01/reviews/Review — find — 2026-08-28.md |
 | grep | procedure | fuzzy |  | 2026-08-28 | Learning System/Archive/SWE-2026-09-01/reviews/Review — grep — 2026-08-28.md |
+| man & Documentation | procedure | fuzzy |  | 2026-08-24 | Learning System/Archive/SWE-2026-09-01/reviews/Review — man & Documentation — 2026-08-19.md |
 | Parameter Expansion | procedure | fuzzy |  | 2026-08-27 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Parameter Expansion — 2026-08-27.md |
 | PATH & Program Discovery | concept | fuzzy |  | 2026-08-24 | Learning System/Archive/SWE-2026-09-01/reviews/Review — PATH & Program Discovery — 2026-08-29.md |
 | Process Substitution | concept | fuzzy |  | 2026-08-28 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Process Substitution — 2026-08-28.md |
+| sed (Stream Editor) | procedure | fuzzy |  | 2026-08-25 | last reviewed 2026-08-25 |
 | Shebang & Script Execution | procedure | fuzzy |  | 2026-08-28 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Shebang & Script Execution — 2026-08-29.md |
+| Shell Built-ins & Process Isolation | concept | fuzzy |  | 2026-08-28 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Shell Built-ins & Process Isolation — 2026-08-08.md |
+| Vim Composable Commands | concept | fuzzy |  | 2026-08-28 | last reviewed 2026-08-28 |
+| Vim Modal Editing | concept | fuzzy |  | 2026-08-28 | last reviewed 2026-08-28 |
+| What is the Shell | concept | fuzzy |  | 2026-08-28 | Learning System/Archive/SWE-2026-09-01/reviews/Review — What is the Shell — 2026-08-21.md |
 | xargs | concept | fuzzy |  | 2026-08-27 | Learning System/Archive/SWE-2026-09-01/reviews/Review — xargs — 2026-08-27.md |
 | Acutest Unit Testing |  | neutral |  | 2026-08-18 | 📦 Concept Archive.md §Paused Concepts — C Project (Terminal System Monitor / cstack / C tutoring) |
 | Arrange-Act-Assert (AAA) |  | neutral |  | 2026-08-19 | 📦 Concept Archive.md §Paused Concepts — C Project (Terminal System Monitor / cstack / C tutoring) |
 | awk | procedure | neutral |  | 2026-08-18 | Learning System/Archive/SWE-2026-09-01/reviews/Review — awk — 2026-08-18.md |
 | Background Jobs | concept | neutral |  | 2026-08-20 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Background Jobs — 2026-08-20.md |
-| Bash Quoting | concept | neutral |  | 2026-08-25 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Bash Quoting — 2026-08-20.md |
 | Basic File Tools (cat, sort, uniq, head, tail) | procedure | neutral |  | 2026-08-19 | last reviewed 2026-08-19 |
 | bat | memory | neutral |  | 2026-08-21 | Learning System/Archive/SWE-2026-09-01/reviews/Review — bat — 2026-08-21.md |
 | Black-box vs White-box Testing |  | neutral |  | 2026-08-18 | 📦 Concept Archive.md §Paused Concepts — C Project (Terminal System Monitor / cstack / C tutoring) |
@@ -95,7 +102,6 @@ Totals: 320 concepts (91 with attempt history + 229 paused) — aiefs 42 · swe 
 | Feature Probing vs Kernel Version Checking |  | neutral |  | 2026-08-18 | 📦 Concept Archive.md §Paused Concepts — C Project (Terminal System Monitor / cstack / C tutoring) |
 | File Permissions (ls -l) | memory | neutral |  | 2026-08-24 | last reviewed 2026-08-24 |
 | File Transfers over SSH (scp/rsync/ssh config) | procedure | neutral |  | 2026-08-24 | last reviewed 2026-08-24 |
-| find | procedure | neutral |  | 2026-08-28 | Learning System/Archive/SWE-2026-09-01/reviews/Review — find — 2026-08-28.md |
 | GCC Compilation Stages |  | neutral |  | 2026-08-20 | 📦 Concept Archive.md §Paused Concepts — C Project (Terminal System Monitor / cstack / C tutoring) |
 | Git commit message conventions | memory | neutral |  | 2026-08-25 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Git commit message conventions — 2026-08-04.md |
 | Information Theory | concept | neutral |  | 2026-09-24 | last reviewed 2026-09-24 |
@@ -108,14 +114,11 @@ Totals: 320 concepts (91 with attempt history + 229 paused) — aiefs 42 · swe 
 | Make: Dependency Tree Resolution | concept | neutral |  | 2026-08-18 | last reviewed 2026-08-18 |
 | Make: Timestamp Evaluation | concept | neutral |  | 2026-08-19 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Make: Timestamp Evaluation — 2026-08-04.md |
 | Makefile: Targets, Prerequisites & Recipes | concept | neutral |  | 2026-08-12 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Makefile: Targets, Prerequisites & Recipes — 2026-08-12.md |
-| man & Documentation | procedure | neutral |  | 2026-08-24 | Learning System/Archive/SWE-2026-09-01/reviews/Review — man & Documentation — 2026-08-19.md |
 | Pipes (` |  | neutral |  | developing | 📦 Concept Archive.md §SWE Track — Shell & Terminal (MIT Missing Semester) |
 | Pipes (`|`) & Pipeline Composition | concept | neutral |  | 2026-08-18 | last reviewed 2026-08-18 |
 | Red-Green-Refactor |  | neutral |  | 2026-08-18 | 📦 Concept Archive.md §Paused Concepts — C Project (Terminal System Monitor / cstack / C tutoring) |
 | ripgrep | memory | neutral |  | 2026-08-19 | Learning System/Archive/SWE-2026-09-01/reviews/Review — ripgrep — 2026-08-19.md |
-| sed (Stream Editor) | procedure | neutral |  | 2026-08-25 | last reviewed 2026-08-25 |
 | Sentinel Values vs Presence Flags |  | neutral |  | 2026-08-23 | 📦 Concept Archive.md §Paused Concepts — C Project (Terminal System Monitor / cstack / C tutoring) |
-| Shell Built-ins & Process Isolation | concept | neutral |  | 2026-08-28 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Shell Built-ins & Process Isolation — 2026-08-08.md |
 | Shell Conditionals | procedure | neutral |  | 2026-08-19 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Shell Conditionals — 2026-08-19.md |
 | Shell Config & Dotfiles | concept | neutral |  | 2026-08-23 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Shell Config & Dotfiles — 2026-08-23.md |
 | Shell Loops | procedure | neutral |  | 2026-08-17 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Shell Loops — 2026-08-17.md |
@@ -129,9 +132,6 @@ Totals: 320 concepts (91 with attempt history + 229 paused) — aiefs 42 · swe 
 | Testable Seam |  | neutral |  | 2026-08-19 | 📦 Concept Archive.md §Paused Concepts — C Project (Terminal System Monitor / cstack / C tutoring) |
 | tmux — Sessions, Windows & Panes | memory | neutral |  | 2026-08-24 | Learning System/Archive/SWE-2026-09-01/reviews/Review — tmux — Sessions, Windows & Panes — 2026-08-29.md |
 | Vim Buffers & Windows | concept | neutral |  | 2026-08-28 | last reviewed 2026-08-28 |
-| Vim Composable Commands | concept | neutral |  | 2026-08-28 | last reviewed 2026-08-28 |
-| Vim Modal Editing | concept | neutral |  | 2026-08-28 | last reviewed 2026-08-28 |
-| What is the Shell | concept | neutral |  | 2026-08-28 | Learning System/Archive/SWE-2026-09-01/reviews/Review — What is the Shell — 2026-08-21.md |
 | Wildcards & Globs | memory | neutral |  | 2026-08-25 | Learning System/Archive/SWE-2026-09-01/reviews/Review — Wildcards & Globs — 2026-08-11.md |
 
 ## AIE era — frozen 2026-07-28 (see `Archive/AIE-2026-07-28/`)
