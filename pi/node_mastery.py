@@ -655,7 +655,7 @@ def build_context(
         text = _norm(_node_text(record))
         tokens = _tokens(_node_text(record))
         explicit = record["strict"]["links"]["by_target"] or record["strict"]["links"]["by_chain"]
-        hit = any(term in text for term in terms) or bool(term_tokens & tokens)
+        hit = any(len(term) >= 3 and term in text for term in terms) or bool(term_tokens & tokens)
         if not hit and not explicit:
             continue
         score, last_date, open_mistakes = _node_score(record, tokens, prereq_tokens, today)
@@ -763,43 +763,7 @@ def build_context(
         omitted["mistakes"] = 0
 
     body = _assemble(today.isoformat(), propositions, chain_candidates, index_kept, omitted, prior_models)
-    while _json_bytes(body) > ceiling and body["propositions"]:
-        dropped = body["propositions"].pop()
-        omitted["propositions"] += 1
-        omitted["next_best"] = ([dropped["id"]] + omitted["next_best"])[:5]
-        body = _assemble(
-            today.isoformat(), body["propositions"], body["chains"], index_kept, omitted, prior_models
-        )
-    while _json_bytes(body) > ceiling and body["chains"]:
-        body["chains"].pop()
-        omitted["chains"] += 1
-        body = _assemble(
-            today.isoformat(), body["propositions"], body["chains"], index_kept, omitted, prior_models
-        )
-    while _json_bytes(body) > ceiling and index_kept:
-        index_kept.pop()
-        omitted["index"] += 1
-        body = _assemble(
-            today.isoformat(), body["propositions"], body["chains"], index_kept, omitted, prior_models
-        )
-
-    # A kept proposition must have its index line; drop any orphaned by the trim,
-    # and drop chains that depended on a dropped endpoint with them.
-    kept_index_ids = {entry["id"] for entry in index_kept}
-    if any(prop["id"] not in kept_index_ids for prop in body["propositions"]):
-        survivors = [prop for prop in body["propositions"] if prop["id"] in kept_index_ids]
-        survivor_ids = {prop["id"] for prop in survivors}
-        chains_kept = [
-            chain
-            for chain in body["chains"]
-            if chain.get("conclusion") in survivor_ids
-            and all(premise in survivor_ids for premise in chain.get("premises", []))
-        ]
-        omitted["propositions"] += len(body["propositions"]) - len(survivors)
-        omitted["chains"] += len(body["chains"]) - len(chains_kept)
-        body = _assemble(
-            today.isoformat(), survivors, chains_kept, index_kept, omitted, prior_models
-        )
+    body = _sweep(body, index_kept, ceiling, omitted, today.isoformat(), prior_models)
     total_mistakes = sum(len(row["record"]["strict"]["mistakes"]) for row in matched)
     omitted["mistakes"] = max(
         0, total_mistakes - sum(len(prop["mistakes"]) for prop in body["propositions"])
@@ -828,6 +792,60 @@ def build_context(
         "index_nodes": len(result["index"]),
     }
     return result
+
+
+def _sweep(
+    body: dict,
+    index_kept: list[dict],
+    ceiling: int,
+    omitted: dict,
+    as_of: str,
+    prior_models: list[dict] | None,
+) -> dict:
+    """Keep the block coherent and under the ceiling.
+
+    Drops propositions whose index line went away, drops chains with a dropped
+    endpoint, then sheds units until the ceiling holds. Bounded by the unit
+    count, so it always terminates.
+    """
+    for _ in range(
+        len(body["propositions"]) + len(body["chains"]) + len(index_kept) + 8
+    ):
+        kept_index_ids = {entry["id"] for entry in index_kept}
+        survivors = [prop for prop in body["propositions"] if prop["id"] in kept_index_ids]
+        survivor_ids = {prop["id"] for prop in survivors}
+        chains_kept = [
+            chain
+            for chain in body["chains"]
+            if chain.get("conclusion") in survivor_ids
+            and isinstance(chain.get("premises"), list)
+            and all(premise in survivor_ids for premise in chain["premises"])
+        ]
+        if survivors != body["propositions"] or chains_kept != body["chains"]:
+            dropped = [prop["id"] for prop in body["propositions"] if prop["id"] not in survivor_ids]
+            omitted["propositions"] += len(body["propositions"]) - len(survivors)
+            omitted["chains"] += len(body["chains"]) - len(chains_kept)
+            omitted["next_best"] = (dropped + omitted["next_best"])[:5]
+            body = _assemble(as_of, survivors, chains_kept, index_kept, omitted, prior_models)
+            continue
+        if _json_bytes(body) <= ceiling:
+            break
+        if body["propositions"]:
+            dropped = body["propositions"].pop()
+            omitted["propositions"] += 1
+            omitted["next_best"] = ([dropped["id"]] + omitted["next_best"])[:5]
+        elif body["chains"]:
+            body["chains"].pop()
+            omitted["chains"] += 1
+        elif index_kept:
+            index_kept.pop()
+            omitted["index"] += 1
+        else:
+            break
+        body = _assemble(
+            as_of, body["propositions"], body["chains"], index_kept, omitted, prior_models
+        )
+    return body
 
 
 def verify_block(path: Path) -> dict:
@@ -877,7 +895,11 @@ def verify_block(path: Path) -> dict:
         if not isinstance(chain, dict):
             errors.append("chain entry is not an object")
             continue
-        endpoints = list(chain.get("premises") or []) + [chain.get("conclusion")]
+        premises = chain.get("premises")
+        if not isinstance(premises, list):
+            errors.append(f"chain {chain.get('id')} premises must be a list")
+            continue
+        endpoints = list(premises) + [chain.get("conclusion")]
         if any(endpoint not in detail_ids for endpoint in endpoints):
             errors.append(f"chain {chain.get('id')} has an endpoint outside the retained detail")
 

@@ -430,6 +430,39 @@ class NodeMasteryCase(unittest.TestCase):
         self.assertEqual([chain["id"] for chain in block["chains"]], [receipt["created_chains"][0]])
         self.assertTrue(node_mastery.verify_block(self._write_block(block))["ok"])
 
+    def test_sweep_never_leaves_a_chain_with_a_dropped_endpoint(self) -> None:
+        kept = [{"id": "n_aaaaaa"}, {"id": "n_bbbbbb"}]
+        body = {
+            "as_of": "2026-11-05",
+            "propositions": [
+                {"id": "n_aaaaaa", "statement": "x" * 400, "mistakes": []},
+                {"id": "n_bbbbbb", "statement": "y" * 400, "mistakes": []},
+            ],
+            "chains": [
+                {"id": "arg_cccccc", "premises": ["n_aaaaaa"], "conclusion": "n_bbbbbb", "statement": ""}
+            ],
+            "mistakes": [],
+            "prior_models": [],
+            "index": kept,
+        }
+        omitted = {
+            "index": 0, "propositions": 0, "chains": 0, "mistakes": 0,
+            "reason": "", "next_best": [],
+        }
+        swept = node_mastery._sweep(body, kept, 300, omitted, "2026-11-05", None)
+        detail_ids = {prop["id"] for prop in swept["propositions"]}
+        for chain in swept["chains"]:
+            self.assertIn(chain["conclusion"], detail_ids)
+            self.assertTrue(set(chain["premises"]) <= detail_ids)
+        receipt = node_mastery.verify_block(self._write_block({
+            **swept,
+            "budget": {
+                "ceiling_bytes": 300,
+                "body_bytes": node_mastery._json_bytes(swept),
+            },
+        }))
+        self.assertTrue(receipt["ok"], receipt["errors"])
+
     def test_verify_rejects_broken_index_or_budget_math(self) -> None:
         self.seed({"name": "Hessian matrix", "statement": "The Hessian is symmetric."})
         block = node_mastery.build_context(
