@@ -397,7 +397,7 @@ def check_resources(root: Path) -> None:
     review_scout_text = (root / ".pi" / "agents" / "review-scout.md").read_text(
         encoding="utf-8", errors="replace"
     )
-    prior_source_needles = ("prior_knowledge", "graph.py", "list --json", "prior_models", "chains")
+    prior_source_needles = ("prior_knowledge", "graph.py", "list --json", "--match", "prior_models", "chains")
     missing_prior_source = [
         f"{name}: {needle}"
         for name, text in (("scout.md", scout_text), ("review-scout.md", review_scout_text))

@@ -313,21 +313,25 @@ cat > "Learning System/Core/Attempts.json" <<'EOF'
 EOF
 
 cat > "Learning System/Core/🧯 Mistakes.md" <<'EOF'
-# Mistakes
+# Mistakes — Structured Wrong-Answer Ledger
 
-Priority-1 review queue. `active` → `review` → `graduated` (2 consecutive correct).
+> Every failed review/probe/quiz item is recorded here with its error type and self-attribution.
+> Priority-1 review queue. Lifecycle: `active` → `review` → `graduated` (retired after 2 consecutive correct recalls).
 
-## Active
+## How to record
+- **concept**: exact Concept name as in Active Concepts.md
+- **question**: the question asked
+- **expected**: server-side expected answer (short, not leaked)
+- **error_type**: `structural | deviation | application | metacognitive`
+- **self_attribution**: learner's own words on why
+- **status**: `active` | `review` | `graduated`
+- **retries**: count of correct recalls since creation
+- **next retry**: next due date (realigned from Attempts.json)
 
-_(none)_
+## Table
 
-## Review
-
-_(none)_
-
-## Graduated
-
-_(none)_
+| Date | Concept | Question | Expected | Error Type | Self-Attribution | Status | Retries | Next Retry |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 EOF
 
 cat > "Learning System/Core/💡 Learning Profile.md" <<'EOF'

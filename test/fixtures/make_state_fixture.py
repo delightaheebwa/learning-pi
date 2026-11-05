@@ -83,7 +83,10 @@ def build(dest: Path) -> None:
     )
     _write(
         core / "🧯 Mistakes.md",
-        "# Mistakes\n\n## Active\n\n_(none)_\n\n## Review\n\n_(none)_\n\n## Graduated\n\n_(none)_\n",
+        "# Mistakes — Structured Wrong-Answer Ledger\n\n"
+        "## Table\n\n"
+        "| Date | Concept | Question | Expected | Error Type | Self-Attribution | Status | Retries | Next Retry |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n",
     )
     _write(
         core / "💡 Learning Profile.md",

@@ -21,7 +21,7 @@ learner-state keys cannot enter the graph by accident.
 
 Usage:
   graph.py [--root R] status  [--json]
-  graph.py [--root R] list    [--json] [--session ID]
+  graph.py [--root R] list    [--json] [--session ID] [--match TEXT ...]
   graph.py [--root R] merge   < spec.json
   graph.py [--root R] retract <id> --reason TEXT
   graph.py [--root R] export  [--json | --mermaid]
@@ -661,7 +661,30 @@ def cmd_status(root: Path, as_json: bool) -> int:
     return 1 if failed else 0
 
 
-def cmd_list(root: Path, as_json: bool, session: str | None) -> int:
+def _match_terms(values: list[str] | None) -> list[str]:
+    """Normalize `--match` values: repeatable, comma-separated, case-insensitive."""
+    terms: list[str] = []
+    for value in values or []:
+        for term in value.split(","):
+            term = term.strip().lower()
+            if term and term not in terms:
+                terms.append(term)
+    return terms
+
+
+def _node_matches(node: dict, terms: list[str]) -> bool:
+    haystack = " ".join(
+        [node.get("name", ""), node.get("statement", ""), *node.get("aliases", [])]
+    ).lower()
+    return any(term in haystack for term in terms)
+
+
+def cmd_list(
+    root: Path,
+    as_json: bool,
+    session: str | None,
+    match: list[str] | None = None,
+) -> int:
     graph = load(root)
     live = _live_nodes(graph)
     if session:
@@ -670,12 +693,25 @@ def cmd_list(root: Path, as_json: bool, session: str | None) -> int:
             for ident, node in live.items()
             if any(point.get("session") == session for point in node["provenance"])
         }
+    terms = _match_terms(match)
+    if match and not terms:
+        # An empty --match must never silently fall back to the full ledger.
+        raise GraphError("--match requires at least one non-empty term")
+    if terms:
+        live = {
+            ident: node
+            for ident, node in live.items()
+            if _node_matches(node, terms)
+        }
     nodes = list(live.values())
     chains = [
         chain
         for chain in _live_chains(graph)
-        if not session
-        or any(point.get("session") == session for point in chain["provenance"])
+        if (not session
+            or any(point.get("session") == session for point in chain["provenance"]))
+        and (not terms
+             or (all(premise in live for premise in chain["premises"])
+                 and chain["conclusion"] in live))
     ]
     if as_json:
         print(
@@ -785,6 +821,14 @@ def build_parser() -> argparse.ArgumentParser:
     listing = sub.add_parser("list", help="list propositions and chains")
     listing.add_argument("--json", action="store_true")
     listing.add_argument("--session", default=None, help="only nodes touched by this session")
+    listing.add_argument(
+        "--match",
+        action="append",
+        default=[],
+        metavar="TEXT",
+        help="only propositions whose name/statement/aliases contain TEXT "
+        "(repeatable, comma-separated; chains kept only when all their nodes match)",
+    )
 
     sub.add_parser("merge", help="deterministically merge a candidate spec from stdin")
 
@@ -810,7 +854,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "status":
             return cmd_status(root, args.json)
         if args.command == "list":
-            return cmd_list(root, args.json, args.session)
+            return cmd_list(root, args.json, args.session, args.match)
         if args.command == "merge":
             return cmd_merge(root, sys.stdin)
         if args.command == "retract":

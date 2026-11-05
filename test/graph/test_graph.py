@@ -478,6 +478,79 @@ class GraphCase(unittest.TestCase):
         self.assertEqual(again["chains_linked"], 1)
         self.assertEqual(graph.load(self.root)["chains"][chain_id]["statement"], "corrected gloss")
 
+    # -- list --match ------------------------------------------------------
+    def _match_fixture(self) -> None:
+        self.merge(
+            {
+                "nodes": [
+                    {
+                        "name": "Hessian symmetry",
+                        "statement": "The Hessian is symmetric when second partials are continuous.",
+                        "aliases": ["second derivative test"],
+                        "provenance": [prov()],
+                    },
+                    {
+                        "name": "Jacobian rows",
+                        "statement": "The Jacobian stacks first partials.",
+                        "provenance": [prov()],
+                    },
+                    {
+                        "name": "Softmax rows",
+                        "statement": "Softmax normalizes each row.",
+                        "provenance": [prov()],
+                    },
+                ],
+                "chains": [
+                    {"premises": ["@0"], "conclusion": "@1", "provenance": [prov()]},
+                ],
+            }
+        )
+
+    def _listed(self, *args: str) -> dict:
+        code, out = self.cli("list", "--json", *args)
+        self.assertEqual(code, 0, out)
+        return json.loads(out)
+
+    def test_list_match_filters_nodes_and_keeps_only_matching_chains(self) -> None:
+        self._match_fixture()
+        hessian = self._listed("--match", "hessian")
+        self.assertEqual([n["name"] for n in hessian["nodes"]], ["Hessian symmetry"])
+        # The only chain also needs the Jacobian, which was filtered out.
+        self.assertEqual(hessian["chains"], [])
+
+        both = self._listed("--match", "hessian,jacobian")
+        self.assertEqual(
+            {n["name"] for n in both["nodes"]},
+            {"Hessian symmetry", "Jacobian rows"},
+        )
+        self.assertEqual(len(both["chains"]), 1)
+
+        code, text = self.cli("list", "--match", "softmax")
+        self.assertEqual(code, 0)
+        self.assertIn("Softmax rows", text)
+        self.assertNotIn("Hessian symmetry", text)
+
+    def test_list_match_is_case_insensitive_and_checks_aliases(self) -> None:
+        self._match_fixture()
+        alias_only = self._listed("--match", "SECOND DERIVATIVE TEST")
+        self.assertEqual([n["name"] for n in alias_only["nodes"]], ["Hessian symmetry"])
+
+        missing = self._listed("--match", "riemannian")
+        self.assertEqual(missing["nodes"], [])
+        self.assertEqual(missing["chains"], [])
+
+    def test_list_without_match_still_returns_the_full_ledger(self) -> None:
+        self._match_fixture()
+        everything = self._listed()
+        self.assertEqual(len(everything["nodes"]), 3)
+        self.assertEqual(len(everything["chains"]), 1)
+
+    def test_list_match_rejects_an_empty_term(self) -> None:
+        self._match_fixture()
+        code, out = self.cli("list", "--json", "--match", "  ,  ")
+        self.assertNotEqual(code, 0)
+        self.assertIn("at least one non-empty term", out)
+
 
 if __name__ == "__main__":
     unittest.main()
