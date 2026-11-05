@@ -878,6 +878,7 @@
         "test_unique_alias_links_attempts_and_mistakes_by_concept",
         "test_ambiguous_concept_is_reported_not_attributed",
         "test_stale_targets_are_reported_not_resolved",
+        "test_hessian_block_carries_the_seam_and_the_struggle",
         "resources: graph extraction aliases the concept name"
       ]
     },
@@ -941,6 +942,7 @@
       "tests": [
         "test_drill_caps_payload_and_session",
         "test_verify_envelope_rejects_too_many_drills",
+        "test_hessian_tail_is_drillable_and_verifiable",
         "resources: the tutor drills omitted detail and cites a subset"
       ]
     },
@@ -984,7 +986,7 @@
     {
       "id": "G-item-targets",
       "severity": "policy",
-      "statement": "Quiz questions and grade items may carry `targets[]`, the knowledge-graph record ids (`n_…` propositions / `arg_…` chains) the item retrieves. Targets are additive record-keeping, never learner-facing text and never a grading input: the binding fields are unchanged, a missing or empty target list blocks nothing, and `grade-audit` ignores targets when deciding a verdict. Ids are copied verbatim from the scout digest's `prior_knowledge` (never invented), carried from question to grade item to `REVIEW_WRITES.grade_verdicts[]`, and recorded on the attempt by `ops.py attempt --targets`; malformed ids are `TARGETS_INVALID` at quiz-audit, and `ops.py attempt|amend` rejects both malformed and non-live ids (missing or retracted), so only current graph records are recorded. A digest snapshot that names a stale id is dropped rather than resolved or replaced. They are the bridge to per-node mastery and never enter the graph ledger as learner state. Per-node mastery aggregation is not implemented — the targets are the plumbing — and `ops.py mastery` remains per-concept.",
+      "statement": "Quiz questions and grade items may carry `targets[]`, the knowledge-graph record ids (`n_…` propositions / `arg_…` chains) the item retrieves. Targets are additive record-keeping, never learner-facing text and never a grading input: the binding fields are unchanged, a missing or empty target list blocks nothing, and `grade-audit` ignores targets when deciding a verdict. Ids are copied verbatim from the scout digest's `prior_knowledge` (never invented), carried from question to grade item to `REVIEW_WRITES.grade_verdicts[]`, and recorded on the attempt by `ops.py attempt --targets`; malformed ids are `TARGETS_INVALID` at quiz-audit, and `ops.py attempt|amend` rejects both malformed and non-live ids (missing or retracted), so only current graph records are recorded. A digest snapshot that names a stale id is dropped rather than resolved or replaced. They are the bridge to per-node evidence and never enter the graph ledger as learner state. That bridge is implemented as a derived, read-only view (`pi/node_mastery.py`): explicit targets and a unique concept/alias match attach attempts and Mistakes rows to propositions, and ambiguous concepts are reported rather than attributed. `ops.py mastery` remains per-concept; per-node mastery scoring and ops.py integration are still deferred.",
       "tests": [
         "grade targets do not change batch binding",
         "quiz targets do not break full-batch binding",

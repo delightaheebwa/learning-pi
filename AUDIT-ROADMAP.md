@@ -650,10 +650,15 @@ Per-checkpoint review by `R-P0`/`R-P1`/`R-P2` (Muse Spark); full findings and de
   beat remains prompt-level.
 - **Scout TTL teach-time enforcement (P2.3 M17):** still an instruction + `warn`; no teach-time gate.
 - **Ledger rotation / write-failure counter (P0.3 M6):** dir mode is now `0700`; rotation deferred.
-- **Per-node mastery aggregation (G-item-targets, 2026-10-26):** still not implemented (the targets
-  are the plumbing), so `ops.py mastery` remains per-concept. Target ids are now
-  **liveness-checked**: `ops.py attempt|amend` rejects an id that is missing from the graph ledger or
-  retracted, so only current records are recorded. No per-node mastery report yet.
+- **Per-node mastery aggregation (G-item-targets, 2026-10-26; evidence view implemented
+  2026-11-05):** the bridge is live as a derived, read-only view (`pi/node_mastery.py`). Explicit
+  target ids and a unique concept/alias match attach attempts and Mistakes rows to propositions;
+  graduated mistakes are kept with a 90-day half-life; `context` emits a byte-budgeted
+  `prior_knowledge` block (complete index + scored detail + visible omissions); `drill` recovers one
+  omitted record (≤4 KB, ≤6/session); and the gate requires the `PRIOR_BUDGET_OK`/`SKIPPED` receipt.
+  The graph itself still stores no learner state, and `ops.py mastery` remains per-concept:
+  per-node mastery **scoring** and ops.py integration remain deferred. `node_mastery.py audit`
+  reports live coverage (0.2% strict at introduction — no live attempt carried `targets` yet).
 - **Solo fact-free prose on a `none` turn (P0.5 H1 residual):** no deterministic prose-teaching
   detector; hard-fact-bearing attempts are blocked.
 

@@ -657,7 +657,7 @@ coverage check as the deno gate suites.
   digest's `prior_knowledge` (never invented), carried from question to grade
   item to `REVIEW_WRITES.grade_verdicts[]`, and recorded on the attempt by
   `ops.py attempt --targets`; malformed ids are `TARGETS_INVALID` at
-  quiz-audit and rejected by ops.py. They are the bridge to per-node mastery
+  quiz-audit and rejected by ops.py. They are the bridge to per-node evidence
   and never enter the graph ledger as learner state. Target ids are
   **liveness-checked** against the graph ledger as well as format-checked: a
   malformed id is `TARGETS_INVALID` at quiz-audit, and `ops.py attempt|amend`
@@ -666,9 +666,10 @@ coverage check as the deno gate suites.
   live, the flow drops that id and records the attempt without it — never
   resolving, inventing, or substituting a different id. The rejection is
   implemented in the state-repo `scripts/ops.py` (learning-system@ff57645),
-  which folds the same append-only ledgers as `pi/graph.py`. Per-node mastery
-  aggregation is still not implemented — this is the plumbing for it — so
-  `ops.py mastery` remains per-concept.
+  which folds the same append-only ledgers as `pi/graph.py`. The per-node
+  evidence bridge is implemented as a derived, read-only view
+  (`pi/node_mastery.py`, G-node-mastery-derived); `ops.py mastery` remains
+  per-concept, and per-node mastery scoring is still deferred.
 
 ## Adding a newly installed extension
 
