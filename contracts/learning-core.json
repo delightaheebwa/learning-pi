@@ -939,7 +939,7 @@
     {
       "id": "G-mistake-targets",
       "severity": "policy",
-      "statement": "A failed item's graph ids are also recorded on its Mistakes row as a `[targets: …]` Self-Attribution prefix, the same convention as `[prereq: …]` and `[miss: …]`. The ids are copied from the fail's `grade_verdicts[].targets` after `ops.py attempt` drops any non-live id; review-clerk never invents, resolves, or substitutes one, and omits the prefix when the item had none or every id was dropped. The prefix is record-only — it never changes `error_type`, `miss_class`, status, retries, or scheduling — and the independent review-session audit cross-checks it against the targets recorded on the attempt.",
+      "statement": "A failed item's graph ids are also recorded on its Mistakes row as a `[targets: …]` Self-Attribution prefix, the same convention as `[prereq: …]` and `[miss: …]`. The ids are the normalized kept list `ops.py` records on the attempt (its `grade_verdicts[].targets` minus any non-live id dropped at record time), in the sorted/deduplicated order `ops.py` stores; review-clerk never invents, resolves, or substitutes one, and omits the prefix when the item had none or every id was dropped. The prefix is record-only — it never changes `error_type`, `miss_class`, status, retries, or scheduling — and the independent review-session audit cross-checks it against the targets recorded on the attempt.",
       "tests": [
         "resources: review-clerk writes the mistake-targets prefix",
         "resources: review-session-audit checks the mistake-targets prefix"
