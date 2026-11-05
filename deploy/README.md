@@ -231,6 +231,24 @@ sudo docker compose start open-webui
 Restore: stop Open WebUI, then extract the archive back into the same volume
 before starting it again. Keep these archives private — they contain the bridge key.
 
+## Upgrade Open WebUI
+
+`docker-compose.yml` pins the exact release **index digest**, never a moving tag.
+Some releases include one-way database migrations (v0.13.0 does), and a
+rolled-back container may not be able to read a migrated `webui.db`. Before
+changing the pin:
+
+1. Back up the volume with the recipe above (container stopped) and keep the
+   archive until the new version has run cleanly.
+2. Resolve the new release's index digest and pin it on the `image:` line, e.g.
+   `docker buildx imagetools inspect ghcr.io/open-webui/open-webui:vX.Y.Z` (use
+   the top-level `Digest`, not a per-platform digest).
+3. `sudo docker compose pull open-webui && sudo docker compose up -d`, then
+   wait for `healthy` in `sudo docker compose ps`.
+
+To roll back, first stop the new container and restore the pre-upgrade
+`webui.db` archive, then set the old digest and start the old image.
+
 ## Verify
 
 ```sh

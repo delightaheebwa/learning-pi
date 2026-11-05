@@ -18,8 +18,10 @@ name: pi-webui
 
 services:
   open-webui:
-    # Pinned to the v0.12.2 release index digest (2026-10-14). No moving tag.
-    image: ghcr.io/open-webui/open-webui:v0.12.2@sha256:10e6a78ba2d172493460a9e8a92c496aaa7a64dc4d26d622a2e95e0c736081c9
+    # Pinned to the v0.13.0 release index digest (2026-11-03). No moving tag.
+    # v0.13.0 ships one-way DB migrations: back up webui.db before upgrading
+    # (see deploy/README.md, "Upgrade Open WebUI").
+    image: ghcr.io/open-webui/open-webui:v0.13.0@sha256:2272b0fb7c8783a016bcc179abb467cfa34590c99c5e6560fe0e9155b4820a09
     container_name: open-webui
     restart: unless-stopped
     # Loopback-only publish. Do NOT change to 0.0.0.0/3000 without a firewall or
