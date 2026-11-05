@@ -564,6 +564,21 @@ coverage check as the deno gate suites.
   nodes: every chain premise and conclusion is grounded in the cited material
   and jointly entails it, and every link joins the same proposition.
 
+### Per-node evidence (derived)
+
+- **G-node-mastery-derived** (policy) — `pi/node_mastery.py` is a read-only
+  join over the live graph ledger, `Core/Attempts.json`, and the Mistakes
+  table: it writes nothing and adds nothing to the graph. Explicit graph ids
+  (attempt `targets[]`, `[targets: …]` mistake prefixes) link strictly, a
+  concept links only when it matches exactly one proposition name or alias,
+  ambiguous concepts are reported rather than attributed, and non-live ids are
+  reported as stale instead of being resolved. The view is advisory; it never
+  gates a review.
+- **G-history-tiers** (policy) — the Mistakes status cell is the tier
+  (`active`/`review`/`graduated`). All three stay in the derived view, and
+  graduated evidence is weighted by a 90-day half-life rather than dropped, so
+  repaired misconceptions remain visible as repair-transfer evidence.
+
 ### Cross-session grounding (prior knowledge)
 
 - **G-prior-knowledge-grounding** — the adversarial stance uses the learner's

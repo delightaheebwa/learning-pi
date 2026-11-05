@@ -869,6 +869,27 @@
       ]
     },
     {
+      "id": "G-node-mastery-derived",
+      "severity": "policy",
+      "statement": "Per-node evidence is a derived, read-only view: `pi/node_mastery.py` joins the live graph ledger with `Core/Attempts.json` and the Mistakes table on every read, writes no files, and adds nothing to `nodes.jsonl`/`chains.jsonl`. Explicit graph ids (attempt `targets[]`, `[targets: …]` mistake prefixes) link strictly, a concept links only when it matches exactly one proposition name or alias, an ambiguous concept is reported rather than attributed, and a non-live id is reported as stale instead of being resolved. The view is advisory — it never gates a review and never enters the graph as learner state.",
+      "tests": [
+        "test_report_leaves_the_graph_ledgers_untouched",
+        "test_target_links_attach_attempts_and_mistakes",
+        "test_unique_alias_links_attempts_and_mistakes_by_concept",
+        "test_ambiguous_concept_is_reported_not_attributed",
+        "test_stale_targets_are_reported_not_resolved"
+      ]
+    },
+    {
+      "id": "G-history-tiers",
+      "severity": "policy",
+      "statement": "The Mistakes table is tiered by its status cell (`active`, `review`, `graduated`). The derived view keeps all three tiers, attaches graduated evidence with a 90-day half-life instead of dropping repaired mistakes, and reports each attached row's status and weight. Tier counts are reported so a repaired misconception stays visible as repair-transfer evidence.",
+      "tests": [
+        "test_graduated_mistakes_are_kept_with_decay",
+        "test_history_tiers_are_counted"
+      ]
+    },
+    {
       "id": "G-prior-knowledge-grounding",
       "severity": "hard",
       "statement": "Cross-session attacks cite the learner's actual prior words: the fact-check envelope carries `prior_knowledge` (prior verbatim models, graph propositions/chains, open mistakes) and every quoted prior item appears verbatim in it. The clash must target the same concept/mental model under interrogation, both sides are verbatim, and no winner is announced — attacks keep their existing subtypes and the one-attack-per-turn rule. An invented, paraphrased, or drift-merged \"you once said…\" is PRIOR_UNGROUNDED; a prior fact about a different concept is not a valid attack target.",
