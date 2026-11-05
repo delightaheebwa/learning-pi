@@ -123,7 +123,7 @@ class HessianEndToEnd(unittest.TestCase):
                 "| "
                 + " | ".join(
                     [
-                        row["date"], row["concept"], "q", "e", row["error_type"],
+                        row["date"], row["concept"], "q | extra", "e | extra", row["error_type"],
                         row["self_attribution"], row["status"], "0", "2026-12-01",
                     ]
                 )
@@ -144,22 +144,28 @@ class HessianEndToEnd(unittest.TestCase):
     def test_hessian_block_carries_the_seam_and_the_struggle(self) -> None:
         block = self.block()
         self.assertLessEqual(block["budget"]["body_bytes"], block["budget"]["ceiling_bytes"])
-        self.assertTrue(node_mastery.verify_block(self._block_path(block))["ok"])
+        receipt = node_mastery.verify_block(self._block_path(block))
+        self.assertTrue(receipt["ok"], receipt["errors"])
 
         index_ids = {entry["id"] for entry in block["index"]}
         self.assertIn(self.hessian_id, index_ids)
         self.assertNotIn(graph.node_id(JACOBIAN), index_ids)
 
         prop = next(p for p in block["propositions"] if p["id"] == self.hessian_id)
-        self.assertEqual(prop["mistakes"][0]["miss_class"], "discrimination")
-        self.assertIn("PSD as sufficient", prop["mistakes"][0]["self_attribution"])
-        self.assertEqual(prop["mistakes"][0]["status"], "active")
+        self.assertEqual(prop["attempts"][0]["link"], "target")
+        active = next(row for row in prop["mistakes"] if row["status"] == "active")
         graduated = next(row for row in prop["mistakes"] if row["status"] == "graduated")
-        self.assertLess(graduated["weight"], 1.0)
+        self.assertEqual(active["link"], "target")
+        self.assertEqual(graduated["link"], "concept")
+        self.assertEqual(active["miss_class"], "discrimination")
+        self.assertIn("PSD as sufficient", active["self_attribution"])
+        self.assertEqual(active["weight"], 1.0)
+        self.assertAlmostEqual(graduated["weight"], 0.992, places=3)
         self.assertEqual(block["prior_models"][0]["words"], self.models[0]["words"])
 
         audit = node_mastery.audit(self.root, TODAY)
         self.assertEqual(audit["attempts"]["with_targets"], 1)
+        self.assertEqual(audit["links"]["target"], 1)
         self.assertGreaterEqual(audit["coverage"]["nodes_with_evidence"], 1)
         self.assertEqual(audit["mistakes"]["tiers"]["active"], 1)
         self.assertEqual(audit["mistakes"]["tiers"]["graduated"], 1)
@@ -173,7 +179,8 @@ class HessianEndToEnd(unittest.TestCase):
         envelope = self.root / ".tmp" / "envelope.json"
         envelope.parent.mkdir(parents=True, exist_ok=True)
         envelope.write_text(json.dumps({"prior_knowledge": {"drilldown": [record]}}))
-        self.assertTrue(node_mastery.verify_envelope(envelope)["ok"])
+        envelope_receipt = node_mastery.verify_envelope(envelope)
+        self.assertTrue(envelope_receipt["ok"], envelope_receipt["errors"])
 
     def test_hessian_report_is_deterministic_and_read_only(self) -> None:
         before = (

@@ -879,6 +879,7 @@
         "test_ambiguous_concept_is_reported_not_attributed",
         "test_stale_targets_are_reported_not_resolved",
         "test_hessian_block_carries_the_seam_and_the_struggle",
+        "test_hessian_report_is_deterministic_and_read_only",
         "resources: graph extraction aliases the concept name"
       ]
     },
