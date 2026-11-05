@@ -41,6 +41,9 @@ newest_pi() {
     | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1
 }
 candidate_bin() { echo "$MISE_INSTALLS/$1/pi/pi"; }
+# A pi version is a mise tool version: semver plus prerelease/build suffixes.
+# It is interpolated into a TOML string, so reject anything else at the door.
+valid_version() { [[ "${1:-}" =~ ^[0-9A-Za-z.+_-]+$ ]]; }
 
 scan_changelog() {
   local cand="$1" current="$2"
@@ -54,16 +57,46 @@ scan_changelog() {
 
 update_config_pi() {
   local to="$1"
+  valid_version "$to" || die "update_config_pi: invalid pi version: $to" 2
   [ -f "$CONFIG" ] || return 0
   python3 - "$CONFIG" "$to" <<'PY'
 import re, sys
 path, to = sys.argv[1], sys.argv[2]
-s = open(path).read()
-if re.search(r'^pi = ".*"$', s, flags=re.M):
-    s = re.sub(r'^pi = ".*"$', f'pi = "{to}"', s, flags=re.M)
+with open(path) as fh:
+    lines = fh.read().splitlines()
+
+# The pin is a tool version, so it belongs in [tools]. Drop any existing
+# assignment wherever it sits first: the old writer appended at EOF, which put
+# `pi = "..."` under the last table (e.g. [settings.upgrade]) and made mise
+# reject the whole file as invalid TOML.
+pi_line = re.compile(r'^\s*pi\s*=')
+lines = [ln for ln in lines if not pi_line.match(ln)]
+
+entry = f'pi = "{to}"'
+start = next(
+    (i for i, ln in enumerate(lines)
+     if re.match(r'^\s*\[tools\]\s*(?:#.*)?$', ln)),
+    None,
+)
+
+if start is None:
+    out = ['[tools]', entry] + ([''] + lines if lines else [])
 else:
-    s = s.rstrip() + f'\npi = "{to}"\n'
-open(path, "w").write(s)
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        if re.match(r'^\s*\[', lines[i]):
+            end = i
+            break
+    body = lines[start + 1:end]
+    while body and body[-1].strip() == '':
+        body.pop()
+    body.append(entry)
+    out = lines[:start + 1] + body
+    if end < len(lines):
+        out += [''] + lines[end:]
+
+with open(path, 'w') as fh:
+    fh.write('\n'.join(out).rstrip('\n') + '\n')
 PY
 }
 
@@ -146,6 +179,7 @@ do_update() {
   local cur; cur="$(lock_get pi)"
   [ -n "$to" ] || to="$(newest_pi)"
   [ -n "$to" ] || to="$cur"
+  valid_version "$to" || die "invalid pi version: $to" 2
   local pi_change=0
   [ "$to" != "$cur" ] && pi_change=1
 
@@ -308,6 +342,7 @@ do_rollback() {
   pkg_from="$(printf '%s' "$entry" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin).get("packagesFrom",{})))')"
   pkg_to="$(printf '%s' "$entry" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin).get("packagesTo",{})))')"
   [ -n "$pi_from" ] || die "journal entry has no previous pi version" 3
+  valid_version "$pi_from" || die "journal has an invalid pi version: $pi_from" 3
 
   echo "rolling back: pi $cur_pi -> $pi_from; packages -> $pkg_from"
   python3 "$LT" promote "$LOCK" "rollback" "$cur_pi" "$pi_from" "$(lock_pkgs_json)" "$pkg_from"
