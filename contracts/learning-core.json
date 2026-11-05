@@ -922,12 +922,15 @@
     {
       "id": "G-prior-budget-required",
       "severity": "policy",
-      "statement": "The prior-knowledge budget receipt is required, not advisory: Scout and review-scout fold `PRIOR_BUDGET_OK`/`PRIOR_BUDGET_FAILED` from `node_mastery.py verify` (or `PRIOR_BUDGET_SKIPPED` when there is nothing to verify), and the gate parses it from their output. A failed or missing receipt withholds the first teaching/review content turn (`NO_PRIOR_BUDGET_PASS`) with a remedy that names the verify command; `PRIOR_BUDGET_OK` and `PRIOR_BUDGET_SKIPPED` release it and produce no banner. At the retry cap the flow degrades gracefully (the context-blocked path) rather than dead-ending.",
+      "statement": "The prior-knowledge budget receipt is required, not advisory: Scout and review-scout fold `PRIOR_BUDGET_OK`/`PRIOR_BUDGET_FAILED` from `node_mastery.py verify` (or `PRIOR_BUDGET_SKIPPED` when there is nothing to verify), and the gate parses it from their output. A failed or missing receipt withholds content turns (`NO_PRIOR_BUDGET_PASS`) until a fresh scout run folds a passing or skipped receipt; the remedy says to re-dispatch the scout, and the payload's `ok` is authoritative over the label. `PRIOR_BUDGET_OK` and `PRIOR_BUDGET_SKIPPED` release it and produce no banner. At the retry cap the flow degrades gracefully (the context-blocked path) rather than dead-ending.",
       "tests": [
         "prior-budget missing withholds",
         "prior-budget failed withholds",
         "prior-budget receipt suppresses the banner",
-        "prior-budget skipped does not banner"
+        "prior-budget skipped does not banner",
+        "prior-budget cap degrades to UNVERIFIED",
+        "review prior-budget missing withholds",
+        "prior-budget payload overrides a lying label"
       ]
     },
     {

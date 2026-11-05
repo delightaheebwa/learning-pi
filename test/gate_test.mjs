@@ -271,7 +271,14 @@ await fg('fc2', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
 const scoutIncomplete = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
 assert('sources-incomplete banner surfaced', allowed(scoutIncomplete) && outText(scoutIncomplete).includes('SOURCES INCOMPLETE'));
 
-// --- Prior-knowledge budget receipt: banner visibility (not yet a withhold) ---
+// --- Prior-knowledge budget receipt: required, not advisory ---
+const lyingLabel = P.parsePriorBudgetReceipt('PRIOR_BUDGET_OK: {"ok":false}');
+assert('prior-budget payload overrides a lying label', !!lyingLabel && lyingLabel.status === 'failed');
+const lastReceipt = P.parsePriorBudgetReceipt(
+  'PRIOR_BUDGET_FAILED: {"ok":false}\nPRIOR_BUDGET_OK: {"ok":true}'
+);
+assert('prior-budget last receipt wins', !!lastReceipt && lastReceipt.status === 'ok');
+
 const claimsFor = (text) => msg(`[[TURN:claims]]\n${text}`, 'stop');
 const teachWithScout = async (tag, digest, receipt) => {
   await setPrompt(`[[FLOW:teach]] teach me ${tag}`);
@@ -311,6 +318,13 @@ const pbSkipped = await teachWithScout(
   'PRIOR_BUDGET_SKIPPED: {"reason":"generation-failed"}'
 );
 assert('prior-budget skipped does not banner', allowed(pbSkipped) && !outText(pbSkipped).includes('PRIOR BUDGET'));
+
+// The block persists on every content turn, and the retry cap degrades to a
+// visible UNVERIFIED turn instead of dead-ending forever.
+const pbc1 = await teachWithScout('pbcap', 'pbcap', '');
+const pbc2 = await claimsFor(DRAFT);
+const pbc3 = await claimsFor(DRAFT);
+assert('prior-budget cap degrades to UNVERIFIED', outText(pbc3).includes('UNVERIFIED'));
 
 // --- Lesson-start context audit (copies the ingest review-gate): completeness + fact-check ---
 // Missing audit withholds the first teaching turn.
@@ -1156,7 +1170,7 @@ try {
 // ============================================================================
 const SOLO_QUIZ_PASS = JSON.stringify({ verdict: 'PASS', issues: [] });
 const SOLO_SCOUT_OK =
-  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[]}\n\nPRIOR_BUDGET_OK: {"body_bytes":1000,"ceiling_bytes":28000,"ok":true}';
+  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[]}\n\nPRIOR_BUDGET_SKIPPED: {"reason":"empty-queue"}';
 
 // A teaching claims turn in solo is withheld.
 await setPrompt('[[FLOW:solo]] solo check');
@@ -1190,6 +1204,20 @@ await dispatch('quiz-audit', soloQEnv, 'soq1');
 await fg('soq1', 'quiz-audit', soloQEnv, SOLO_QUIZ_PASS);
 const soloQuiz = await msg('[[TURN:quiz]]\nDefine entropy.', 'stop');
 assert('solo flow allows the closed-book quiz batch', allowed(soloQuiz));
+
+// The review flow requires the same budget receipt.
+await setPrompt('[[FLOW:review]] review my due concepts');
+await dispatch('review-scout', 'build the review queue', 'rnb1');
+await fg(
+  'rnb1',
+  'review-scout',
+  'build the review queue',
+  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-y.json","queue":[],"failed_refs":[]}'
+);
+await dispatch('quiz-audit', soloQEnv, 'rnbq1');
+await fg('rnbq1', 'quiz-audit', soloQEnv, SOLO_QUIZ_PASS);
+const reviewNoBudget = await msg('[[TURN:quiz]]\nDefine entropy.', 'stop');
+assert('review prior-budget missing withholds', blocked(reviewNoBudget, 'NO_PRIOR_BUDGET_PASS'));
 
 // ============================================================================
 // 2026-10-08 P1.6: at the retry cap, a claims turn stating hard facts is

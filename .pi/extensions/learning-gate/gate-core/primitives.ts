@@ -200,8 +200,8 @@ export interface RunState {
   reviewSessionPaths: string[];
   stateAudit?: StateAudit;
   // Prior-knowledge budget receipt from `node_mastery.py verify`, emitted by
-  // Scout / review-scout. Banner-only in this gate: a missing or failed
-  // receipt is surfaced, never withheld.
+  // Scout / review-scout. A missing or failed receipt withholds the first
+  // content turn (`NO_PRIOR_BUDGET_PASS`); OK/SKIPPED release it.
   priorBudget?: { status: "ok" | "failed" | "skipped"; bodyBytes?: number; ceilingBytes?: number };
   priorBudgetSurfaced: boolean;
   agentlessDispatch: boolean;
@@ -1201,18 +1201,24 @@ export function nearDuplicate(a: string, b: string): boolean {
 export function parsePriorBudgetReceipt(
   text: string
 ): { status: "ok" | "failed" | "skipped"; bodyBytes?: number; ceilingBytes?: number } | undefined {
-  const marker = text.match(/\bPRIOR_BUDGET_(OK|FAILED|SKIPPED)\s*:\s*/i);
-  if (!marker) return undefined;
-  const status = marker[1].toLowerCase() as "ok" | "failed" | "skipped";
+  // The LAST receipt wins: a re-dispatched scout may quote an older failure
+  // before folding its fresh pass.
+  const markers = [...text.matchAll(/\bPRIOR_BUDGET_(OK|FAILED|SKIPPED)\s*:\s*/gi)];
+  const marker = markers[markers.length - 1];
+  if (!marker || marker.index === undefined) return undefined;
+  let status = marker[1].toLowerCase() as "ok" | "failed" | "skipped";
   let bodyBytes: number | undefined;
   let ceilingBytes: number | undefined;
-  const brace = text.indexOf("{", marker.index! + marker[0].length - 1);
+  const brace = text.indexOf("{", marker.index + marker[0].length - 1);
   const blob = brace >= 0 ? extractBalancedJson(text, brace) : undefined;
   if (blob) {
     try {
       const j = JSON.parse(blob);
       if (typeof j.body_bytes === "number") bodyBytes = j.body_bytes;
       if (typeof j.ceiling_bytes === "number") ceilingBytes = j.ceiling_bytes;
+      // The payload's `ok` is authoritative when present, so an `OK:` label
+      // over a failed block cannot release the turn.
+      if (status !== "skipped" && typeof j.ok === "boolean") status = j.ok ? "ok" : "failed";
     } catch {
       /* a malformed payload still counts as the receipt's status */
     }

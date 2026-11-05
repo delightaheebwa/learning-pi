@@ -361,7 +361,11 @@ export function createGate(options: GateOptions = {}): GateEngine {
       const reviewScoutCalls = calls.filter((c) => c.agent === "review-scout").length;
       const reviewClerkCalls = calls.filter((c) => c.agent === "review-clerk").length;
       if (clerkCalls > 0) run.clerkDispatches += clerkCalls;
-      if (reviewScoutCalls > 0) run.reviewScoutCalled = true;
+      if (reviewScoutCalls > 0) {
+        run.reviewScoutCalled = true;
+        run.priorBudget = undefined;
+        run.priorBudgetSurfaced = false;
+      }
       if (reviewClerkCalls > 0) {
         run.reviewClerkCalled = true;
         run.reviewClerkDispatches += reviewClerkCalls;
@@ -438,7 +442,12 @@ export function createGate(options: GateOptions = {}): GateEngine {
           };
         }
       }
-      if (calls.some((c) => c.agent === "scout")) run.scoutCalled = true;
+      if (calls.some((c) => c.agent === "scout")) {
+        run.scoutCalled = true;
+        // A re-dispatch must not inherit a stale receipt from the previous run.
+        run.priorBudget = undefined;
+        run.priorBudgetSurfaced = false;
+      }
       if (calls.some((c) => c.agent === "clerk")) run.clerkCalled = true;
     } catch {
       /* fail open */
@@ -525,15 +534,19 @@ export function createGate(options: GateOptions = {}): GateEngine {
     }
   };
 
-  // Prior-knowledge budget receipt: banner-only. A block that skipped
-  // verification (empty queue) or passed is silent; a failed or missing
-  // receipt is surfaced once, and teaching proceeds with the block as written.
-  // Hard form: a missing/failed prior-budget receipt blocks the first content
-  // turn (remedy names the verify command). Skipped and OK pass.
+  // Prior-knowledge budget receipt. OK/SKIPPED release silently; FAILED or a
+  // missing receipt withholds the content turn. The banner below is only
+  // reached when a turn is released despite a bad receipt (retry-cap degrade).
   const priorBudgetBlock = (state: P.RunState): string | undefined =>
     state.priorBudget?.status === "ok" || state.priorBudget?.status === "skipped"
       ? undefined
       : "NO_PRIOR_BUDGET_PASS";
+
+  const priorBudgetRemedy =
+    "The prior-knowledge block has no passing `node_mastery.py verify` receipt. Re-dispatch " +
+    "`scout` (or `review-scout`) so it re-runs `node_mastery.py verify` and folds a fresh " +
+    "`PRIOR_BUDGET_OK:` / `PRIOR_BUDGET_SKIPPED:` line (regenerate a failed block rather than " +
+    "re-labelling it), then re-emit.";
 
   const priorBudgetBanner = (state: P.RunState): string => {
     if (state.priorBudget?.status === "ok" || state.priorBudget?.status === "skipped") return "";
@@ -964,10 +977,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
           const priorBlock = run.scoutReceiptSeen ? priorBudgetBlock(run) : undefined;
           if (priorBlock) {
             blockers.push(priorBlock);
-            priorBudgetNote =
-              "The prior-knowledge block has no passing `node_mastery.py verify` receipt. Run " +
-              "`node_mastery.py verify --file <prior block>`, fold its `PRIOR_BUDGET_OK:` line into your final message, " +
-              "or emit `PRIOR_BUDGET_SKIPPED:` when there is nothing to verify; then re-emit.";
+            priorBudgetNote = priorBudgetRemedy;
           }
         }
         // Lesson-start context audit (copies the ingest review-gate shape): after
@@ -1367,6 +1377,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         "lesson-start context: after Scout returns its `SCOUT_DIGEST` receipt, dispatch ONE independent `scout-audit` on the digest (`{\"gate\":\"scout_audit\",\"slug\":\"...\",\"digest\":\"...\",\"raw_files\":[...],\"failed_refs\":[...]}`); fold its verdict before teaching. A missing audit withholds the first claims turn (NO_SCOUT_AUDIT_PASS); ISSUES surfaces as a banner and never blocks — fix via re-scout + re-audit (no cycle cap).",
         "grade/quiz: a dropped tag is accepted when a verifier receipt for that turn is pending; if you see NO_TURN_TAG here, no `grade-audit`/`quiz-audit` receipt is available for this text — dispatch the verifier first, or tag the turn.",
         "review context: run the `review-scout` subagent first; it builds the due queue and writes the review digest (`REVIEW_SCOUT_DIGEST:`). A review's first claims/quiz turn is withheld (NO_REVIEW_CONTEXT) until it has run; a partial digest banners (REVIEW CONTEXT INCOMPLETE), never withholds.",
+        "prior budget: the Scout/review-scout output must fold `PRIOR_BUDGET_OK:` / `PRIOR_BUDGET_SKIPPED:` from `node_mastery.py verify`; otherwise content turns are withheld (NO_PRIOR_BUDGET_PASS). Re-dispatch the scout and regenerate a failed block instead of re-labelling it.",
         "review close: hand the durable writes to ONE foreground `review-clerk` (Review notes / session note / touched rows / Attempts sync / state audit / commit); then dispatch ONE foreground `review-session-audit` on the exact writes (concepts/transcript/grade_verdicts/written_files) and summarize. Only a receipt with zero issues releases the summary: on an ISSUES verdict, fix the writes (re-dispatch review-clerk) and re-audit until it returns PASS — there is no cycle cap.",
         "ui: a widget is its own `[[TURN:ui]]` message (never a ```openui block inside a claims/none turn). Dispatch ONE foreground `ui-audit` with the exact `payload` (the OpenUI Lang source) AND `rendered_content` = the full turn draft (supporting words + the fenced payload); emit the audited draft unchanged. A different payload, or a receipt with no payload/rendered_content, will not bind.",
         "verifier failed on provider errors (503/429/timeout): retry once, then re-dispatch the SAME verifier with an explicit `model:` from the alternate set (verifiers → deepseek-v4.1-flash, scout/review-scout → muse-spark-1.3-contributor); if it still fails, proceed and surface what is unverified.",
@@ -1667,10 +1678,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         const priorBlock = run.scoutReceiptSeen ? priorBudgetBlock(run) : undefined;
         if (priorBlock) {
           blocks.push(priorBlock);
-          priorBudgetNote =
-            "The prior-knowledge block has no passing `node_mastery.py verify` receipt. Run " +
-            "`node_mastery.py verify --file <prior block>`, fold its `PRIOR_BUDGET_OK:` line into your final message, " +
-            "or emit `PRIOR_BUDGET_SKIPPED:` when there is nothing to verify; then re-emit.";
+          priorBudgetNote = priorBudgetRemedy;
         }
       }
       // Lesson-start context audit (judge path mirror): missing audit withholds
@@ -1844,7 +1852,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
     }
 
     // Review-context gate (deterministic flags).
-    if (run.flow === "review" && (turnType === "claims" || turnType === "quiz")) {
+    if ((run.flow === "review" || run.flow === "solo") && (turnType === "claims" || turnType === "quiz")) {
       if (!run.reviewScoutCalled) reviewScoutNeeded = true;
       else if (run.reviewScoutReceiptSeen && run.reviewScoutFailedRefs.length > 0) {
         surface += `⚠️ REVIEW CONTEXT INCOMPLETE — review-scout could not read ${run.reviewScoutFailedRefs.length} item(s); the review proceeds around the gaps.\n\n`;

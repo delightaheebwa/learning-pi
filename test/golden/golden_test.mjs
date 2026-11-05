@@ -47,7 +47,7 @@ const fcEnvelope = (draft) =>
 const SCOUT_OK = 'SCOUT_DIGEST: {"slug":"x","digest":"d","raw_files":[],"failed_refs":[]}\n\nPRIOR_BUDGET_OK: {"body_bytes":1000,"ceiling_bytes":28000,"ok":true}';
 const CLERK_WRITES = '[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"commit":"abc"}';
 const REVIEW_SCOUT_OK =
-  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[]}\n\nPRIOR_BUDGET_OK: {"body_bytes":1000,"ceiling_bytes":28000,"ok":true}';
+  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[]}\n\nPRIOR_BUDGET_SKIPPED: {"reason":"empty-queue"}';
 
 // ============================================================================
 // First: a session with no [[FLOW:...]] marker is never gated. (Must run before

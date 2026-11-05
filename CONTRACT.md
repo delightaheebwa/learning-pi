@@ -612,9 +612,10 @@ coverage check as the deno gate suites.
 - **G-prior-budget-required** (policy) — the prior-knowledge budget receipt is
   required: Scout/review-scout fold `PRIOR_BUDGET_OK`/`FAILED` (or
   `PRIOR_BUDGET_SKIPPED` when there is nothing to verify), and a failed or
-  missing receipt withholds the first content turn (`NO_PRIOR_BUDGET_PASS`)
-  with a remedy that names the verify command. `OK`/`SKIPPED` release it with
-  no banner; at the retry cap the flow degrades gracefully like the other
+  missing receipt withholds content turns (`NO_PRIOR_BUDGET_PASS`) until a
+  fresh scout run folds a passing/skipped receipt (the remedy says so; the
+  payload's `ok` overrides the label). `OK`/`SKIPPED` release it with no
+  banner; at the retry cap the flow degrades gracefully like the other
   context-blocked codes.
 - **G-prior-drilldown** (policy) — the digest's index makes the tail discoverable,
   and `node_mastery.py drill --node <id> --already <ids>` recovers one record
