@@ -520,12 +520,13 @@ class NodeMasteryCase(unittest.TestCase):
         ident = graph.node_id("Hessian " + ("curvature " * 400))
         record = node_mastery.drill_node(self.root, ident, TODAY)
         self.assertEqual(record["origin"], "drilldown")
-        self.assertLessEqual(record["bytes"], node_mastery.DRILL_MAX_BYTES)
+        self.assertLessEqual(node_mastery._json_bytes(record), node_mastery.DRILL_MAX_BYTES)
         self.assertIn("statement", record["node"])
+        self.assertNotIn("origin", record["node"])
 
         tiny = node_mastery.drill_node(self.root, ident, TODAY, max_bytes=600)
         self.assertTrue(tiny["truncated"])
-        self.assertLessEqual(tiny["bytes"], 600)
+        self.assertLessEqual(node_mastery._json_bytes(tiny), 600)
 
         with self.assertRaises(graph.GraphError) as caught:
             node_mastery.drill_node(
@@ -554,6 +555,47 @@ class NodeMasteryCase(unittest.TestCase):
         receipt = node_mastery.verify_envelope(path)
         self.assertFalse(receipt["ok"])
         self.assertTrue(any("exceeds" in error for error in receipt["errors"]))
+
+    def test_drill_supports_a_chain_id(self) -> None:
+        receipt = self.merge({
+            "nodes": [
+                {"name": "Alpha", "statement": "Alpha is true.", "provenance": [prov()]},
+                {"name": "Beta", "statement": "Beta is true.", "provenance": [prov()]},
+            ],
+            "chains": [{"premises": ["@0"], "conclusion": "@1", "provenance": [prov()]}],
+        })
+        chain_id = receipt["created_chains"][0]
+        record = node_mastery.drill_node(self.root, chain_id, TODAY)
+        self.assertEqual(record["node"]["id"], chain_id)
+        self.assertIn("premises", record["node"])
+
+    def test_verify_envelope_accepts_missing_prior_knowledge(self) -> None:
+        path = self.root / ".tmp" / "envelope.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"gate": "fact_check", "turn_kind": "answer"}))
+        receipt = node_mastery.verify_envelope(path)
+        self.assertTrue(receipt["ok"], receipt["errors"])
+        self.assertEqual(receipt["drills"], 0)
+
+    def test_verify_envelope_rejects_bad_shape(self) -> None:
+        path = self.root / ".tmp" / "envelope.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        bad = {
+            "prior_knowledge": {"drilldown": [
+                {"node": {"id": "n_aaaaaa", "statement": "x"}},  # no origin
+                {"origin": "drilldown", "node": {"id": "wat", "statement": "x"}},
+                {"origin": "drilldown", "node": {"id": "n_bbbbbb", "statement": 5}},
+                {"origin": "drilldown", "node": {"id": "n_cccccc", "statement": "y" * 5000}},
+            ]}
+        }
+        path.write_text(json.dumps(bad))
+        receipt = node_mastery.verify_envelope(path)
+        self.assertFalse(receipt["ok"])
+        joined = " ".join(receipt["errors"])
+        self.assertIn("origin", joined)
+        self.assertIn("graph-shaped", joined)
+        self.assertIn("statement", joined)
+        self.assertIn("max", joined)
 
     def test_verify_envelope_rejects_missing_or_duplicate_drills(self) -> None:
         path = self.root / ".tmp" / "envelope.json"

@@ -864,7 +864,9 @@ def drill_node(
     Stateless: the caller passes the ids it already drilled (`--already`) and
     the envelope carries the cumulative list, so no per-session file is needed.
     """
-    already = [item.strip() for item in (already or []) if item and item.strip()]
+    already = list(dict.fromkeys(
+        item.strip() for item in (already or []) if item and item.strip()
+    ))
     if len(already) >= DRILL_SESSION_MAX:
         raise graph.GraphError(
             f"DRILL_BUDGET_EXHAUSTED: {len(already)} drills already used "
@@ -872,40 +874,58 @@ def drill_node(
         )
     view = build(root, today)
     record = view["nodes"].get(node_id)
-    if not record:
-        raise graph.GraphError(f"unknown node {node_id}")
-    entry = _detail(node_id, dict(record))
+    if record:
+        entry = _detail(node_id, dict(record))
+    else:
+        chain = view["chains"].get(node_id)
+        if not chain:
+            raise graph.GraphError(f"unknown node or chain {node_id}")
+        entry = {
+            "id": node_id,
+            "premises": chain.get("premises", []),
+            "conclusion": chain.get("conclusion"),
+            "statement": chain.get("statement", ""),
+            "attempts": chain["strict"]["attempts"],
+            "fails": chain["strict"]["fails"],
+            "last_attempt": chain["strict"]["last_attempt"],
+            "last_fail": chain["strict"]["last_fail"],
+            "links": {},
+            "score": 0.0,
+        }
 
-    truncated = False
-    if _json_bytes(entry) > max_bytes:
-        truncated = True
-        entry["mistakes"] = entry["mistakes"][:1]
-        while entry["mistakes"] and _json_bytes(entry) > max_bytes:
-            entry["mistakes"].pop()
-        if _json_bytes(entry) > max_bytes:
-            entry["statement"] = entry["statement"][:200]
-        if _json_bytes(entry) > max_bytes:
-            entry["statement"] = entry["statement"][:80]
-        if _json_bytes(entry) > max_bytes:
-            entry["attempts"] = []
-        if _json_bytes(entry) > max_bytes:
-            entry["links"] = {}
-        if _json_bytes(entry) > max_bytes:
+    def wrapper(is_truncated: bool) -> dict:
+        result = {
+            "origin": "drilldown",
+            "node": entry,
+            "truncated": is_truncated,
+            "bytes": 0,
+            "session": {
+                "drilled": len(already) + 1,
+                "remaining": DRILL_SESSION_MAX - len(already) - 1,
+            },
+        }
+        result["bytes"] = _json_bytes(result)
+        return result
+
+    result = wrapper(False)
+    if _json_bytes(result) > max_bytes:
+        for mutate in (
+            lambda: entry.update(mistakes=entry.get("mistakes", [])[:1]),
+            lambda: entry.update(mistakes=[]),
+            lambda: entry.update(statement=str(entry.get("statement", ""))[:200]),
+            lambda: entry.update(statement=str(entry.get("statement", ""))[:80]),
+            lambda: entry.update(attempts=[]),
+            lambda: entry.update(links={}),
+        ):
+            mutate()
+            result = wrapper(True)
+            if _json_bytes(result) <= max_bytes:
+                break
+        else:
             raise graph.GraphError(
                 f"cannot fit the drill record in {max_bytes} bytes"
             )
-
-    entry["origin"] = "drilldown"
-    return {
-        "origin": "drilldown",
-        "node": entry,
-        "truncated": truncated,
-        "bytes": _json_bytes(entry),
-        "session": {
-            "drilled": len(already) + 1,
-            "remaining": DRILL_SESSION_MAX - len(already) - 1,
-        },
-    }
+    return result
 
 
 def verify_envelope(path: Path) -> dict:
@@ -918,17 +938,21 @@ def verify_envelope(path: Path) -> dict:
     if not isinstance(data, dict):
         return {"file": str(path), "ok": False, "errors": ["not a JSON object"]}
 
-    prior = data.get("prior_knowledge")
-    if not isinstance(prior, dict):
+    if "prior_knowledge" not in data or data.get("prior_knowledge") is None:
+        drills = []  # non-attack turns may omit prior knowledge entirely
+    elif not isinstance(data.get("prior_knowledge"), dict):
         errors.append("prior_knowledge must be an object")
         drills = []
     else:
-        drills = prior.get("drilldown", [])
+        drills = data["prior_knowledge"].get("drilldown", [])
         if not isinstance(drills, list):
             errors.append("prior_knowledge.drilldown must be a list")
             drills = []
     if len(drills) > DRILL_SESSION_MAX:
-        errors.append(f"{len(drills)} drilldown records exceeds {DRILL_SESSION_MAX} per session")
+        errors.append(
+            f"DRILL_OVER_BUDGET: {len(drills)} drilldown records exceeds "
+            f"{DRILL_SESSION_MAX} per session"
+        )
 
     seen: set[str] = set()
     total_bytes = 0
@@ -946,7 +970,7 @@ def verify_envelope(path: Path) -> dict:
             errors.append(f"drilldown[{index}] duplicates {ident}")
         else:
             seen.add(ident)
-        if not node.get("statement"):
+        if not isinstance(node.get("statement"), str) or not node.get("statement"):
             errors.append(f"drilldown[{index}] has no statement")
         size = _json_bytes(drill)
         total_bytes += size
