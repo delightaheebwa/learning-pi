@@ -500,6 +500,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
               run.scoutFailedRefs = sr.failedRefs;
               run.agentFailures["scout"] = 0;
             }
+            const pb = P.parsePriorBudgetReceipt(output);
+            if (pb) run.priorBudget = pb;
           }
           if (call.agent === "review-scout") {
             run.reviewScoutFinished = true;
@@ -509,6 +511,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
               run.reviewScoutFailedRefs = sr.failedRefs;
               run.agentFailures["review-scout"] = 0;
             }
+            const pb = P.parsePriorBudgetReceipt(output);
+            if (pb) run.priorBudget = pb;
           }
         }
       }
@@ -519,6 +523,32 @@ export function createGate(options: GateOptions = {}): GateEngine {
     } catch {
       /* fail open */
     }
+  };
+
+  // Prior-knowledge budget receipt: banner-only. A block that skipped
+  // verification (empty queue) or passed is silent; a failed or missing
+  // receipt is surfaced once, and teaching proceeds with the block as written.
+  // Hard form: a missing/failed prior-budget receipt blocks the first content
+  // turn (remedy names the verify command). Skipped and OK pass.
+  const priorBudgetBlock = (state: P.RunState): string | undefined =>
+    state.priorBudget?.status === "ok" || state.priorBudget?.status === "skipped"
+      ? undefined
+      : "NO_PRIOR_BUDGET_PASS";
+
+  const priorBudgetBanner = (state: P.RunState): string => {
+    if (state.priorBudget?.status === "ok" || state.priorBudget?.status === "skipped") return "";
+    if (state.priorBudgetSurfaced) return "";
+    state.priorBudgetSurfaced = true;
+    if (state.priorBudget?.status === "failed") {
+      const size =
+        state.priorBudget.bodyBytes !== undefined && state.priorBudget.ceilingBytes !== undefined
+          ? ` (${state.priorBudget.bodyBytes}/${state.priorBudget.ceilingBytes} bytes)`
+          : "";
+      return `⚠️ PRIOR BUDGET FAILED — the prior-knowledge block failed verification${size}; teaching proceeds with it as written.\n\n`;
+    }
+    return (
+      "⚠️ PRIOR BUDGET UNVERIFIED — the Scout finished without a `PRIOR_BUDGET_OK:` receipt; prior knowledge may have been assembled outside its byte budget. Teaching proceeds.\n\n"
+    );
   };
 
   // Async gates that cannot be minted from a bare completion notification
@@ -566,6 +596,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
         run.scoutReceiptSeen = true;
         run.scoutFailedRefs = sr.failedRefs;
       }
+      const pb = P.parsePriorBudgetReceipt(text);
+      if (pb) run.priorBudget = pb;
       return;
     }
     if (agent === "review-scout") {
@@ -575,6 +607,8 @@ export function createGate(options: GateOptions = {}): GateEngine {
         run.reviewScoutReceiptSeen = true;
         run.reviewScoutFailedRefs = sr.failedRefs;
       }
+      const pb = P.parsePriorBudgetReceipt(text);
+      if (pb) run.priorBudget = pb;
       return;
     }
     const gate = P.VERIFIER_AGENTS[agent];
@@ -914,6 +948,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         }
       } else if (tag === "claims") {
         if (run.flow === "teach" && !run.scoutCalled) scoutNeeded = true;
+        let priorBudgetNote = "";
         // Scout receipt: dispatch alone used to satisfy the new-lesson gate. A
         // finished Scout with a partial/missing digest surfaces here as a banner
         // (never a withhold) so the Tutor teaches around the gaps visibly.
@@ -924,6 +959,15 @@ export function createGate(options: GateOptions = {}): GateEngine {
           } else if (run.scoutFinished && !run.scoutReceiptSeen) {
             surface += `⚠️ SCOUT DIGEST UNVERIFIED — Scout finished without a parseable \`SCOUT_DIGEST:\` receipt; teaching from whatever context it produced.\n\n`;
             run.scoutFinished = false;
+          }
+          surface += priorBudgetBanner(run);
+          const priorBlock = run.scoutReceiptSeen ? priorBudgetBlock(run) : undefined;
+          if (priorBlock) {
+            blockers.push(priorBlock);
+            priorBudgetNote =
+              "The prior-knowledge block has no passing `node_mastery.py verify` receipt. Run " +
+              "`node_mastery.py verify --file <prior block>`, fold its `PRIOR_BUDGET_OK:` line into your final message, " +
+              "or emit `PRIOR_BUDGET_SKIPPED:` when there is nothing to verify; then re-emit.";
           }
         }
         // Lesson-start context audit (copies the ingest review-gate shape): after
@@ -1024,6 +1068,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
           }
         }
         if (scoutAuditNote) verdictNote = verdictNote ? verdictNote + "\n" + scoutAuditNote : scoutAuditNote;
+        if (priorBudgetNote) verdictNote = verdictNote ? verdictNote + "\n" + priorBudgetNote : priorBudgetNote;
       } else if (tag === "quiz") {
         const candidates = run.receipts.filter(
           (r) => r.gate === "quiz_audit" && r.valid && P.receiptBinds(r, text)
@@ -1153,6 +1198,11 @@ export function createGate(options: GateOptions = {}): GateEngine {
         } else if (run.reviewScoutFinished && !run.reviewScoutReceiptSeen) {
           surface += `⚠️ REVIEW SCOUT DIGEST UNVERIFIED — review-scout finished without a parseable \`REVIEW_SCOUT_DIGEST:\` receipt; reviewing from whatever context it produced.\n\n`;
           run.reviewScoutFinished = false;
+        }
+        if (run.reviewScoutCalled) {
+          surface += priorBudgetBanner(run);
+          const priorBlock = run.reviewScoutReceiptSeen ? priorBudgetBlock(run) : undefined;
+          if (priorBlock) blockers.push(priorBlock);
         }
       }
 
@@ -1604,6 +1654,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
       }
     } else if (turnType === "claims") {
       if (run.flow === "teach" && !run.scoutCalled) scoutNeeded = true;
+      let priorBudgetNote = "";
       if (run.flow === "teach" && run.scoutCalled) {
         if (run.scoutReceiptSeen && run.scoutFailedRefs.length > 0) {
           surface += `⚠️ SOURCES INCOMPLETE — Scout could not fetch ${run.scoutFailedRefs.length} source(s); teaching proceeds around the gaps.\n\n`;
@@ -1611,6 +1662,15 @@ export function createGate(options: GateOptions = {}): GateEngine {
         } else if (run.scoutFinished && !run.scoutReceiptSeen) {
           surface += `⚠️ SCOUT DIGEST UNVERIFIED — Scout finished without a parseable \`SCOUT_DIGEST:\` receipt; teaching from whatever context it produced.\n\n`;
           run.scoutFinished = false;
+        }
+        surface += priorBudgetBanner(run);
+        const priorBlock = run.scoutReceiptSeen ? priorBudgetBlock(run) : undefined;
+        if (priorBlock) {
+          blocks.push(priorBlock);
+          priorBudgetNote =
+            "The prior-knowledge block has no passing `node_mastery.py verify` receipt. Run " +
+            "`node_mastery.py verify --file <prior block>`, fold its `PRIOR_BUDGET_OK:` line into your final message, " +
+            "or emit `PRIOR_BUDGET_SKIPPED:` when there is nothing to verify; then re-emit.";
         }
       }
       // Lesson-start context audit (judge path mirror): missing audit withholds
@@ -1668,6 +1728,7 @@ export function createGate(options: GateOptions = {}): GateEngine {
         } else blocks.push("NO_FACT_CHECK_MATCH");
       }
       if (scoutAuditNote) verdictNote = verdictNote ? verdictNote + "\n" + scoutAuditNote : scoutAuditNote;
+      if (priorBudgetNote) verdictNote = verdictNote ? verdictNote + "\n" + priorBudgetNote : priorBudgetNote;
     } else if (turnType === "quiz") {
       const idx = bindingFor("quiz_audit");
       if (idx >= 0 && R[idx].valid && substantive(idx) !== "none") toConsume.push(R[idx]);
@@ -1791,6 +1852,11 @@ export function createGate(options: GateOptions = {}): GateEngine {
       } else if (run.reviewScoutFinished && !run.reviewScoutReceiptSeen) {
         surface += `⚠️ REVIEW SCOUT DIGEST UNVERIFIED — review-scout finished without a parseable \`REVIEW_SCOUT_DIGEST:\` receipt; reviewing from whatever context it produced.\n\n`;
         run.reviewScoutFinished = false;
+      }
+      if (run.reviewScoutCalled) {
+        surface += priorBudgetBanner(run);
+        const priorBlock = run.reviewScoutReceiptSeen ? priorBudgetBlock(run) : undefined;
+        if (priorBlock) blocks.push(priorBlock);
       }
     }
 

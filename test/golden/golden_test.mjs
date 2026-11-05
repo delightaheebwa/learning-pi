@@ -44,10 +44,10 @@ const DRAFT = 'The variation of information is V(X,Y) = H(X,Y) minus I(X,Y).';
 const FC_PASS = JSON.stringify({ verdicts: [{ id: 1, verdict: 'PASS', explanation: 'ok' }], contradictions: [] });
 const fcEnvelope = (draft) =>
   JSON.stringify({ gate: 'fact_check', turn_kind: 'answer', claims: [{ id: 1, claim: 'x' }], rendered_content: draft, source_urls: ['https://e.com'] });
-const SCOUT_OK = 'SCOUT_DIGEST: {"slug":"x","digest":"d","raw_files":[],"failed_refs":[]}';
+const SCOUT_OK = 'SCOUT_DIGEST: {"slug":"x","digest":"d","raw_files":[],"failed_refs":[]}\n\nPRIOR_BUDGET_OK: {"body_bytes":1000,"ceiling_bytes":28000,"ok":true}';
 const CLERK_WRITES = '[[TURN:none]]\nCLERK_WRITES: {"wiki":["Knowledge Wiki/wiki/X.md"],"state":[],"concepts":["X"],"commit":"abc"}';
 const REVIEW_SCOUT_OK =
-  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[]}';
+  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[]}\n\nPRIOR_BUDGET_OK: {"body_bytes":1000,"ceiling_bytes":28000,"ok":true}';
 
 // ============================================================================
 // First: a session with no [[FLOW:...]] marker is never gated. (Must run before
@@ -245,7 +245,7 @@ await fg(
   'rsc1',
   'review-scout',
   'build the review queue',
-  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[{"what":"Attempts.json","reason":"unreadable"}]}'
+  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[{"what":"Attempts.json","reason":"unreadable"}]}\n\nPRIOR_BUDGET_OK: {"body_bytes":1000,"ceiling_bytes":28000,"ok":true}'
 );
 await dispatch('quiz-audit', qEnv, 'rq2');
 await fg('rq2', 'quiz-audit', qEnv, QUIZ_PASS);

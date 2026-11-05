@@ -60,6 +60,7 @@ const NOTIFY = `Background task completed: **grade-audit**\n\ngrade-audit:\n[[TU
 const PARTIAL = '[[TURN:grade]]\nGraded (verifier-agreed):\n\n| Item | Verdict |\n|---|---|\n| W1 | PASS |';
 const FULL = '[[TURN:grade]]\nGraded (verifier-agreed): W1 PASS, W2 PASS, W3 FAIL. Use the verifier verdicts.';
 const ENVELOPE = JSON.stringify({ gate: 'grade_audit', question: 'W1', learner_answer: 'C', claimed_verdict: 'pass' });
+const SCOUT_BUDGET = '\n\nPRIOR_BUDGET_OK: {"body_bytes":1000,"ceiling_bytes":28000,"ok":true}';
 
 // --- bug: errored partial grade turn must not consume the receipt ---
 await setPrompt('[[FLOW:resume]] continue the lesson');
@@ -262,7 +263,7 @@ assert('scout-unverified banner surfaced', allowed(scoutUnverified) && outText(s
 // --- A1: a Scout with failed_refs surfaces the incomplete-sources banner ---
 await setPrompt('[[FLOW:teach]] teach me Y');
 await dispatch('scout', 'topic Y', 'sc2');
-await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"y","digest":"Learning System/.tmp/context-x.json","raw_files":[],"failed_refs":[{"url":"u","reason":"404"}]}');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"y","digest":"Learning System/.tmp/context-x.json","raw_files":[],"failed_refs":[{"url":"u","reason":"404"}]}' + SCOUT_BUDGET);
 await dispatch('scout-audit', SCOUT_AUDIT_ENV, 'sa2');
 await fg('sa2', 'scout-audit', SCOUT_AUDIT_ENV, SCOUT_AUDIT_PASS);
 await dispatch('fact-check', fcEnvelope(DRAFT), 'fc2');
@@ -270,11 +271,52 @@ await fg('fc2', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
 const scoutIncomplete = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
 assert('sources-incomplete banner surfaced', allowed(scoutIncomplete) && outText(scoutIncomplete).includes('SOURCES INCOMPLETE'));
 
+// --- Prior-knowledge budget receipt: banner visibility (not yet a withhold) ---
+const claimsFor = (text) => msg(`[[TURN:claims]]\n${text}`, 'stop');
+const teachWithScout = async (tag, digest, receipt) => {
+  await setPrompt(`[[FLOW:teach]] teach me ${tag}`);
+  await dispatch('scout', `topic ${tag}`, `sc-${tag}`);
+  await notify(
+    `Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"${tag}","digest":"Learning System/.tmp/context-${tag}.json","raw_files":[],"failed_refs":[]}` +
+      (receipt ? `\n\n${receipt}` : '')
+  );
+  const env = JSON.stringify({ gate: 'scout_audit', slug: tag, digest: `Learning System/.tmp/context-${tag}.json`, raw_files: [], failed_refs: [] });
+  await dispatch('scout-audit', env, `sa-${tag}`);
+  await fg(`sa-${tag}`, 'scout-audit', env, SCOUT_AUDIT_PASS);
+  await dispatch('fact-check', fcEnvelope(DRAFT), `fc-${tag}`);
+  await fg(`fc-${tag}`, 'fact-check', fcEnvelope(DRAFT), FC_PASS);
+  return claimsFor(DRAFT);
+};
+
+const pbOk = await teachWithScout(
+  'pbok',
+  'pbok',
+  'PRIOR_BUDGET_OK: {"body_bytes":1000,"ceiling_bytes":28000,"ok":true}'
+);
+assert('prior-budget receipt suppresses the banner', allowed(pbOk) && !outText(pbOk).includes('PRIOR BUDGET'));
+
+const pbMissing = await teachWithScout('pbmissing', 'pbmissing', '');
+assert('prior-budget missing withholds', blocked(pbMissing, 'NO_PRIOR_BUDGET_PASS'));
+
+const pbFailed = await teachWithScout(
+  'pbfailed',
+  'pbfailed',
+  'PRIOR_BUDGET_FAILED: {"body_bytes":50000,"ceiling_bytes":28000,"ok":false}'
+);
+assert('prior-budget failed withholds', blocked(pbFailed, 'NO_PRIOR_BUDGET_PASS'));
+
+const pbSkipped = await teachWithScout(
+  'pbskipped',
+  'pbskipped',
+  'PRIOR_BUDGET_SKIPPED: {"reason":"generation-failed"}'
+);
+assert('prior-budget skipped does not banner', allowed(pbSkipped) && !outText(pbSkipped).includes('PRIOR BUDGET'));
+
 // --- Lesson-start context audit (copies the ingest review-gate): completeness + fact-check ---
 // Missing audit withholds the first teaching turn.
 await setPrompt('[[FLOW:teach]] teach me Z');
 await dispatch('scout', 'topic Z', 'sc3');
-await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"z","digest":"Learning System/.tmp/context-z.json","raw_files":["Knowledge Wiki/raw/sources/z.md"],"failed_refs":[]}');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"z","digest":"Learning System/.tmp/context-z.json","raw_files":["Knowledge Wiki/raw/sources/z.md"],"failed_refs":[]}' + SCOUT_BUDGET);
 await dispatch('fact-check', fcEnvelope(DRAFT), 'fc3');
 await fg('fc3', 'fact-check', fcEnvelope(DRAFT), FC_PASS);
 const noScoutAudit = await msg(`[[TURN:claims]]\n${DRAFT}`, 'stop');
@@ -283,7 +325,7 @@ assert('teaching without a scout-audit is withheld', blocked(noScoutAudit, 'NO_S
 // A valid audit releases the first teaching turn.
 await setPrompt('[[FLOW:teach]] teach me W');
 await dispatch('scout', 'topic W', 'sc4');
-await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"w","digest":"Learning System/.tmp/context-w.json","raw_files":["Knowledge Wiki/raw/sources/w.md"],"failed_refs":[]}');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"w","digest":"Learning System/.tmp/context-w.json","raw_files":["Knowledge Wiki/raw/sources/w.md"],"failed_refs":[]}' + SCOUT_BUDGET);
 const SCOUT_AUDIT_ENV_W = JSON.stringify({ gate: 'scout_audit', slug: 'w', digest: 'Learning System/.tmp/context-w.json', raw_files: ['Knowledge Wiki/raw/sources/w.md'], failed_refs: [] });
 await dispatch('scout-audit', SCOUT_AUDIT_ENV_W, 'sa4');
 await fg('sa4', 'scout-audit', SCOUT_AUDIT_ENV_W, SCOUT_AUDIT_PASS);
@@ -295,7 +337,7 @@ assert('scout-audit pass releases the first teaching turn', allowed(scoutAudited
 // An ISSUES audit surfaces flags but never withholds (mirrors ingest REVIEW FLAGS SURFACED).
 await setPrompt('[[FLOW:teach]] teach me V');
 await dispatch('scout', 'topic V', 'sc5');
-await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"v","digest":"Learning System/.tmp/context-v.json","raw_files":[],"failed_refs":[]}');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"v","digest":"Learning System/.tmp/context-v.json","raw_files":[],"failed_refs":[]}' + SCOUT_BUDGET);
 const SCOUT_AUDIT_ENV_V = JSON.stringify({ gate: 'scout_audit', slug: 'v', digest: 'Learning System/.tmp/context-v.json', raw_files: [], failed_refs: [] });
 await dispatch('scout-audit', SCOUT_AUDIT_ENV_V, 'sa5');
 await fg('sa5', 'scout-audit', SCOUT_AUDIT_ENV_V, JSON.stringify({ verdict: 'ISSUES', evidence: ['read digest'], issues: [{ severity: 'high', location: 'Learning System/.tmp/context-v.json:synthesis[0].theory', issue: 'missing theory line' }], context_notes: [] }));
@@ -307,7 +349,7 @@ assert('scout-audit ISSUES surfaces flags without withholding', allowed(scoutAud
 // A wrong-shape audit naming no digest releases nothing.
 await setPrompt('[[FLOW:teach]] teach me U');
 await dispatch('scout', 'topic U', 'sc6');
-await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"u","digest":"Learning System/.tmp/context-u.json","raw_files":[],"failed_refs":[]}');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"u","digest":"Learning System/.tmp/context-u.json","raw_files":[],"failed_refs":[]}' + SCOUT_BUDGET);
 const SCOUT_AUDIT_NODIGEST = JSON.stringify({ gate: 'scout_audit', slug: 'u' });
 await dispatch('scout-audit', SCOUT_AUDIT_NODIGEST, 'sa6');
 await fg('sa6', 'scout-audit', SCOUT_AUDIT_NODIGEST, SCOUT_AUDIT_PASS);
@@ -319,7 +361,7 @@ assert('scout-audit without digest does not release the teaching turn', blocked(
 // `raw_files` alone, without the `digest` under audit, also releases nothing.
 await setPrompt('[[FLOW:teach]] teach me U2');
 await dispatch('scout', 'topic U2', 'sc6b');
-await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"u2","digest":"Learning System/.tmp/context-u2.json","raw_files":[],"failed_refs":[]}');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"u2","digest":"Learning System/.tmp/context-u2.json","raw_files":[],"failed_refs":[]}' + SCOUT_BUDGET);
 const SCOUT_AUDIT_RAWONLY = JSON.stringify({ gate: 'scout_audit', slug: 'u2', raw_files: ['Knowledge Wiki/raw/sources/u2.md'] });
 await dispatch('scout-audit', SCOUT_AUDIT_RAWONLY, 'sa6b');
 await fg('sa6b', 'scout-audit', SCOUT_AUDIT_RAWONLY, SCOUT_AUDIT_PASS);
@@ -331,7 +373,7 @@ assert('scout-audit raw_files without digest does not release the teaching turn'
 // An audit PASS with no evidence list is unsubstantiated (flagged, not withheld).
 await setPrompt('[[FLOW:teach]] teach me T');
 await dispatch('scout', 'topic T', 'sc7');
-await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"t","digest":"Learning System/.tmp/context-t.json","raw_files":[],"failed_refs":[]}');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"t","digest":"Learning System/.tmp/context-t.json","raw_files":[],"failed_refs":[]}' + SCOUT_BUDGET);
 const SCOUT_AUDIT_ENV_T = JSON.stringify({ gate: 'scout_audit', slug: 't', digest: 'Learning System/.tmp/context-t.json', raw_files: [], failed_refs: [] });
 await dispatch('scout-audit', SCOUT_AUDIT_ENV_T, 'sa7');
 await fg('sa7', 'scout-audit', SCOUT_AUDIT_ENV_T, JSON.stringify({ verdict: 'PASS', issues: [], context_notes: [] }));
@@ -344,7 +386,7 @@ assert('scout-audit missing-evidence banner surfaced', allowed(scoutAuditNoEvide
 // retry-cap escape for an unrelated later withhold.
 await setPrompt('[[FLOW:teach]] teach me Q');
 await dispatch('scout', 'topic Q', 'sc8');
-await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"q","digest":"Learning System/.tmp/context-q.json","raw_files":[],"failed_refs":[]}');
+await notify('Background task completed: **scout**\n\nSCOUT_DIGEST: {"slug":"q","digest":"Learning System/.tmp/context-q.json","raw_files":[],"failed_refs":[]}' + SCOUT_BUDGET);
 const SCOUT_AUDIT_ENV_Q = JSON.stringify({ gate: 'scout_audit', slug: 'q', digest: 'Learning System/.tmp/context-q.json', raw_files: [], failed_refs: [] });
 await dispatch('scout-audit', SCOUT_AUDIT_ENV_Q, 'sa8');
 await fg('sa8', 'scout-audit', SCOUT_AUDIT_ENV_Q, JSON.stringify({ verdict: 'ISSUES', evidence: ['read digest'], issues: [{ severity: 'low', location: 'Learning System/.tmp/context-q.json:prereqs', issue: 'thin keywords' }], context_notes: [] }));
@@ -1114,7 +1156,7 @@ try {
 // ============================================================================
 const SOLO_QUIZ_PASS = JSON.stringify({ verdict: 'PASS', issues: [] });
 const SOLO_SCOUT_OK =
-  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[]}';
+  'REVIEW_SCOUT_DIGEST: {"track":"aiefs","digest":"Learning System/.tmp/review-x.json","queue":[],"failed_refs":[]}\n\nPRIOR_BUDGET_OK: {"body_bytes":1000,"ceiling_bytes":28000,"ok":true}';
 
 // A teaching claims turn in solo is withheld.
 await setPrompt('[[FLOW:solo]] solo check');
@@ -2008,6 +2050,5 @@ const TEACH_REPAIR = {
   const reDispatch = await fire('tool_call', { toolName: 'subagent', toolCallId: 'rq2', input: { agent: 'fact-check', task: goodEnv } });
   assert('corrected repair envelope re-dispatch is allowed', !reDispatch || !reDispatch.block);
 }
-
 
 

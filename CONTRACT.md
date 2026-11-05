@@ -609,6 +609,13 @@ coverage check as the deno gate suites.
   time. Prior models are passed into the generator so they count in the
   budget rather than being appended afterwards.
 
+- **G-prior-budget-required** (policy) — the prior-knowledge budget receipt is
+  required: Scout/review-scout fold `PRIOR_BUDGET_OK`/`FAILED` (or
+  `PRIOR_BUDGET_SKIPPED` when there is nothing to verify), and a failed or
+  missing receipt withholds the first content turn (`NO_PRIOR_BUDGET_PASS`)
+  with a remedy that names the verify command. `OK`/`SKIPPED` release it with
+  no banner; at the retry cap the flow degrades gracefully like the other
+  context-blocked codes.
 - **G-prior-drilldown** (policy) — the digest's index makes the tail discoverable,
   and `node_mastery.py drill --node <id> --already <ids>` recovers one record
   (≤4 KB, ≤6 per session; truncation is visible, never invented). Drilled records
