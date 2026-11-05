@@ -885,7 +885,11 @@ def drill_node(
             "premises": chain.get("premises", []),
             "conclusion": chain.get("conclusion"),
             "statement": chain.get("statement", ""),
-            "attempts": chain["strict"]["attempts"],
+            "attempts": sorted(
+                chain["strict"]["attempts"],
+                key=lambda row: str(row.get("date") or ""),
+                reverse=True,
+            )[:DETAIL_MAX_ATTEMPTS],
             "fails": chain["strict"]["fails"],
             "last_attempt": chain["strict"]["last_attempt"],
             "last_fail": chain["strict"]["last_fail"],
@@ -905,6 +909,7 @@ def drill_node(
             },
         }
         result["bytes"] = _json_bytes(result)
+        result["bytes"] = _json_bytes(result)  # settle the self-referential size
         return result
 
     result = wrapper(False)
@@ -989,7 +994,7 @@ def verify_envelope(path: Path) -> dict:
 
 
 def _shape_ok(ident: str) -> bool:
-    return bool(re.fullmatch(r"(?:n|arg)_[a-z0-9]{6,}", ident))
+    return bool(graph.ID_RE.fullmatch(ident))
 
 
 def verify_block(path: Path) -> dict:
