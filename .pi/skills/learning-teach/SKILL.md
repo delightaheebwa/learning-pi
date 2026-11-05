@@ -83,10 +83,13 @@ fix). Every kind must still send `rendered_content` = the exact draft and every 
   "learner_model": "the learner's verbatim v1/current model this turn targets, or null",
   "learner_notes": "verbatim excerpt from the learner's notes this turn reasons about, or null",
   "prior_knowledge": {
-    "propositions": [{"id": "n_...", "name": "...", "statement": "..."}],
+    "propositions": [{"id": "n_...", "name": "...", "statement": "...", "attempts": [], "fails": 0, "last_attempt": null, "last_fail": null, "mistakes": [], "links": {}, "score": 0.0}],
     "chains": [{"id": "arg_...", "premises": ["n_..."], "conclusion": "n_...", "statement": "..."}],
     "prior_models": [{"concept": "...", "version": "v1|v2", "words": "verbatim prior model", "file": "Learning System/..."}],
-    "mistakes": [{"concept": "...", "error_type": "structural|deviation|application|metacognitive", "self_attribution": "...", "date": "YYYY-MM-DD"}]
+    "mistakes": [{"node": "n_...", "concept": "...", "error_type": "structural|deviation|application|metacognitive", "self_attribution": "...", "date": "YYYY-MM-DD", "status": "active|review|graduated", "miss_class": "...", "weight": 1.0}],
+    "index": [{"id": "n_...", "name": "...", "attempts": 0, "fails": 0, "open_mistakes": 0, "last_fail": null, "score": 0.0}],
+    "omitted": {"index": 0, "propositions": 0, "chains": 0, "mistakes": 0, "reason": "budget|", "next_best": []},
+    "budget": {"ceiling_bytes": 28000, "body_bytes": 0, "estimator": "json-utf8-bytes", "matched_nodes": 0, "detail_nodes": 0, "index_nodes": 0}
   },
   "grade_verdicts": [{"id": 1, "concept": "...", "verdict": "pass|fail", "trace_step": "..."}],
   "foundation": {"problem": "...", "where_from": "...", "conditions": "...", "contrast": "..."},

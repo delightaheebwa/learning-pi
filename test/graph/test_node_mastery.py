@@ -327,6 +327,124 @@ class NodeMasteryCase(unittest.TestCase):
         second = json.dumps(node_mastery.build(self.root, TODAY), sort_keys=True)
         self.assertEqual(first, second)
 
+    # -- budgeted context --------------------------------------------------
+    def test_context_index_is_complete_and_detail_fits_budget(self) -> None:
+        self.seed(
+            {"name": "Hessian symmetry", "statement": "Hessian symmetry follows from Clairaut.", "aliases": ["Hessian matrix"]},
+            {"name": "Hessian definiteness", "statement": "Hessian definiteness classifies critical points.", "aliases": ["Hessian matrix"]},
+            {"name": "Hessian eigenvalues", "statement": "Hessian eigenvalues give curvature directions.", "aliases": ["Hessian matrix"]},
+            {"name": "Jacobian rows", "statement": "The Jacobian stacks first partials."},
+        )
+        ident = graph.node_id("Hessian symmetry follows from Clairaut.")
+        self.write_attempts(self.attempt("Hessian matrix", targets=[ident]))
+        block = node_mastery.build_context(
+            self.root, ["Hessian matrix"], today=TODAY, max_bytes=8000
+        )
+        self.assertLessEqual(block["budget"]["body_bytes"], 8000)
+        index_ids = {entry["id"] for entry in block["index"]}
+        self.assertEqual(len(index_ids), 3)  # Jacobian is not a Hessian match
+        self.assertIn(ident, index_ids)
+        # The target-linked node outranks the concept-only matches.
+        self.assertEqual(block["propositions"][0]["id"], ident)
+        self.assertEqual(block["omitted"]["reason"], "")
+        self.assertTrue(node_mastery.verify_block(self._write_block(block))["ok"])
+
+    def test_context_respects_a_small_budget_and_shows_omissions(self) -> None:
+        for number in range(20):
+            self.seed({
+                "name": f"Hessian claim {number}",
+                "statement": f"Hessian statement {number}: " + ("curvature " * 120),
+            })
+        block = node_mastery.build_context(
+            self.root, ["Hessian"], today=TODAY, max_bytes=2000
+        )
+        self.assertLessEqual(block["budget"]["body_bytes"], 2000)
+        self.assertGreater(block["omitted"]["propositions"], 0)
+        self.assertEqual(block["omitted"]["reason"], "budget")
+        self.assertTrue(block["omitted"]["next_best"])
+        self.assertTrue(node_mastery.verify_block(self._write_block(block))["ok"])
+
+    def test_context_keeps_graduated_mistakes_with_decay(self) -> None:
+        self.seed({
+            "name": "Hessian matrix",
+            "statement": "The Hessian is the matrix of second partials.",
+        })
+        self.write_mistakes([
+            {
+                "date": "2026-11-04",
+                "concept": "Hessian matrix",
+                "error_type": "structural",
+                "self_attribution": "repaired, keep testing transfer",
+                "status": "graduated",
+            }
+        ])
+        block = node_mastery.build_context(
+            self.root, ["Hessian matrix"], today=TODAY, max_bytes=8000
+        )
+        mistake = block["propositions"][0]["mistakes"][0]
+        self.assertEqual(mistake["status"], "graduated")
+        self.assertLess(mistake["weight"], 1.0)
+        self.assertEqual(block["mistakes"][0]["node"], block["propositions"][0]["id"])
+
+    def test_context_chains_join_only_when_every_endpoint_is_in_detail(self) -> None:
+        receipt = self.merge({
+            "nodes": [
+                {"name": "A", "statement": "A is true.", "provenance": [prov()]},
+                {"name": "B", "statement": "B is true.", "provenance": [prov()]},
+            ],
+            "chains": [{"premises": ["@0"], "conclusion": "@1", "provenance": [prov()]}],
+        })
+        block = node_mastery.build_context(
+            self.root, ["A", "B"], today=TODAY, max_bytes=8000
+        )
+        self.assertEqual([chain["id"] for chain in block["chains"]], [receipt["created_chains"][0]])
+        self.assertEqual(block["budget"]["body_bytes"], node_mastery._json_bytes(
+            {key: value for key, value in block.items() if key != "budget"}
+        ))
+
+    def test_verify_rejects_broken_index_or_budget_math(self) -> None:
+        self.seed({"name": "Hessian matrix", "statement": "The Hessian is symmetric."})
+        block = node_mastery.build_context(
+            self.root, ["Hessian matrix"], today=TODAY, max_bytes=8000
+        )
+        path = self._write_block(block)
+        self.assertTrue(node_mastery.verify_block(path)["ok"])
+
+        tampered = json.loads(path.read_text())
+        tampered["index"] = []
+        path.write_text(json.dumps(tampered))
+        self.assertFalse(node_mastery.verify_block(path)["ok"])
+
+        tampered = json.loads(json.dumps(block))
+        tampered["budget"]["body_bytes"] = 1
+        path.write_text(json.dumps(tampered))
+        self.assertFalse(node_mastery.verify_block(path)["ok"])
+
+    def test_context_cli_writes_a_block_and_verify_receipts(self) -> None:
+        self.seed({"name": "Hessian matrix", "statement": "The Hessian is symmetric."})
+        out = self.root / ".tmp" / "prior.json"
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            code = node_mastery.main([
+                "--root", str(self.root), "context", "--concepts", "Hessian matrix",
+                "--out", str(out), "--today", "2026-11-05",
+            ])
+        self.assertEqual(code, 0)
+        self.assertIn("PRIOR_CONTEXT:", buffer.getvalue())
+        self.assertTrue(out.is_file())
+
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            code = node_mastery.main(["--root", str(self.root), "verify", "--file", str(out)])
+        self.assertEqual(code, 0)
+        self.assertIn("PRIOR_BUDGET_OK:", buffer.getvalue())
+
+    def _write_block(self, block: dict) -> Path:
+        path = self.root / ".tmp" / "prior.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(block), encoding="utf-8")
+        return path
+
     def test_cli_audit_emits_json(self) -> None:
         self.seed({"name": "A", "statement": "A is true."})
         buffer = io.StringIO()

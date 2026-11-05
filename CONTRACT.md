@@ -590,11 +590,21 @@ coverage check as the deno gate suites.
   are verbatim, and no winner is announced. An invented or paraphrased "you once
   said…" is `PRIOR_UNGROUNDED`; a prior fact about another concept is not a valid
   attack target. Attack subtypes and the one-attack-per-turn rule are unchanged.
-- **G-scout-prior-context** (policy) — lesson/review digests harvest
-  `prior_knowledge` from `pi/graph.py list` plus prior verbatim models and open
-  mistakes; empty arrays are legal when nothing is relevant, but a failed graph
-  read must surface as a `failed_refs` entry, never a silent empty. The digest is
-  grounding data, never a learner-facing summary.
+- **G-scout-prior-context** (policy) — lesson/review digests carry
+  `prior_knowledge` generated from the durable graph, `Attempts.json`, the
+  Mistakes table, and prior verbatim models; empty arrays are legal when
+  nothing is relevant, but a failed read must surface as a `failed_refs`
+  entry, never a silent empty. The digest is grounding data, never a
+  learner-facing summary.
+- **G-prior-knowledge-budget** (policy) — `pi/node_mastery.py context`
+  assembles the block: complete index of every match (or a visible
+  `omitted.index`), score-ordered detail with attached evidence, explicit
+  `omitted` counts plus `next_best`, and deterministic `budget` arithmetic
+  (`24000 + 4000 × concepts`, capped at 48000 bytes; `--max-bytes` overrides).
+  Scout and review-scout merge the generated block instead of retyping it, and
+  fold the `PRIOR_BUDGET_OK` receipt from `node_mastery.py verify`; verify
+  recomputes body bytes and index coverage but deliberately does not re-check
+  liveness (`ops.py` still does that at record time).
 
 ### Practice doctrine (hints and misses)
 

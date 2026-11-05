@@ -29,7 +29,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 try:  # run as a script (pi/ is on sys.path) or imported from tests
@@ -44,6 +44,18 @@ MISTAKES_PATH = Path("Learning System") / "Core" / "🧯 Mistakes.md"
 ERROR_TYPES = {"structural", "deviation", "application", "metacognitive"}
 TIERS = ("active", "review", "graduated")
 GRADUATED_HALF_LIFE_DAYS = 90
+
+# Presentation budget (bytes of the JSON body, excluding the `budget` object).
+BUDGET_BASE_BYTES = 24_000
+BUDGET_PER_CONCEPT_BYTES = 4_000
+BUDGET_MAX_BYTES = 48_000
+INDEX_RESERVE_MAX_BYTES = 8_000
+INDEX_LINE_BYTES = 200
+DETAIL_STATEMENT_CHARS = 400
+DETAIL_MISTAKE_CHARS = 300
+DETAIL_MAX_MISTAKES = 2
+DETAIL_MAX_ATTEMPTS = 4
+RECENT_FAIL_DAYS = 90
 
 _PREFIX_RE = re.compile(r"^\s*\[(prereq|miss|targets):\s*([^\]]*)\]\s*", re.IGNORECASE)
 
@@ -372,6 +384,7 @@ def _join(root: Path, today: date) -> dict:
         report_nodes[ident] = {
             "name": node.get("name"),
             "statement": node.get("statement"),
+            "aliases": node.get("aliases", []) or [],
             "strict": evidence,
             "related": {
                 "score": round(related["score"], 3),
@@ -383,8 +396,10 @@ def _join(root: Path, today: date) -> dict:
     for ident in sorted(chains):
         chain = chains[ident]
         report_chains[ident] = {
+            "id": ident,
             "premises": chain.get("premises", []),
             "conclusion": chain.get("conclusion"),
+            "statement": chain.get("statement", ""),
             "strict": chain_evidence[ident],
         }
 
@@ -466,6 +481,405 @@ def audit(root: Path, today: date | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# budgeted prior-knowledge block
+# ---------------------------------------------------------------------------
+
+def _json_bytes(value) -> int:
+    return len(
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    )
+
+
+def _ceiling(concepts: list[str], override: int | None) -> int:
+    if override is not None:
+        if override <= 0:
+            raise graph.GraphError("--max-bytes must be positive")
+        return override
+    return max(
+        BUDGET_BASE_BYTES,
+        min(BUDGET_MAX_BYTES, BUDGET_BASE_BYTES + BUDGET_PER_CONCEPT_BYTES * len(concepts)),
+    )
+
+
+def _node_text(node: dict) -> str:
+    return " ".join(
+        [node.get("name", ""), node.get("statement", ""), *(node.get("aliases", []) or [])]
+    )
+
+
+def _doc_freq(nodes: dict[str, dict]) -> dict[str, int]:
+    freq: dict[str, int] = {}
+    for record in nodes.values():
+        for token in _tokens(_node_text(record)):
+            freq[token] = freq.get(token, 0) + 1
+    return freq
+
+
+def _match_quality(text: str, tokens: set[str], concepts: list[str], doc_freq: dict[str, int]) -> float:
+    """Rarity-weighted overlap, so `hessian` outranks the ubiquitous `matrix`."""
+    best = 0.0
+    for concept in concepts:
+        normalized = _norm(concept)
+        if normalized and normalized in text:
+            best = max(best, 2.0)
+            continue
+        concept_tokens = _tokens(concept)
+        shared = concept_tokens & tokens
+        if not shared:
+            continue
+        denominator = sum(1.0 / doc_freq.get(token, 1) for token in concept_tokens)
+        numerator = sum(1.0 / doc_freq.get(token, 1) for token in shared)
+        if denominator:
+            best = max(best, 1.5 * numerator / denominator)
+    return round(best, 3)
+
+
+def _node_score(record: dict, node_tokens: set[str], prereq_tokens: set[str], today: date) -> tuple[float, str, int]:
+    """Ranking only — never attribution. Higher score plus recency wins."""
+    strict = record["strict"]
+    links = strict["links"]
+    score = 0.0
+    if links["by_target"] or links["by_chain"]:
+        score += 4.0  # explicit graph ids are the strongest signal
+    if links["by_concept"]:
+        score += 3.0
+    if prereq_tokens & node_tokens:
+        score += 1.0
+    cutoff = (today - timedelta(days=RECENT_FAIL_DAYS)).isoformat()
+    recent_fails = sum(
+        1
+        for attempt in strict["attempts"]
+        if (attempt.get("is_correct") is False or attempt.get("result") == "fail")
+        and str(attempt.get("date") or "") >= cutoff
+    )
+    score += min(2.0, 0.5 * recent_fails)
+    open_mistakes = strict["mistake_tiers"]["active"] + strict["mistake_tiers"]["review"]
+    if open_mistakes:
+        score += 1.0
+    score += min(
+        1.0,
+        sum(row["weight"] for row in strict["mistakes"] if row["status"] == "graduated"),
+    )
+    dates = [str(attempt.get("date") or "") for attempt in strict["attempts"]]
+    dates += [row["date"] for row in strict["mistakes"]]
+    return round(score, 3), max(dates) if dates else "", open_mistakes
+
+
+def _detail(ident: str, record: dict) -> dict:
+    strict = record["strict"]
+    attempts = sorted(
+        strict["attempts"], key=lambda row: str(row.get("date") or ""), reverse=True
+    )[:DETAIL_MAX_ATTEMPTS]
+    mistakes = sorted(strict["mistakes"], key=lambda row: row["date"], reverse=True)
+    mistakes.sort(key=lambda row: row["status"] == "graduated")  # open/review first
+    mistakes = [
+        {
+            "date": row["date"],
+            "concept": row["concept"],
+            "error_type": row["error_type"],
+            "miss_class": row["miss_class"],
+            "status": row["status"],
+            "self_attribution": row["self_attribution"][:DETAIL_MISTAKE_CHARS],
+            "link": row["link"],
+            "weight": row["weight"],
+        }
+        for row in mistakes[:DETAIL_MAX_MISTAKES]
+    ]
+    return {
+        "id": ident,
+        "name": record["name"],
+        "statement": str(record["statement"] or "")[:DETAIL_STATEMENT_CHARS],
+        "attempts": attempts,
+        "fails": strict["fails"],
+        "last_attempt": strict["last_attempt"],
+        "last_fail": strict["last_fail"],
+        "mistakes": mistakes,
+        "links": strict["links"],
+        "score": record["_score"],
+    }
+
+
+def _assemble(
+    as_of: str,
+    propositions: list[dict],
+    chains: list[dict],
+    index: list[dict],
+    omitted: dict,
+    prior_models: list[dict] | None = None,
+) -> dict:
+    mistakes = [
+        {"node": prop["id"], **row}
+        for prop in propositions
+        for row in prop["mistakes"]
+    ]
+    return {
+        "as_of": as_of,
+        "propositions": propositions,
+        "chains": chains,
+        "mistakes": mistakes,
+        "prior_models": prior_models or [],
+        "index": index,
+        "omitted": omitted,
+    }
+
+
+def build_context(
+    root: Path,
+    concepts: list[str],
+    prereqs: list[str] | None = None,
+    today: date | None = None,
+    max_bytes: int | None = None,
+    prior_models: list[dict] | None = None,
+) -> dict:
+    """Budgeted `prior_knowledge` block: complete index + scored detail."""
+    today = today or date.today()
+    concepts = [term.strip() for term in concepts if term and term.strip()]
+    if not concepts:
+        raise graph.GraphError("context needs at least one --concepts term")
+    prereqs = [term.strip() for term in (prereqs or []) if term and term.strip()]
+    ceiling = _ceiling(concepts, max_bytes)
+
+    view = build(root, today)
+    terms = [_norm(term) for term in [*concepts, *prereqs] if _norm(term)]
+    term_tokens = set().union(*(_tokens(term) for term in [*concepts, *prereqs]))
+    prereq_tokens = set().union(*(_tokens(term) for term in prereqs)) if prereqs else set()
+
+    doc_freq = _doc_freq(view["nodes"])
+    matched: list[dict] = []
+    for ident, record in view["nodes"].items():
+        text = _norm(_node_text(record))
+        tokens = _tokens(_node_text(record))
+        explicit = record["strict"]["links"]["by_target"] or record["strict"]["links"]["by_chain"]
+        hit = any(term in text for term in terms) or bool(term_tokens & tokens)
+        if not hit and not explicit:
+            continue
+        score, last_date, open_mistakes = _node_score(record, tokens, prereq_tokens, today)
+        score = round(
+            score + _match_quality(text, tokens, concepts, doc_freq), 3
+        )
+        record["_score"] = score
+        matched.append(
+            {
+                "id": ident,
+                "record": record,
+                "score": score,
+                "last_date": last_date,
+                "open_mistakes": open_mistakes,
+            }
+        )
+
+    # Deterministic, score-first ordering: id, then date desc, then score desc.
+    matched.sort(key=lambda row: row["id"])
+    matched.sort(key=lambda row: row["last_date"] or "", reverse=True)
+    matched.sort(key=lambda row: row["score"], reverse=True)
+
+    index = [
+        {
+            "id": row["id"],
+            "name": row["record"]["name"],
+            "attempts": len(row["record"]["strict"]["attempts"]),
+            "fails": row["record"]["strict"]["fails"],
+            "open_mistakes": row["open_mistakes"],
+            "last_fail": row["record"]["strict"]["last_fail"],
+            "score": row["score"],
+        }
+        for row in matched
+    ]
+
+    # Index reserve: one line per match, capped; overflow is visible.
+    reserve = min(INDEX_RESERVE_MAX_BYTES, INDEX_LINE_BYTES * max(1, len(index)))
+    index_kept = list(index)
+    index_dropped = 0
+    while index_kept and _json_bytes(index_kept) > reserve:
+        index_kept.pop()
+        index_dropped += 1
+
+    omitted = {
+        "index": index_dropped,
+        "propositions": 0,
+        "chains": 0,
+        "mistakes": 0,
+        "reason": "budget" if index_dropped else "",
+        "next_best": [],
+    }
+    propositions: list[dict] = []
+    chain_candidates: list[dict] = []
+    detail_ids: set[str] = set()
+
+    body = _assemble(today.isoformat(), propositions, chain_candidates, index_kept, omitted, prior_models)
+
+    indexed_ids = {entry["id"] for entry in index_kept}
+    for candidate in matched:
+        if candidate["id"] not in indexed_ids:
+            continue
+        entry = _detail(candidate["id"], candidate["record"])
+        trial = _assemble(
+            today.isoformat(), propositions + [entry], chain_candidates, index_kept, omitted, prior_models
+        )
+        if _json_bytes(trial) > ceiling:
+            break
+        propositions.append(entry)
+        detail_ids.add(candidate["id"])
+
+    # Chains only when every endpoint is in the detail set.
+    for chain in view["chains"].values():
+        if chain.get("conclusion") not in detail_ids:
+            continue
+        if not all(premise in detail_ids for premise in chain.get("premises", [])):
+            continue
+        entry = {
+            "id": chain["id"],
+            "premises": chain.get("premises", []),
+            "conclusion": chain.get("conclusion"),
+            "statement": chain.get("statement", ""),
+        }
+        trial = _assemble(
+            today.isoformat(), propositions, chain_candidates + [entry], index_kept, omitted, prior_models
+        )
+        if _json_bytes(trial) > ceiling:
+            break
+        chain_candidates.append(entry)
+
+    matched_ids = {row["id"] for row in matched}
+    omitted["propositions"] = len(matched) - len(propositions)
+    omitted["chains"] = sum(
+        1
+        for chain in view["chains"].values()
+        if chain.get("conclusion") in detail_ids
+        and all(premise in detail_ids for premise in chain.get("premises", []))
+    ) - len(chain_candidates)
+    omitted["mistakes"] = sum(
+        len(row["record"]["strict"]["mistakes"]) for row in matched
+    ) - sum(len(prop["mistakes"]) for prop in propositions)
+    omitted["next_best"] = [row["id"] for row in matched if row["id"] not in detail_ids][:5]
+    if omitted["chains"] < 0:
+        omitted["chains"] = 0
+    if omitted["mistakes"] < 0:
+        omitted["mistakes"] = 0
+
+    body = _assemble(today.isoformat(), propositions, chain_candidates, index_kept, omitted, prior_models)
+    while _json_bytes(body) > ceiling and body["propositions"]:
+        dropped = body["propositions"].pop()
+        omitted["propositions"] += 1
+        omitted["next_best"] = ([dropped["id"]] + omitted["next_best"])[:5]
+        body = _assemble(
+            today.isoformat(), body["propositions"], body["chains"], index_kept, omitted, prior_models
+        )
+    while _json_bytes(body) > ceiling and body["chains"]:
+        body["chains"].pop()
+        omitted["chains"] += 1
+        body = _assemble(
+            today.isoformat(), body["propositions"], body["chains"], index_kept, omitted, prior_models
+        )
+    while _json_bytes(body) > ceiling and index_kept:
+        index_kept.pop()
+        omitted["index"] += 1
+        body = _assemble(
+            today.isoformat(), body["propositions"], body["chains"], index_kept, omitted, prior_models
+        )
+
+    # A kept proposition must have its index line; drop any orphaned by the trim.
+    kept_index_ids = {entry["id"] for entry in index_kept}
+    if any(prop["id"] not in kept_index_ids for prop in body["propositions"]):
+        survivors = [prop for prop in body["propositions"] if prop["id"] in kept_index_ids]
+        omitted["propositions"] += len(body["propositions"]) - len(survivors)
+        body = _assemble(
+            today.isoformat(), survivors, body["chains"], index_kept, omitted, prior_models
+        )
+    total_mistakes = sum(len(row["record"]["strict"]["mistakes"]) for row in matched)
+    omitted["mistakes"] = max(
+        0, total_mistakes - sum(len(prop["mistakes"]) for prop in body["propositions"])
+    )
+    omitted["reason"] = (
+        "budget"
+        if any(omitted[key] for key in ("index", "propositions", "chains", "mistakes"))
+        else ""
+    )
+
+    body_bytes = _json_bytes(body)
+    if body_bytes > ceiling:
+        raise graph.GraphError(
+            f"cannot fit prior knowledge in {ceiling} bytes (need at least {body_bytes}); "
+            "raise --max-bytes"
+        )
+
+    result = dict(body)
+    result["budget"] = {
+        "ceiling_bytes": ceiling,
+        "body_bytes": body_bytes,
+        "estimator": "json-utf8-bytes",
+        "matched_nodes": len(matched),
+        "detail_nodes": len(result["propositions"]),
+        "index_nodes": len(result["index"]),
+    }
+    return result
+
+
+def verify_block(path: Path) -> dict:
+    """Structural verification: schema, budget arithmetic, index coverage.
+
+    Liveness is deliberately NOT re-checked here; ids were live when the block
+    was generated and `ops.py` still checks liveness at record time. A
+    concurrent ingest must not invalidate a digest mid-session.
+    """
+    errors: list[str] = []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"file": str(path), "ok": False, "errors": [f"unreadable: {exc}"]}
+    if not isinstance(data, dict):
+        return {"file": str(path), "ok": False, "errors": ["not a JSON object"]}
+
+    required = {"as_of", "propositions", "chains", "mistakes", "prior_models", "index", "omitted", "budget"}
+    missing = sorted(required - set(data))
+    if missing:
+        errors.append(f"missing keys: {missing}")
+
+    budget = data.get("budget") if isinstance(data.get("budget"), dict) else {}
+    body = {key: value for key, value in data.items() if key != "budget"}
+    actual = _json_bytes(body)
+    if budget.get("body_bytes") != actual:
+        errors.append(f"budget.body_bytes {budget.get('body_bytes')} != actual {actual}")
+    ceiling = budget.get("ceiling_bytes")
+    if not isinstance(ceiling, int) or actual > ceiling:
+        errors.append(f"body {actual} exceeds ceiling {ceiling}")
+
+    index = data.get("index") if isinstance(data.get("index"), list) else []
+    index_ids = [entry.get("id") for entry in index if isinstance(entry, dict)]
+    if len(index_ids) != len(set(index_ids)):
+        errors.append("duplicate ids in index")
+    propositions = data.get("propositions") if isinstance(data.get("propositions"), list) else []
+    prop_ids = [entry.get("id") for entry in propositions if isinstance(entry, dict)]
+    if len(prop_ids) != len(set(prop_ids)):
+        errors.append("duplicate ids in propositions")
+    missing_from_index = [ident for ident in prop_ids if ident not in set(index_ids)]
+    if missing_from_index:
+        errors.append(f"propositions missing from index: {missing_from_index}")
+
+    mistakes = data.get("mistakes") if isinstance(data.get("mistakes"), list) else []
+    orphan_mistakes = [
+        row.get("node") for row in mistakes
+        if isinstance(row, dict) and row.get("node") not in set(prop_ids)
+    ]
+    if orphan_mistakes:
+        errors.append(f"mistakes attached to omitted propositions: {orphan_mistakes}")
+
+    omitted = data.get("omitted") if isinstance(data.get("omitted"), dict) else {}
+    for key in ("index", "propositions", "chains", "mistakes"):
+        value = omitted.get(key)
+        if not isinstance(value, int) or value < 0:
+            errors.append(f"omitted.{key} must be a non-negative integer")
+
+    return {
+        "file": str(path),
+        "body_bytes": actual,
+        "ceiling_bytes": ceiling,
+        "ok": not errors,
+        "errors": errors,
+    }
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -501,6 +915,26 @@ def build_parser() -> argparse.ArgumentParser:
     audit_cmd = sub.add_parser("audit", help="coverage, ambiguity, stale ids")
     audit_cmd.add_argument("--json", action="store_true")
     audit_cmd.add_argument("--today", default=None, help="YYYY-MM-DD (deterministic decay)")
+
+    context = sub.add_parser(
+        "context", help="budgeted prior_knowledge block (complete index + scored detail)"
+    )
+    context.add_argument(
+        "--concepts",
+        action="append",
+        default=[],
+        help="lesson/review concept terms (repeatable, comma-separated)",
+    )
+    context.add_argument(
+        "--prereq", action="append", default=[], help="prereq terms that boost matching nodes"
+    )
+    context.add_argument("--out", default=None, help="write the block here (else stdout)")
+    context.add_argument("--max-bytes", type=int, default=None, help="ceiling override (bytes)")
+    context.add_argument("--today", default=None, help="YYYY-MM-DD (deterministic decay)")
+
+    verify_cmd = sub.add_parser("verify", help="structural check of a generated block")
+    verify_cmd.add_argument("--file", required=True)
+    verify_cmd.add_argument("--json", action="store_true")
     return parser
 
 
@@ -508,8 +942,33 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.command == "verify":
+            receipt = verify_block(Path(args.file))
+            prefix = "PRIOR_BUDGET_OK: " if receipt["ok"] else "PRIOR_BUDGET_FAILED: "
+            print(prefix + json.dumps(receipt, ensure_ascii=False, sort_keys=True))
+            return 0 if receipt["ok"] else 1
         root = graph.resolve_root(args.root)
         today = _today(args.today)
+        if args.command == "context":
+            terms = [term for value in args.concepts for term in value.split(",")]
+            block = build_context(root, terms, args.prereq, today, args.max_bytes)
+            payload = json.dumps(block, ensure_ascii=False, indent=2, sort_keys=True)
+            if args.out:
+                path = Path(args.out)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(payload + "\n", encoding="utf-8")
+                receipt = {
+                    "file": args.out,
+                    "ceiling_bytes": block["budget"]["ceiling_bytes"],
+                    "body_bytes": block["budget"]["body_bytes"],
+                    "detail": len(block["propositions"]),
+                    "index": len(block["index"]),
+                    "omitted": block["omitted"],
+                }
+                print("PRIOR_CONTEXT: " + json.dumps(receipt, ensure_ascii=False, sort_keys=True))
+            else:
+                print(payload)
+            return 0
         if args.command == "report":
             view = build(root, today, args.node)
             if args.json:

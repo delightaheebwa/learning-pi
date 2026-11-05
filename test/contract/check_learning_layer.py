@@ -404,7 +404,9 @@ def check_resources(root: Path) -> None:
     review_scout_text = (root / ".pi" / "agents" / "review-scout.md").read_text(
         encoding="utf-8", errors="replace"
     )
-    prior_source_needles = ("prior_knowledge", "graph.py", "list --json", "--match", "prior_models", "chains")
+    prior_source_needles = (
+        "prior_knowledge", "node_mastery.py", "context", "prior_models", "chains", "PRIOR_BUDGET_OK",
+    )
     missing_prior_source = [
         f"{name}: {needle}"
         for name, text in (("scout.md", scout_text), ("review-scout.md", review_scout_text))
@@ -415,6 +417,18 @@ def check_resources(root: Path) -> None:
         fail(f"resources: digests missing prior-knowledge harvest rule(s): {missing_prior_source}")
     else:
         ok("resources: scout and review-scout carry prior knowledge")
+
+    budget_needles = ("node_mastery.py", "context", "budget", "PRIOR_BUDGET_OK")
+    missing_budget = [
+        f"{name}: {needle}"
+        for name, text in (("scout.md", scout_text), ("review-scout.md", review_scout_text))
+        for needle in budget_needles
+        if needle.lower() not in text.lower()
+    ]
+    if missing_budget:
+        fail(f"resources: digests missing the byte-budget rule(s): {missing_budget}")
+    else:
+        ok("resources: scouts generate prior knowledge under a byte budget")
 
     teach_prior_text = (root / ".pi" / "skills" / "learning-teach" / "SKILL.md").read_text(
         encoding="utf-8", errors="replace"
