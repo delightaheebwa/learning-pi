@@ -130,6 +130,69 @@ transcript behind. See `../bridge/README.md#chat-actions-mirror-into-pi`.
 > `127.0.0.1` is **not** reachable from a container, which is why the bridge
 > binds that docker-bridge IP (via `PI_BRIDGE_HOST`) instead of loopback.
 
+## Documents (RAG)
+
+Open WebUI's document retrieval is configured in **Admin panel → Settings →
+Documents**. This deployment uses local models (no external embedding API):
+
+| Setting | Value | Why |
+|---|---|---|
+| Embedding model | `BAAI/bge-base-en-v1.5` | 512-token context, better than MiniLM |
+| Reranking model | `BAAI/bge-reranker-base` | CrossEncoder precision on the top candidates |
+| Hybrid search | on | BM25 catches exact names/IDs |
+| Top K / reranker pool | 8 / 20 | more context, reranked |
+| Relevance threshold | 0.3 | drop chunks the reranker scores as noise |
+| Chunk size / overlap | 800 / 100 | ~one page for technical books |
+
+The model settings live in the `open-webui` volume (Admin panel), not in
+compose. Two env-only knobs do live here: the reranker's boot guard and the BGE
+query instruction (see the comments in `docker-compose.yml`).
+
+### Front matter and indexes poison retrieval
+
+Open WebUI has **no ingestion-time filter**: whatever the extractor returns is
+chunked and embedded. A technical book's back index lists every term in the
+book, so it outranks the prose for almost any query; front matter (cover, TOC,
+intro, acknowledgements) adds noise and can surface when nothing is relevant.
+`rag-clean` removes both and writes `[[p.N]]` markers so citations still point
+at the original PDF pages.
+
+```sh
+# What would be dropped? (writes nothing)
+deploy/rag-clean inspect book.pdf
+
+# Clean, embed, and add to a knowledge base (created if missing)
+deploy/rag-clean ingest book.pdf --kb "Head First Software Architecture"
+
+# Rebuild PDFs previously uploaded through the UI
+deploy/rag-clean audit          # report only
+deploy/rag-clean audit --fix    # rebuild polluted files
+```
+
+`ingest` uploads a `<name> (clean).txt`; re-running it updates that same file
+(and keeps its knowledge-base membership) instead of duplicating it. Page
+numbers are 1-based PDF pages. Detection is heuristic — `--content-start` and
+`--index-start` (0-based) override it, and `inspect` shows the decision first.
+
+Because the UI upload button cannot be intercepted, run `audit --fix` after
+uploading a book that way, or install the optional timer so it happens
+automatically within 30 minutes:
+
+```sh
+cp deploy/rag-clean.service deploy/rag-clean.timer ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now rag-clean.timer
+```
+
+The audit keeps a small cache in `~/.cache/rag-clean/state.json` and skips
+files whose stored text already starts with `[[p.N]]`, so it downloads each PDF
+at most once. It never touches non-PDF files (images keep flowing to pi as
+`ImageContent`).
+
+> The external document engine (`CONTENT_EXTRACTION_ENGINE=external`) is the
+> only fully automatic ingestion hook, but it is admin-wide and also takes over
+> image/docx extraction. Do not enable it just for this.
+
 ## Math rendering
 
 Open WebUI renders standard LaTeX with KaTeX, so no add-on is needed: the bridge

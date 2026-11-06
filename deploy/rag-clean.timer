@@ -1,0 +1,14 @@
+# Periodic safety net for PDFs uploaded through the Open WebUI UI, which
+# cannot be intercepted at ingestion time. The audit skips files whose stored
+# text already starts with a [[p.N]] marker, so it only downloads/rebuilds a
+# file once. See the "Documents (RAG)" section of README.md.
+[Unit]
+Description=Periodic Open WebUI RAG corpus audit
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,520 @@
+#!/usr/bin/env python3
+"""Clean documents before Open WebUI embeds them.
+
+Open WebUI has no ingestion-time filter: whatever the extraction engine
+returns is chunked and embedded. On technical books that means the front
+matter (cover, table of contents, intro, acknowledgements) and the back
+index become retrievable "content" -- and because an index lists every
+term in the book, it wins far more queries than it should.
+
+This tool removes those two sections and writes [[p.N]] page markers so
+the model can still cite the book's pages.
+
+Commands:
+  inspect FILE              show what would be dropped; writes nothing
+  ingest FILE [--kb NAME]   clean, upload, optionally add to a knowledge base
+  audit [--fix] [--quiet]   scan existing Open WebUI PDFs; --fix rebuilds them
+  selftest                  run the detector's unit checks
+
+Environment:
+  OPENWEBUI_BASE_URL   default http://127.0.0.1:3000
+  OPENWEBUI_API_KEY    default contents of ~/.openwebui_key
+
+Requires poppler's pdftotext on PATH.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.error
+import urllib.request
+import uuid
+from pathlib import Path
+
+BASE_URL = os.environ.get("OPENWEBUI_BASE_URL", "http://127.0.0.1:3000").rstrip("/")
+KEY_FILE = Path.home() / ".openwebui_key"
+STATE_FILE = Path.home() / ".cache" / "rag-clean" / "state.json"
+
+CHAPTER_ONE = re.compile(r"(?i)^chapter\s+(?:1|one)\b")
+INDEX_HEAD = re.compile(r"(?i)^index\b")
+INDEX_ENTRY = re.compile(r"^[A-Za-z][^.]{0,80},\s+\S")
+TOC_LINE = re.compile(r"(?:\.{4,}|\s)\d{1,4}$")
+QUOTED_LINE = re.compile(r'^[“"]')
+
+
+# --------------------------------------------------------------------------
+# Open WebUI API (stdlib only)
+
+
+def api_key() -> str:
+    key = os.environ.get("OPENWEBUI_API_KEY", "").strip()
+    if key:
+        return key
+    if KEY_FILE.exists():
+        return KEY_FILE.read_text().strip()
+    raise SystemExit("rag-clean: set OPENWEBUI_API_KEY or write ~/.openwebui_key")
+
+
+def api(method: str, path: str, *, json_body=None, data=None, headers=None, timeout=600):
+    hdrs = {"Authorization": f"Bearer {api_key()}"}
+    if json_body is not None:
+        data = json.dumps(json_body).encode()
+        hdrs["Content-Type"] = "application/json"
+    if headers:
+        hdrs.update(headers)
+    req = urllib.request.Request(BASE_URL + path, data=data, headers=hdrs, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read()
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")[:400]
+        raise SystemExit(f"rag-clean: {method} {path} -> HTTP {exc.code}: {detail}")
+    except urllib.error.URLError as exc:
+        raise SystemExit(f"rag-clean: cannot reach {BASE_URL}: {exc.reason}")
+    return json.loads(raw) if raw else None
+
+
+def multipart(fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]):
+    boundary = "----ragclean" + uuid.uuid4().hex
+    out = bytearray()
+    for name, value in fields.items():
+        out += f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode()
+    for name, (filename, content, ctype) in files.items():
+        out += (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; '
+            f'filename="{filename}"\r\nContent-Type: {ctype}\r\n\r\n'
+        ).encode()
+        out += content + b"\r\n"
+    out += f"--{boundary}--\r\n".encode()
+    return bytes(out), f"multipart/form-data; boundary={boundary}"
+
+
+def upload_text(name: str, text: str) -> str:
+    body, ctype = multipart({}, {"file": (name, text.encode(), "text/plain")})
+    result = api(
+        "POST",
+        "/api/v1/files/?process=true&process_in_background=false",
+        data=body,
+        headers={"Content-Type": ctype},
+    )
+    return result["id"]
+
+
+def list_files() -> list[dict]:
+    items: list[dict] = []
+    skip = 0
+    while True:
+        page = api("GET", f"/api/v1/files/?skip={skip}&limit=100")
+        batch = page.get("items", [])
+        items.extend(batch)
+        skip += len(batch)
+        if not batch or skip >= page.get("total", 0):
+            return items
+
+
+def find_file(name: str) -> dict | None:
+    for item in list_files():
+        if (item.get("meta") or {}).get("name") == name:
+            return item
+    return None
+
+
+def file_content(file_id: str) -> str:
+    return (api("GET", f"/api/v1/files/{file_id}/data/content") or {}).get("content", "")
+
+
+def update_file_content(file_id: str, text: str) -> None:
+    api("POST", f"/api/v1/files/{file_id}/data/content/update", json_body={"content": text})
+
+
+def download_file(file_id: str, directory: Path, name: str) -> Path:
+    data = api_bytes(f"/api/v1/files/{file_id}/content")
+    path = directory / name
+    path.write_bytes(data)
+    return path
+
+
+def api_bytes(path: str, timeout=900) -> bytes:
+    req = urllib.request.Request(BASE_URL + path, headers={"Authorization": f"Bearer {api_key()}"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read()
+
+
+def ensure_kb(name: str) -> dict:
+    listing = api("GET", "/api/v1/knowledge/") or {}
+    for item in listing.get("items", []):
+        if item.get("name") == name:
+            return item
+    return api(
+        "POST",
+        "/api/v1/knowledge/create",
+        json_body={
+            "name": name,
+            "description": "Cleaned by deploy/rag-clean (front matter and index removed).",
+        },
+    )
+
+
+def kb_file_ids(kb_id: str) -> set[str]:
+    listing = api("GET", f"/api/v1/knowledge/{kb_id}/files") or {}
+    return {item["id"] for item in listing.get("items", [])}
+
+
+def add_to_kb(kb_id: str, file_id: str) -> None:
+    if file_id not in kb_file_ids(kb_id):
+        api("POST", f"/api/v1/knowledge/{kb_id}/file/add", json_body={"file_id": file_id})
+
+
+# --------------------------------------------------------------------------
+# Detection (pure functions over per-page text)
+
+
+def first_line(page: str) -> str:
+    for line in page.splitlines():
+        text = line.strip()
+        if text:
+            return text
+    return ""
+
+
+def looks_like_toc(page: str) -> bool:
+    lines = [line.strip() for line in page.splitlines() if line.strip()]
+    if not lines:
+        return False
+    headed = sum(1 for line in lines if TOC_LINE.search(line))
+    return headed >= 3 or bool(QUOTED_LINE.match(lines[0]))
+
+
+def is_indexish(page: str) -> bool:
+    lines = [line.strip() for line in page.splitlines() if line.strip()]
+    if len(lines) < 6:
+        return False
+    entries = sum(1 for line in lines if INDEX_ENTRY.match(line))
+    prose = sum(1 for line in lines if re.search(r'[.!?]["”]?$', line))
+    return entries / len(lines) >= 0.5 and prose <= 2
+
+
+def detect_content_start(pages: list[str]) -> tuple[int, str]:
+    """Return (0-based page, human reason) of the first real content page."""
+    for i, page in enumerate(pages):
+        head = first_line(page)
+        if (
+            CHAPTER_ONE.match(head)
+            and len(page) >= 200
+            and not looks_like_toc(page)
+        ):
+            return i, f"chapter opener: {head[:60]!r}"
+    return 0, "no chapter-1 opener found; keeping front matter"
+
+
+def detect_index_start(pages: list[str], content_start: int) -> tuple[int, str]:
+    """Return (0-based page, human reason) of the index, or len(pages)."""
+    total = len(pages)
+    floor = max(content_start, total - max(30, total // 8))
+    for i in range(total - 1, floor - 1, -1):
+        head = first_line(pages[i])
+        if INDEX_HEAD.match(head) and len(head) <= 20:
+            return i, f"index heading: {head!r}"
+
+    run_start = None
+    for i in range(total - 1, floor - 1, -1):
+        if is_indexish(pages[i]):
+            run_start = i
+        elif pages[i].strip() and run_start is not None:
+            break
+    if run_start is not None and total - run_start >= 3:
+        return run_start, "index-like run at the end"
+    return total, "no index detected"
+
+
+def detect(pages: list[str]) -> dict:
+    content_start, content_reason = detect_content_start(pages)
+    index_start, index_reason = detect_index_start(pages, content_start)
+    warnings: list[str] = []
+    if index_start <= content_start:
+        warnings.append("index detection landed before the content; ignoring it")
+        index_start, index_reason = len(pages), "no index detected"
+    if content_start == 0:
+        warnings.append("front matter kept: pass --content-start N if this book starts later")
+    return {
+        "pages": len(pages),
+        "content_start": content_start,
+        "content_reason": content_reason,
+        "index_start": index_start,
+        "index_reason": index_reason,
+        "warnings": warnings,
+    }
+
+
+def build_text(pages: list[str], content_start: int, index_start: int) -> str:
+    kept = []
+    for i in range(content_start, index_start):
+        body = pages[i].strip("\n")
+        if not body.strip():
+            continue
+        kept.append(f"[[p.{i + 1}]]\n{body}")
+    return "\n\n".join(kept)
+
+
+# --------------------------------------------------------------------------
+# Commands
+
+
+def read_pdf_pages(path: Path) -> list[str]:
+    if not shutil.which("pdftotext"):
+        raise SystemExit("rag-clean: pdftotext not found (install poppler-utils)")
+    proc = subprocess.run(
+        ["pdftotext", "-layout", "-enc", "UTF-8", str(path), "-"],
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(f"rag-clean: pdftotext failed: {proc.stderr.decode(errors='replace')[:300]}")
+    pages = proc.stdout.decode("utf-8", errors="replace").split("\f")
+    if pages and not pages[-1].strip():
+        pages.pop()
+    return pages
+
+
+def describe(path: Path, info: dict) -> str:
+    dropped_front = info["content_start"]
+    dropped_back = info["pages"] - info["index_start"]
+    kept = info["index_start"] - info["content_start"]
+    lines = [
+        f"file:          {path}",
+        f"pages:         {info['pages']}",
+        f"content start: page {info['content_start'] + 1} ({info['content_reason']}); "
+        f"dropping {dropped_front} page(s)",
+        f"index start:   page {info['index_start'] + 1} ({info['index_reason']}); "
+        f"dropping {dropped_back} page(s)",
+        f"kept:          {kept} page(s), {info['kept_chars']} chars",
+    ]
+    lines += [f"warning:       {w}" for w in info["warnings"]]
+    return "\n".join(lines)
+
+
+def cleaned_name(path: Path) -> str:
+    return f"{path.stem} (clean).txt"
+
+
+def cmd_inspect(args: argparse.Namespace) -> int:
+    path = Path(args.file)
+    if path.suffix.lower() != ".pdf":
+        raise SystemExit("rag-clean: inspect only knows PDFs")
+    pages = read_pdf_pages(path)
+    info = detect(pages)
+    info["kept_chars"] = len(build_text(pages, info["content_start"], info["index_start"]))
+    print(describe(path, info))
+    return 0
+
+
+def cmd_ingest(args: argparse.Namespace) -> int:
+    path = Path(args.file)
+    if not path.exists():
+        raise SystemExit(f"rag-clean: no such file: {path}")
+
+    if path.suffix.lower() == ".pdf":
+        pages = read_pdf_pages(path)
+        info = detect(pages)
+        override_c = args.content_start if args.content_start is not None else info["content_start"]
+        override_i = args.index_start if args.index_start is not None else info["index_start"]
+        if override_i <= override_c + 10:
+            raise SystemExit("rag-clean: index start must be after content start")
+        text = build_text(pages, override_c, override_i)
+        info.update(content_start=override_c, index_start=override_i, kept_chars=len(text))
+        print(describe(path, info))
+        name = cleaned_name(path)
+    else:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        name = path.name
+        print(f"file:          {path}\nkept:          {len(text)} chars (passthrough)")
+
+    if args.dry_run:
+        print("dry run: nothing uploaded")
+        return 0
+
+    existing = find_file(name)
+    if existing:
+        update_file_content(existing["id"], text)
+        file_id = existing["id"]
+        print(f"updated:       {name} ({file_id})")
+    else:
+        file_id = upload_text(name, text)
+        print(f"uploaded:      {name} ({file_id})")
+
+    if args.kb:
+        kb = ensure_kb(args.kb)
+        add_to_kb(kb["id"], file_id)
+        print(f"knowledge:     {kb['name']} ({kb['id']})")
+    return 0
+
+
+def load_state() -> dict:
+    if STATE_FILE.exists():
+        try:
+            return json.loads(STATE_FILE.read_text())
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def save_state(state: dict) -> None:
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    state = load_state()
+    changed = 0
+    scanned = 0
+    with tempfile.TemporaryDirectory(prefix="rag-clean-") as tmp:
+        for item in list_files():
+            meta = item.get("meta") or {}
+            name = meta.get("name", "")
+            content_type = meta.get("content_type", "")
+            if not (name.lower().endswith(".pdf") or content_type == "application/pdf"):
+                continue
+            file_id = item["id"]
+            size = meta.get("size")
+            cached = state.get(file_id)
+            if cached and cached.get("size") == size and cached.get("clean"):
+                continue
+
+            scanned += 1
+            try:
+                stored = file_content(file_id)
+                if stored.startswith("[[p."):
+                    state[file_id] = {"size": size, "clean": True, "excluded": False}
+                    continue
+
+                pdf = download_file(file_id, Path(tmp), f"{file_id}.pdf")
+                pages = read_pdf_pages(pdf)
+                info = detect(pages)
+                excluded = info["content_start"] > 0 or info["index_start"] < info["pages"]
+                if not excluded:
+                    state[file_id] = {"size": size, "clean": True, "excluded": False}
+                    if not args.quiet:
+                        print(f"clean: {name}")
+                    continue
+
+                dropped = info["content_start"] + (info["pages"] - info["index_start"])
+                if not args.fix:
+                    print(
+                        f"polluted: {name} ({file_id}) -- would drop {dropped} page(s) "
+                        f"({info['content_reason']}; {info['index_reason']})"
+                    )
+                    continue
+
+                text = build_text(pages, info["content_start"], info["index_start"])
+                update_file_content(file_id, text)
+                state[file_id] = {"size": size, "clean": True, "excluded": True}
+                changed += 1
+                print(f"cleaned:  {name} ({file_id}) -- dropped {dropped} page(s), kept {len(text)} chars")
+            except SystemExit as exc:
+                if not args.quiet:
+                    print(f"skip: {name}: {exc}")
+            except Exception as exc:  # one bad file must not abort the sweep
+                print(f"error: {name} ({file_id}): {exc}")
+
+    save_state(state)
+    if not args.quiet:
+        print(f"audit: {scanned} PDF(s) inspected, {changed} rebuild(s)")
+    return 0
+
+
+# --------------------------------------------------------------------------
+# Self-test
+
+
+def cmd_selftest(_args: argparse.Namespace) -> int:
+    def page(*lines: str) -> str:
+        return "\n".join(lines)
+
+    toc = page(
+        "Table of Contents",
+        "Chapter 1 ............ 12",
+        "Chapter 2 ............ 40",
+        "Chapter 3 ............ 90",
+        "x" * 220,
+    )
+    opener = page("Chapter 1. Getting Started", "x" * 300)
+    body = page("Some prose about the subject.", "x" * 300)
+    index_head = page("Index", "alpha, Something, Elsewhere, Another")
+    index_page = page(
+        "alpha, Something, Elsewhere, Another",
+        "beta, Topic, Other topic, Yet another",
+        "gamma, Topic, Other topic, Yet another",
+        "delta, Topic, Other topic, Yet another",
+        "epsilon, Topic, Other topic, Yet another",
+        "zeta, Topic, Other topic, Yet another",
+    )
+    prose = page(
+        "This chapter explains the subject in enough detail.",
+        "It has complete sentences, punctuation, and no entries.",
+        "Another paragraph follows here to make the page realistic.",
+        "And a final sentence closes the page for the reader.",
+        "This is definitely not an index, despite the word.",
+        "It keeps going for a few more lines of ordinary text.",
+    )
+
+    cases = [
+        ("skips a TOC page that mentions Chapter 1", [toc, opener, body], 1, 3),
+        ("finds an explicit index heading", [opener, body, index_head, index_page, index_page], 0, 2),
+        ("finds an index-like run without the heading", [opener, body, index_page, index_page, index_page], 0, 2),
+        ("leaves a book without an index alone", [opener, body, prose], 0, 3),
+        ("keeps prose that merely mentions an index", [opener, prose, prose], 0, 3),
+    ]
+    failures = 0
+    for title, pages, want_start, want_index in cases:
+        info = detect(pages)
+        ok = info["content_start"] == want_start and info["index_start"] == want_index
+        failures += 0 if ok else 1
+        print(
+            f"{'PASS' if ok else 'FAIL'} {title}: "
+            f"start={info['content_start']} (want {want_start}), "
+            f"index={info['index_start']} (want {want_index})"
+        )
+    if failures:
+        print(f"selftest: {failures} failure(s)")
+        return 1
+    print("selftest: OK")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="rag-clean", description=__doc__.splitlines()[0])
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p = sub.add_parser("inspect", help="show what would be dropped")
+    p.add_argument("file")
+    p.set_defaults(func=cmd_inspect)
+
+    p = sub.add_parser("ingest", help="clean and upload a document")
+    p.add_argument("file")
+    p.add_argument("--kb", help="knowledge base name (created if missing)")
+    p.add_argument("--content-start", type=int, help="0-based first content page")
+    p.add_argument("--index-start", type=int, help="0-based index page")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_ingest)
+
+    p = sub.add_parser("audit", help="find or rebuild polluted PDFs")
+    p.add_argument("--fix", action="store_true", help="rebuild polluted files")
+    p.add_argument("--quiet", action="store_true")
+    p.set_defaults(func=cmd_audit)
+
+    p = sub.add_parser("selftest", help="run detector unit checks")
+    p.set_defaults(func=cmd_selftest)
+
+    args = parser.parse_args()
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

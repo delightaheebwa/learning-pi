@@ -1,0 +1,9 @@
+# Re-clean Open WebUI PDFs that still contain front matter or a back index.
+# Install with rag-clean.timer; see the "Documents (RAG)" section of README.md.
+[Unit]
+Description=Clean newly uploaded Open WebUI PDFs before they poison RAG
+
+[Service]
+Type=oneshot
+# Adjust the path if the learning-pi checkout is not at ~/learning-pi.
+ExecStart=%h/learning-pi/deploy/rag-clean audit --fix --quiet
