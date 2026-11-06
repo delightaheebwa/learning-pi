@@ -169,9 +169,10 @@ deploy/rag-clean audit          # report only
 deploy/rag-clean audit --fix    # rebuild polluted files
 ```
 
-`ingest` uploads a `<name> (clean).txt`; re-running it updates that same file
-(and keeps its knowledge-base membership) instead of duplicating it. Page
-numbers are 1-based PDF pages. Detection is heuristic — `--content-start` and
+For PDFs, `ingest` uploads a `<name> (clean).txt`; other text files pass
+through under their own name. Re-running it updates that same file (and keeps
+its knowledge-base membership) instead of duplicating it. Page numbers are
+1-based PDF pages. Detection is heuristic — `--content-start` and
 `--index-start` (0-based) override it, and `inspect` shows the decision first.
 
 Because the UI upload button cannot be intercepted, run `audit --fix` after
@@ -185,8 +186,9 @@ systemctl --user enable --now rag-clean.timer
 ```
 
 The audit keeps a small cache in `~/.cache/rag-clean/state.json` and skips
-files whose stored text already starts with `[[p.N]]`, so it downloads each PDF
-at most once. It never touches non-PDF files (images keep flowing to pi as
+files whose stored text already starts with `[[p.N]]`, so a PDF is downloaded
+once before it is marked clean; a report-only run re-checks any file still
+flagged polluted. It never touches non-PDF files (images keep flowing to pi as
 `ImageContent`).
 
 > The external document engine (`CONTENT_EXTRACTION_ENGINE=external`) is the

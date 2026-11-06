@@ -43,7 +43,8 @@ KEY_FILE = Path.home() / ".openwebui_key"
 STATE_FILE = Path.home() / ".cache" / "rag-clean" / "state.json"
 
 CHAPTER_ONE = re.compile(r"(?i)^chapter\s+(?:1|one)\b")
-INDEX_HEAD = re.compile(r"(?i)^index\b")
+INDEX_HEAD = re.compile(r"(?i)^index(?:\s+\d+)?\s*$")
+REFERENCE_HEAD = re.compile(r"(?i)^(references|bibliography|further reading)\b")
 INDEX_ENTRY = re.compile(r"^[A-Za-z][^.]{0,80},\s+\S")
 TOC_LINE = re.compile(r"(?:\.{4,}|\s)\d{1,4}$")
 QUOTED_LINE = re.compile(r'^[“"]')
@@ -87,6 +88,7 @@ def multipart(fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]):
     for name, value in fields.items():
         out += f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode()
     for name, (filename, content, ctype) in files.items():
+        filename = filename.replace('"', "")
         out += (
             f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; '
             f'filename="{filename}"\r\nContent-Type: {ctype}\r\n\r\n'
@@ -115,7 +117,8 @@ def list_files() -> list[dict]:
         batch = page.get("items", [])
         items.extend(batch)
         skip += len(batch)
-        if not batch or skip >= page.get("total", 0):
+        total = page.get("total")
+        if not batch or (total is not None and skip >= total):
             return items
 
 
@@ -220,11 +223,13 @@ def detect_index_start(pages: list[str], content_start: int) -> tuple[int, str]:
     floor = max(content_start, total - max(30, total // 8))
     for i in range(total - 1, floor - 1, -1):
         head = first_line(pages[i])
-        if INDEX_HEAD.match(head) and len(head) <= 20:
+        if INDEX_HEAD.match(head):
             return i, f"index heading: {head!r}"
 
     run_start = None
     for i in range(total - 1, floor - 1, -1):
+        if REFERENCE_HEAD.match(first_line(pages[i])):
+            break
         if is_indexish(pages[i]):
             run_start = i
         elif pages[i].strip() and run_start is not None:
@@ -287,13 +292,19 @@ def describe(path: Path, info: dict) -> str:
     dropped_front = info["content_start"]
     dropped_back = info["pages"] - info["index_start"]
     kept = info["index_start"] - info["content_start"]
+    if info["index_start"] >= info["pages"]:
+        index_line = f"index start:   none ({info['index_reason']})"
+    else:
+        index_line = (
+            f"index start:   page {info['index_start'] + 1} ({info['index_reason']}); "
+            f"dropping {dropped_back} page(s)"
+        )
     lines = [
         f"file:          {path}",
         f"pages:         {info['pages']}",
         f"content start: page {info['content_start'] + 1} ({info['content_reason']}); "
         f"dropping {dropped_front} page(s)",
-        f"index start:   page {info['index_start'] + 1} ({info['index_reason']}); "
-        f"dropping {dropped_back} page(s)",
+        index_line,
         f"kept:          {kept} page(s), {info['kept_chars']} chars",
     ]
     lines += [f"warning:       {w}" for w in info["warnings"]]
@@ -325,7 +336,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         info = detect(pages)
         override_c = args.content_start if args.content_start is not None else info["content_start"]
         override_i = args.index_start if args.index_start is not None else info["index_start"]
-        if override_i <= override_c + 10:
+        if override_i <= override_c:
             raise SystemExit("rag-clean: index start must be after content start")
         text = build_text(pages, override_c, override_i)
         info.update(content_start=override_c, index_start=override_i, kept_chars=len(text))
@@ -336,6 +347,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         name = path.name
         print(f"file:          {path}\nkept:          {len(text)} chars (passthrough)")
 
+    if not text.strip():
+        raise SystemExit("rag-clean: nothing to upload after cleaning")
     if args.dry_run:
         print("dry run: nothing uploaded")
         return 0
@@ -384,7 +397,12 @@ def cmd_audit(args: argparse.Namespace) -> int:
             file_id = item["id"]
             size = meta.get("size")
             cached = state.get(file_id)
-            if cached and cached.get("size") == size and cached.get("clean"):
+            if (
+                cached
+                and cached.get("clean")
+                and size is not None
+                and cached.get("size") == size
+            ):
                 continue
 
             scanned += 1
