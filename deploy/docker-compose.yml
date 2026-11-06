@@ -64,6 +64,12 @@ services:
       # deliberately changing the reranking model. Env-only: no Admin-settings
       # toggle corresponds to it.
       RAG_RERANKING_MODEL_AUTO_UPDATE: ${RAG_RERANKING_MODEL_AUTO_UPDATE:-false}
+      # BGE embedding models (Admin -> Documents -> Embedding Model) expect this
+      # instruction on the QUERY side only; documents stay unprefixed. It is
+      # env-only, so it cannot live in the Admin settings. Keep the trailing
+      # space, and clear or replace the value if the embedding model changes to
+      # one that does not want an instruction.
+      RAG_EMBEDDING_QUERY_PREFIX: "${RAG_EMBEDDING_QUERY_PREFIX:-Represent this sentence for searching relevant passages: }"
       SEARXNG_QUERY_URL: ${SEARXNG_QUERY_URL:-http://searxng:8080/search?q=<query>}
       # CSP injected into sandboxed iframe documents (Artifacts previews etc.).
       # The OpenUI bundle is self-hosted same-origin, so no CDN origin is needed;
