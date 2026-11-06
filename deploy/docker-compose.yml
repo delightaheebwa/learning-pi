@@ -67,9 +67,10 @@ services:
       # BGE embedding models (Admin -> Documents -> Embedding Model) expect this
       # instruction on the QUERY side only; documents stay unprefixed. It is
       # env-only, so it cannot live in the Admin settings. Keep the trailing
-      # space, and clear or replace the value if the embedding model changes to
-      # one that does not want an instruction.
-      RAG_EMBEDDING_QUERY_PREFIX: "${RAG_EMBEDDING_QUERY_PREFIX:-Represent this sentence for searching relevant passages: }"
+      # space, and replace the value if the embedding model changes to one that
+      # does not want an instruction. The `-` (not `:-`) matters: defining the
+      # variable empty in .env must be able to clear the prefix.
+      RAG_EMBEDDING_QUERY_PREFIX: "${RAG_EMBEDDING_QUERY_PREFIX-Represent this sentence for searching relevant passages: }"
       SEARXNG_QUERY_URL: ${SEARXNG_QUERY_URL:-http://searxng:8080/search?q=<query>}
       # CSP injected into sandboxed iframe documents (Artifacts previews etc.).
       # The OpenUI bundle is self-hosted same-origin, so no CDN origin is needed;
