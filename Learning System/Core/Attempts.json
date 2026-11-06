@@ -3485,6 +3485,60 @@
       "last_reviewed": "2026-10-29",
       "next_review": "2026-11-28",
       "feynman": "pass"
+    },
+    "Software Architecture — failure-list placement of 'non-functional'": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-11-06",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "free-recall",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-06",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-06",
+      "next_review": "2026-11-13",
+      "feynman": null
+    },
+    "Software Architecture — intro": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-11-06",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "free-recall",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-06",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-11-06",
+      "next_review": "2026-11-09",
+      "feynman": null
     }
   },
   "meta": {

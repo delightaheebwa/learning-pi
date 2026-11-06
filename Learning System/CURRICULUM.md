@@ -790,6 +790,16 @@ Goal: Capstone Projects — see upstream `phases/19-*/docs/en.md` per lesson. Go
 
 **Exit:** see ROADMAP.md phase header for Capstone Projects exit criteria.
 
+## Branch — off-curriculum interrogations *(not a Rohit node — the sequential curriculum position is unaffected)*
+
+> Learner-surfaced topics taught through the same Scout/Tutor/Clerk interrogation loop but outside the AI Engineering from Scratch roadmap. They never move the sequential curriculum position, and they are carried in the `aiefs` review track so a plain `review` still reaches them.
+
+| # | Topic | Est. time | Prereqs | Lang | Status | Notes |
+|---|-------|-----------|---------|------|--------|-------|
+| B01 | Software Architecture — intro & the 'non-functional' label (*Head First Software Architecture*, Ch.1) | — | none | — | in-progress | **Paused 2026-11-06** (clean pause after a repair close; one counterexample attack queued, none in flight). Architecture = "expensive and hard to change later" solid closed-book; "non-functional" placed as a **requirements** label (fresh-surface repair close PASS). Open: counterexample on the v1 tail ("with architecture → functional; otherwise → non-functional (unreliable)") — both halves; then a calibration re-check (exit ticket's blanket "confident in all of it" is banked as illusion-of-competence). Concepts: `Software Architecture — intro` (2026-11-09), `Software Architecture — failure-list placement of 'non-functional'` (2026-11-13). Handoff: partial (`/pause`), no Scout digest (learner-surfaced source, no fetch). |
+
+---
+
 ## Rules
 
 1. Lessons strictly sequential within a mission; missions in phase order (0→19). Mission 0 Catch-Up is prerequisite to Phase 1 L07; Phase 0 individual lessons are covered by that catch-up and may be retrieval-checked, not re-taught.

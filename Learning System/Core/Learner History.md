@@ -1,4 +1,4 @@
-# Learner History — compact tutor context (generated 2026-11-05)
+# Learner History — compact tutor context (generated 2026-11-06)
 
 > **For models: read THIS file for learner background, not `Archive/`.**
 > One row per concept ever studied: strict `solid` / `neutral` / `fuzzy` tag +
@@ -14,7 +14,7 @@ Tag rules (strict): `solid` = 2+ consecutive passes, interval_index ≥ 2,
 Tutor use: build directly on `solid`; probe-then-teach `neutral`;
 reteach-from-scratch `fuzzy` (check its mistake row / review note first).
 
-Totals: 320 concepts (91 with attempt history + 229 paused) — aiefs 42 · swe 66 · aie 212 · solid 8 · neutral 273 · fuzzy 39
+Totals: 322 concepts (93 with attempt history + 229 paused) — aiefs 44 · swe 66 · aie 212 · solid 8 · neutral 274 · fuzzy 40
 
 ## AIEFS — living (updated by Clerk each session)
 
@@ -42,6 +42,7 @@ Totals: 320 concepts (91 with attempt history + 229 paused) — aiefs 42 · swe 
 | Saddle Points (critical point triage) | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Saddle Points (critical point triage) — 2026-10-20 (II).md |
 | Sequential Bayesian Updating | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Sequential Bayesian Updating — 2026-10-20.md |
 | Softmax Subtract-Max Trick | procedure | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Softmax Subtract-Max Trick — 2026-10-20.md |
+| Software Architecture — intro | concept | fuzzy |  | 2026-11-06 | last reviewed 2026-11-06 |
 | UMAP (Dimensionality Reduction) | concept | fuzzy | t-SNE (Dimensionality Reduction): neutral | 2026-10-19 | last reviewed 2026-10-19 |
 | Variance & Covariance | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Variance & Covariance — 2026-10-20 (II).md |
 | 4-Layer AI Environment Stack | concept | neutral |  | 2026-10-03 | Learning System/Reviews/Review — 4-Layer AI Environment Stack — 2026-10-03.md |
@@ -60,6 +61,7 @@ Totals: 320 concepts (91 with attempt history + 229 paused) — aiefs 42 · swe 
 | Momentum (SGD with Momentum) | procedure | solid |  | 2026-10-17 | Learning System/Reviews/Review — Momentum (SGD with Momentum) — 2026-10-17.md |
 | Posterior Probability | concept | solid |  | 2026-10-08 | Learning System/Reviews/Review — Posterior Probability — 2026-10-08.md |
 | Prior Probability | concept | solid |  | 2026-10-17 | Learning System/Reviews/Review — Prior Probability — 2026-10-17.md |
+| Software Architecture — failure-list placement of 'non-functional' | concept | neutral |  | 2026-11-06 | last reviewed 2026-11-06 |
 | t-SNE (Dimensionality Reduction) | concept | neutral | KL Divergence: fuzzy | 2026-10-12 | last reviewed 2026-10-12 |
 | Variation of Information | concept | neutral |  | 2026-09-24 | last reviewed 2026-09-24 |
 
