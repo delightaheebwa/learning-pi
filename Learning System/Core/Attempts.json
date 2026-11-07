@@ -970,13 +970,25 @@
           "q_type": "discriminative",
           "confidence": "hunch",
           "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0,
+          "targets": [
+            "n_2fa8fc5801",
+            "n_b4a16474b3"
+          ]
         }
       ],
       "interval_index": 0,
       "consecutive_correct": 0,
-      "consecutive_wrong": 1,
-      "last_reviewed": "2026-11-04",
-      "next_review": "2026-11-07",
+      "consecutive_wrong": 2,
+      "last_reviewed": "2026-11-08",
+      "next_review": "2026-11-11",
       "feynman": "fail"
     },
     "Softmax Subtract-Max Trick": {
@@ -1569,13 +1581,39 @@
           "q_type": "micro-check",
           "confidence": "sure",
           "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "hunch",
+          "hints": 0,
+          "targets": [
+            "n_01bd088722",
+            "n_69cc6762f5",
+            "n_8eb8ab836f"
+          ]
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "free-recall",
+          "confidence": "no-idea",
+          "hints": 0,
+          "targets": [
+            "n_00153be013",
+            "n_60799d4869",
+            "n_d141e5e6fe"
+          ]
         }
       ],
-      "interval_index": 2,
-      "consecutive_correct": 1,
-      "consecutive_wrong": 0,
-      "last_reviewed": "2026-10-20",
-      "next_review": "2026-11-03",
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 2,
+      "last_reviewed": "2026-11-08",
+      "next_review": "2026-11-11",
       "feynman": "pass"
     },
     "MLE vs MAP Estimation": {
@@ -1799,13 +1837,24 @@
           "q_type": "definitional",
           "confidence": "hunch",
           "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "free-recall",
+          "confidence": "hunch",
+          "hints": 0,
+          "targets": [
+            "n_83c18bba5f"
+          ]
         }
       ],
       "interval_index": 0,
       "consecutive_correct": 0,
-      "consecutive_wrong": 1,
-      "last_reviewed": "2026-11-04",
-      "next_review": "2026-11-07",
+      "consecutive_wrong": 2,
+      "last_reviewed": "2026-11-08",
+      "next_review": "2026-11-11",
       "feynman": null
     },
     "Momentum (SGD with Momentum)": {
@@ -2081,13 +2130,29 @@
           "q_type": "definitional",
           "confidence": "hunch",
           "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "error-detect",
+          "confidence": "hunch",
+          "hints": 0
         }
       ],
       "interval_index": 2,
       "consecutive_correct": 0,
       "consecutive_wrong": 1,
-      "last_reviewed": "2026-10-22",
-      "next_review": "2026-11-05",
+      "last_reviewed": "2026-11-08",
+      "next_review": "2026-11-22",
       "feynman": null
     },
     "Optimizer Selection (Rohit heuristic)": {
@@ -2120,13 +2185,24 @@
           "q_type": "explain-back",
           "confidence": "sure",
           "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "explain-back",
+          "confidence": "hunch",
+          "hints": 0,
+          "targets": [
+            "n_05cfdf0c5b"
+          ]
         }
       ],
-      "interval_index": 2,
+      "interval_index": 1,
       "consecutive_correct": 0,
-      "consecutive_wrong": 1,
-      "last_reviewed": "2026-10-10",
-      "next_review": "2026-10-24",
+      "consecutive_wrong": 2,
+      "last_reviewed": "2026-11-08",
+      "next_review": "2026-11-15",
       "feynman": "fail"
     },
     "Information Content (Surprise)": {
