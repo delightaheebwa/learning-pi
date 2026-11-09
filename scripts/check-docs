@@ -25,6 +25,9 @@ BANNED = (
     "193 gate assertions",
     "viz-smoke",
     "viz_audit",
+    "learning-system repository",
+    "lives in a separate repository",
+    "learning-system/infra/ACCESS.md",
 )
 
 violations = []

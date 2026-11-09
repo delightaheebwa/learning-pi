@@ -17,3 +17,6 @@ Run `pi` from this directory. `install.sh` links `.pi/` here. It also links
 `.agents/`, the retired Antigravity layer, which is unused.
 See [`docs/README.md`](../docs/README.md) for the doc map and the open
 integration work.
+
+Whitespace in the imported files is left verbatim; the root `.gitattributes`
+excludes `state/` from whitespace checks.

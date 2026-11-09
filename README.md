@@ -156,7 +156,7 @@ ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 
 Notes: Docker Desktop runs Windows-side — the WSL checkout is the working copy
 and the UI is reached as `http://localhost:3000` from WSL/browsers (see
-`learning-system/infra/ACCESS.md`). Keep the repos on the Linux filesystem
+`state/infra/ACCESS.md`). Keep the repo on the Linux filesystem
 (`~/...`, not `/mnt/c/...`) for symlinks and performance.
 
 ### macOS (Homebrew)
@@ -413,8 +413,8 @@ session and avoid running both writers concurrently. This repo never touches sta
 
 pi is **hard-pinned** to the version in `versions.lock.json`. The `bin/pi` launcher runs that exact
 version and never updates anything; it only reports (at most daily) when a newer candidate exists.
-Extension packages are pinned in `versions.lock.json`, so
-`pi update --extensions` skips them.
+Extension packages are pinned, so `pi update --extensions` skips them. See
+`versions.lock.json`.
 
 The behavior the learning system requires is declared in [`CONTRACT.md`](CONTRACT.md) and
 [`contracts/learning-core.json`](contracts/learning-core.json), and enforced by `scripts/learn-check`.

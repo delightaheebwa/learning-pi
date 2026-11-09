@@ -25,7 +25,7 @@ renders a broken frame. Do both in the same turn. The Tutor never writes the HTM
 ## 2. Artifact directory
 
 The artifact directory is the current conversation's Antigravity brain folder — **not** the
-learning-system repository, not `Learning System/`, not `Knowledge Wiki/`:
+learner state tree, not `Learning System/`, not `Knowledge Wiki/`:
 
 - App: `~/.gemini/antigravity/brain/<conversation-id>/`
 - CLI: `~/.gemini/antigravity-cli/brain/<conversation-id>/`

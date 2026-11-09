@@ -4,7 +4,7 @@ This folder + `Knowledge Wiki/` are the active learning system. The operating pr
 
 ## Repo location
 
-The runtime working copy lives at **`/home/user/learning-system`** inside the Open WebUI **Open Terminal** workspace (a persistent container volume, legacy path). A second checkout lives at **`/home/delightaheebwa/learning-system`** (WSL, this host) for maintenance refactors — both track the same GitHub remote; GitHub (https://github.com/delightaheebwa/learning-system) is the durable source of truth. The runtime model reads and writes the Open Terminal copy; keep the two in sync only via git push/pull, never by editing both directly in one session. The canonical pi runtime uses the local checkout directly (no Open Terminal needed).
+The learner state lives in **`~/learning-pi/state`** inside the `learning-pi` repo, whose GitHub remote (https://github.com/delightaheebwa/learning-pi) is the durable source of truth. The Open WebUI **Open Terminal** workspace keeps a mounted copy; sync it via git push/pull, never by editing both directly in one session.
 
 ## Multi-File Consistency Check
 

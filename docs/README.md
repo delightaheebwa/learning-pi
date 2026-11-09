@@ -7,7 +7,7 @@ This file maps the docs in this repo. Read it before any other doc.
 | Question | File |
 | --- | --- |
 | What behavior is guaranteed, and which tests prove it | `CONTRACT.md` and `contracts/learning-core.json` |
-| How to verify a change | `scripts/learn-check` |
+| How to verify a change | `scripts/learn-check` and `scripts/check-docs` |
 | How to work in this repo | `AGENTS.md` and `.opencode/loop.md` |
 | What the system is and how to set it up | `README.md` |
 | Current teaching method | `docs/teaching-methodology.md` |
@@ -15,6 +15,9 @@ This file maps the docs in this repo. Read it before any other doc.
 `contracts/learning-core.json` is the authoritative invariant set. Its version,
 invariant count, and per-invariant test names change over time. No other doc
 repeats those numbers. Point at the JSON instead.
+
+Root CI (`.github/workflows/learn-check.yml`) runs `scripts/learn-check --no-load`,
+`scripts/check-docs`, and the state unit tests.
 
 ## Current docs
 
@@ -39,7 +42,7 @@ asserts on their content, so edit them with care.
 | Tree | Files | Role |
 | --- | --- | --- |
 | `.pi/skills/` | 5 | Canonical teaching flows for pi. |
-| `.pi/prompts/` | 8 | Slash-command entry points. Each carries a `[[FLOW:...]]` marker. |
+| `.pi/prompts/` | 8 | Slash-command entry points. Seven of the eight carry a `[[FLOW:...]]` marker; `audit.md` is not a gated flow. |
 | `.pi/agents/` | 15 | Verifiers and workers dispatched by the gate. |
 | `.pi/APPEND_SYSTEM.md` | 1 | Tutor stance loaded every turn. |
 | `antigravity/skills/` | 9 | Retired control layer. |
@@ -57,8 +60,9 @@ follow their instructions.
 - `AUDIT-ROADMAP.md` records the 2026 staged audit. Its stage status and
   contract counts predate the current contract.
 - `docs/roadmap/` holds a completed Herdr cascade. Its briefs describe a
-  push-to-main workflow that contradicts `AGENTS.md`. The helper scripts were
-  removed. The briefs and reports remain as history.
+  push-to-main workflow that contradicts `AGENTS.md`. The helper scripts and
+  the unused R-P3 brief were removed. The remaining briefs and reports stay as
+  history.
 - `docs/roadmap/E2E-REPORT.md` and `docs/roadmap/STAGE-LOG.md` are snapshots
   from that cascade.
 - `docs/plans/intelligent-ui/` is a completed spike. It names modules that do
@@ -83,7 +87,8 @@ revise door described in `CONTRACT.md`. They are not fixed here.
 - `install.sh` and `init-state.sh` still assume a separate state checkout.
   After the merge the learner state lives in `state/`. Set
   `LEARNING_SYSTEM_ROOT` to `state/` or pass `--root` until those defaults
-  change. `pi/graph.py`, `harness/e2e-runner.py`, `omarchy/review-reminder.sh`,
+  change. `pi/graph.py`, `harness/e2e-runner.py`, `harness/audit-recent-sessions.sh`,
+  `harness/systemd/learning-pi-audit.service`, `omarchy/review-reminder.sh`,
   and `init-state.sh` carry the same default.
 - Two active teaching stacks remain. `.pi/skills/` is canonical for pi.
   `state/Skills/` is the frozen Open WebUI snapshot that `state/scripts/` reads
@@ -92,11 +97,11 @@ revise door described in `CONTRACT.md`. They are not fixed here.
 - `.pi/skills/learning-review/SKILL.md` contradicts itself on whether a flagged
   issue blocks ingest.
 - `.pi/APPEND_SYSTEM.md` requires `visual_plan.widget_file` while
-  `.pi/skills/openui/SKILL.md` requires `payload` and `rendered_content`. A
-  turn cannot satisfy both bindings.
+  `.pi/skills/openui/SKILL.md` requires `payload` and `rendered_content`. The
+  two define two different widget contracts.
 - `.pi/APPEND_SYSTEM.md` and `.pi/skills/learning-teach/SKILL.md` carry two
   copies of the stress-test protocol.
-- Eight `.pi/agents/*.md` files pin a host-specific absolute path to the
+- Nine `.pi/agents/*.md` files pin a host-specific absolute path to the
   `pi-web-access` extension.
 - `.pi/skills/learning-system/SKILL.md` and
   `.pi/skills/learning-teach/SKILL.md` name a `phases/` curriculum tree that

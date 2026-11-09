@@ -41,9 +41,10 @@ changes are to **skill markdown**, not Python.
   Model presets (Scout / Learning Tutor / Clerk), Prompts (legacy frozen 7: `/swe`, `/review`,
   `/ingest`, `/teach`, `/lesson`, `/continue`, `/pause` — canonical pi has 9 with `/solo /audit /show`, no `/swe`), a Function-type Filter (Gate
   Pipe), and global `subagents.system_prompt`.
-- **Checks:** CI (`.github/workflows/ci.yml`) runs `py_compile scripts/*.py`,
-  `python -m unittest scripts.ops_test -v`, `python scripts/learner_history.py`,
-  `docker compose config`, plus a secrets grep. Executable scripts are
+- **Checks:** root CI (`.github/workflows/learn-check.yml`) runs
+  `scripts/learn-check --no-load`, `scripts/check-docs`, and this tree's unit
+  tests (`python3 -m unittest discover -s scripts -p '*_test.py'` from
+  `state/`). Executable scripts are
   `scripts/setup_openwebui.py`, `scripts/ops.py` (runtime sidecar),
   `scripts/learner_history.py` (regenerates `Core/Learner History.md`),
   `scripts/audit_openwebui.py` (drift audit), and `scripts/wiki_provenance.py`

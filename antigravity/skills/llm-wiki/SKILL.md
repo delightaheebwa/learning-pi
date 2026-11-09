@@ -11,7 +11,7 @@ Build, query, cross-link, and maintain a Karpathy-style personal knowledge wiki 
 
 ## Directory Layout
 
-All paths are relative to the learning-system repository root:
+All paths are relative to the learner state tree root:
 - `Knowledge Wiki/raw/sources/`: Immutable raw source texts and clipped reference passages.
 - `Knowledge Wiki/raw/assets/`: Diagram images, screenshots, and visual media attachments.
 - `Knowledge Wiki/wiki/`: Curated markdown concept and insight pages.

@@ -52,8 +52,8 @@ git worktree add -b agent/<slug>-$(date +%Y%m%d) ../learning-pi-worktrees/agent-
 - Keep the branch to your own task. Never commit to `main`, never push to
   `main` by hand, never force-push. (The only exception: `main` is updated
   by `scripts/agent-worktree land` after reviewer `CLEAN`, §4.)
-- Verify here: `scripts/learn-check` (add `--no-load` if offline). Proceed
-  only on pass.
+- Verify here: `scripts/learn-check` and `scripts/check-docs` (add `--no-load`
+  if offline). Proceed only on pass.
 - Push with `git push -u origin <your-branch>` (plain push, never force),
   then follow the ship loop (§3). After reviewer `CLEAN`, land it yourself
   (§4) — do not leave the merge to the user.

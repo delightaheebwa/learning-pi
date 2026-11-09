@@ -5,7 +5,7 @@ description: Run the spaced-repetition learning system. Use for "review" (review
 
 # Learning System
 
-The active learning system, running in pi against the learning-system repository working copy (the current working directory).
+The active learning system, running in pi against the learner state tree (the current working directory).
 
 **Trigger routing (read first):**
 - **"review" → review flow** (active track). Runs in the main session.
@@ -139,4 +139,4 @@ These writes are owned by the **Clerk** (ingest) or **review-clerk** (review clo
 - **Source of truth:** the repository working copy (current working directory). State lives in `Learning System/` and `Knowledge Wiki/`.
 - **Pipeline:** `scout` → Tutor (main session) → `clerk`, all in one pi session; the review flow mirrors it as `review-scout` → Reviewer (main session) → `review-clerk`. Scout/review-scout write the ephemeral digest; Tutor/Reviewer teach/review; Clerk/review-clerk persist. Never write wiki pages/Active Concepts from the Tutor, and never write review state from the Reviewer.
 - **Gate:** the `learning-gate` extension blocks unverified teaching/quiz/grade turns and enforces the Scout digest for new lessons. Fixed verifier wording lives in the verifier agent files — send data only.
-- **State commits:** commit and push **state only** (`Learning System/`, `Knowledge Wiki/`) per `Learning System/AGENTS.md`. The pi control layer lives in a separate repository; do not commit it here.
+- **State commits:** commit and push **state only** (`Learning System/`, `Knowledge Wiki/`) per `Learning System/AGENTS.md`. The state tree and the pi control layer share one git repo; do not commit control-layer changes from a tutor session.

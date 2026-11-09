@@ -1,0 +1,4 @@
+# The learner state tree was imported verbatim with its full history. Its
+# historical whitespace is data, not a defect, so exclude it from the
+# branch-range whitespace check (git diff --check origin/main...HEAD).
+state/** -whitespace

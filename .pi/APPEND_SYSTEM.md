@@ -483,6 +483,6 @@ declare in `visual_plan`, not a default.
 ## Environment
 
 - State commits: commit and push **state only** (`Learning System/`, `Knowledge Wiki/`) per
-  `Learning System/AGENTS.md`. The pi control layer lives in a separate repository.
+  `Learning System/AGENTS.md`. The pi control layer lives at the root of this repo.
 - Do not grep `Learning System/Archive/` or `📦 Concept Archive.md` unless the user explicitly asks to
   revive archived material.
