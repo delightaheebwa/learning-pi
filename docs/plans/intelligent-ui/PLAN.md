@@ -1,5 +1,9 @@
 # Plan: Intelligent-UI-style learning in Open WebUI (OpenUI Lang + native fallbacks)
 
+> **Historical record.** This document describes work completed in 2026. It is
+> not current process. The current map is `docs/README.md`, and the authoritative
+> rules are `AGENTS.md`, `.opencode/loop.md`, and `CONTRACT.md`.
+
 Status: **Phases 0-3 done** (Phase 0 source-confirmed against Open WebUI v0.12.2,
 commit `6a18585`) — see [`PHASE0-FINDINGS.md`](./PHASE0-FINDINGS.md). Phase 3
 (hardening & docs) landed 2026-10-18.

@@ -17,11 +17,7 @@ change that is not an update.
 
 ## Model
 
-Run this skill under a free model, in this order of preference:
-
-1. longcat
-2. mimo
-3. big pickle
+Run this skill under a cheap model. Use `deepseek-v4.1-flash` or `glm-5.3-flash`.
 
 The pi sessions inside the sandbox still use pi's own flash models
 (`glm-5.3-flash`, `deepseek-v4.1-flash`, `muse-spark-1.3-contributor`). Those are
@@ -113,7 +109,7 @@ upstream issue. If promotion changed versions and something looks wrong,
 
 ## Inspect mode (read-only)
 
-Never touch the real `~/learning-system` or `~/.pi/agent`, and never change
+Never touch the real `~/learning-pi/state` or `~/.pi/agent`, and never change
 pins. Sandbox only.
 
 ### Start with the scripted tier
@@ -155,7 +151,7 @@ Keep failing session transcripts as evidence.
 ## Rules
 
 - Update mode changes pins; inspect mode does not. Never promote without a green gate.
-- Never read or write `~/learning-system` or `~/.pi/agent` state in a sandbox session.
+- Never read or write `~/learning-pi/state` or `~/.pi/agent` state in a sandbox session.
 - Never edit `test/`, `contracts/`, or `CONTRACT.md` to make a test or journey pass —
   that is the revise door and needs the user's explicit agreement.
 - A withhold is a finding, not a nuisance: report the code and the turn.

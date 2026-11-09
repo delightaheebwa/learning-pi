@@ -7,18 +7,17 @@ A practical guide to running your spaced-repetition learning system from the pi 
 ## 1. The setup in one picture
 
 ```
-~/learning-system     clone of delightaheebwa/learning-system   <- STATE (source of truth)
-                        Learning System/ , Knowledge Wiki/
-  .pi/                symlinks -> ~/learning-pi/.pi             <- local-only, git-excluded (!! )
-
-~/learning-pi         the pi control layer (this repo)          <- skills, agents, prompts, gate
+~/learning-pi/            this repo: the pi layer and the learner state
+~/learning-pi/state/      Learning System/ , Knowledge Wiki/ , scripts/
+  .pi/                    symlinks -> ~/learning-pi/.pi   (local-only, git-excluded)
+  .agents/                retired Antigravity overlay (unused)
 ```
 
-- **State** lives in the original repo and is shared with Open WebUI. Only state is committed there.
-- **The pi layer** lives here; `install.sh` symlinks it into the checkout. It never touches state.
-- **You run pi from the state checkout:**
+- **State** lives in `state/` with its full history. The separate state repo is retired.
+- **The pi layer** lives at the repo root. `install.sh` links `.pi/` into `state/`. It also links `.agents/`, which is retired and unused.
+- **You run pi from the state tree:**
   ```bash
-  cd ~/learning-system && pi
+  cd ~/learning-pi/state && pi
   ```
   First run only: approve/trust the project (`.pi/` resources load only after trust).
 
@@ -44,7 +43,7 @@ Skills are loaded automatically; you rarely call them by hand. If you want to fo
 
 ## 3. A normal teaching session
 
-1. **Start** — `cd ~/learning-system && pi`, then run `/lesson` (next in curriculum) or
+1. **Start** — `cd ~/learning-pi/state && pi`, then run `/lesson` (next in curriculum) or
    `/teach eigenvalue decomposition` (a topic).
 2. **Scout** runs first for a new lesson: fetches the live curriculum doc + its Further Reading,
    hashes them, writes a digest to `Learning System/.tmp/`, and posts `SCOUT_DIGEST:`. (Scout's
@@ -145,8 +144,10 @@ on a grade or quiz turn: an untagged grade/quiz message is accepted when a `grad
 `quiz-audit` receipt matches that exact text (the receipt carries the question, answer, or batch),
 or when exactly one gate type has a valid pending receipt (async verifiers report via a completion
 notification that carries no draft, so a bound match is impossible there). Ambiguous messages (both
-gate types pending) or ones with no receipt at all are still withheld, and `claims`/`none` are never
-inferred.
+gate types pending) or ones with no receipt at all are still withheld. Two other cases carry an
+implicit `[[TURN:none]]`: an ingest summary after a clerk dispatch, verified by the clerk's
+`REVIEW_GATE_VERDICT`, and an untagged review close once the session note is written, verified by
+the `review-session-audit` receipt. `claims` is never inferred.
 
 The Tutor writes its four handoff artifacts (lesson file, session note, learning record,
 `Pending Ingest.json`) in **one batch at a pause or lesson end**, and an independent `tutor-audit`
@@ -244,7 +245,7 @@ artifacts) but does not enforce separation. To change a default, edit that file 
   `/reload` (or `systemctl --user restart pi-bridge` + `docker compose` restart if you run the bridge/deploy path).
 - **Open WebUI also writes this state** (via pi-bridge). Pull before a session and don't run both writers at once:
   ```bash
-  cd ~/learning-system && git pull
+  cd ~/learning-pi/state && git pull
   ```
   See `bridge/README.md` + `deploy/README.md` for the Open WebUI → pi-bridge → pi path.
 - Never commit `.pi/` (it's in `.git/info/exclude`) or `Pending Ingest.json` / `.tmp/` (gitignored).
@@ -254,7 +255,7 @@ artifacts) but does not enforce separation. To change a default, edit that file 
 ## 9. The consistency audit (read-only)
 
 ```bash
-python3 ~/learning-pi/pi/audit_state.py --root ~/learning-system
+python3 ~/learning-pi/pi/audit_state.py --root ~/learning-pi/state
 ```
 
 Checks: MISSION vs CURRICULUM positions, lesson files vs curriculum rows, Active Concepts dates,
@@ -272,12 +273,12 @@ surface as `STATE_AUDIT_ERRORS` (withhold); warnings-only surface as `⚠️ STA
 ## 10. Troubleshooting
 
 - **Gate never blocks / tags visible in output** → the project isn't trusted or the extension didn't
-  load. `cd ~/learning-system && pi`, approve trust, then `/reload`.
-- **`/skill:...` or slashes missing** → start pi from `~/learning-system`; project `.pi/` loads only
+  load. `cd ~/learning-pi/state && pi`, approve trust, then `/reload`.
+- **`/skill:...` or slashes missing** → start pi from `~/learning-pi/state`; project `.pi/` loads only
   there (after trust).
 - **Scout/verifier web fetches fail** → the agents load `pi-web-access` via an absolute path in their
   frontmatter; verify `~/.pi/agent/npm/node_modules/pi-web-access/index.ts` exists.
-- **Verifier can't read the repo** → the Tutor's cwd must be `~/learning-system`.
+- **Verifier can't read the repo** → the Tutor's cwd must be `~/learning-pi/state`.
 - **Model keeps forgetting turn tags** → consider a stronger Tutor model in `.pi/settings.json`.
 - **Withheld banner says a dispatch omitted the `agent` field** → that dispatch minted no receipt;
   the model must name the verifier (e.g. `tutor-audit`) as `dispatch({ agent: "tutor-audit", ... })`.
@@ -307,7 +308,7 @@ surface as `STATE_AUDIT_ERRORS` (withhold); warnings-only surface as `⚠️ STA
   scored the PASS unsubstantiated because the verifier emitted no evidence. The verifier's verdict
   JSON must carry a non-empty `evidence` list naming what it checked (the `quiz-audit` and
   `tutor-audit` agents require this); re-dispatch it.
-- **State looks stale after Open WebUI use** → `git pull` in `~/learning-system`.
+- **State looks stale after Open WebUI use** → `git pull` in `~/learning-pi/state`.
 
 ---
 
@@ -343,16 +344,13 @@ never changes gating.
 ## 12. Maintenance
 
 ```bash
-# update the pi layer
-cd ~/learning-pi && git pull && ./install.sh ~/learning-system
+# update the repo (runtime and state together)
+cd ~/learning-pi && git pull && ./install.sh ~/learning-pi/state
 
-# update state
-cd ~/learning-system && git pull
-
-# if the canonical Skills/ change, re-derive the sanitized pi copies and diff
-diff -u ~/learning-system/Skills/learning-system/SKILL.md \
+# compare the frozen Skills/ snapshot with the canonical pi skills
+diff -u ~/learning-pi/state/Skills/learning-system/SKILL.md \
         ~/learning-pi/.pi/skills/learning-system/SKILL.md
 ```
 
-The pi skills are **sanitized vendored copies** — no Open WebUI plumbing, no host paths, no stale
-state. The originals stay untouched for Open WebUI.
+The pi skills are canonical. They contain no Open WebUI plumbing, no host paths, and no stale
+state. The copies under `state/Skills/` are frozen and unmaintained.

@@ -44,7 +44,7 @@ Open WebUI (Docker, this machine)
 
 ```sh
 # key: --api-key, $PI_BRIDGE_API_KEY, or ~/.pi-bridge-key
-python3 -m bridge --port 8790 --state-repo ~/learning-system
+python3 -m bridge --port 8790 --state-repo ~/learning-pi/state
 ```
 
 In Open WebUI: **Settings → Connections → +** (OpenAI API). The Base URL must be

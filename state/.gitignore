@@ -5,3 +5,7 @@ Learning System/.tmp/
 Learning System/Core/Pending Ingest.json
 infra/.env
 backups/
+
+# pi and Antigravity overlays linked by install.sh (local-only)
+.pi/
+.agents/

@@ -1,8 +1,8 @@
 # learning-pi
 
-The pi control layer for the `learning-system` spaced-repetition system. This repo holds only
-pi-side resources — skills, subagents, prompts, a verification gate, and an audit script — and
-**no learning state**.
+The pi control layer and the learner state for a spaced-repetition learning system. The
+tutor runtime (skills, subagents, prompts, verification gate, bridge, deploy stack)
+and the learner notebook live in this one repo. The notebook is under `state/`.
 
 ## What is this?
 
@@ -27,10 +27,9 @@ An AI tutor that teaches and remembers what you know.
 > [`learning-system` Discussions](https://github.com/delightaheebwa/learning-system/discussions).
 > This project is built in public.
 
-> **Roadmap:** [`AUDIT-ROADMAP.md`](AUDIT-ROADMAP.md) holds the audit verdict and the staged
-> improvement plan (P0–P2 done, P3 deferred; post-cascade P4 foundation-beats, scout-audit gate,
-> teach rewrite, bridge + deploy; P5 LearnHarness hybrid). Read it before changing teaching
-> behavior, the gate, learner state, or the Knowledge Wiki; update it when a stage lands.
+> **Docs:** [`docs/README.md`](docs/README.md) maps every doc and names the sources of
+> truth. `AUDIT-ROADMAP.md` is a historical record of the 2026 staged audit. Read
+> `CONTRACT.md` before changing teaching behavior or the gate.
 
 > **Methodology:** [`docs/teaching-methodology.md`](docs/teaching-methodology.md) covers how the
 > interrogation flow relates to LearnHarness — what is imported (measurement, dependency ordering,
@@ -38,36 +37,40 @@ An AI tutor that teaches and remembers what you know.
 > deliberately not (teacher-first cold lessons, a methodology catalogue, reveal-and-move-on,
 > Tutor-authored v2, numeric confidence, symbolic derivations).
 
-## The two repos
+## One repo
 
 ```
-~/learning-pi       this repo: the tutor program (skills, gate, prompts)
-~/my-learning       your notebook: everything you learn — or ~/learning-system,
-                    the owner's example notebook, full of real data
+~/learning-pi/          this repo: the tutor runtime and the learner state
+~/learning-pi/state/    the notebook, the wiki, and the state scripts
 ```
 
-`install.sh` plugs this repo's `.pi/` into the notebook checkout (and git-ignores
-it there), so `pi` runs the tutor inside your data. The tutor's code never enters
-your notebook repo, and your data never enters this repo.
+The learner state was a separate repo until 2026-11-09. It now lives in `state/`
+with its full commit history. Run `install.sh ~/learning-pi/state` once to link
+the `.pi/` overlay, then run `pi` from `~/learning-pi/state` so the relative
+paths in the skills resolve. Set `LEARNING_SYSTEM_ROOT` to the same path for the
+scripts that take a state root. See [`docs/README.md`](docs/README.md) for the
+open integration work on `install.sh` and `init-state.sh`.
 
 ## Two ways to use it
 
 - **Open WebUI + pi (chat in your browser).** Open WebUI is the face, pi is the
   brain: the chat UI talks to `pi-bridge`, which drives the same tutor, gate,
   and skills. Best for long-form learning with images and history.
-- **pi only (terminal).** Run `pi` inside your notebook checkout and talk to the
-  tutor directly. Same brain, no browser, no Docker. Best for quick sessions
-  and for machines where you don't want the web stack.
+- **pi only (terminal).** Run `pi` inside `state/` and talk to the tutor directly.
+  Same brain, no browser, no Docker. Best for quick sessions and for machines
+  where you don't want the web stack.
 
-Both hit the same tutor and the same notebook — pick per session, or use just one.
+Both hit the same tutor and the same notebook. Pick per session.
+
+The Antigravity Desktop layer in `antigravity/` is retired. It is no longer used.
+The files stay because `test/contract/check_antigravity_layer.py` asserts on
+them, and removing that check is a revise-door change. See
+[`docs/README.md`](docs/README.md).
 
 ## Set up (one-shot per platform)
 
-Two paths share the same prerequisites below. **Path A — clone the example:**
-the owner's live `learning-system` (real data, useful as a reference implementation).
-**Path B — your own fresh state (recommended for actual use):** an empty
-scaffold with the same structure and zero owner data, built by
-`init-state.sh`, ready for your own material.
+The prerequisites below set up the pi layer. The learner state already lives in
+`state/`. To start using it, see [State](#state).
 
 Base requirements (all platforms): `git`, `python3`, [`mise`](https://mise.jdx.dev)
 (provides the pinned `pi` binary), `deno` for `lpi test`, and `nodejs`/`npm`
@@ -87,7 +90,7 @@ mkdir -p ~/.local/bin
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
-# next: pick a state path below (A example, B fresh)
+# next: see the State section below
 ```
 
 Omarchy extras (bar widget + evening reminder — optional):
@@ -109,7 +112,7 @@ mkdir -p ~/.local/bin
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
-# next: pick a state path below (A example, B fresh)
+# next: see the State section below
 ```
 
 ### Windows (via WSL2 — native Windows is not supported)
@@ -148,7 +151,7 @@ mkdir -p ~/.local/bin
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
-# next: pick a state path below (A example, B fresh)
+# next: see the State section below
 ```
 
 Notes: Docker Desktop runs Windows-side — the WSL checkout is the working copy
@@ -167,37 +170,28 @@ mkdir -p ~/.local/bin
 ln -sf ~/learning-pi/bin/pi ~/.local/bin/pi
 ln -sf ~/learning-pi/bin/lpi ~/.local/bin/lpi
 ~/.local/bin/pi --version && ~/learning-pi/scripts/learn-check --no-load
-# next: pick a state path below (A example, B fresh)
+# next: see the State section below
 ```
 
-## State — two paths
+## State
 
-Prerequisites above give you the pi layer. Now pick your state:
+The learner notebook is `state/`. It holds `Learning System/` (SRS tables,
+sessions, reviews, lessons), `Knowledge Wiki/` (wiki pages and raw sources),
+`scripts/` (state tooling), `infra/`, and the frozen `Skills/` snapshot. Its
+history came across in the merge.
 
-### Path A — clone the example (owner's live data)
+To start using it:
 
 ```bash
-git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system  # owner's data, as an example
-~/learning-pi/install.sh ~/learning-system
-cd ~/learning-system && pi  # approve/trust once, then /review /lesson /teach
+~/learning-pi/install.sh ~/learning-pi/state
+cd ~/learning-pi/state && pi   # approve/trust once, then /review /lesson /teach
 ```
 
-Read-only inspiration: start your own track rather than continuing the owner's
-schedule — and you have no write access to that repo anyway.
+Define your track in `state/Learning System/MISSION.md` and
+`state/Learning System/CURRICULUM.md`, then run `/teach <topic>` or `/lesson`.
 
-### Path B — your own fresh state (recommended for actual use)
-
-```bash
-~/learning-pi/init-state.sh ~/my-learning   # empty scaffold, zero owner data, fresh git history
-~/learning-pi/install.sh ~/my-learning
-cd ~/my-learning && pi  # approve/trust once
-```
-
-Then: point it at your own remote
-(`git remote add origin <your-url> && git push -u origin main`), define your
-track in `Learning System/MISSION.md` + `CURRICULUM.md`, and run `/teach <topic>`
-or fill the curriculum and run `/lesson`. The scaffold passes the state audit
-with 0 errors out of the box.
+`init-state.sh` still builds a separate scaffold repo from a clone. Rewriting it
+for the single-repo layout is open work, listed in `docs/README.md`.
 
 Notes:
 
@@ -228,9 +222,8 @@ Notes:
 
 ```bash
 git clone https://github.com/delightaheebwa/learning-pi.git ~/learning-pi
-git clone https://github.com/delightaheebwa/learning-system.git ~/learning-system   # if not present
-~/learning-pi/install.sh ~/learning-system
-cd ~/learning-system && pi        # approve/trust the project once
+~/learning-pi/install.sh ~/learning-pi/state
+cd ~/learning-pi/state && pi      # approve/trust the project once
 ```
 
 ## Usage
@@ -320,12 +313,17 @@ content-matched verification (generation-to-emission — "verify A, emit B" is b
   - `[[TURN:grade]]` → requires an agreeing `grade-audit`
   - `[[TURN:ui]]` → requires a passing `ui-audit` bound to the emitted OpenUI payload and covering the prose
   - `[[TURN:none]]` → no verifier required
-- A missing tag is withheld (`NO_TURN_TAG`) on the legacy path — **except** a grade/quiz turn, which
-  the gate infers from a `grade-audit`/`quiz-audit` receipt (a bound match, or the single valid
-  pending receipt when an async verifier's completion notification carries no draft). With a judge
-  configured, a tag is a **hint** and the judge classifies the turn from the content, so an untagged
-  claims turn whose fact-check covers it renders. A `none` tag over text that matches an unused
-  verification draft is withheld too (`TURN_TAG_MISMATCH`).
+- A missing tag is withheld (`NO_TURN_TAG`) on the legacy path. Three cases are
+  exempt. A grade/quiz turn is inferred from a `grade-audit`/`quiz-audit` receipt
+  (a bound match, or the single valid pending receipt when an async verifier's
+  completion notification carries no draft). An ingest summary after a clerk
+  dispatch, and an untagged review close once the session note is written, both
+  carry an implicit `[[TURN:none]]` verified by the clerk's
+  `REVIEW_GATE_VERDICT` or the `review-session-audit` receipt. With a judge
+  configured, a tag is a hint and the judge classifies the turn from the content,
+  so an untagged claims turn whose fact-check covers it renders. A `none` tag
+  over text that matches an unused verification draft is withheld too
+  (`TURN_TAG_MISMATCH`).
 
 Behavior: up to 2 withheld retries per turn (counter resets on each clean pass), then the turn is surfaced with an `⛔ UNVERIFIED`
 banner; internal errors fail open. Non-learning sessions are never gated.
@@ -371,20 +369,20 @@ Receipts are still the verifier's own statement; the judge never authors them.
 > The frozen copies are not deleted (yet) so the Open WebUI branch stays readable.
 
 Four of the skills in `.pi/skills/` (`learning-system`, `learning-teach`, `learning-review`,
-`llm-wiki`) are **sanitized, vendored copies** of the originals — stripped of
-Open WebUI plumbing, host-specific paths, and all volatile state (lesson positions, dates,
-statuses, archive logic). The originals under the state repo's `Skills/` are untouched.
+`llm-wiki`) are stripped of Open WebUI plumbing, host-specific paths, and volatile
+state (lesson positions, dates, statuses, archive logic). The copies under
+`state/Skills/` are frozen and unmaintained. Treat `.pi/skills/` as canonical.
 
 They are derived, not symlinked, so re-derive and diff them if the canonical skills change:
 
 ```bash
-diff -u ~/learning-system/Skills/learning-system/SKILL.md ~/learning-pi/.pi/skills/learning-system/SKILL.md
+diff -u ~/learning-pi/state/Skills/learning-system/SKILL.md ~/learning-pi/.pi/skills/learning-system/SKILL.md
 ```
 
 ## State audit (read-only)
 
 ```bash
-python3 ~/learning-pi/pi/audit_state.py --root ~/learning-system
+python3 ~/learning-pi/pi/audit_state.py --root ~/learning-pi/state
 ```
 
 Reports contradiction classes (MISSION vs CURRICULUM vs Profile vs Active Concepts vs wiki index),
@@ -415,7 +413,7 @@ session and avoid running both writers concurrently. This repo never touches sta
 
 pi is **hard-pinned** to the version in `versions.lock.json`. The `bin/pi` launcher runs that exact
 version and never updates anything; it only reports (at most daily) when a newer candidate exists.
-Extension packages are pinned to exact versions in `~/.pi/agent/settings.json`, so
+Extension packages are pinned in `versions.lock.json`, so
 `pi update --extensions` skips them.
 
 The behavior the learning system requires is declared in [`CONTRACT.md`](CONTRACT.md) and
@@ -485,14 +483,14 @@ can be the face while pi stays the brain** (gate, subagents, skills run unchange
 holds only chat transcripts). `deploy/` runs Open WebUI in Docker in front of a host
 `pi-bridge` systemd service. A verified `[[TURN:ui]]` turn rides out as a self-hosted OpenUI
 widget embed below the prose (`bridge/server.py` + `deploy/openui/`, served by the installer).
-Behavior contract: `B-*` invariants in `CONTRACT.md` / `contracts/learning-core.json` (v12, 72
-invariants). Details: [`bridge/README.md`](bridge/README.md),
+Behavior contract: `B-*` invariants in `CONTRACT.md` / `contracts/learning-core.json`.
+The JSON is the authoritative set. Details: [`bridge/README.md`](bridge/README.md),
 [`deploy/README.md`](deploy/README.md), [`deploy/SECURITY.md`](deploy/SECURITY.md).
 
 ### Repo layout for the gate
 
 ```
-CONTRACT.md                  declared behavior (the thing updates must not break; v12, 72 invariants 2026-10-26)
+CONTRACT.md                  declared behavior (the thing updates must not break; see contracts/learning-core.json)
 contracts/learning-core.json machine-readable invariants -> test names
 bridge/                      OpenAI-compatible pi-bridge (B-* invariants) + README
 deploy/                      Docker Open WebUI + pi-bridge.service + searxng + README/SECURITY
@@ -509,7 +507,7 @@ harness/mk-sandbox.sh         isolated duplicate harness builder
 harness/e2e-runner.py        e2e runner (--tier smoke|full)
 harness/man/                 lpi(1) man page
 harness/audit-recent-sessions.sh + systemd/  weekly provenance audit
-scripts/learn-check          the single test entrypoint (7 deno suites: gate/golden/redteam/judge/judge_model/judge_router/judge_dump + bridge + contract checks + load probe)
+scripts/learn-check          the single test entrypoint (7 deno suites + graph suite + bridge + contract checks + load probe + sidecar py_compile)
 scripts/agent-worktree       worktree helper (new/list/clean/land)
 test/gate_test.mjs           core gate behavior (mocked pi)
 test/golden/                 write-gate / scout / review-delegation / retry / demotion scenarios
@@ -530,6 +528,5 @@ test/pi_review_status_test.sh  status-helper boundary tests (standalone)
 ## Uninstall
 
 ```bash
-rm -rf ~/learning-system/.pi
-# optionally remove the ".pi/" line from ~/learning-system/.git/info/exclude
+rm -rf ~/learning-pi/state/.pi ~/learning-pi/state/.agents
 ```

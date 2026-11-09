@@ -1,6 +1,10 @@
 # Audit & Improvement Roadmap — learning system
 
-> **Status:** living document. Updated as each stage lands.
+> **Historical record.** This document describes work completed in 2026. It is
+> not current process. The current map is `docs/README.md`, and the authoritative
+> rules are `AGENTS.md`, `.opencode/loop.md`, and `CONTRACT.md`.
+
+> **Status:** historical record. No longer updated.
 > **Scope:** the integrated system formed by `learning-system` (durable state, wiki, philosophy,
 > skills) and `learning-pi` (pi/control/runtime layer).
 > **Audience:** future agents and humans working on either repo. Read this before proposing changes

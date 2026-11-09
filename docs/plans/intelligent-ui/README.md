@@ -1,5 +1,9 @@
 # intelligent-ui — implementation workspace
 
+> **Historical record.** This document describes work completed in 2026. It is
+> not current process. The current map is `docs/README.md`, and the authoritative
+> rules are `AGENTS.md`, `.opencode/loop.md`, and `CONTRACT.md`.
+
 Plan for bringing GPT-6 "Intelligent UI"-style answers (text + visuals + interactive widgets,
 auto-composed per turn) into the Open WebUI learning system.
 

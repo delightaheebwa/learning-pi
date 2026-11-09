@@ -1,6 +1,11 @@
 # Antigravity Desktop Learning Layer
 
-`antigravity/` holds the Antigravity Desktop control layer for the spaced-repetition learning system. `install.sh` symlinks it into the learning state repository (`~/learning-system/.agents/`) and excludes it from git there.
+> **Retired.** Antigravity Desktop is no longer used. The current setup is pi
+> plus Open WebUI. These files stay because
+> `test/contract/check_antigravity_layer.py` asserts on them, and removing that
+> check is a revise-door change. See `docs/README.md`.
+
+`antigravity/` holds the Antigravity Desktop control layer for the spaced-repetition learning system. `install.sh` symlinks it into the learning state repository (`~/learning-pi/state/.agents/`) and excludes it from git there.
 
 ---
 
@@ -8,15 +13,15 @@
 
 ```bash
 # In ~/learning-pi:
-./install.sh ~/learning-system
+./install.sh ~/learning-pi/state
 ```
 
 Creates:
-- `~/learning-system/.pi` -> `~/learning-pi/.pi` (CLI / pi runtime)
-- `~/learning-system/.agents` -> `~/learning-pi/antigravity` (Antigravity Desktop)
-- Adds `.agents/` and `.pi/` to `~/learning-system/.git/info/exclude`.
+- `~/learning-pi/state/.pi` -> `~/learning-pi/.pi` (CLI / pi runtime)
+- `~/learning-pi/state/.agents` -> `~/learning-pi/antigravity` (Antigravity Desktop)
+- Adds `.agents/` and `.pi/` to `~/learning-pi/state/.git/info/exclude`.
 
-Launch Antigravity Desktop and open `~/learning-system` as a workspace.
+Launch Antigravity Desktop and open `~/learning-pi/state` as a workspace.
 
 ---
 

@@ -38,7 +38,7 @@ Files in this directory:
   is root-equivalent, so `sudo` + explicit commands is the more conservative
   choice.
 - `python3` (for the bridge) and the `learning-pi` repo checked out at
-  `~/learning-pi` with the learning system's state repo (default `~/learning-system`).
+  `~/learning-pi` with the learning system's state repo (default `~/learning-pi/state`).
 - **ufw is enabled on this machine** (default deny incoming) and by default it also
   blocks containers from reaching a host service. Step 3 below adds one narrow
   allow rule; without it the container cannot reach the bridge. Check with
@@ -215,7 +215,7 @@ mounts read-only at Open WebUI's `/static/openui`:
 
 ```sh
 # after the stack is up and you have an Open WebUI API key (~/.openwebui_key)
-cd ~/learning-system
+cd ~/learning-pi/state
 OPENWEBUI_BASE_URL=http://127.0.0.1:3000 python3 scripts/setup_openwebui.py
 python3 scripts/audit_openwebui.py        # verifies the served bundle sha256 + shell
 ```
