@@ -3615,6 +3615,127 @@
       "last_reviewed": "2026-11-06",
       "next_review": "2026-11-09",
       "feynman": null
+    },
+    "Structured Outputs (JSON contract)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-11-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "free-recall",
+          "confidence": "sure"
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-09",
+      "next_review": "2026-11-16",
+      "feynman": null
+    },
+    "Constrained Decoding (parser-state masking)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "sure"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 3,
+      "last_reviewed": "2026-11-09",
+      "next_review": "2026-11-12",
+      "feynman": null
+    },
+    "JSON Schema Validation & Retry (Pydantic + Instructor)": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-09",
+      "next_review": "2026-11-12",
+      "feynman": null
     }
   },
   "meta": {

@@ -1,4 +1,4 @@
-# Learner History — compact tutor context (generated 2026-11-06)
+# Learner History — compact tutor context (generated 2026-11-09)
 
 > **For models: read THIS file for learner background, not `Archive/`.**
 > One row per concept ever studied: strict `solid` / `neutral` / `fuzzy` tag +
@@ -14,30 +14,31 @@ Tag rules (strict): `solid` = 2+ consecutive passes, interval_index ≥ 2,
 Tutor use: build directly on `solid`; probe-then-teach `neutral`;
 reteach-from-scratch `fuzzy` (check its mistake row / review note first).
 
-Totals: 322 concepts (93 with attempt history + 229 paused) — aiefs 44 · swe 66 · aie 212 · solid 8 · neutral 274 · fuzzy 40
+Totals: 324 concepts (95 with attempt history + 229 paused) — aiefs 46 · swe 66 · aie 212 · solid 8 · neutral 275 · fuzzy 41
 
 ## AIEFS — living (updated by Clerk each session)
 
 | Concept | Type | Tag | Prereqs | Last evidenced | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| Adam (adaptive moments) | procedure | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Adam (adaptive moments) — 2026-11-04.md |
+| Adam (adaptive moments) | procedure | fuzzy |  | 2026-11-08 | Learning System/Reviews/Review — Adam (adaptive moments) — 2026-11-08.md |
 | Bits vs Nats | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Bits vs Nats — 2026-11-04.md |
 | Chain Rule for Neural Networks | procedure | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Chain Rule for Neural Networks — 2026-10-20.md |
-| Conditional Independence | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Conditional Independence — 2026-10-20 (II).md |
+| Conditional Independence | concept | fuzzy |  | 2026-11-08 | Learning System/Reviews/Review — Conditional Independence — 2026-11-08.md |
 | Conjugate Priors | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Conjugate Priors — 2026-11-04.md |
+| Constrained Decoding (parser-state masking) | concept | fuzzy |  | 2026-11-09 | last reviewed 2026-11-09 |
 | Cosine Similarity | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Cosine Similarity — 2026-10-20 (II).md |
 | Entropy (Average Surprise) | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Entropy (Average Surprise) — 2026-11-04.md |
 | KL Divergence | concept | fuzzy |  | 2026-10-22 | Learning System/Reviews/Review — KL Divergence — 2026-10-22.md |
 | Laplace Smoothing | concept | fuzzy |  | 2026-10-22 | Learning System/Reviews/Review — Laplace Smoothing — 2026-10-22.md |
-| Learning-rate Schedules (four types) | concept | fuzzy |  | 2026-10-22 | Learning System/Reviews/Review — Learning-rate Schedules (four types) — 2026-10-22.md |
+| Learning-rate Schedules (four types) | concept | fuzzy |  | 2026-11-08 | Learning System/Reviews/Review — Learning-rate Schedules (four types) — 2026-11-08.md |
 | Likelihood | concept | fuzzy |  | 2026-10-09 | Learning System/Reviews/Review — Likelihood — 2026-10-09.md |
 | Mini-batch Noise (two effects) | concept | fuzzy |  | 2026-10-17 | Learning System/Reviews/Review — Mini-batch Noise (two effects) — 2026-10-17.md |
 | Mutual Information | concept | fuzzy |  | 2026-09-28 | Learning System/Reviews/Review — Mutual Information — 2026-09-28.md |
 | Naive Bayes | concept | fuzzy |  | 2026-10-09 | Learning System/Reviews/Review — Naive Bayes — 2026-10-09.md |
-| Optimizer Selection (Rohit heuristic) | concept | fuzzy |  | 2026-10-10 | Learning System/Reviews/Review — Optimizer Selection (Rohit heuristic) — 2026-10-10.md |
+| Optimizer Selection (Rohit heuristic) | concept | fuzzy |  | 2026-11-08 | Learning System/Reviews/Review — Optimizer Selection (Rohit heuristic) — 2026-11-08.md |
 | PCA (Dimensionality Reduction) | concept | fuzzy |  | 2026-10-23 | last reviewed 2026-10-23 |
 | Perplexity | concept | fuzzy |  | 2026-10-03 | Learning System/Reviews/Review — Perplexity — 2026-10-03.md |
-| PMF vs PDF | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — PMF vs PDF — 2026-11-04.md |
+| PMF vs PDF | concept | fuzzy |  | 2026-11-08 | Learning System/Reviews/Review — PMF vs PDF — 2026-11-08.md |
 | Prompt Engineering | concept | fuzzy |  | 2026-10-29 | last reviewed 2026-10-29 |
 | Saddle Points (critical point triage) | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Saddle Points (critical point triage) — 2026-10-20 (II).md |
 | Sequential Bayesian Updating | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Sequential Bayesian Updating — 2026-10-20.md |
@@ -62,6 +63,7 @@ Totals: 322 concepts (93 with attempt history + 229 paused) — aiefs 44 · swe 
 | Posterior Probability | concept | solid |  | 2026-10-08 | Learning System/Reviews/Review — Posterior Probability — 2026-10-08.md |
 | Prior Probability | concept | solid |  | 2026-10-17 | Learning System/Reviews/Review — Prior Probability — 2026-10-17.md |
 | Software Architecture — failure-list placement of 'non-functional' | concept | neutral |  | 2026-11-06 | last reviewed 2026-11-06 |
+| Structured Outputs (JSON contract) | concept | neutral |  | 2026-11-09 | last reviewed 2026-11-09 |
 | t-SNE (Dimensionality Reduction) | concept | neutral | KL Divergence: fuzzy | 2026-10-12 | last reviewed 2026-10-12 |
 | Variation of Information | concept | neutral |  | 2026-09-24 | last reviewed 2026-09-24 |
 
