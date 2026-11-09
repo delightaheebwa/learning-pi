@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 6: List Processes</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+  <script src="../assets/prism.js" defer></script>
+  <script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+  <p class="kicker">Lesson 06 / Interaction + Systems</p>
+  <h1>Walk the process tree's front door.</h1>
+  <p class="dek">Linux exposes each process as a numeric directory under <code>/proc</code>. Scan those directories, reject everything that is not a PID, and read a friendly name for each surviving entry.</p>
+  <p class="meta">Estimated time: 60-90 minutes · Prerequisites: <a href="0005-cpu-samples.html">Lesson 5</a></p>
+
+  <nav class="nav"><a href="index.html">course map</a><a href="0005-cpu-samples.html">previous</a><a href="0007-live-dashboard.html">next</a><a href="../reference/proc-fields.html">proc fields</a><a href="../reference/glossary.html">glossary</a></nav>
+  <hr class="rule">
+
+  <h2>Numeric directories are the boundary</h2>
+  <p>A directory listing can contain <code>self</code>, <code>thread-self</code>, and other kernel entries. A process directory has a name made entirely of digits. Test that predicate separately:</p>
+  <pre><code class="language-c">#include &lt;ctype.h&gt;
+#include &lt;stdbool.h&gt;
+
+bool is_pid_name(const char *name)
+{
+    if (*name == '\0') return false;
+    for (const char *cursor = name; *cursor != '\0'; cursor++) {
+        if (!isdigit((unsigned char)*cursor)) return false;
+    }
+    return true;
+}</code></pre>
+  <p>Do not call <code>atoi</code> first and use zero to mean "not a PID"; validating the string makes the boundary explicit and avoids accidental acceptance of partial input.</p>
+
+  <h2>Read one process name</h2>
+  <p>The <code>comm</code> file is simpler than <code>stat</code> for the first version. It contains the task name followed by a newline:</p>
+  <pre><code class="language-c">#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+
+int read_process_name(const char *pid, char *name, size_t capacity)
+{
+    char path[64];
+    snprintf(path, sizeof(path), "/proc/%s/comm", pid);
+
+    FILE *file = fopen(path, "r");
+    if (file == NULL) return -1;
+    if (fgets(name, capacity, file) == NULL) {
+        fclose(file);
+        return -1;
+    }
+    fclose(file);
+
+    name[strcspn(name, "\n")] = '\0';
+    return 0;
+}</code></pre>
+  <p>Linux limits this name to 15 visible characters because <code>TASK_COMM_LEN</code> is 16 bytes including the terminator. That is why a long name may be shorter here than in <code>ps</code>; the later <code>stat</code> stretch gives you more context.</p>
+
+  <h2>Scan the directory</h2>
+  <pre><code class="language-c">#include &lt;dirent.h&gt;
+
+void print_processes(void)
+{
+    DIR *proc = opendir("/proc");
+    if (proc == NULL) return;
+
+    struct dirent *entry;
+    while ((entry = readdir(proc)) != NULL) {
+        if (!is_pid_name(entry-&gt;d_name)) continue;
+
+        char name[256];
+        if (read_process_name(entry-&gt;d_name, name, sizeof(name)) == 0) {
+            printf("%-8s %s\n", entry-&gt;d_name, name);
+        }
+    }
+    closedir(proc);
+}</code></pre>
+  <p>Processes can exit between <code>readdir</code> and <code>fopen</code>. That is normal. Skip entries that disappear instead of treating the race as a fatal program error.</p>
+
+  <div class="exercise">
+    <h3>Practice: test the boundary</h3>
+    <p>Add Acutest cases for <code>"1"</code>, <code>"12345"</code>, <code>"self"</code>, the empty string, and <code>"12x"</code>. Then run the program and compare a few rows with <code>ps</code>.</p>
+    <p>Stretch: switch from <code>comm</code> to <code>stat</code> and parse the executable name. Remember that the name is enclosed in parentheses and can contain spaces.</p>
+  </div>
+
+  <div class="quiz" data-quiz>
+    <strong>Retrieval check</strong>
+    <p>What identifies a process directory in this MVP?</p>
+    <button data-answer="wrong">a color</button>
+    <button data-answer="correct">all digits</button>
+    <button data-answer="wrong">a suffix</button>
+    <p class="feedback" aria-live="polite"></p>
+  </div>
+
+  <p>Primary reading: the Linux <a href="https://man7.org/linux/man-pages/man5/proc_pid.5.html">proc_pid(5)</a> overview and the <a href="https://man7.org/linux/man-pages/man3/readdir.3.html">readdir(3)</a> reference. The <a href="../reference/proc-fields.html">proc fields reference</a> explains the richer files you can add later.</p>
+  <p class="footer">Your tangible win is a real PID/name list. Ask follow-up questions about directory races, <code>readdir</code>, or the difference between <code>comm</code> and <code>stat</code>.</p>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{
+  "generated_at": "2026-08-08T11:48:55.855Z",
+  "source": "https://raw.githubusercontent.com/mity/acutest/master/README.md",
+  "concepts": [
+    "Acutest Unit Testing"
+  ],
+  "wiki_paths": [
+    "Knowledge Wiki/wiki/Acutest Unit Testing.md"
+  ],
+  "pass": "1",
+  "model": "byok:77723e9c-69c1-4fb1-9284-045c4e3f0ee8",
+  "verdict": {
+    "verdict": "ISSUES",
+    "issues": [
+      {
+        "severity": "high",
+        "location": "Overview section",
+        "issue": "Wiki says 'single-header C unit-test framework' — source says 'C/C++ unit testing facility' and explicitly supports both languages. This misframes the tool's scope."
+      },
+      {
+        "severity": "high",
+        "location": "Assertion Macros table and TEST_ASSERT paragraph",
+        "issue": "TEST_EXCEPTION macro is completely omitted. The source describes it as a core C++ feature for verifying expected exception types."
+      },
+      {
+        "severity": "high",
+        "location": "Assertion Macros table",
+        "issue": "TEST_CASE macro is completely omitted. The source devotes a full section to it for labeling test vectors in data-driven loops."
+      },
+      {
+        "severity": "high",
+        "location": "TEST_ASSERT 'dire consequences are fine' paragraph",
+        "issue": "Wiki states 'Cleanup skipped by abort() is irrelevant for short-lived fixtures.' The source explicitly warns TEST_ASSERT may cause unflushed file descriptors, memory leaks, and C++ objects destroyed without destructors — and says to prefer TEST_CHECK unless you know exactly what you are doing. The wiki's dismissal contradicts the source's caution."
+      },
+      {
+        "severity": "medium",
+        "location": "Assertion Macros section",
+        "issue": "Custom message variants (TEST_CHECK_, TEST_ASSERT_, TEST_EXCEPTION_, TEST_CASE_ with printf-style formatting) are completely omitted. The source has a full section on these."
+      },
+      {
+        "severity": "medium",
+        "location": "Nowhere in the wiki",
+        "issue": "C++ exception behavior is not mentioned: the source says Acutest catches any C++ exception thrown from a test, treats it as failure, and prints what() for std::exception-derived types."
+      },
+      {
+        "severity": "medium",
+        "location": "Running Tests table, --verbose row",
+        "issue": "Wiki claims --verbose shows 'passing checks too, not just failures' generally. The source only states that with --verbose, the custom message variants (underscore suffix macros) are logged even on pass — a narrower claim."
+      }
+    ]
+  }
+}

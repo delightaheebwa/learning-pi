@@ -1,0 +1,25 @@
+{
+  "status": "GATE_NOT_RUN",
+  "generated_at": "2026-08-24T20:34:00Z",
+  "source": "https://missing.csail.mit.edu/2026/course-shell/",
+  "concepts": [
+    "less (Pager)",
+    "find (-exec {} + batching)",
+    "Shell Redirections & Streams (/dev/null)"
+  ],
+  "pass": "1",
+  "model": "ox-alpha-free",
+  "transport": "Terminal-side driver of Skills/learning-review/openwebui/review_gate.py against http://host.docker.internal:3000 (reachable; /api/chat/completions responded).",
+  "error": {
+    "http_status": 401,
+    "detail": "Your session has expired or the token is invalid. Please sign in again.",
+    "remedy": "Regenerate the Open WebUI API key (Admin Panel → Settings → API Keys) and update ~/.config/learning-system/openwebui_key (0600, never commit). Then re-run pass 1 — overwrite this file with the real verdict."
+  },
+  "compensating_checks": [
+    "/dev/null discard semantics corroborated live against https://missing.csail.mit.edu/2020/shell-tools/ — its script example redirects both streams to /dev/null with the comment 'null register'.",
+    "https://missing.csail.mit.edu/2026/course-shell/ fetched and keyword-searched live: NONE of the three items appear on that page — content correctly attributed to handwritten notes and scope-noted for the future gate run.",
+    "less-as-pager (lazy reading, one page at a time) and find -exec {} + single-invocation batching vs \\; per-file execution match standard Unix/man-page semantics.",
+    "Worked example find . -name *.txt -exec wc -l {} + 2>/dev/null combines both enriched mechanisms exactly as the learner wrote it."
+  ],
+  "note": "No independent verdict — second consecutive ingest blocked on the same expired key (see CLI_Env_Batch2-pass1-2026-08-24.json). This file should be overwritten by a real verdict once the key is regenerated."
+}

@@ -1,0 +1,29 @@
+{
+  "gate": "review",
+  "run": "ingest review-gate (clerk, foreground) — cycle 2 on the corrected text",
+  "concepts": [
+    "Mutual Information",
+    "KL Divergence"
+  ],
+  "lesson_ref": "Learning System/Lessons/Lesson — Information Theory — 2026-09-11.md",
+  "pass_number": 2,
+  "cycle": 2,
+  "target": "Knowledge Wiki/wiki/Mutual Information.md (full corrected text — the single bars-bookkeeping sentence changed) + Knowledge Wiki/wiki/KL Divergence.md (byte-identical to cycle 1, clean there) + the Active Concepts rows (text-identical, line order shifted)",
+  "verdict": "PASS_WITH_FLAGS",
+  "issues": [],
+  "context_notes": [
+    {
+      "location": "Knowledge Wiki/wiki/KL Divergence.md",
+      "note": "Exact written text not supplied in the cycle-2 envelope (byte-identical placeholder); no re-verification possible there in pass 2, but it was reviewed on its exact text in cycle 1 with no finding."
+    },
+    {
+      "location": "Learning System/Core/📚 Active Concepts.md",
+      "note": "Row line-order shift only; rows verified consistent with the Mutual Information page numbers and formulas."
+    },
+    {
+      "location": "Knowledge Wiki/wiki/Mutual Information.md — bars bookkeeping sentence",
+      "note": "Corrected sentence now states the mechanism correctly: H(X)+H(Y) double-counts the overlap, H(X,Y) counts every region once."
+    }
+  ],
+  "note": "Target clean after one fix cycle: zero issues at any severity; only context_notes remain (no low-severity in-target findings). 2-cycle cap reached — no third pass was run, and none was needed."
+}

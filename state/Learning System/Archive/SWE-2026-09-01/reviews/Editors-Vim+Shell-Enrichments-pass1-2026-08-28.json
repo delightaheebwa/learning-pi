@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-08-28T18:24:00Z",
+  "source": "https://missing.csail.mit.edu/2020/editors/",
+  "source_note": "handwritten Lesson 3 notes (2026-08-25→28) transcribed verbatim; cross-referenced with MIT Missing Semester editors + command-line materials.",
+  "concepts": [
+    "Vim Modal Editing",
+    "Vim Composable Commands",
+    "Vim Buffers & Windows",
+    "Environment Variables (Shell)",
+    "Shell Built-ins & Process Isolation",
+    "Shell Redirections & Streams"
+  ],
+  "pass": "1",
+  "model": "ox-alpha-free",
+  "intended_gate": "foreground GATE:review envelope via delegate_task (gate_pipe.py enforced)",
+  "verdict": {
+    "verdict": "GATE_NOT_RUN",
+    "issues": [
+      {
+        "severity": "high",
+        "location": "gate infrastructure",
+        "issue": "The independent review gate could NOT be executed in this session. The canonical foreground GATE:review subagent (delegate_task, model ox-alpha-free) returned an empty/non-JSON response on 2 attempts — the same class of failure as the earlier 'terminal API key / HTTP 500' blocker (the review subagent is not reachable from this Open Terminal sandbox). The legacy review_gate Open WebUI Tool (also ox-alpha-free) is retired (OPENWEBUI.md:9) and was unreachable from here even when active (separate container, no :8080 listener)."
+      },
+      {
+        "severity": "medium",
+        "location": "process",
+        "issue": "Per the learning-review SKILL 'never skip silently' rule, this is surfaced rather than faked. Manual review of the written wiki content against the source notes found no accuracy/clarity/completeness defects: the new Vim page and the two enriched sections (EDITOR/VISUAL + readline vim-mode; portable env shebang; cut/wc/history; < file filename-hiding) match the transcribed notes and the live MIT materials. Action for the user: run the review gate from inside Open WebUI (where the ox-alpha-free subagent is reachable) to close this out, or re-run after the gate endpoint is restored."
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "gate": "review",
+  "run": "parent-initiated re-verification AFTER the 2-cycle cap (learning-review cap had been reached; run 15f4d3f1)",
+  "concepts": ["Cross-entropy (H(P,Q), CE loss, NLL)"],
+  "lesson_ref": "Learning System/Lessons/Lesson — Information Theory — 2026-09-11.md",
+  "pass_number": 2,
+  "target": "Knowledge Wiki/wiki/Cross-Entropy from NLL.md — the post-cycle-2-fix text",
+  "verdict": "ISSUES",
+  "wiki_page_finding": "CLEAN — no high/medium accuracy, clarity or completeness issue on the page",
+  "issues": [
+    {
+      "severity": "medium",
+      "location": "MISSION.md:14, Core/💡 Learning Profile.md:13/19/27, Core/📚 Active Concepts.md:22/:42",
+      "issue": "Position-of-record split: those files still read 'paused 2/6, resume CP3' and routed the next lesson to L08 (which is DONE) while CURRICULUM.md and the lesson file read 3/6 → CP4.",
+      "disposition": "FIXED by the parent in commit 47fdae7 — all four files now read L09 paused at Checkpoint 3/6, resume at CP4 — KL divergence."
+    }
+  ],
+  "note": "This artifact exists to keep traceability honest: it is the parent's post-cap re-check, not a third in-cap cycle. The wiki page was the primary target and passed clean; its only finding was the state contradiction, now fixed."
+}

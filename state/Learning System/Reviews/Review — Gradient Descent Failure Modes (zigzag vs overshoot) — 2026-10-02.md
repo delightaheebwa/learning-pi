@@ -1,0 +1,11 @@
+# Review — Gradient Descent Failure Modes (zigzag vs overshoot) — 2026-10-02
+
+- **Track/Source:** aiefs — Rohit P1 L08 + Ruder + handwritten notes (Python)
+- **Type:** concept · **Q type:** discriminative (MCQ)
+- **Why this slot:** priority-1 due mistake — the 2026-09-07 ledger row (`review`, retries 1, next retry 2026-10-02) was the oldest due mistake; the item re-tests the zigzag/overshoot conflation that recurred on 2026-09-21 (II).
+- **Question:** Discriminative MCQ, two runs on the same valley — Run A jumps over the minimum, Run B swings wall-to-wall. Which run is the zigzag, and what does a smaller learning rate do? Options: **(A)** Run A is overshoot, a smaller lr keeps overshooting; **(B)** Run A is zigzag; **(C)** Run B is overshoot, a smaller lr converges; **(D)** Run B is zigzag, a smaller lr shrinks the swings but keeps them.
+- **Learner answer:** "A." — then, in the same turn, stated that the pick was a typo for the intended **D** ("Run B is zigzag; a smaller lr shrinks the swings but keeps them").
+- **Verdict:** PASS — grade-audit agreed on the corrected answer. The first `grade-audit` ran on the raw "A" and returned `correct_verdict: fail` (agreeing with the raw answer, which is the overshoot story); the corrected re-dispatch with the typo flagged returned `correct_verdict: pass`. Why: Run B's wall-to-wall swing IS the zigzag signature — the gradient points ACROSS the narrow walls, a direction problem — and shrinking η only shrinks the cross-wall oscillations, it does not remove them; Run A jumping the minimum is the overshoot (step-size) failure that a smaller η *does* fix. That discriminator ("smaller η fixes zigzag") is exactly what the row failed on 2026-09-07 and 2026-09-21 (II); it did not re-invert. Verdict recorded per `grade_verdicts`: **pass**.
+- **Attempts.json:** mastery 0.83, interval_index 3, next_review 2026-11-01, Feynman: pass (carried — no Feynman item this session).
+- **Mistakes ledger:** 2026-09-07 row → `graduated`, retries 2 (second consecutive correct after the 2026-09-25 pass), next retry realigned to 2026-11-01 (Attempts.json).
+- **Carry-forward:** Last Q Type is now `discriminative`, so the next queue entry for this concept is a definitional item. No open ledger row — the concept retires from the priority-1 queue while keeping its `developing` status and a 30-day interval.

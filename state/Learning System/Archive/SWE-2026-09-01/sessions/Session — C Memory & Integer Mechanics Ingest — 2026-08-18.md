@@ -1,0 +1,22 @@
+# Session — C Memory & Integer Mechanics Ingest — 2026-08-18
+
+- **Date:** 2026-08-18
+- **Topic:** C unsigned underflow + integer-division truncation; stack vs heap vs swap memory regions; swap smoke-test invariants; MemFree/MemAvailable/SwapFree semantics
+- **Type:** Ingest (3 enrichments + 2 new concepts)
+- **Concepts enriched (3, SWE track):**
+  - **Static Fixtures & Boundary Cases** — exact-live-value asserts are flaky because `/proc/meminfo` is a live kernel interface (changes every µs; even MemTotal can hot-plug in a VM); swap invariants: `swap_free_kb <= swap_total_kb`, disabled-swap guard `swap_total_kb > 0` (prevents divide-by-zero on `100.0 * swap_used_kb / swap_total_kb`), and `unsigned >= 0` is a redundant always-true check. `last_reviewed` 2026-08-18, `next_review` 2026-08-29 (unchanged schedule)
+  - **Feature Probing vs Kernel Version Checking** — which field means \"available to start an app\": `MemAvailable` (kernel estimate of MemFree + reclaimable cache/buffers that can be reclaimed without swapping) vs `MemFree` (strictly unused, kept low) vs `SwapFree` (disk swap space, not RAM). `last_reviewed` 2026-08-18, `next_review` 2026-08-25
+  - **C Pointers (&, *, ->)** — pointer validity depends on the lifetime of the region it points to; returning a stack array's address = dangling pointer (UB + compiler warning); a stack array cannot leak (only heap can, on skipped `free()`); `char *buf = malloc(4096)` → `buf` on stack, block on heap. `last_reviewed` 2026-08-18, `next_review` 2026-08-25
+- **Concepts added (2 new, SWE track, `developing`, staggered):**
+  - **C Integer Mechanics (Underflow & Type Promotion)** — `unsigned long` can't be negative, so `total_kb - available_kb` with `available > total` underflow-wraps to ~quadrillions kB; the guard must run BEFORE the subtract/divide (`invalid memory totals` → stderr, return 1). Percentage trap: `100.0 * used_kb / total_kb` promotes to double, but `(used_kb/total_kb)*100` does integer division first, truncating the fraction (8M/16M = 0) → 0.0% for any usage <100%. `last_reviewed` 2026-08-18, `next_review` 2026-08-21 (+3d), `Last Q Type` definitional
+  - **C Memory Regions (Stack vs Heap vs Swap)** — stack (auto scratchpad, frame per call wiped on return, caller's stack outlives callee, fixed ~few MB) vs heap (`malloc`/`realloc` warehouse, persists until `free`, leaks) vs swap (disk overflow when RAM full, slow); `char *buf = malloc(4096)` — pointer var on stack / 4096-block on heap; buffer-passing (`read_file_safe(path, buf, size)`) trade-off: zero malloc overhead + leak-proof, but fixed capacity truncates `/proc/meminfo` → missing `MemAvailable`. `last_reviewed` 2026-08-18, `next_review` 2026-08-22 (+4d, staggered), `Last Q Type` definitional
+- **Wiki pages (2 created, 3 enriched):** [[C Integer Mechanics (Underflow & Type Promotion)]], [[C Memory Regions (Stack vs Heap vs Swap)]]; enriched [[Static Fixtures & Boundary Cases]], [[Feature Probing vs Kernel Version Checking]], [[C Pointers (&, *, ->)]]
+- **Key insights ingested:**
+  - Unsigned subtraction never goes negative — it wraps to a huge positive value, so corrupt state must be caught *before* the arithmetic.
+  - `100.0` at the front forces floating-point; integer-division-first truncation silently yields 0.0%.
+  - Smoke tests assert sanity bounds, never exact live values (the environment, not the code, is the moving target).
+  - Swap needs its own invariant (`swap_free <= swap_total`) and a disabled-swap divide-by-zero guard.
+  - `MemAvailable` — not `MemFree` or `SwapFree` — is the truest \"headroom to start an app\" metric.
+  - Pointer lifetime is tied to its memory region; stack arrays can dangle but never leak; heap blocks leak but grow.
+- **Verification:** learning-review gate **PASS on pass 1** (verdict JSON: `Reviews/Quality Gates/C_Integer_Mechanics_Underflow_and_Type_Promotion-C_Memory_Regions_Stack_vs_Heap_vs_Swap-pass1-2026-08-18.json`; model `minimax-m3`; verdict PASS, 0 issues). Along the way a blocking bug in `Skills/learning-review/openwebui/review_gate.py` was found + fixed — unescaped JSON braces in the embedded REVIEW_TEMPLATE caused `KeyError: '\n  "verdict"'` so the gate could never run; braces escaped (wording unchanged; the deployed Open WebUI copy picked up the fix). Both new concepts passed on the first cycle — no pass-2 needed. **Factual gate passed** (same-session self-audit): every load-bearing claim is a standard, well-established C/systems fact.
+- **Open questions:** none new

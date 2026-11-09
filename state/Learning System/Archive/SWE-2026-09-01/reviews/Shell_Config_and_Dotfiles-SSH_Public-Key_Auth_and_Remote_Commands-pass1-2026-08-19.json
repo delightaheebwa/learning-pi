@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-08-19T10:28:07.774188Z",
+  "source": "https://missing.csail.mit.edu/2026/command-line-environment/",
+  "concepts": [
+    "Shell Config & Dotfiles",
+    "SSH: Public-Key Auth & Remote Commands"
+  ],
+  "pass": "1",
+  "model": "minimax-m3",
+  "verdict": {
+    "verdict": "ISSUES",
+    "issues": [
+      {
+        "severity": "high",
+        "location": "Scope note (Shell Configuration & Dotfiles)",
+        "issue": "The scope note claims the textbook page names `$PS1` and `ln -s`, but neither appears anywhere in the source content. These are additions presented as source-derived."
+      },
+      {
+        "severity": "medium",
+        "location": "Shell Configuration & Dotfiles / 'source': apply a config without re-logging-in",
+        "issue": "The `source` builtin and its behavior is described in detail but does not appear in the source content. This is added material, not justified by the scope note."
+      },
+      {
+        "severity": "medium",
+        "location": "Shell Configuration & Dotfiles / PS1: the left prompt",
+        "issue": "`$PS1` and prompt customization are described but are not mentioned in the source content. Scope note falsely claims source 'names' `$PS1`."
+      },
+      {
+        "severity": "medium",
+        "location": "Shell Configuration & Dotfiles / Symlink them into place",
+        "issue": "The dotfiles version-control workflow with `ln -s` symlinks and install scripts is not in the source content. Scope note falsely claims source 'names' `ln -s`."
+      },
+      {
+        "severity": "medium",
+        "location": "Shell Configuration & Dotfiles / Plugin frameworks: a caution",
+        "issue": "Oh My Zsh and plugin-framework critique are not in the source content. No scope justification."
+      },
+      {
+        "severity": "medium",
+        "location": "SSH section / Add a passphrase",
+        "issue": "Claims that a passphrase 'encrypts the private key file' and that without one the key is 'plain-text file' are not stated in the source. The source only says the private key is 'effectively your password.'"
+      }
+    ]
+  }
+}

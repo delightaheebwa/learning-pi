@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-08-08T11:53:36.824Z",
+  "source": "https://raw.githubusercontent.com/mity/acutest/master/README.md",
+  "concepts": [
+    "Acutest Unit Testing"
+  ],
+  "wiki_paths": [
+    "Knowledge Wiki/wiki/Acutest Unit Testing.md"
+  ],
+  "pass": "2",
+  "model": "byok:77723e9c-69c1-4fb1-9284-045c4e3f0ee8",
+  "verdict": {
+    "verdict": "ISSUES",
+    "issues": [
+      {
+        "severity": "medium",
+        "location": "Running Tests section — exit code bullet",
+        "issue": "Wiki says 'exit 0 on success, 1 on failure' but the source states three cases: 0 (all pass), 1 (any fail), and 'any other number if an internal error occurs.' Omitting the internal-error exit code is a factual simplification that could mislead a student into treating any non-zero code as a test failure."
+      },
+      {
+        "severity": "medium",
+        "location": "Missing from entire wiki",
+        "issue": "The source explicitly warns: 'avoid space and other special characters which might require escaping in shell; also avoid dash (`-`) as a first character of the name, as it could then be interpreted as a command line option and not as a test name.' The wiki omits this entirely. A student naming a test '-something' would hit a real, non-obvious failure that the wiki's Running Tests section wouldn't explain."
+      },
+      {
+        "severity": "low",
+        "location": "Assertion Macros table — TEST_ASSERT row and the 'Why TEST_ASSERT's dire consequences are acceptable' paragraph",
+        "issue": "The source explains the abort mechanism differs by execution mode: 'abort()' when run as a child process, 'longjmp()' when not. The wiki mentions consequences (unflushed FDs, memory leaks) but not the mechanism. The distinction matters because longjmp-based cleanup differs from abort in edge cases — a student reading only the wiki wouldn't know why the same test behaves differently with vs without child-process isolation."
+      },
+      {
+        "severity": "low",
+        "location": "Assertion Macros table — TEST_CHECK row",
+        "issue": "Wiki claims TEST_CHECK 'Logs the failure (with file:line)' but the source never describes the output format or mentions file:line information. This may be accurate based on actual behavior, but it's not verifiable from the provided source."
+      }
+    ]
+  }
+}

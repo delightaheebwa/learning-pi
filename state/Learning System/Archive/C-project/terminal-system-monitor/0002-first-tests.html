@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 2: Your First Tests</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+  <script src="../assets/prism.js" defer></script>
+  <script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+  <p class="kicker">Lesson 02 / Process</p>
+  <h1>Make failure useful.</h1>
+  <p class="dek">A test is a small executable question about your program. Today you will write one, see it fail, fix the code, and make the process repeatable.</p>
+  <p class="meta">Estimated time: 45-60 minutes · Prerequisites: <a href="0001-first-compile.html">Lesson 1</a></p>
+
+  <nav class="nav"><a href="index.html">course map</a><a href="0001-first-compile.html">previous</a><a href="0003-acutest-parser.html">next</a><a href="../reference/testing-patterns.html">testing reference</a></nav>
+  <hr class="rule">
+
+  <h2>Arrange, Act, Assert</h2>
+  <p>A focused test has three recognizable movements:</p>
+  <table><thead><tr><th>Phase</th><th>Question</th></tr></thead><tbody>
+    <tr><td>Arrange</td><td>What inputs and starting state do I need?</td></tr>
+    <tr><td>Act</td><td>Which function or command am I checking?</td></tr>
+    <tr><td>Assert</td><td>What observable result should be true?</td></tr>
+  </tbody></table>
+  <p>Keeping the phases visible prevents a test from becoming a second, tangled implementation of the feature.</p>
+
+  <h2>Build a tiny runner</h2>
+  <p>There is no framework yet. The operating system already gives us two useful test-runner behaviors: an assertion stops the process when it is false, and the process exit code tells the shell whether it succeeded.</p>
+  <pre><code class="language-c">#include &lt;assert.h&gt;
+
+static int add(int left, int right)
+{
+    return left + right;
+}
+
+static void test_adds_two_numbers(void)
+{
+    /* Arrange */
+    int left = 2;
+    int right = 3;
+
+    /* Act + Assert */
+    assert(add(left, right) == 5);
+}
+
+int main(void)
+{
+    test_adds_two_numbers();
+    return 0;
+}</code></pre>
+  <p>Compile and run it:</p>
+  <pre><code class="language-bash">gcc -Wall -Wextra -std=c17 -g test_add.c -o test_add
+./test_add
+echo $?</code></pre>
+  <p>Now change the expected value from <code>5</code> to <code>6</code>. The assertion should print a failure and the shell should show a nonzero exit status. That is <em>red</em>: the test has exposed a mismatch.</p>
+
+  <div class="callout"><strong>Red, green, refactor.</strong> Red means a test fails for a meaningful reason. Green means the behavior is protected. Refactor means improve the design without changing the protected behavior. The loop is useful even when you do not practice formal TDD every minute.</div>
+
+  <div class="exercise">
+    <h3>Practice: test a boundary</h3>
+    <ol>
+      <li>Add <code>test_adds_a_negative_number</code>.</li>
+      <li>Add <code>test_zero_is_an_identity</code>.</li>
+      <li>Break <code>add</code> deliberately, run the test, and read the failure.</li>
+      <li>Repair <code>add</code> and confirm the program exits with status zero.</li>
+    </ol>
+    <p>Say the three phases aloud for one of your tests. If you cannot point to the Act, the test may be checking too much at once.</p>
+  </div>
+
+  <div class="quiz" data-quiz>
+    <strong>Retrieval check</strong>
+    <p>Which phase calls the behavior under test?</p>
+    <button data-answer="wrong">Setup phase</button>
+    <button data-answer="correct">Act phase</button>
+    <button data-answer="wrong">Check phase</button>
+    <p class="feedback" aria-live="polite"></p>
+  </div>
+
+  <h2>Why this matters for procfs</h2>
+  <p>Our monitor will read changing operating-system files. We will not try to assert that the live machine has one exact amount of RAM. Instead, we will separate reading from parsing, then give the parser stable text in a fixture. That is the testable seam.</p>
+  <p>Primary reading: <a href="https://cstack.github.io/db_tutorial/parts/part4.html">Our First Tests (and Bugs)</a>. It shows a real C project discover a bug through a failing test. For the vocabulary, read Bill Wake's <a href="https://xp123.com/3a-arrange-act-assert/">Arrange, Act, Assert</a>.</p>
+  <p class="footer">Before Lesson 3, bring a passing test and one failure message you can explain. Ask follow-up questions about any assertion, exit code, or testing term.</p>
+</body>
+</html>

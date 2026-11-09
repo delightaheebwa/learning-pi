@@ -1,0 +1,273 @@
+# Index
+
+## Sources
+
+- [[2026-04-21 - euler-number-exponential-derivatives]] — screenshots about why Euler's number e is special
+- [[2026-04-22 - local-linearity-jacobian]] — screenshots about Jacobian matrices and local linearity
+- [[2026-04-23 - jacobian-derivatives-and-determinant]] — screenshots about the Jacobian matrix, partial derivatives, and area scaling
+- [[2026-05-01 - implicit-differentiation-total-differentials]] — screenshots about implicit differentiation, total differentials, and the derivative of ln(x)
+- [[2026-05-02 - backpropagation-forward-backward-passes]] — user notes about forward and backward passes in backpropagation
+- [[2026-05-04 - automatic-differentiation-forward-reverse]] — user notes about automatic differentiation in forward and reverse mode
+- [[2026-05-05 - automatic-differentiation-forward-mode-jvp]] — user notes and screenshots about differentiation methods, forward mode, and Jacobian-vector products
+- [[2026-05-06 - hessian-matrix-consolidated-notes]] — user notes about the Hessian matrix, curvature, and optimization
+- [[2026-05-07 - multivariate-taylor-series-and-hessian-curvature]] — user notes and recap questions about outer products, tensor contractions, Taylor series, and local curvature
+- [[2026-05-08 - gradient-descent-first-order-taylor-model]] — user note about gradient descent as the steepest decrease of the first-order Taylor model
+- [[2026-05-16 - probability-foundations-beginner-verbal-overview]] — beginner-friendly verbal overview of probability, distributions, and core ML foundations
+- [[2026-05-18 - cox-jaynes-plausibility-probability]] — user note about plausibility
+- [[2026-05-18 - random-variable-formal-definition]] — user note about random variables
+- [[2026-05-19 - random-variable-preimage-distribution]] — Perplexity walkthrough of pre-images, the fundamental identity P_X(S) = P(X^{-1}(S)), and distribution
+- [[2026-05-21 - discrete-continuous-distributions-joint-marginal-conditional]] — Perplexity walkthrough of discrete vs continuous distributions, PMF/PDF/CDF, joint/marginal/conditional probabilities, and independence
+- [[2026-05-22 - independence-test-derivation-and-practical-testing]] — user notes about deriving the independence test from conditional probability, theoretical vs statistical independence, chi-square test, and p-values
+- [[2026-05-29 - compilers-interpreters-virtual-machines]] — handwritten notes about compilers, interpreters, VMs, bytecode, JIT, transpilers, and runtimes
+- [[2026-05-30 - interpreter-mechanics-jit-tradeoffs]] — Perplexity walkthrough of interpreter EVAL loop, translator overhead, compiler optimizations, JIT downsides, and dev vs production workflow
+- [[2026-05-30 - python-performance-optimization-tradeoffs]] — Perplexity conversation about Python's architectural slowness, PyPy limitations, Cython tradeoffs, and memory management models
+- [[2026-06-04 - short-circuit-evaluation-memory-management]] — Perplexity conversation about short-circuit evaluation (logical operators as control flow) and memory management depth (reference counting vs tracing GC, reachability, circular references)
+- [[2026-06-04 - programming-paradigms-expressions-closures-arguments]] — user-provided notes about expressions vs statements, imperative vs declarative programming, arguments vs parameters, and closures
+- [[2026-06-06 - waterbed-theory-runtime-components]] — user-provided notes about Waterbed Theory and runtime components (engine vs environment)
+- [[2026-06-09 - lexer-tokens]] — user-provided notes about lexical analyzers, token structure, and lexeme-vs-literal distinction
+- [[2026-08-15 - gemini-meminfo-smoke-test]] — Gemini Socratic session: building a robust /proc/meminfo smoke test (bounds invariants, divide-by-zero guard, ULONG_MAX sentinel, smoke vs fixture tests, feature probing vs version checks)s
+- [[2026-08-18 - gemini-c-memory-integer-mechanics]] — Gemini C tutoring: unsigned underflow + integer-division truncation traps, flaky exact-live asserts, swap invariants, MemFree/MemAvailable/SwapFree semantics, stack vs heap vs swap memory regions, dangling pointers
+- [[2026-09-25 - dimensionality-reduction - rohit]] + 3b1b-eigen / distill / shlens / umap / umap-faq / umap-params — P1 L10 DR first scout (2026-09-25)
+- [[2026-10-13 - dimensionality-reduction - rohit]] + 3b1b-eigen / cs229-prob / distill / gundersen / shlens / sklearn-kpca / umap / umap-faq / umap-paper / umap-params — P1 L10 DR re-scout (2026-10-13, PASS; TTL to ~2026-10-20)
+- [[2026-10-28 - prompt-engineering - rohit]] + anthropic / claude-best-practices / cot-wei / dair / dair-cot / dair-settings / openai / prompt-engineer — Phase 11 L01 prompt-engineering first scout (2026-10-28, scout-audit PASS)
+
+## Concepts
+
+- [[AI Engineering from Scratch — Roadmap]] (active — Rohit 20 phases; 2026-09-01)
+- [[AI Engineering Roadmap v2]] (paused 2026-08-16 — superseded by the AIEFS Roadmap)
+- [[SWE Primary Colors & Roadmap]] (archived 2026-09-01 — see AIEFS Roadmap)
+- [[less (Pager)]]
+- [[AI Engineering - Dev Environment Stack]]
+- [[AI Engineering - Debugging and Profiling]]
+- [[AI Engineering - Linux for AI]]
+- [[AI Engineering - Terminal and Shell]]
+- [[API Key Security]]
+- [[Calculus for ML]]
+- [[Linear Algebra Intuition]]
+- [[Arguments and parameters]]
+- [[Automatic differentiation]]
+- [[Backpropagation]]
+- [[Broken Window Theory]]
+- [[Bytecode]]
+- [[Closures]]
+- [[Communication for Developers]]
+- [[Compiled vs Interpreted]]
+- [[Compiler]]
+- [[Context-Free Grammar (CFG)]]
+- [[Convenience Method]]
+- [[Cox-Jaynes view]]
+- [[Cumulative distribution function]]
+- [[Decorator Pattern]]
+- [[Delegation Pattern]]
+- [[Directional derivative]]
+- [[Distribution of a random variable]]
+- [[DRY Principle]]
+- [[ETC (Easier To Change)]]
+- [[Exponential derivatives]]
+- [[Expressions and statements]]
+- [[Formal Grammar]]
+- [[Functional programming]]
+- [[GCC Compilation Stages]]
+- [[Gaussian distribution]]
+- [[Global Data Avoidance]]
+- [[Good Enough Software]]
+- [[Gradient descent]]
+- [[Hessian matrix]]
+- [[Imperative and declarative programming]]
+- [[Implicit differentiation]]
+- [[Independence of random variables]]
+- [[Interdeveloper Duplication]]
+- [[Interpreter]]
+- [[JIT Compilation]]
+- [[Jacobian determinant]]
+- [[Jacobian matrix]]
+- [[Jacobian-vector product]]
+- [[Java Class Body Rules]]
+- [[Java Static Initializer Block]]
+- [[Joint, marginal, and conditional probabilities]]
+- [[Knowledge Portfolio]]
+- [[Lexer]]
+- [[Local linearity]]
+- [[Maintenance Mindset]]
+- [[Matrix Operations from Scratch]]
+- [[Matrix Transformations]]
+- [[Memory management]]
+- [[Method scoping and namespaces]]
+- [[Modern Java Collection Factory Methods]]
+- [[Multivariate Taylor series]]
+- [[Orthogonality]]
+- [[Parser]]
+- [[Probability foundations]]
+- [[Probability mass and density functions]]
+- [[Professional Responsibility]]
+- [[Programming paradigms comparison]]
+- [[Python performance tradeoffs]]
+- [[Random variable]]
+- [[Representational Duplication]]
+- [[Runtime]]
+- [[Self-Contained Components]]
+- [[Software Engineering Philosophy]]
+- [[Short-circuit evaluation]]
+- [[Shy Code]]
+- [[Single Responsibility Principle (SRP)]]
+- [[Strategy Pattern]]
+- [[Total differential]]
+- [[Tracer Bullets]]
+- [[Token]]
+- [[Transpiler]]
+- [[Uniform Access Principle]]
+- [[Virtual Machine]]
+- [[Waterbed Theory]]
+- [[Docker for AI Development]]
+- [[Editor and Remote Dev Setup]]
+- [[Git for AI Workflows]]
+- [[GPU Computing]]
+- [[Jupyter Notebook Workflow]]
+- [[Python Virtual Environments]]
+- [[Chain Rule Decomposition]]
+- [[Computational Graphs (Autodiff)]]
+- [[Forward-Mode Autodiff]]
+- [[Gradient Accumulation (+=)]]
+- [[Local Autograd Derivative Rules]]
+- [[Reverse-Mode Autodiff & Backprop]]
+- [[Topological Sort for Backprop]]
+- [[Two-Pass Autodiff Algorithm]]
+- [[Value Class Architecture]]
+- [[AI Engineer Weekly — July 13, 2026]] — weekly synthesis of AI Engineer talks covering agent guardrails, context management, review debt, evaluation, and agent architecture patterns
+- [[Testable Seam]]
+- [[Arrange-Act-Assert (AAA)]]
+- [[Static Fixtures & Boundary Cases]]
+- [[Red-Green-Refactor]]
+- [[Black-box vs White-box Testing]]
+- [[C String Buffer Boundaries]]
+- [[Sentinel Values vs Presence Flags]]
+- [[sscanf %n & Line Advancement]]
+- [[C Pointers (&, *, ->)]]
+- [[C Preprocessor Macros]]
+- [[Acutest Unit Testing]]
+- [[Feature Probing vs Kernel Version Checking]]
+- [[C Integer Mechanics (Underflow & Type Promotion)]]
+- [[C Memory Regions (Stack vs Heap vs Swap)]]
+- [[Tensors (PyTorch)]]
+- [[PyTorch Model Building]]
+- [[Activation Functions]]
+- [[Loss Functions (PyTorch)]]
+- [[Training Loop Pattern]]
+- [[Evaluation Protocol]]
+- [[Convolution Operation]]
+- [[Convolution Parameters]]
+- [[MIT Missing Semester — Shell]]
+- [[MIT Missing Semester — Command-line Environment]]
+- [[MIT Missing Semester — Shell Configuration & Dotfiles]]
+- [[MIT Missing Semester — Editors (Vim)]]
+- [[SSH — Public-Key Auth & Remote Commands]]
+- [[Positional & Special Shell Parameters]]
+- [[Process Substitution]]
+- [[Shell Arguments & the Untyped-Variable Model]]
+- [[Environment Variables (Shell)]]
+- [[Exit Codes & Short-Circuit Control Flow]]
+- [[File Transfers over SSH — scp, rsync & ssh_config]]
+- [[tmux — Sessions, Windows & Panes]]
+- [[Pooling (MaxPool2d)]]
+- [[CNN Architecture Pattern]]
+- [[Data Augmentation (torchvision)]]
+- [[Transfer Learning (PyTorch)]]
+- [[Vanishing & Exploding Gradients]]
+- [[Optimizers (SGD, Adam, AdamW)]]
+- [[Regularization Techniques]]
+- [[Recurrent Neural Networks (RNNs)]]
+- [[LSTM (Long Short-Term Memory)]]
+- [[Multi-Input & Multi-Modal Models]]
+- [[Text Tokenization]]
+- [[Word Embeddings (nn.Embedding)]]
+- [[BiLSTM Text Classifier]]
+- [[Character-Level RNN (CharRNN)]]
+- [[Transfer Learning for Text]]
+- [[African Language NLP]]
+- [[Probability Mass Function (PMF)]]
+- [[Bernoulli Distribution]]
+- [[Categorical Distribution]]
+- [[Bigram Language Model]]
+- [[Counts-to-Probabilities (keepdim trap)]]
+- [[Add-1 Smoothing]]
+- [[Negative Log-Likelihood (NLL)]]
+- [[Sampling from a Language Model]]
+- [[One-Hot Encoding]]
+- [[Softmax Function]]
+- [[Row-Select Property]]
+- [[L2 Regularization as Smoothing]]
+- [[Regularization Tug-of-War]]
+- [[Distributed Representations (Character Embeddings)]]
+- [[Hidden Layers Generalize via Shared Weights]]
+- [[Probability & Distributions for ML]]
+- [[AI Engineer Weekly — July 20, 2026]]
+- [[AI Engineer Weekly — 2026-07-21]] — weekly synthesis of AI Engineer talks covering eval infrastructure, agent architecture decoupling, multi-agent failures, memory, and 2026 State of AI Engineering survey — weekly synthesis of AI Engineer talks covering agent scaffolding, eval design, production observability, memory systems, and infrastructure patterns
+- [[AI Engineer Weekly — 2026-07-25]] — 10 talks from 100-video pool, agent-tinkering lens (handoffs, prompt caching, Claude Code patterns, agent logs)
+- [[Chain Rule for Neural Networks]] — Gradients multiply across layers; this IS backpropagation
+- [[PMF vs PDF]] — PMF=discrete, PDF=density, CDF=cumulative
+- [[Softmax Subtract-Max Trick]] — Subtract max(z) for numerical stability
+- [[Cosine Similarity]] — Unit vector dot product = cos(θ)
+- [[4-Layer AI Environment Stack]] — System→Packages→Runtimes→AI Libraries
+- [[Cross-Entropy from NLL]] — H(P,Q)=Σ q·(−log p); = CE loss = NLL; floor = the data's entropy H(Q); CE − H(data) = KL; the floor rule is Gibbs' inequality (KL ≥ 0) with the one-line Jensen proof (also: Cross-entropy (H(P,Q), CE loss, NLL))
+- [[Bayes' Theorem]] — P(H|E) = P(E|H)·P(H)/P(E); update beliefs with evidence
+- [[Prior Probability]] — P(H); belief before evidence (base rate)
+- [[Likelihood]] — P(E|H); probability of evidence given hypothesis
+- [[Posterior Probability]] — P(H|E); updated belief after evidence
+- [[Base Rate Fallacy]] — ignoring how common/rare an event is when interpreting evidence
+- [[Naive Bayes]] — classifier assuming conditional independence of features given class
+- [[Laplace Smoothing]] — add-1 fix for zero-frequency problem in Naive Bayes
+- [[Conditional Independence]] — features independent given class label
+- [[MLE vs MAP Estimation]] — MAP adds a prior over parameters; Gaussian prior = L2, Laplace prior = L1
+- [[Conjugate Priors]] — prior/posterior same family; Beta-Binomial update is just addition
+- [[Sequential Bayesian Updating]] — today's posterior becomes tomorrow's prior; order-invariant
+- [[Bayesian A-B Testing]] — P(B > A) via Monte Carlo; safe early stopping, no peeking problem
+- [[Learning Rate]] — step size; most important hyperparameter
+- [[Momentum (SGD with Momentum)]] — velocity term; selective accumulator
+- [[Adam (adaptive moments)]] — per-weight adaptive lr via first+second moments + bias correction
+- [[Saddle Points (critical point triage)]] — Hessian-sign triage; saddles dominate ~exponentially in d
+- [[Mini-batch Noise (two effects)]] — optimization (escape stalls) vs generalization (avoid sharp minima)
+- [[Learning-rate Schedules (four types)]] — read η-vs-time curves; early phase + floor
+- [[Optimizer Selection (Rohit heuristic)]] — Adam → SGD+M → AdamW; race-result caveat
+- [[Information Content (Surprise)]] — I(x)=−log p(x); rare events surprise more, certain events zero
+- [[Entropy (Average Surprise)]] — H(P)=expected surprise; max at uniform, 0 at deterministic
+- [[KL Divergence]] — KL(Q∥P)=H(P,Q)−H(Q)=Σ q·log₂(q/p); ≥0, 0 iff P=Q, not symmetric; KL ≥ 0 = Gibbs' inequality, one-line Jensen proof (weights from the truth Q; the P/Q direction collapses to Σ P = 1), rebate/cost reading of the per-term signs; ∞ when the model zeroes a data event (smoothing)
+- [[Mutual Information]] — I(X;Y)=H(X)−H(X|Y)=H(Y)−H(Y|X)=H(X)+H(Y)−H(X,Y)=KL(p(x,y)∥p(x)p(y)); ≥0, 0 iff independent, symmetric; truth-first KL walkthrough (joint ∥ product of marginals); Olah bars = overlap; inherits KL ≥ 0 from Gibbs/Jensen; fresh joint tested 2026-09-21 (0.1187 bits via two routes — the first attempt's −0.119 caught by MI ≥ 0); used for feature ranking + decision-tree gain
+- [[Variation of Information]] — V(X,Y)=H(X|Y)+H(Y|X)=H(X,Y)−I=H(X)+H(Y)−2I: the two Olah wings — what the two variables do not tell each other; 0 iff mutual determinism (blind to the sign of the relationship), H(X)+H(Y) iff independent; a true metric per Meilă 2003 COLT / 2007 J. Multivariate Analysis (triangle inequality) — used to compare clusterings; MI is an anti-distance (MI(X,X)=H(X)); arithmetic flips of I die at axiom 1, the geometric Venn-complement flip survives
+- [[Bayes rule]]
+- [[Covariance and correlation]]
+- [[PCA (Dimensionality Reduction)]] — center → covariance → eigenvectors (as columns) → sort by λ → project; `np.cov(Xc, rowvar=False)` gives d×d (the default `rowvar=True` treats rows as variables), `eigh` returns λ ascending, `order = vals.argsort()[::-1]` is a reversal and not `[:-1]`, `Xp = Xc @ V` is n×k; shape detector: has-n ⇒ points possible, all-d ⇒ directions only; paper-walk detectors (2026-10-05): the covariance divisor is rows-summed − 1 (centering ate a degree of freedom), only the diagonal entries are variances (self-dots), and the pie is Σλ = trace, so the kept fraction is λ_top/Σλ (6/8 = 3/4 on the CP2 cloud); **Kernel PCA (CP6 mini 1, 2026-10-20; Hidden Piece 1 sealed 2026-10-21; Hidden Piece 2 Part 1 sealed 2026-10-22; re-anchored on 3-point toy cloud 2026-10-23)**: nonlinear manifolds (concentric rings in 2D) cannot be separated linearly in input space; the **kernel trick** lifts $x \mapsto \phi(x)$ into higher-dimensional feature space $\mathcal{H}$ (e.g. paraboloid $z = x_1^2 + x_2^2$ separating concentric rings along height) via kernel evaluations $K_{ij} = k(x_i, x_j)$ without calculating $\phi(x)$ explicitly; matrix size shift: standard PCA decomposes $d \times d$ covariance ($2 \times 2$ for $n=5000, d=2$), Kernel PCA decomposes $n \times n$ Gram similarity matrix $K$ ($5000 \times 5000$); provides analytical out-of-sample projections unlike t-SNE/UMAP, but reconstruction back to input space suffers from the pre-image problem; **Hidden Piece 1 sealed 2026-10-21**: input-space centering fails for RBF kernels because uniform translation cancels in pairwise Euclidean distances ($\|(x_i - \mu) - (x_j - \mu)\| = \|x_i - x_j\|$), leaving $K$ unchanged; centering in feature space $\mathcal{H}$ is performed directly on $K$ via the double-centering matrix formula $\tilde{K} = (I - \mathbf{1}_n) K (I - \mathbf{1}_n) = K - \mathbf{1}_n K - K \mathbf{1}_n + \mathbf{1}_n K \mathbf{1}_n$; **Hidden Piece 2 Part 1 sealed 2026-10-22 and re-anchored on 3-point toy cloud 2026-10-23**: collision resolved (eigenvectors $\alpha_k$ of centered $\tilde{K}$ have $n = 5000$ slots indexing samples, not features); by the dual representation $v_k = \sum_{j=1}^n \alpha_{k,j} \tilde{\phi}(x_j)$, projection of sample $i$ is $\langle v_k, \tilde{\phi}(x_i) \rangle = (\tilde{K}\alpha_k)_i = \lambda_k \alpha_{k,i}$, re-anchored on concrete 3-point toy cloud where distributing $\langle v, \tilde{\phi}(x_1) \rangle$ yields Row 1 of $\tilde{K}$ by symmetry, proving eigenvector entries directly provide coordinates on the nonlinear component; `## My understanding` holds the learner's thirteen verbatim statements from CP6 mini 1; resume at Hidden Piece 2 Part 2 ($1/\sqrt{\lambda_k}$ scaling) and Hidden Piece 3 (pre-image problem)
+
+- [[Curse of Dimensionality]] — as `d` grows, pairwise distances **concentrate** (max/min ratio ≈ 1.8 at d = 10 → ≈ 1.02 at d = 1000): distances become *more alike*, not smaller, so contrast is what collapses; PCA's compressibility needs unequal spread (`λI` ⇒ every direction an eigenvector, flat scree, nothing droppable), and `Σλ = trace(C)` is fixed under rotation — PCA *redistributes* spread rather than shrinking the cloud
+- [[PCA Sign Ambiguity (svd_flip)]] — eigenvectors are defined up to sign, so MyPCA and sklearn tie *up to sign* (signed gap = 2× the biggest coordinate = a label mirror, not error); compare magnitudes/variances and never signed coordinates, restate sign-sensitive thresholds as |score|, and treat sklearn's `svd_flip` as cosmetic
+- [[t-SNE (Dimensionality Reduction)]] — preserve *which points are near each other*: Rohit's pair-probability mechanism (near = high prob, far = low prob, then find the 2D arrangement that matches), non-linear so it can unfold manifolds PCA cannot; a linear squash never tears true neighbours apart but does collapse distinct regions ⇒ **false neighbours**; the objective is `min KL(P‖Q)` (`P` frozen — it is the data; `Q` the only mover via gradient descent; weights from `P`, so "data says near, map says far" is the expensive mismatch); perplexity = the banked `2^H` on each point's neighbour distribution (`Per(P_i) = 2^{H(P_i)}`, `σ_i` tuned to the knob, an effective soft count, ceiling `n−1`); the heavy-tailed Student-t `Q` keeps `Q_i` from collapsing at distance so escaping the crowded medium band is affordable (JMLR: *mismatched tails compensate for mismatched dimensionalities*); Distill adds the interpretation-caution layer (cluster sizes meaningless by density equalisation, cluster distances `⚠️` perplexity-conditional vs Rohit's unconditional rule, noise clusters at low perplexity, pinched shapes = stopped early) — the pairwise-probability framing is **Rohit's**, not Distill's; **the misreading protocol sealed 2026-10-10**: cluster sizes are meaningless (an apparent size is the map-internal spread of the 2-D coordinates; one plot carries ONE user-set perplexity target, so size cannot come from the knob) and cluster distances mean little at an untuned perplexity (cross-cluster pairs carry `P_ij ≈ 0`, so their fine is ≈ 0 under any separation — the optimizer arranges the gap, and no direction is guaranteed), the fragile exception being a perplexity tuned to the data's natural cluster structure; the `⚠️` Rohit-vs-Distill contradiction is **resolved** as Rohit = safe default rule vs Distill = fragile exception needing a deliberate tuning experiment; the 3b cost picture now carries the learner's own computed fine (`P = 0.2, Q = 0.001 → 0.2·log₂200 ≈ 1.53 bits`) and his verbatim `## My understanding` block holds thirteen statements; **CP4 fully sealed 2026-10-12** (practice 4/4 + exit ticket 3/3, all `sure`, 0 hints) together with the **kernel deep-dive** — where the two kernels come from (data side = Gaussian bells, one per point, each `σ_i` binary-searched until `Per(P_i)` hits the knob; map side = `q_ij ∝ 1/(1+d²)`, a Student-t with one degree of freedom, chosen because a 2-D Gaussian `Q` dies at distance and strangles the crowd's escapes), the **widening-gap tail picture** (near `d ≈ 0` the curves are twins, then the gap opens gradually and keeps widening — Gaussian exponential vs `t` ~ `1/d²` — no flip point, never a half-and-half split of the axis), and the **crowd-placement chain** (sharply peaked `P` → scarce close range claimed first by the big-`P` pairs via the KL asymmetry → the distance-concentrated mid-range crowd pushed outward into exactly where the Gaussian `Q` is dead and the `t` is still alive)
+- [[UMAP (Dimensionality Reduction)]] — founded on three data assumptions (uniformly distributed on a Riemannian manifold; locally constant metric; locally connected), from which it models the manifold as a **fuzzy topological structure**; the paper's construction = local manifold approximations patched together (**patch → glue → match**), optimising the **cross-entropy** between the two fuzzy structures; **manifold = a local property, not a dimension count** (a straight line is 1-D, a flat plane 2-D); the FAQ's failure mode is an orphan point whose k-NN are all maximally far — a random neighbourhood treated as maximally similar, which the optimizer pulls together — guarded by `disconnection_distance` (default `None` ⇒ maximal/np.inf) + `umap.utils.disconnected_vertices()`; **the two dials (sealed 2026-10-14)**: `n_neighbors` (default 15) is the **INPUT-side** hard integer — one fixed chart size for the whole run, not a per-point soft count like t-SNE's perplexity (same role, different object); small k ⇒ charts barely overlap ⇒ "merely glues together small chains" + components and singletons, large k ⇒ a coherent map at the loss of fine local detail; the patch's membership mass is fixed at `log₂(k)` via `ρᵢ`/`σᵢ`; `min_dist` (default 0.1) is the **OUTPUT-side** packing floor — 0.0 ⇒ clumps and strings, larger ⇒ "softer more general features" — and it **never touches the graph** (a fragmented graph stays fragmented), arriving as a force curve (`Φ = (1 + a‖x−y‖₂^{2b})⁻¹` fitted to the piecewise `Ψ`, Algorithm 5), so `⚠️` the docs' "quite literally … the minimum distance apart that points are allowed to be" vs the paper's smooth gradient penalty is a **language** disagreement, resolved as strong resistance (not a wall); the ⚠️ Rohit (flat advantage) vs the paper ("arguably") vs FAQ (a breakable goal) disagreement was **resolved 2026-10-16 as a graduated claim** — the global term is the whole-embedding negative-sampling repulsion ("(1 − µ(a)) log(1 − ν(a)) requires negative sampling") plus the symmetric union `B = A + Aᵀ − A∘Aᵀ` (an edge survives if either direction voted, so connectedness leaks global information), and the paper concedes the Laplacian/spectral initialization is "a significant contributor" (Kobak & Linderman 2019: t-SNE with the same init matches on a particular measure), with its cross-entropy-vs-KL objective as the counterweight; **CP5 mini 4 exit ticket SEALED 2026-10-17 (3/3)**; **the pipeline PCA (~50 dims) → UMAP (~10–20 dims) → HDBSCAN (mini 5a SEALED 2026-10-17)**: PCA denoises neighbor distances against distance concentration in ambient space (~1.8 at d=10 → ~1.02 at d=1000); UMAP does not preserve density well and contracts components, so 2-D plot boundaries are artifacts; HDBSCAN re-estimates density on ~10–20 dims and leaves noise unlabeled, while K-Means assumes round clusters and is forced to assign every point; stage-role detector: graph = k-NN, cluster labels = K-Means / HDBSCAN; **feature scaling decision (mini 5b SEALED 2026-10-19)**: standardize when features are independent measurements on incomparable scales (prevents large-variance features dominating Euclidean distance and ruining graph connectivity); center-only when features share a meaningful geometric relationship or common coordinate system (preserves true aspect ratios, avoids squishing into an artificial sphere); **CP5 practice SEALED 2026-10-19 (4/4, all sure, 0 hints)** — P1 (knob separation clean under retrieval), P2 (global structure/repulsion sampling), P3 (pipeline rationale & KNN/K-Means role verified), P4 (scaling application); pause exit ticket X1 completed (mechanical distinction correct; application rule inverted, active mistake); **Checkpoint 5 (UMAP) FULLY SEALED**; `## My understanding` holds the learner's fourteen verbatim statements (two 2026-10-13, three 2026-10-14, three 2026-10-16, three 2026-10-17, three 2026-10-19)
+- [[Variance is Non-Negative (PSD Covariance)]] — variance is an average of squared deviations ⇒ uᵀCu ≥ 0 ⇒ the covariance matrix is PSD ⇒ eigenvalues ≥ 0; λ = 0 means zero spread in that direction and a negative λ is float noise
+- [[Euler number e]]
+- [[Gradient Checking]]
+- [[Micrograd Architecture]]
+- [[Natural logarithm]]
+- [[Neural Network Training Loop]]
+- [[Newtons law of cooling]]
+- [[Parameter Expansion]]
+- [[Shell Built-ins & Process Isolation]]
+- [[Perplexity]] — PPL = 2^H (bits) / e^H (nats) = the effective number of equally likely choices; uniform over k → PPL exactly k (GPT-2 ≈ 30, frontier models single digits); evaluation-time, output-side conversion; its uniform is a hypothetical yardstick, not label smoothing's real ingredient; the e^2.4-on-5-bits unit slip and its fix; the same `2^H` re-used per point in t-SNE (σ_i tuned so `Per(P_i)` = the knob, ceiling `n−1`, a *reachable* uniform)
+- [[Bits vs Nats]] — the log base is a unit, not a change of quantity: 1 nat = 1.4427 bits; PyTorch/TF cross-entropy is in nats by default; detector — bits → base 2, nats → base e
+- [[Label Smoothing]] — soft target = (1−ε)·one-hot + ε/K (0.84 / 0.04 at ε=0.2, K=5); L = (1−ε)·CE(hard) + ε·H_uniform with ε/K in the second term; removes the one-hot demand for probability 1 (infinite logits); ε=1 erases the label; PyTorch label_smoothing ∈ [0,1], default 0.0
+- [[Logits & Log-odds]] — logits are unnormalized scores (softmax = exp/normalize, shift-invariant); 'logit = log-odds' exact only in two-class; multi-class log-odds = logit differences (z_c − z_j = log p_c/p_j); probability 1 ⇔ log-odds +∞
+
+- [[Prompt Engineering]] — prompt text conditions each next-token distribution: every ambiguity is a fork arm the loop samples from, and a precise instruction deletes arms so the same mass piles onto fewer survivors ("Fewer valid outputs means higher probability"); anatomy = system message / user message / assistant prefill; role specificity narrows the distribution until few matching training examples leave ⇒ hallucination; the missing ruler is the eval layer (Anthropic's eval-first preconditions + Rohit's prompt testing harness); failure regime = CoT hurts below ~100B (Wei et al.), over-specific roles hallucinate; ⚠️ the 10–40% CoT payoff is scale-conditional, not a flat bonus; the ruler is a harness holding human-authored expected outputs and re-running on every prompt change (a model scoring itself re-authors "good" every run — the scorer is not the ruler); two failure regimes — over-specific roles fabricate on the data-support condition, CoT below ~100B pollutes its own context so one-shot wins; the 10–40% CoT payoff is reconciled as ~100B+-scoped in the learner's model with the original conflict kept visible; ⚠️ prefill (real, version-bounded) and Rohit's Johnny citation (real source error) still flagged; learner v1 → partial v2 → full v2 (2026-10-29) verbatim under `## My understanding`
+
+- [[Software Architecture (intro)]] — architecture = the part of a system that is **expensive and hard to change later** (reversal cost, not abstract importance); the learner's v1 verbatim (architecture buys maintainable + functional software; otherwise "non-functional (unreliable)") with the solid clause isolated and the untested tail flagged; **open counterexample queued, not resolved** — a well-architected system failing at its job, a poorly-architected one still doing it
+- [[Non-Functional (requirements label)]] — "non-functional" is a **requirements category** (how well a running system behaves — quality attributes: reliability, performance, availability, security, scalability), **not** a failure state; the lexical collision *not functioning* (system state) vs *non-functional* (requirement class); the index filing under requirements is the tell; the learner's repair-close restatement verbatim, with reliability annotated as one instance rather than the definition
+
+- [[Structured Outputs (JSON contract)]] — the application wants a typed value, the model returns a string: prompting buys ~90% (fences, preamble, an early `}`) and a retry loop converts a parse failure into a *consistency* failure (the retry returns different data); the ladder prompt → JSON mode → schema mode → masking is really "where does the constraint act" (probability / parse / distribution), with rung 4 the *mechanism* behind rung 3, not a fourth knob; JSON Schema as the contract language (type lattice / required / closure via `additionalProperties`, which defaults to *allowed*); ⚠️ "guaranteed" holds only over the **sent subset** (OpenAI: no composition keywords, all fields required, `additionalProperties:false` mandatory, object root, no root `anyOf`, refusals + `max_tokens` outside the guarantee; Anthropic strips `minimum`/`maximum`/`minLength`); failure modes split by catchability — enum/length/presence are grammar facts, a hallucinated value ("type correct, value wrong") is caught by nothing but an eval harness; learner v1 verbatim with its `[?]` blanks left blank
+- [[Constrained Decoding (parser-state masking)]] — mask *then* renormalise: `p(t|s) = softmax(z + m_s)_t` with `−∞` on every token the automaton rejects, so "the rest are masked" means probability exactly 0; the **decider** is the parser state (`in_string` · `expect` · `required_left` · `literal` · depth) over a *token* vocabulary, not a lookback at the last character; three breakdowns of Rohit's last-char rule (`{"product": "Sony"` → `['a-z','"']` where only `,`/`}` is legal; `tru` → `["any"]` where only `e` is; `{"product": "Sony", "price": 348}` → `<EOS>` while `in_stock` is still required) and the discriminator the session's closing check **failed** on (`miss: discrimination` — `,` right, both rationales taken from the rule) because the rule early-exits on a parseable prefix while the decider still needs the separator (`required_left` non-empty), so the row-4 repair stays OPEN at the pause; characters vs tokens → FSM + vocabulary index (Outlines, `O(1)` average), byte-level PDA + adaptive mask cache (XGrammar, <1% context-dependent tokens, <40 µs/token), over-approximate masks + backtracking (LMQL); ⚠️ Rohit's Further Reading says ~100 ns/token where the paper reports <40 µs — a unit slip, read the source
+- [[JSON Schema Validation & Retry (Pydantic + Instructor)]] — Pydantic *generates* the schema from the typed model (one declaration, no drift between what the decoder enforces and what the parser expects); a validator is a structural recursion over (instance, subschema) carrying a path, with three keyword families — type membership / presence / **closure**; Python's type lattice ≠ JSON's (`isinstance(True, (int, float))` passes a boolean as `price`; the `integer` branch excludes `bool`, the `number` branch does not) and `additionalProperties` defaults to *allowed*, so closure is mandatory; Instructor ships the `ValidationError` back as context and resamples (`max_retries = 3`) — a repair, not a guarantee, and it can mutate the data; three guards for three failure classes, the subset mismatch needing a client-side validator against the **original** schema
+
+## Entities
+
+- 3Blue1Brown
+
+## Open questions
+
+- None currently

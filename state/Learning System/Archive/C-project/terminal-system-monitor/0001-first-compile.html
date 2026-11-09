@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 1: The First Compile</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+  <script src="../assets/prism.js" defer></script>
+  <script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+  <p class="kicker">Lesson 01 / Process + C</p>
+  <h1>Make the machine say hello.</h1>
+  <p class="dek">Before we read Linux internals or draw a dashboard, we need a tiny, repeatable build. Your win is not "hello world"; it is knowing exactly how source code becomes a runnable program.</p>
+  <p class="meta">Estimated time: 30-45 minutes · Prerequisites: a shell and <code>gcc</code></p>
+
+  <nav class="nav"><a href="index.html">course map</a><a href="../LESSON-ARC.md">lesson arc</a><a href="../MISSION.md">mission</a><a href="../reference/glossary.html">glossary</a><a href="../reference/testing-patterns.html">testing reference</a></nav>
+  <hr class="rule">
+
+  <h2>One small mental model</h2>
+  <p>A C project begins as text. The compiler translates each <code>.c</code> file into machine-code-like object code; the linker combines object code with libraries to make an executable. For this first step, <code>gcc</code> can invoke both stages for us.</p>
+  <p>Then <code>make</code> records the recipe. It is not a compiler. It is a small build tool that checks prerequisites and runs commands when a target is out of date.</p>
+
+  <div class="callout"><strong>Connection to the mission.</strong> A live system monitor will eventually have several source files and test binaries. A reliable build is the first piece of process discipline that keeps those parts understandable.</div>
+
+  <h2>Build it</h2>
+  <p>Work in a new directory for the monitor. Type the source rather than pasting it; the point is to notice the punctuation and the compiler's response.</p>
+  <pre><code class="language-bash">mkdir -p monitor
+cd monitor
+touch main.c
+${EDITOR:-vi} main.c</code></pre>
+
+  <p>Put this in <code>main.c</code>:</p>
+  <pre><code class="language-c">#include &lt;stdio.h&gt;
+
+int main(void)
+{
+    puts("terminal system monitor: starting");
+    return 0;
+}</code></pre>
+
+  <p>Compile with warnings enabled, then run the result:</p>
+  <pre><code class="language-bash">gcc -Wall -Wextra -std=c17 -g main.c -o monitor
+./monitor</code></pre>
+  <p>You should see:</p>
+  <pre><code class="language-text">terminal system monitor: starting</code></pre>
+
+  <h2>Make the recipe repeatable</h2>
+  <p>Create a file named <code>Makefile</code> beside <code>main.c</code>:</p>
+  <pre><code class="language-makefile">CC = gcc
+CFLAGS = -Wall -Wextra -std=c17 -g
+
+monitor: main.c
+	$(CC) $(CFLAGS) main.c -o monitor
+
+clean:
+	rm -f monitor
+
+.PHONY: clean</code></pre>
+  <p>The indentation before <code>$(CC)</code> and <code>rm</code> must be a tab. The target <code>monitor</code> depends on <code>main.c</code>. If the source has not changed, <code>make</code> can avoid repeating work.</p>
+
+  <pre><code class="language-bash">make
+./monitor
+make clean
+make</code></pre>
+
+  <div class="exercise">
+    <h3>Practice: make one deliberate change</h3>
+    <ol>
+      <li>Change the message to include your own monitor name.</li>
+      <li>Run <code>make</code> and observe the compile command.</li>
+      <li>Run <code>make</code> a second time. What does it do differently?</li>
+      <li>Run <code>make clean</code>, then <code>make</code> again. Why must compilation happen now?</li>
+    </ol>
+    <p>Write down one sentence answering: "What is the relationship between <code>main.c</code>, the target <code>monitor</code>, and the recipe?"</p>
+  </div>
+
+  <div class="quiz" data-quiz>
+    <strong>Retrieval check</strong>
+    <p>Which kind of tool is <code>make</code>?</p>
+    <button data-answer="wrong">C compiler</button>
+    <button data-answer="correct">build tool</button>
+    <button data-answer="wrong">C linker</button>
+    <p class="feedback" aria-live="polite"></p>
+  </div>
+
+  <h2>What to bring next time</h2>
+  <p>Bring the output of <code>make</code>, the sentence from the practice exercise, and any warning or error you encountered. Next we will deliberately make a test fail, then use that failure as information.</p>
+  <p>Primary reading: the GNU <a href="https://www.gnu.org/software/make/manual/make.html">Make manual</a>, especially targets, prerequisites, and recipes. For a shorter C build reference, see the <a href="https://gcc.gnu.org/onlinedocs/gcc/Overall-Options.html">GCC overall options</a>.</p>
+
+  <p class="footer">This lesson is tied to the mission's first success criterion: a runnable C program with a reproducible build. Ask the teacher follow-up questions about any command, compiler flag, or error message.</p>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "generated_at": "2026-08-07T20:19:00.907Z",
+  "source": "https://raw.githubusercontent.com/rohitg00/ai-engineering-from-scratch/main/README.md",
+  "concepts": [
+    "Autograd"
+  ],
+  "wiki_paths": [
+    "Knowledge Wiki/wiki/API Key Security.md"
+  ],
+  "pass": "1",
+  "model": "byok:77723e9c-69c1-4fb1-9284-045c4e3f0ee8",
+  "verdict": {
+    "verdict": "ISSUES",
+    "issues": [
+      {
+        "severity": "high",
+        "location": "The entire wiki page 'API Key Security.md'",
+        "issue": "The content is not derived from the provided source material. The source is the course README, which outlines the 503-lesson curriculum structure, phases, and project layout. It does not contain any lesson or content about API key security, SDKs, raw HTTP calls, or authentication errors. The implementer has created content based on general external knowledge, not the specified source."
+      },
+      {
+        "severity": "medium",
+        "location": "Security Rules section",
+        "issue": "The wiki states 'Tools like Zo's Settings > Advanced let you store secrets as environment variables...' This is specific to the user's personal Zo Computer setup and is not mentioned or relevant to the AI Engineering from Scratch course source material. It incorrectly attributes a platform-specific feature to the learning source."
+      },
+      {
+        "severity": "medium",
+        "location": "Key Terms table, 'Token' definition",
+        "issue": "The definition 'Billing unit; input and output tokens counted and charged separately' is accurate for commercial API billing but is not a concept defined in the course README source. The source defines 'lesson' as a reusable artifact and describes the curriculum's scope, not API pricing models."
+      },
+      {
+        "severity": "medium",
+        "location": "Related section at the bottom",
+        "issue": "The wiki links to '[[AI Engineering - Dev Environment Stack]]', but the source material does not contain a concept or page with that exact name. The source lists Phase 0 lessons like 'Dev Environment' and 'APIs & Keys', but the implementer has fabricated a specific cross-reference not present in the source."
+      },
+      {
+        "severity": "low",
+        "location": "SDK vs Raw HTTP code example",
+        "issue": "The example uses 'anthropic.Anthropic()', which is from the Anthropic SDK. The course source mentions Python, TypeScript, Rust, and Julia for lessons, but does not specify or endorse any particular vendor SDK like Anthropic's in the provided text. The implementer has chosen a specific vendor example not grounded in the source."
+      }
+    ]
+  }
+}

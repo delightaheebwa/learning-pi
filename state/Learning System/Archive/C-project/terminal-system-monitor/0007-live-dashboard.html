@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 7: The Live Dashboard</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+  <script src="../assets/prism.js" defer></script>
+  <script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+  <p class="kicker">Lesson 07 / Interaction</p>
+  <h1>Give the monitor a heartbeat.</h1>
+  <p class="dek">The data layers work. Now turn them into a terminal application: enter a controlled input mode, redraw the same screen, respond to <code>q</code>, and always return the terminal to its original state.</p>
+  <p class="meta">Estimated time: 90-150 minutes · Prerequisites: <a href="0006-process-list.html">Lesson 6</a></p>
+
+  <nav class="nav"><a href="index.html">course map</a><a href="0006-process-list.html">previous</a><a href="../LESSON-ARC.md">lesson arc</a><a href="../reference/ansi-codes.html">ANSI reference</a><a href="../reference/cpu-formulas.html">CPU formulas</a></nav>
+  <hr class="rule">
+
+  <h2>Terminal state is borrowed state</h2>
+  <p>Canonical input normally waits for Enter. A dashboard needs a short read timeout so it can refresh even when no key is pressed. Save the original settings before changing them, and register cleanup immediately.</p>
+  <pre><code class="language-c">#include &lt;signal.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;termios.h&gt;
+#include &lt;unistd.h&gt;
+
+static struct termios original_terminal;
+static volatile sig_atomic_t stop_requested = 0;
+
+static void restore_terminal(void)
+{
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &amp;original_terminal);
+    fputs("\x1b[?25h\x1b[0m\n", stdout);
+}
+
+static void enter_dashboard_mode(void)
+{
+    tcgetattr(STDIN_FILENO, &amp;original_terminal);
+    atexit(restore_terminal);
+
+    struct termios raw = original_terminal;
+    raw.c_lflag &amp;= ~(ECHO | ICANON);
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 1; /* 100 ms read timeout */
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &amp;raw);
+}</code></pre>
+  <p>This is a deliberately small raw-mode subset. The <a href="https://man7.org/linux/man-pages/man3/termios.3.html">termios reference</a> and kilo tutorial explain the flags in more detail.</p>
+
+  <h2>Handle Ctrl-C safely</h2>
+  <p>A signal handler should do very little. Set a flag; let the ordinary control flow perform cleanup. This avoids calling complex, non-async-signal-safe functions from the handler.</p>
+  <pre><code class="language-c">#include &lt;signal.h&gt;
+
+static void handle_sigint(int signal_number)
+{
+    (void)signal_number;
+    stop_requested = 1;
+}
+
+static void install_signal_handler(void)
+{
+    struct sigaction action = {0};
+    action.sa_handler = handle_sigint;
+    sigemptyset(&amp;action.sa_mask);
+    sigaction(SIGINT, &amp;action, NULL);
+}</code></pre>
+
+  <h2>Bridge the data modules</h2>
+  <p>Lesson 5 taught the pure <code>parse_cpu_line</code> function. This thin wrapper reads the first line of <code>/proc/stat</code>, which is the aggregate <code>cpu</code> line, and hands it to the parser. The memory display is another small helper built from Lesson 4.</p>
+  <pre><code class="language-c">static int read_cpu_times(const char *path, struct cpu_times *out)
+{
+    FILE *file = fopen(path, "r");
+    if (file == NULL) return -1;
+
+    char line[256];
+    if (fgets(line, sizeof(line), file) == NULL) {
+        fclose(file);
+        return -1;
+    }
+    fclose(file);
+    return parse_cpu_line(line, out);
+}
+
+static void print_memory(struct memory memory)
+{
+    if (memory.total_kb == 0 || memory.available_kb &gt; memory.total_kb) {
+        puts("RAM: unavailable");
+        return;
+    }
+
+    unsigned long used_kb = memory.total_kb - memory.available_kb;
+    double percent = 100.0 * used_kb / memory.total_kb;
+    printf("RAM: %lu / %lu kB (%5.1f%% used)\n",
+           used_kb, memory.total_kb, percent);
+}</code></pre>
+
+  <h2>Redraw, then wait</h2>
+  <p>Use the ANSI sequences from the reference sheet to erase the old frame and move home. The <code>\x1b[?25l</code> sequence hides the cursor while drawing; the registered cleanup shows it again.</p>
+  <pre><code class="language-c">int main(void)
+{
+    enter_dashboard_mode();
+    install_signal_handler();
+
+    while (!stop_requested) {
+        struct memory memory = {0};
+        struct cpu_times before = {0};
+        struct cpu_times now = {0};
+
+        if (read_meminfo("/proc/meminfo", &amp;memory) != 0 ||
+            read_cpu_times("/proc/stat", &amp;before) != 0) {
+            fputs("could not read system metrics\n", stderr);
+            return 1;
+        }
+        sleep(1);
+        if (read_cpu_times("/proc/stat", &amp;now) != 0) {
+            fputs("could not read CPU metrics\n", stderr);
+            return 1;
+        }
+
+        fputs("\x1b[2J\x1b[H\x1b[?25l", stdout);
+        printf("mini-monitor\nCPU: %5.1f%%\n", cpu_percent(before, now));
+        print_memory(memory);
+        puts("\nPID      NAME");
+        print_processes();
+        fflush(stdout);
+
+        char key;
+        if (read(STDIN_FILENO, &amp;key, 1) == 1 &amp;&amp; key == 'q') {
+            stop_requested = 1;
+        }
+    }
+    return 0; /* returning runs restore_terminal via atexit */
+}</code></pre>
+  <p>The first version can redraw the whole screen. Later, an append buffer or ncurses can reduce flicker and handle terminal capabilities more portably.</p>
+
+  <div class="exercise">
+    <h3>Practice: finish and stress the exit path</h3>
+    <ol>
+      <li>Run the monitor from a normal terminal.</li>
+      <li>Quit with <code>q</code>; run <code>echo shell restored</code> afterward.</li>
+      <li>Run it again and quit with Ctrl-C.</li>
+      <li>Start and stop it repeatedly. The cursor and shell echo should always return.</li>
+    </ol>
+    <p>If the terminal is left in a strange state, type <code>reset</code> and inspect which cleanup path was skipped.</p>
+  </div>
+
+  <div class="quiz" data-quiz>
+    <strong>Retrieval check</strong>
+    <p>Which sequence clears the full display?</p>
+    <button data-answer="correct">ESC[2J</button>
+    <button data-answer="wrong">ESC[?25l</button>
+    <button data-answer="wrong">ESC[0m</button>
+    <p class="feedback" aria-live="polite"></p>
+  </div>
+
+  <p>Primary reading: <a href="https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html">kilo's raw mode chapter</a>, plus the authoritative <a href="https://man7.org/linux/man-pages/man4/console_codes.4.html">console_codes(4)</a>, <a href="https://man7.org/linux/man-pages/man3/termios.3.html">termios(3)</a>, and <a href="https://man7.org/linux/man-pages/man2/sigaction.2.html">sigaction(2)</a> pages.</p>
+  <p class="footer">This is the MVP finish line: data, tests, terminal redraw, and clean exit. Ask follow-up questions about raw mode, signals, flicker, or the next stretch goal.</p>
+</body>
+</html>

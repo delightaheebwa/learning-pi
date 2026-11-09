@@ -1,0 +1,29 @@
+# Session — Software Testing Ingest
+
+- **Date:** 2026-08-06
+- **Type:** Ingest (not review)
+- **Sources:**
+  - Teach C Course — Lesson 2: Your First Tests (HTML lesson)
+  - Gemini Socratic tutoring — testing session (notebook: https://gemini.google.com/app/e21b1624e3b156a0)
+  - Gemini primary-source reading guide — testing categories (notebook: https://gemini.google.com/app/f3ceade4034d6bf0)
+  - cstack — Let's Build a Simple Database, Part 4 (https://cstack.github.io/db_tutorial/parts/part4.html)
+  - Bill Wake — 3A: Arrange, Act, Assert (https://xp123.com/3a-arrange-act-assert/)
+- **Concepts added (6, all SWE track, `developing`, `last_reviewed` 2026-08-06, `Last Q Type` definitional):**
+  - Testable Seam — next_review 2026-08-09
+  - Arrange-Act-Assert (AAA) — next_review 2026-08-09
+  - Static Fixtures & Boundary Cases — next_review 2026-08-10
+  - Red-Green-Refactor — next_review 2026-08-10
+  - Black-box vs White-box Testing — next_review 2026-08-11
+  - C String Buffer Boundaries — next_review 2026-08-11
+- **Wiki pages created (6):** Testable Seam, Arrange-Act-Assert (AAA), Static Fixtures & Boundary Cases, Red-Green-Refactor, Black-box vs White-box Testing, C String Buffer Boundaries
+- **Key insights ingested:**
+  - Testable seam: split side effects (reading live OS files) from pure logic (parsing); test the parser against static fixture text — otherwise the test depends on environment state, not code correctness (flaky tests)
+  - AAA: Arrange (set up object + collaborators), Act (one targeted mutator), Assert (claims about observable outcome); Assert-First / Frame-First and Act-first are both valid write orders; not dogmatically one-assert-per-test; setup/teardown belong to Arrange (no 4th A)
+  - Static fixtures: boundary/adversarial classes — format drift, malformed input, extreme values, empty input, cross-platform variants; one happy-path fixture proves nothing about production
+  - Red-Green-Refactor: seeing Red first proves the test runs your code and the assertion can catch failure (no false positives)
+  - Black-box vs white-box = visibility (HOW); unit/integration/E2E = scope (WHAT); cstack's RSpec suite is black-box integration testing via IO.popen (stdin/stdout contract, decoupled from memory layout); testing pyramid: many fast unit tests + few integration tests
+  - C string boundaries: `char x[SIZE + 1]` for null terminator (32-char username corrupts next field); sscanf → strtok + strlen bounds-checked parsing; boundary tests at max sizes, overflow, 1,401 rows into 1,400-row table, negative IDs
+- **Learning-review gate:**
+  - Factual gate: PASS — cstack claims verified against primary source (part4.html); "AAA named by Bill Wake, 2001" verified via xp123 + secondary sources
+  - Quality gate: PASS after 2 fix cycles — added Kent Beck TDD-by-Example mention, reciprocal AAA ↔ Red-Green link, Wake's Act-first write-order
+- **Open questions:** none new

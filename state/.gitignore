@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.tmp/
+Learning System/.tmp/
+Learning System/Core/Pending Ingest.json
+infra/.env
+backups/

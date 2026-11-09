@@ -1,0 +1,33 @@
+# Session — Information Theory Ingest (CP5 KL-connection) — 2026-09-16
+
+Partial (`/pause`) ingest of the 2026-09-16 Tutor handoff (`Core/Pending Ingest.json`, `partial:true`). Content sources: the lesson file (`Lessons/Lesson — Information Theory — 2026-09-11.md`), the Tutor session note (`Sessions/Session — Information Theory (P1 L09 resume, CP5 KL-connection) — 2026-09-16.md`), and `Learning Records/0005-mutual-information-as-kl-against-independence.md`. No Scout digest in this checkout (resume flow; `Learning System/.tmp/` does not exist).
+
+## Overlap check (one bundle)
+`Mutual Information` and `KL Divergence` both already had a wiki page **and** an Active Concepts row (created at the 2026-09-15 CP5-mid ingest) → **ENRICH, no new concepts, no new pages** (wiki page count stays 209).
+
+## What was ingested (today's genuinely new material only)
+- **Enriched `wiki/Mutual Information.md`:** new section **"The KL connection, walked"** (four moves: fix KL's roles → build the independence baseline [[0.25,0.25],[0.25,0.25]] cell by cell → name the identification → numeric check, 2(0.3816) + 2(−0.1161) = 0.531 bits); new section **"Why MI can never be negative — and why there is no absolute value"** (anti-correlated Y = 1 − X → I = 1 bit = max; signed per-cell terms vs non-negative p-weighted total; no absolute value anywhere in the construction; the coding reductio); new section **"MI vs correlation — the division of labor"** (signed direction vs non-negative magnitude, linear-only vs any dependence); the fused-bar set-strip identity I(X;Y) = H(X,Y) − H(X|Y) − H(Y|X) with the numeric check 1.469 − 0.469 − 0.469 = 0.531; the distributions-not-variables precision (the E1 slip) in form 4 and in the walkthrough; the **variation of information** open question restated as not-yet-consolidated.
+- **Enriched `wiki/KL Divergence.md`:** the "Mutual information is a KL divergence" section rewritten — four-move walkthrough, truth-vs-model role framing, arguments-are-distributions precision, the 0.531-bit check, and the "MI inherits KL ≥ 0" inheritance note (which carries the anti-correlation 1-bit case); plus a one-line note that the fresh 2026-09-16 non-symmetry item passed, so the rule now holds across two sessions.
+- **`Knowledge Wiki/index.md`:** `Mutual Information` entry description updated (truth-first KL walkthrough).
+- **`Knowledge Wiki/log.md`:** entry appended.
+
+## State reconciliation (handoff = single source of truth)
+- **Position pointers → paused mid-Checkpoint 5/6 (2026-09-16)**, the same checkpoint named in `MISSION.md`, `CURRICULUM.md` (Phase note + row 09), `💡 Learning Profile.md` (Current Focus / Current Position / Last Updated) and the `📚 Active Concepts.md` IT section header + AIEFS / use-"lesson" pointers. Resume chain recorded everywhere: **(1) re-digest the nonnegativity discussion → (2) repair the E1 KL-form slip → (3) CP5 practice on a fresh joint → (4) V(X,Y) consolidation → (5) CP6**. No curriculum advance (partial handoff → lesson stays `in-progress`).
+- **Active Concepts rows synced from `Attempts.json`:** `Mutual Information` last_reviewed 2026-09-17, next_review **2026-09-24** (interval_index 1), Last Q Type `definitional`; `KL Divergence` last_reviewed 2026-09-17, next_review **2026-10-17** (interval_index 3). Both rows enriched with today's evidence. Live-concept count unchanged at 30 (enrichment only).
+- **Mistakes:** one row appended — `Mutual Information` / `structural` (exit-ticket E1 free recall: the KL form came out "between X and Y", variables confused for distributions, after stating joint-vs-product-of-marginals correctly in conversation minutes earlier), status `active`, retries 0, next retry 2026-09-18; canonical key = the Active Concepts row name.
+- **Learner History:** regenerated via `scripts/learner_history.py`.
+- **Date note (surfaced, not merged):** the Tutor's lesson/session files are labelled 2026-09-16, but the Attempts.json entries written during that session carry the local clock date **2026-09-17** (files written 23:45 EAT). The Active Concepts rows were synced to Attempts.json as instructed; the one-day label offset is pre-existing convention drift and is surfaced here rather than reconciled.
+- **Lesson/curriculum agreement:** the lesson file's own `Status:` / `Resume from:` (paused mid-CP5 2026-09-16, resume at the two repairs then CP5 practice) agrees with the handoff's `status` / `resume_from` — no contradiction to surface beyond the date label above.
+- **Carry-forward, untouched:** CP3 floor-direction retrieval re-test due 2026-09-17 (Mistakes row active; the handoff does not claim it was retested — it was not).
+
+## Open questions carried
+- **Nonnegativity / no-absolute-value digestion** — learner-flagged as not fully digested 2026-09-16; now re-laid in `wiki/Mutual Information.md` from the anti-correlation + per-cell-sign angle, but the re-digest is still owed to the learner.
+- **E1 KL-form retrieval repair** — priority-1 mistake (Mistakes row, due 2026-09-18).
+- **Variation of information V(X,Y) = H(X,Y) − I(X,Y)** — wonder-out, NOT consolidated (recorded in the page's Open Questions).
+- CP3 floor-direction re-test (due 2026-09-17); label smoothing ↔ add-1 (CP6); letter conventions (Olah vs Rohit flip) restated in every envelope.
+
+## Review + audit
+- **Review gate (cycle 1):** `ISSUES` — 1 medium in `wiki/Mutual Information.md`: the bars-bookkeeping sentence credited the *union* H(X,Y) with double-counting the overlap (it is H(X) + H(Y) that does). Fixed in one apply → "H(X) + H(Y) counts the overlap twice (once inside each bar) and the rest once, while H(X,Y) counts every region once".
+- **Review gate (cycle 2):** `PASS_WITH_FLAGS` — 0 issues at any severity; 3 `context_notes` (KL page passed as a byte-identical placeholder in pass 2, so not re-verified there — it was clean on its exact text in pass 1; Active Concepts row line-order shift; corrected sentence confirmed). 2-cycle cap reached; no third pass.
+- **State audit:** `python3 "$HOME/learning-pi/pi/audit_state.py" --root .` → **0 errors, 0 warnings** after one fix cycle. The first post-ingest run raised 2 errors (`L09: MISSION says done, CURRICULUM says in-progress` and the reverse) caused by the token "passed 4/4" in the L09 status sentence matching the audit's DONE_RE; rephrased to "went 4/4" in MISSION + CURRICULUM. Both pre-ingest warnings this ingest touched are cleared (`KL Divergence` Next Review 2026-10-16 → 2026-10-17; stale `Pending Ingest.json` marker).
+- **Artifacts:** `Learning System/Reviews/Quality Gates/information-theory-p1l09-cp5kl-pass1-2026-09-16.json`, `…-pass2-2026-09-16.json`.

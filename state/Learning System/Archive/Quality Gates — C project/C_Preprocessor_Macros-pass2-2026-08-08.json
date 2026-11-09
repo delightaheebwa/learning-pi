@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-08-08T11:54:00.223Z",
+  "source": "http://localhost:8777/gemini-conversation.md",
+  "concepts": [
+    "C Preprocessor Macros"
+  ],
+  "wiki_paths": [
+    "Knowledge Wiki/wiki/C Preprocessor Macros.md"
+  ],
+  "pass": "2",
+  "model": "byok:77723e9c-69c1-4fb1-9284-045c4e3f0ee8",
+  "verdict": {
+    "verdict": "PASS",
+    "issues": []
+  }
+}

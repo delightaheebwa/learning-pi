@@ -1,0 +1,49 @@
+title: "[Q&A]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for asking! Before posting, search the existing Q&A discussions — your question may already have an answer.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do you need help with? Be specific enough that someone can answer without guessing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried
+      description: Your environment, versions, and the troubleshooting steps you have already ruled out.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: The commit (or pi version) you are running.
+      placeholder: e.g. main @ abc1234
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: For long output, use a Gist and paste the link here.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to related discussions, issues, or docs.
+    validations:
+      required: false

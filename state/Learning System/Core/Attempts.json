@@ -1,0 +1,3771 @@
+{
+  "concepts": {
+    "What is the Shell": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-21",
+          "is_correct": false,
+          "result": "mostly_pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-08-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-28",
+      "next_review": "2026-09-27",
+      "feynman": null
+    },
+    "Shell Navigation & Paths": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-19",
+      "next_review": "2026-09-02",
+      "feynman": null
+    },
+    "man & Documentation": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-19",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-24",
+      "next_review": "2026-09-07",
+      "feynman": null
+    },
+    "PATH & Program Discovery": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-24",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-08-24",
+      "next_review": "2026-08-27",
+      "feynman": null
+    },
+    "ls & File Listing": {
+      "type": "procedure",
+      "attempts": [],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-15",
+      "next_review": "2026-08-29",
+      "feynman": null
+    },
+    "Basic File Tools (cat, sort, uniq, head, tail)": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-19",
+      "next_review": "2026-09-02",
+      "feynman": null
+    },
+    "bat": {
+      "type": "memory",
+      "attempts": [
+        {
+          "date": "2026-08-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        }
+      ],
+      "interval_index": 4,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-21",
+      "next_review": "2026-09-04",
+      "feynman": null
+    },
+    "grep": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-08-28",
+      "next_review": "2026-08-31",
+      "feynman": null
+    },
+    "ripgrep": {
+      "type": "memory",
+      "attempts": [
+        {
+          "date": "2026-08-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 4,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-19",
+      "next_review": "2026-09-02",
+      "feynman": null
+    },
+    "sed (Stream Editor)": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-23",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-08-25",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-25",
+      "next_review": "2026-09-08",
+      "feynman": null
+    },
+    "find": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-19",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-24",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-25",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-28",
+      "next_review": "2026-09-04",
+      "feynman": null
+    },
+    "fd": {
+      "type": "memory",
+      "attempts": [
+        {
+          "date": "2026-08-26",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-08-26",
+      "next_review": "2026-08-29",
+      "feynman": null
+    },
+    "awk": {
+      "type": "procedure",
+      "attempts": [],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-18",
+      "next_review": "2026-09-01",
+      "feynman": null
+    },
+    "Pipes (`|`) & Pipeline Composition": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-18",
+      "next_review": "2026-09-01",
+      "feynman": null
+    },
+    "xargs": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-27",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-08-27",
+      "next_review": "2026-08-30",
+      "feynman": null
+    },
+    "curl (Web Fetching)": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-27",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-27",
+      "next_review": "2026-09-10",
+      "feynman": null
+    },
+    "jq": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-26",
+      "next_review": "2026-09-02",
+      "feynman": null
+    },
+    "Shell Redirections & Streams": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-25",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-25",
+      "next_review": "2026-09-08",
+      "feynman": {
+        "pass": true,
+        "date": "2026-08-25"
+      }
+    },
+    "Shell Conditionals": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-19",
+      "next_review": "2026-09-02",
+      "feynman": null
+    },
+    "Shell Loops": {
+      "type": "procedure",
+      "attempts": [],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-17",
+      "next_review": "2026-08-31",
+      "feynman": null
+    },
+    "Command Substitution & Arithmetic": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-24",
+      "next_review": "2026-09-07",
+      "feynman": null
+    },
+    "Shebang & Script Execution": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-25",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-28",
+      "next_review": "2026-08-31",
+      "feynman": null
+    },
+    "Background Jobs": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-20",
+      "next_review": "2026-08-27",
+      "feynman": null
+    },
+    "Signals (Software Interrupts)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-08-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-28",
+      "next_review": "2026-09-27",
+      "feynman": null
+    },
+    "Job Control (Ctrl-Z, fg/bg, nohup/disown)": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-21",
+      "next_review": "2026-08-28",
+      "feynman": null
+    },
+    "SSH: Public-Key Auth & Remote Commands": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-23",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-25",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-25",
+      "next_review": "2026-09-08",
+      "feynman": null
+    },
+    "Shell Positional & Special Parameters": {
+      "type": "memory",
+      "attempts": [
+        {
+          "date": "2026-08-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-26",
+      "next_review": "2026-09-02",
+      "feynman": null
+    },
+    "Process Substitution": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-25",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-28",
+      "next_review": "2026-08-31",
+      "feynman": null
+    },
+    "Shell Config & Dotfiles": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-23",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-08-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-23",
+      "next_review": "2026-08-30",
+      "feynman": null
+    },
+    "File Permissions (ls -l)": {
+      "type": "memory",
+      "attempts": [
+        {
+          "date": "2026-08-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 4,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-24",
+      "next_review": "2026-09-07",
+      "feynman": null
+    },
+    "Wildcards & Globs": {
+      "type": "memory",
+      "attempts": [
+        {
+          "date": "2026-08-25",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 5,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-25",
+      "next_review": "2026-09-24",
+      "feynman": null
+    },
+    "Bash Quoting": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-20",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-25",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-25",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-25",
+      "next_review": "2026-09-24",
+      "feynman": null
+    },
+    "Parameter Expansion": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-08-27",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-08-27",
+      "next_review": "2026-08-30",
+      "feynman": null
+    },
+    "Shell Built-ins & Process Isolation": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-08-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-28",
+      "next_review": "2026-09-27",
+      "feynman": {
+        "pass": true,
+        "date": "2026-08-28"
+      }
+    },
+    "Makefile: Targets, Prerequisites & Recipes": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 1,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-12",
+      "next_review": "2026-08-19",
+      "feynman": null
+    },
+    "Make: Timestamp Evaluation": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-19",
+      "next_review": "2026-09-02",
+      "feynman": null
+    },
+    "Make: Dependency Tree Resolution": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-18",
+      "next_review": "2026-09-01",
+      "feynman": null
+    },
+    "Make Variables (CC, CFLAGS)": {
+      "type": "memory",
+      "attempts": [],
+      "interval_index": 3,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-08",
+      "next_review": "2026-08-12",
+      "feynman": null
+    },
+    "Clean Targets & .PHONY": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 1,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-08",
+      "next_review": "2026-08-15",
+      "feynman": null
+    },
+    "Git commit message conventions": {
+      "type": "memory",
+      "attempts": [
+        {
+          "date": "2026-08-25",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 4,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-25",
+      "next_review": "2026-09-08",
+      "feynman": null
+    },
+    "Environment Variables (Shell)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-08-27",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-27",
+      "next_review": "2026-09-03",
+      "feynman": null
+    },
+    "Exit Codes & Short-Circuit Control Flow": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 1,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-24",
+      "next_review": "2026-08-28",
+      "feynman": null
+    },
+    "tmux — Sessions, Windows & Panes": {
+      "type": "memory",
+      "attempts": [],
+      "interval_index": 3,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-24",
+      "next_review": "2026-08-29",
+      "feynman": null
+    },
+    "File Transfers over SSH (scp/rsync/ssh config)": {
+      "type": "procedure",
+      "attempts": [],
+      "interval_index": 1,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-24",
+      "next_review": "2026-08-30",
+      "feynman": null
+    },
+    "less (Pager)": {
+      "type": "memory",
+      "attempts": [
+        {
+          "date": "2026-08-27",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-27",
+      "next_review": "2026-09-03",
+      "feynman": null
+    },
+    "Vim Modal Editing": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-28",
+      "next_review": "2026-08-31",
+      "feynman": null
+    },
+    "Vim Composable Commands": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-28",
+      "next_review": "2026-08-31",
+      "feynman": null
+    },
+    "Vim Buffers & Windows": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-08-28",
+      "next_review": "2026-08-31",
+      "feynman": null
+    },
+    "Chain Rule for Neural Networks": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-12",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "computational"
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-20",
+      "next_review": "2026-11-03",
+      "feynman": null
+    },
+    "PMF vs PDF": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-15",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-25",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-30",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-10-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-10-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-04",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0,
+          "targets": [
+            "n_2fa8fc5801",
+            "n_b4a16474b3"
+          ]
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 2,
+      "last_reviewed": "2026-11-08",
+      "next_review": "2026-11-11",
+      "feynman": "fail"
+    },
+    "Softmax Subtract-Max Trick": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-20",
+      "next_review": "2026-11-03",
+      "feynman": null
+    },
+    "Cosine Similarity": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-07",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-15",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "transfer-far",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-20",
+      "next_review": "2026-11-19",
+      "feynman": null
+    },
+    "4-Layer AI Environment Stack": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-07",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-12",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-12",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-16",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-23",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-03",
+      "next_review": "2026-11-02",
+      "feynman": null
+    },
+    "Cross-Entropy from NLL": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-06",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-12",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-12",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-14",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-14",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-16",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-18",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-18",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-23",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 6,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-09-23",
+      "next_review": "2026-10-23",
+      "feynman": "fail"
+    },
+    "Bayes' Theorem": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-12",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 3,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-20",
+      "next_review": "2026-11-19",
+      "feynman": "pass"
+    },
+    "Prior Probability": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-16",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "transfer-near",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 3,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-17",
+      "next_review": "2026-11-16",
+      "feynman": "pass"
+    },
+    "Likelihood": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-18",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "transfer-far",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "explain-back"
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-09",
+      "next_review": "2026-11-08",
+      "feynman": "pass"
+    },
+    "Posterior Probability": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-18",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-09-30",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-08",
+      "next_review": "2026-11-07",
+      "feynman": "pass"
+    },
+    "Base Rate Fallacy": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-19",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-25",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-05",
+      "next_review": "2026-11-04",
+      "feynman": "fail"
+    },
+    "Naive Bayes": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-25",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "explain-back"
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-10-09",
+      "next_review": "2026-10-23",
+      "feynman": "fail"
+    },
+    "Laplace Smoothing": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-22",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-10-22",
+      "next_review": "2026-11-05",
+      "feynman": "pass"
+    },
+    "Conditional Independence": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-06",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "hunch",
+          "hints": 0,
+          "targets": [
+            "n_01bd088722",
+            "n_69cc6762f5",
+            "n_8eb8ab836f"
+          ]
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "free-recall",
+          "confidence": "no-idea",
+          "hints": 0,
+          "targets": [
+            "n_00153be013",
+            "n_60799d4869",
+            "n_d141e5e6fe"
+          ]
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 2,
+      "last_reviewed": "2026-11-08",
+      "next_review": "2026-11-11",
+      "feynman": "pass"
+    },
+    "MLE vs MAP Estimation": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-07",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-15",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-19",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-23",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-30",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-09-30",
+      "next_review": "2026-10-30",
+      "feynman": "fail"
+    },
+    "Conjugate Priors": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-07",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-19",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-30",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "explain-back",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-04",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional",
+          "confidence": "hunch",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-04",
+      "next_review": "2026-12-04",
+      "feynman": "fail"
+    },
+    "Bayesian A/B Testing": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-07",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-23",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "mcq"
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-05",
+      "next_review": "2026-11-04",
+      "feynman": null
+    },
+    "Adam (adaptive moments)": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-09-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-09-12",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "free_recall"
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-04",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "free-recall",
+          "confidence": "hunch",
+          "hints": 0,
+          "targets": [
+            "n_83c18bba5f"
+          ]
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 2,
+      "last_reviewed": "2026-11-08",
+      "next_review": "2026-11-11",
+      "feynman": null
+    },
+    "Momentum (SGD with Momentum)": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-09-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-09-16",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-30",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 4,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-17",
+      "next_review": "2026-10-31",
+      "feynman": null
+    },
+    "Gradient Descent (vanilla)": {
+      "type": "procedure",
+      "attempts": [
+        {
+          "date": "2026-09-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-09-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 4,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-10",
+      "next_review": "2026-10-24",
+      "feynman": "pass"
+    },
+    "Sequential Bayesian Updating": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-16",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 2,
+      "last_reviewed": "2026-10-20",
+      "next_review": "2026-10-27",
+      "feynman": null
+    },
+    "Saddle Points (critical point triage)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-18",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "transfer-far",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-20",
+      "next_review": "2026-11-19",
+      "feynman": null
+    },
+    "Mini-batch Noise (two effects)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-15",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-17",
+      "next_review": "2026-11-16",
+      "feynman": "fail"
+    },
+    "Learning-rate Schedules (four types)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-18",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-19",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-22",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "error-detect",
+          "confidence": "hunch",
+          "hints": 0
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-11-08",
+      "next_review": "2026-11-22",
+      "feynman": null
+    },
+    "Optimizer Selection (Rohit heuristic)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "explain-back",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "explain-back",
+          "confidence": "hunch",
+          "hints": 0,
+          "targets": [
+            "n_05cfdf0c5b"
+          ]
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 2,
+      "last_reviewed": "2026-11-08",
+      "next_review": "2026-11-15",
+      "feynman": "fail"
+    },
+    "Information Content (Surprise)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-09-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "transfer-far",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "explain-back",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 5,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-11",
+      "next_review": "2026-11-10",
+      "feynman": "pass"
+    },
+    "Entropy (Average Surprise)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-09-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-09-12",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-24",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-25",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional"
+        },
+        {
+          "date": "2026-11-04",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "explain-back",
+          "confidence": "no-idea",
+          "hints": 0
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-11-04",
+      "next_review": "2026-11-18",
+      "feynman": "fail",
+      "note": "Alias 'Entropy' (the Tutor's 2026-09-24 lesson logging) canonicalized into this row at the 2026-09-24 final ingest by the Clerk; 3 + 2 attempts preserved in date order; interval_index / consecutive_* / last_reviewed / next_review taken from the 2026-09-24 state (fail on quiz Q1, pass on the isomorphic re-test)."
+    },
+    "Gradient Descent Failure Modes (zigzag vs overshoot)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-12",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-25",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-02",
+      "next_review": "2026-11-01",
+      "feynman": "pass"
+    },
+    "KL Divergence": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-14",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-15",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-15",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-15",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-15",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-16",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-18",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-22",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "definitional",
+          "confidence": "hunch",
+          "hints": 0
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-10-22",
+      "next_review": "2026-11-05",
+      "feynman": "fail"
+    },
+    "Learning Rate": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-15",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-23",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-09-23",
+      "next_review": "2026-10-23",
+      "feynman": null,
+      "note": "Backfilled 2026-09-14: row reviewed 2026-09-08 (L08 session) but never logged in Attempts.json; no attempts fabricated — first logged attempt will start the interval state machine."
+    },
+    "Mutual Information": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-15",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-17",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-18",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 3,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-09-28",
+      "next_review": "2026-10-28",
+      "feynman": null
+    },
+    "Variation of Information": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-22",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-22",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 5,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-09-24",
+      "next_review": "2026-10-24",
+      "feynman": null
+    },
+    "Perplexity": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-24",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-03",
+      "next_review": "2026-11-02",
+      "feynman": null
+    },
+    "Bits vs Nats": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-11-04",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-11-04",
+      "next_review": "2026-11-18",
+      "feynman": null
+    },
+    "Label Smoothing": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-24",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "mcq"
+        },
+        {
+          "date": "2026-09-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "free_recall"
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative"
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-02",
+      "next_review": "2026-11-01",
+      "feynman": null
+    },
+    "Information Theory": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-24",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-09-24",
+      "next_review": "2026-10-01",
+      "feynman": "pass"
+    },
+    "Eigenvalues & Eigenvectors": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-01",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-01",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 6,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-03",
+      "next_review": "2026-11-02",
+      "feynman": null
+    },
+    "Variance & Covariance": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-09-26",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-09-26",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-01",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-01",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-01",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-01",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-06",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "recall-mcq"
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 3,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-20",
+      "next_review": "2026-11-19",
+      "feynman": null
+    },
+    "t-SNE (Dimensionality Reduction)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-10-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "transfer-near",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "explain-back",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-12",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 7,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-12",
+      "next_review": "2026-11-11",
+      "feynman": null,
+      "prereqs": [
+        "KL Divergence"
+      ]
+    },
+    "Curse of dimensionality": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-10-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "explain-back",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 2,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-10",
+      "next_review": "2026-11-09",
+      "feynman": "pass"
+    },
+    "PCA (Dimensionality Reduction)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-10-02",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-02",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-03",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-05",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-06",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "recall-mcq"
+        },
+        {
+          "date": "2026-10-06",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "recall-mcq"
+        },
+        {
+          "date": "2026-10-08",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-08",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": null
+        },
+        {
+          "date": "2026-10-20",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "explain-back",
+          "confidence": "sure",
+          "hints": 1
+        },
+        {
+          "date": "2026-10-21",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "applied",
+          "confidence": "sure",
+          "hints": 1
+        },
+        {
+          "date": "2026-10-23",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "explain-back",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-23",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "explain-back",
+          "confidence": "sure",
+          "hints": 1
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-23",
+      "next_review": "2026-11-22",
+      "feynman": null
+    },
+    "UMAP (Dimensionality Reduction)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-10-13",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "definitional",
+          "confidence": "sure",
+          "hints": 2
+        },
+        {
+          "date": "2026-10-13",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "applied",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-14",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-14",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "applied",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-14",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-14",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "applied",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-16",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "applied",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-16",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "applied",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-16",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-17",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "free-recall",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "applied",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "applied",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-19",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "applied",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-19",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "free-recall",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 2,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-10-19",
+      "next_review": "2026-11-02",
+      "feynman": null,
+      "prereqs": [
+        "t-SNE (Dimensionality Reduction)"
+      ]
+    },
+    "Prompt Engineering": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-10-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "free-recall",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 1
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 2
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 2
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 2
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 1
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "no-idea",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-28",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "no-idea",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 1
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 1
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 1
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "discriminative",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "explain-back",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "explain-back",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "error-detect",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 1
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-10-29",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "explain-back",
+          "confidence": "hunch",
+          "hints": 0
+        }
+      ],
+      "interval_index": 3,
+      "consecutive_correct": 3,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-10-29",
+      "next_review": "2026-11-28",
+      "feynman": "pass"
+    },
+    "Software Architecture — failure-list placement of 'non-functional'": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-11-06",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "free-recall",
+          "confidence": "hunch",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-06",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch",
+          "hints": 0
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-06",
+      "next_review": "2026-11-13",
+      "feynman": null
+    },
+    "Software Architecture — intro": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-11-06",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "free-recall",
+          "confidence": "sure",
+          "hints": 0
+        },
+        {
+          "date": "2026-11-06",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "sure",
+          "hints": 0
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 1,
+      "last_reviewed": "2026-11-06",
+      "next_review": "2026-11-09",
+      "feynman": null
+    },
+    "Structured Outputs (JSON contract)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-11-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "free-recall",
+          "confidence": "sure"
+        }
+      ],
+      "interval_index": 1,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-09",
+      "next_review": "2026-11-16",
+      "feynman": null
+    },
+    "Constrained Decoding (parser-state masking)": {
+      "type": "concept",
+      "attempts": [
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "sure"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-09",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        }
+      ],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 3,
+      "last_reviewed": "2026-11-09",
+      "next_review": "2026-11-12",
+      "feynman": null
+    },
+    "JSON Schema Validation & Retry (Pydantic + Instructor)": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-09",
+      "next_review": "2026-11-12",
+      "feynman": null
+    }
+  },
+  "meta": {
+    "version": 1,
+    "intervals": {
+      "memory": [
+        0,
+        1,
+        3,
+        7,
+        14,
+        30,
+        60
+      ],
+      "concept": [
+        3,
+        7,
+        14,
+        30
+      ],
+      "procedure": [
+        3,
+        7,
+        14
+      ],
+      "design": [
+        14,
+        28
+      ]
+    },
+    "note": "Backfilled from Notes prose 2026-08-24; advisory mode. interval_index drives type-aware scheduling; compute_mastery uses recency weights."
+  }
+}

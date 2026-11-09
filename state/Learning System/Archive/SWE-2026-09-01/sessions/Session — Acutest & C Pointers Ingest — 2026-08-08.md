@@ -1,0 +1,28 @@
+# Session — Acutest & C Pointers Ingest
+
+- **Date:** 2026-08-08
+- **Type:** Ingest (not review)
+- **Sources:**
+  - Teach C Course — Lesson 3: Acutest and the Parser Seam (html lesson)
+  - Gemini Socratic tutoring — pointers, macros, Acutest reading guidance (notebook: https://gemini.google.com/app/8870dcd71e2919f5)
+  - Acutest README and examples: https://github.com/mity/acutest
+- **Concepts added (3, SWE track, `developing`, `last_reviewed` 2026-08-08, `Last Q Type` definitional, staggered):**
+  - C Pointers (&, *, ->) — next_review 2026-08-11
+  - C Preprocessor Macros — next_review 2026-08-12
+  - Acutest Unit Testing — next_review 2026-08-12
+- **Enriched (4, `last_reviewed` → 2026-08-08, next_review unchanged):**
+  - Testable Seam — concrete seam: `read_meminfo(path, out)` (I/O) vs `parse_meminfo(text, out)` (logic); "the second is where most bugs live, so it is where most unit tests belong"; vendored `acutest.h` keeps the test command reproducible with only a C compiler
+  - Red-Green-Refactor — Red can be a compile-time failure: a not-yet-existing `parse_meminfo` makes the test double as an interface spec; Lesson 3 practice loop: missing-`MemAvailable` test → red → require both fields in the return → green
+  - Sentinel Values vs Presence Flags — Lesson 3's practice fix (`(total_kb && available_kb != 0)` in the return) is exactly the naive two-field sentinel check this page replaces
+  - Make Variables (CC, CFLAGS) — `CPPFLAGS = -Isrc -Ithird_party` include paths; test-target pattern (`test:` depends on the executable → `make test` rebuilds only on source/header change)
+- **Wiki pages created (3):** C Pointers (&, *, ->), C Preprocessor Macros, Acutest Unit Testing
+- **Key insights ingested:**
+  - `&` = address-of ("which box number"); `*` in a declaration = "holds an address", `*` in executable code = dereference (open the box); `->` ≡ `(*ptr).field`. C passes args by value — passing `&memory` lets the callee mutate the caller's struct (simulated pass-by-reference). `*p = 20` writes through the pointer: x becomes 20.
+  - Macros are dumb text replacement before compilation: object-like (`BUFFER_SIZE`) vs function-like (`SQUARE(x)`); can capture `__FILE__`/`__LINE__` (how TEST_CHECK reports file:line); no type checking; `SQUARE(x++)` expands to `((x++)*(x++))` — double increment. Variadic macros (C99 `...`/`__VA_ARGS__`) power TEST_MSG. Smarter alternatives: `inline`, `constexpr`/`consteval`, Zig `comptime`, templates, hygienic AST macros (Rust, Lisp, Elixir, Julia).
+  - Acutest: single-header C/C++ facility, auto-generated `main()`; `TEST_LIST` + mandatory `{NULL, NULL}` sentinel; `TEST_CHECK` (logs and continues) vs `TEST_ASSERT` (aborts — `abort()` in child-process mode, `longjmp()` otherwise; OS reclaims state, but skipped destructors/unflushed FDs are why the README prefers CHECK); `TEST_MSG`/`TEST_DUMP` diagnostics; underscore-suffix message variants; `TEST_CASE`/`TEST_EXCEPTION` for data-driven vectors and C++; exit 0 all pass / 1 any fail / other nonzero internal error; `--list`/`-l`, `--verbose`, name filter, `--exclude`; avoid dash-first test names (parsed as options).
+- **Learning-review gate:**
+  - Factual gate: PASS — variadic macros C99 verified against GCC cpp docs; Acutest claims (single header, per-test child process, TEST_ASSERT abort/longjmp, TEST_MSG/TEST_DUMP, TEST_LIST sentinel, --list/--help) verified against the Acutest README; pointer semantics are standard C.
+  - Quality gate: C Pointers PASS (cycle 1); enrichments (Testable Seam, Red-Green-Refactor, Sentinel Values) PASS (cycle 1); C Preprocessor Macros PASS after 2 cycles (cycle 1: TEST_LIST boilerplate example + Zig comptime added); Acutest Unit Testing PASS after 2 cycles (cycle 1: C/C++ scope, TEST_EXCEPTION/TEST_CASE, custom variants, C++ exceptions, --verbose narrowing, ASSERT wording; cycle 2: exit-code tri-state, test-naming guidance, abort()/longjmp mechanism — applied; `file:line` flag kept as verified via Gemini source)
+  - Source-fetch note: Gemini notebook URLs are auth-walled (the reviewer fetched only a landing-page shell), so gates for Gemini-sourced concepts ran against a local mirror of the conversation served on localhost; the pointer page was gated via a comma-free copy of the file because the gate CLI splits paths on commas and the wiki filename contains commas.
+- **Concurrency note:** a parallel session was processing the same ingest; its wiki-page writes interleaved with this session's (new pages, enrichments, Active Concepts rows) — a concatenated-table-row junction and a merged bullet in Red-Green-Refactor were repaired during the consistency check. Mastery Summary: 42 → 45 developing.
+- **Open questions:** none new. Suggest renaming "C Pointers (&, *, ->)" to a comma-free name (e.g. "C Pointers & Dereferencing") so the learning-review gate CLI can address the file directly instead of via a temp copy.

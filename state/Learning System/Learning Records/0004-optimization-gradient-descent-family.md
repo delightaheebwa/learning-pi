@@ -1,0 +1,7 @@
+# Optimization — Gradient Descent Family (P1 L08)
+
+Learner completed Phase 1 Lesson 08 end-to-end: vanilla gradient descent → momentum → Adam → saddle points & mini-batch noise → learning-rate schedules & sharp/flat minima → optimizer selection. The durable through-line is a single synthesis question — "what minimum do I land in, and how fast do I get there?" — which the learner reproduced independently in the Feynman explain-back. Two persistent misconceptions were surfaced and corrected in-session: (1) mini-batch noise has TWO distinct effects (optimization = escape saddles; generalization = avoid sharp minima) — this recurred four times across the lesson before sealing; (2) learning-rate schedules must be read as η-vs-time curves on two axes (early phase + end behavior), not pattern-matched by name.
+
+**Status:** active
+**Evidence:** cumulative final quiz 6/6 MCQs (all `sure`) + Q8 optimizer-selection pass; Feynman explain-back PASS (mountain/bird analogy + correct synthesis question). Highest Bloom: Evaluate (Q8 optimizer selection; Q6 transformer default; SHIP tradeoff reasoning). Two corrected misconceptions (mini-batch noise bucket-split; schedule floor/ramp discrimination) — both logged in Mistakes.md.
+**Implications:** unlocks Phase 1 L09+ and Phase 3 (training NNs from scratch — the optimizer classes reappear). Watch for: (a) mini-batch noise effects conflated into one — re-probe with the saddle-vs-sharp anchor; (b) schedule discrimination via keyword rather than curve-shape — re-probe with the floor (η_min) cue.

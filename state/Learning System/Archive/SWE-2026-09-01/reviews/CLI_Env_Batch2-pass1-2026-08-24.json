@@ -1,0 +1,21 @@
+{
+  "status": "GATE_NOT_RUN",
+  "generated_at": "2026-08-24T09:35:00Z",
+  "source": "https://missing.csail.mit.edu/2020/command-line/",
+  "concepts": [
+    "Environment Variables (Shell)",
+    "Exit Codes & Short-Circuit Control Flow",
+    "tmux - Sessions, Windows & Panes",
+    "File Transfers over SSH (scp/rsync/ssh_config)",
+    "SSH client configuration (~/.ssh/config)",
+    "curl|bash execution security",
+    "Shell startup modes (login x interactive)"
+  ],
+  "pass": "1",
+  "model": "mimo-v2.5",
+  "transport": "terminal-side run of Skills/learning-review/openwebui/review_gate.py against http://host.docker.internal:3000 (reachable, /api/version -> 200)",
+  "error": "review model call returned HTTP 401: Your session has expired or the token is invalid. Please sign in again.",
+  "diagnosis": "Stored Open WebUI API key (~/.config/learning-system/openwebui_key) is expired/invalid. No independent verdict exists for this ingest.",
+  "remediation": "User: regenerate an Open WebUI API key (Admin Panel -> Settings -> API Keys), save it to ~/.config/learning-system/openwebui_key with 0600 perms, then re-run the gate (pass 1) on this batch.",
+  "compensating_checks": "Load-bearing claims verified directly against live MIT pages during ingest: sign/verify primitives (2020/security), rsync --partial/-P + ssh-config readers (2020/command-line)."
+}

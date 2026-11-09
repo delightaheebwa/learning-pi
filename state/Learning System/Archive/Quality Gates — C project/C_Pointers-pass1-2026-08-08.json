@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-08-08T11:48:28.450Z",
+  "source": "http://localhost:8777/gemini-conversation.md",
+  "concepts": [
+    "C Pointers"
+  ],
+  "wiki_paths": [
+    "/home/.z/workspaces/con_mugdzrtRZPpV3avu/C Pointers.md"
+  ],
+  "pass": "1",
+  "model": "byok:77723e9c-69c1-4fb1-9284-045c4e3f0ee8",
+  "verdict": {
+    "verdict": "PASS",
+    "issues": []
+  }
+}

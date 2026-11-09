@@ -1,0 +1,36 @@
+{
+  "generated_at": "2026-08-15T00:16:37.803410Z",
+  "source": "https://raw.githubusercontent.com/delightaheebwa/learning-system/main/Knowledge%20Wiki/raw/sources/2026-08-15%20-%20gemini-meminfo-smoke-test.md",
+  "concepts": [
+    "Feature Probing vs Kernel Version Checking",
+    "Sentinel Values vs Presence Flags",
+    "Static Fixtures & Boundary Cases"
+  ],
+  "wiki_paths": [
+    "Knowledge Wiki/wiki/Feature Probing vs Kernel Version Checking.md",
+    "Knowledge Wiki/wiki/Sentinel Values vs Presence Flags.md",
+    "Knowledge Wiki/wiki/Static Fixtures & Boundary Cases.md"
+  ],
+  "pass": "1",
+  "model": "mimo-v2.5",
+  "verdict": {
+    "verdict": "ISSUES",
+    "issues": [
+      {
+        "severity": "medium",
+        "location": "Knowledge Wiki/wiki/Sentinel Values vs Presence Flags.md — C simplification in Key Insight",
+        "issue": "The Key Insight states: 'In C, `x != false` simplifies to `x`.' This is imprecise and potentially misleading. In C, `false` is `0` (as a macro from stdbool.h or integer 0), so `x != 0` is true for any nonzero value—but the simplification to just `x` omits that negative values also satisfy it, and that the expression evaluates to `int`, not `bool`. For C++ with a real `bool` type, the conversion rules differ. A more accurate phrasing: 'In C, `x != false` is equivalent to `x != 0`, which is true for any nonzero value.' This avoids teaching a half-truth that could confuse learners about type semantics."
+      },
+      {
+        "severity": "medium",
+        "location": "Knowledge Wiki/wiki/Sentinel Values vs Presence Flags.md — 'The Naive Fix' section",
+        "issue": "The section 'The Naive Fix the Lesson Teaches (Teach C Lesson 3)' introduces a specific code pattern (`return (out->total_kb != 0 && out->available_kb != 0) ? 0 : -1;`) and a detailed lesson context that is NOT present in the reviewed source. The source only discusses the `{0}` initialization trap and the `ULONG_MAX` sentinel fix—no `!= 0` check pattern or Teach C lesson references appear. While properly attributed to an external source, no scope note explicitly states this material was added from outside the reviewed source, as required by the review rules."
+      },
+      {
+        "severity": "medium",
+        "location": "Knowledge Wiki/wiki/Static Fixtures & Boundary Cases.md — Overview and early sections",
+        "issue": "The 'Overview,' 'Why Fixtures,' and 'Boundary Fixture Classes' sections contain substantial conceptual content (definition of fixtures, rationale for using them, five boundary fixture classes) that is not present in the reviewed source. The source discusses the fixture-vs-smoke-test distinction and specific smoke test invariants, but does not define fixtures broadly or enumerate boundary classes. The only scope-justified material in this file is the 'Fixture Tests vs Smoke Tests' subsection, which accurately reflects the source. The remaining sections should be explicitly flagged as out-of-scope additions or removed from this review."
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "gate": "review",
+  "run": "ingest review-gate (clerk, foreground) — cycle 1 on the exact text written",
+  "concepts": [
+    "Mutual Information",
+    "KL Divergence"
+  ],
+  "lesson_ref": "Learning System/Lessons/Lesson — Information Theory — 2026-09-11.md",
+  "pass_number": 1,
+  "cycle": 1,
+  "target": "Knowledge Wiki/wiki/Mutual Information.md (new page) + Knowledge Wiki/wiki/KL Divergence.md (enriched — second non-symmetry pair, H(Q)-finite ∞ nuance, 'Mutual information is a KL divergence' section) + the Active Concepts rows written this ingest (IT section header, KL Divergence row, new Mutual Information row)",
+  "verdict": "PASS",
+  "issues": [],
+  "context_notes": [],
+  "note": "Single 1-cycle PASS on the CP5-mid ingest target files: no accuracy, clarity or completeness issue at any severity and no context notes. The CP5 arithmetic was independently re-verified in the same session (H(X)=H(Y)=1.0000, H(X|Y)=0.4690, H(X,Y)=1.4690, I=0.5310 bits via all three forms) and the new KL pair (0.449 vs 0.326 bits). No fix cycle was needed (2-cycle cap not approached). State/bookkeeping files (MISSION, CURRICULUM, Learning Profile, Mistakes, Attempts, Learner History, lesson/session/log/index) were deliberately out of scope and are covered by audit_state.py."
+}

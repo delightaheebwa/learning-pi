@@ -1,0 +1,71 @@
+# Portable Open WebUI learning-system stack (reconstructed from the live
+# containers 2026-09-08 — see infra/VERSIONS.md for the pinned digests).
+#
+# One command brings the whole system up on any Docker host:
+#   docker compose -f infra/docker-compose.yml --env-file infra/.env up -d
+#
+# Secrets live in infra/.env (gitignored — see .env.example). If a secret ever
+# lands in git history, rotate it (Open Terminal key is set in the Open WebUI
+# admin UI: Settings → Terminal Server connection) and update infra/.env.
+#
+# Data lives in named volumes (open-webui, open-terminal) — restore them with
+# infra/restore.sh before first start to carry chats/presets/repo over.
+#
+# NOTE: the live searxng binds a host dir (~/searxng-docker/searxng); here it
+# uses a named volume + baked config. If you have an existing searxng config,
+# mount it instead: -v /path/to/searxng:/etc/searxng:rw
+
+name: learning-system
+
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui@sha256:8afd2d774834c618a75411b3491cdc5da7396dc464f56a160b937ff2992eb6e4
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui:/app/backend/data
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  searxng:
+    image: searxng/searxng@sha256:892cf809341915a4b7710d3c9045005b4c377d51335a089b6d4da0b28750788d
+    container_name: searxng
+    ports:
+      - "8080:8080"
+    volumes:
+      - searxng-config:/etc/searxng:rw
+    environment:
+      - SEARXNG_HOSTNAME=localhost:8080/
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+
+  open-terminal:
+    image: ghcr.io/open-webui/open-terminal@sha256:8df3a502a5d35435547d037fa50b5f55323fc5fd0e1b97d2d3d2b5cb42538452
+    container_name: open-terminal
+    ports:
+      - "8000:8000"
+    volumes:
+      - open-terminal:/home/user
+    environment:
+      # Key the Open WebUI terminal_server connection expects (Settings →
+      # Terminal Server). Set it in infra/.env — never inline it here.
+      - OPEN_TERMINAL_API_KEY=${OPEN_TERMINAL_API_KEY:?set OPEN_TERMINAL_API_KEY in infra/.env (copy infra/.env.example)}
+    restart: unless-stopped
+
+volumes:
+  open-webui:
+  open-terminal:
+  searxng-config:

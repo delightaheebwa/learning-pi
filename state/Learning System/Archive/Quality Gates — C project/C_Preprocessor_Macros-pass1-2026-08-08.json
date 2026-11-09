@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-08-08T11:49:38.735Z",
+  "source": "http://localhost:8777/gemini-conversation.md",
+  "concepts": [
+    "C Preprocessor Macros"
+  ],
+  "wiki_paths": [
+    "Knowledge Wiki/wiki/C Preprocessor Macros.md"
+  ],
+  "pass": "1",
+  "model": "byok:77723e9c-69c1-4fb1-9284-045c4e3f0ee8",
+  "verdict": {
+    "verdict": "ISSUES",
+    "issues": [
+      {
+        "severity": "medium",
+        "location": "The Power: Source Metadata section / overall completeness",
+        "issue": "The source explicitly presents two concrete examples of macro usage in Acutest: (1) TEST_CHECK capturing __FILE__ and __LINE__, and (2) TEST_LIST expanding into boilerplate code for the test function array. The wiki only includes the TEST_CHECK example. Dropping TEST_LIST also means the wiki never illustrates the 'eliminate repetitive boilerplate' motivation for macros, which the source lists as one of three reasons C uses macros ('eliminate repetitive boilerplate, avoid function call overhead for tiny operations, and capture source-code metadata')."
+      },
+      {
+        "severity": "low",
+        "location": "Smarter Alternatives section",
+        "issue": "Source table includes Zig's comptime as a compile-time eval alternative alongside C++ constexpr; wiki omits Zig entirely."
+      }
+    ]
+  }
+}

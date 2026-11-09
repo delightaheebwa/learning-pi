@@ -1,0 +1,40 @@
+title: "[Build Log]: "
+labels: ["build-log"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project is built in public. Each log is a snapshot: what shipped, what broke, and what is next. Keep it honest — the friction is the interesting part.
+
+  - type: textarea
+    id: shipped
+    attributes:
+      label: What shipped
+      description: The concrete change, feature, or fix.
+    validations:
+      required: true
+
+  - type: textarea
+    id: broke
+    attributes:
+      label: What broke
+      description: Bugs, dead ends, things that did not work as expected.
+    validations:
+      required: false
+
+  - type: textarea
+    id: next
+    attributes:
+      label: What is next
+      description: The next step or open question this leads to.
+    validations:
+      required: false
+
+  - type: input
+    id: commit
+    attributes:
+      label: Commit / PR
+      description: Reference the change if there is one.
+      placeholder: e.g. abc1234 or #12
+    validations:
+      required: false

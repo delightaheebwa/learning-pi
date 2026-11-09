@@ -1,0 +1,36 @@
+{
+  "generated_at": "2026-08-15T00:17:40.249363Z",
+  "source": "https://raw.githubusercontent.com/delightaheebwa/learning-system/main/Knowledge%20Wiki/raw/sources/2026-08-15%20-%20gemini-meminfo-smoke-test.md",
+  "concepts": [
+    "Feature Probing vs Kernel Version Checking",
+    "Sentinel Values vs Presence Flags",
+    "Static Fixtures & Boundary Cases"
+  ],
+  "wiki_paths": [
+    "Knowledge Wiki/wiki/Feature Probing vs Kernel Version Checking.md",
+    "Knowledge Wiki/wiki/Sentinel Values vs Presence Flags.md",
+    "Knowledge Wiki/wiki/Static Fixtures & Boundary Cases.md"
+  ],
+  "pass": "2",
+  "model": "mimo-v2.5",
+  "verdict": {
+    "verdict": "ISSUES",
+    "issues": [
+      {
+        "severity": "medium",
+        "location": "Knowledge Wiki/wiki/Sentinel Values vs Presence Flags.md / Overview section",
+        "issue": "The overview claims 'A sentinel value is a payload value reused to mean \"absent\"' but the source conversation only discusses sentinel values in the context of being a 'sentinel default' (ULONG_MAX) to indicate a key was not found. The term 'payload value' is not used in the source and may introduce unnecessary jargon that isn't defined in the referenced dialogue."
+      },
+      {
+        "severity": "medium",
+        "location": "Knowledge Wiki/wiki/Sentinel Values vs Presence Flags.md / The Fix: Separate Presence from Value section",
+        "issue": "This entire section (introducing explicit presence flags with booleans like has_total, has_available) is not present in the provided source content. The source only discusses and uses the ULONG_MAX sentinel pattern in the smoke test. While this section is valuable knowledge, it is out of scope for a review based solely on this ingest. A scope note is needed to attribute this material to an external lesson."
+      },
+      {
+        "severity": "medium",
+        "location": "Knowledge Wiki/wiki/Sentinel Values vs Presence Flags.md / Key Insight section",
+        "issue": "The bullet point 'In C, `x != false` is equivalent to `x != 0` — true for any nonzero value (including a negative `int`); the expression's value is an `int`, not a `bool`.' is not from the source conversation. This is an added technical detail that should either be removed or have a scope note attributing it to external knowledge."
+      }
+    ]
+  }
+}

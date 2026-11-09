@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 3: Acutest and the Parser Seam</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+  <script src="../assets/prism.js" defer></script>
+  <script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+  <p class="kicker">Lesson 03 / Tests + Abstraction</p>
+  <h1>Test the text, not the machine.</h1>
+  <p class="dek">Linux changes while your program runs. A fixture does not. We will make the memory parser a pure function, then give it controlled text and a real test runner.</p>
+  <p class="meta">Estimated time: 60-90 minutes · Prerequisites: <a href="0002-first-tests.html">Lesson 2</a></p>
+
+  <nav class="nav"><a href="index.html">course map</a><a href="0002-first-tests.html">previous</a><a href="0004-real-memory.html">next</a><a href="../reference/testing-patterns.html">testing reference</a><a href="../reference/proc-fields.html">proc fields</a></nav>
+  <hr class="rule">
+
+  <h2>The seam</h2>
+  <p>Keep these responsibilities separate:</p>
+  <pre><code class="language-c">int read_meminfo(const char *path, struct memory *out);
+int parse_meminfo(const char *text, struct memory *out);</code></pre>
+  <p>The first function opens a file. The second interprets text. The second is where most bugs live, so it is where most unit tests belong.</p>
+
+  <h2>Give the project a shape</h2>
+  <p>Lesson 1 started with one file. Now make the boundaries visible. Run these commands from the <code>monitor</code> directory:</p>
+  <pre><code class="language-bash">mkdir -p src tests/fixtures third_party
+mv main.c src/main.c
+curl -fsSL \
+  https://raw.githubusercontent.com/mity/acutest/master/include/acutest.h \
+  -o third_party/acutest.h</code></pre>
+  <p>The header is vendored into this learning project, not linked as a system library. That keeps the test command reproducible on a machine with only a C compiler.</p>
+
+  <h2>Start with a failing test</h2>
+  <p>The official <a href="https://github.com/mity/acutest">Acutest</a> header provides the runner. It is a single-header dependency; no library installation or linker flag is required.</p>
+  <p>First declare the data shape in <code>src/meminfo.h</code>:</p>
+  <pre><code class="language-c">#ifndef MEMINFO_H
+#define MEMINFO_H
+
+struct memory {
+    unsigned long total_kb;
+    unsigned long available_kb;
+};
+
+int parse_meminfo(const char *text, struct memory *out);
+
+#endif</code></pre>
+  <pre><code class="language-c">#include "acutest.h"
+#include "meminfo.h"
+
+static void test_parses_memory_totals(void)
+{
+    const char *input =
+        "MemTotal:       1000 kB\n"
+        "MemAvailable:    400 kB\n";
+    struct memory memory = {0};
+
+    TEST_CHECK(parse_meminfo(input, &amp;memory) == 0);
+    TEST_CHECK(memory.total_kb == 1000);
+    TEST_CHECK(memory.available_kb == 400);
+}
+
+TEST_LIST = {
+    { "parses memory totals", test_parses_memory_totals },
+    { NULL, NULL }
+};</code></pre>
+  <p>Save the test above as <code>tests/test_meminfo.c</code>.</p>
+  <p>At first, <code>parse_meminfo</code> does not exist. That is a useful failure: the test describes the interface we want before implementation details distract us.</p>
+
+  <h2>Give the test the smallest implementation</h2>
+  <p>One simple implementation can scan each line for a key and a number. You can improve its error handling later; for now, make the first fixture pass. This first version only checks that a total was found; the next test will expose that limitation.</p>
+  <pre><code class="language-c">#include "meminfo.h"
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+
+int parse_meminfo(const char *text, struct memory *out)
+{
+    char key[32];
+    unsigned long value;
+    const char *line = text;
+
+    while (sscanf(line, "%31[^:]: %lu", key, &amp;value) == 2) {
+        if (strcmp(key, "MemTotal") == 0) out-&gt;total_kb = value;
+        if (strcmp(key, "MemAvailable") == 0) out-&gt;available_kb = value;
+
+        line = strchr(line, '\n');
+        if (line == NULL) break;
+        line++;
+    }
+
+    return out-&gt;total_kb != 0 ? 0 : -1;
+}</code></pre>
+  <p>Save the implementation below as <code>src/meminfo.c</code>. Compile the test by linking the test file with the module under test. The <code>-Isrc</code> flag is what lets <code>#include "meminfo.h"</code> resolve:</p>
+  <pre><code class="language-bash">cc -Wall -Wextra -std=c17 -g -Ithird_party \
+    -Isrc tests/test_meminfo.c src/meminfo.c -o tests/test_meminfo
+./tests/test_meminfo
+
+# The Makefile below runs the same command:
+make test</code></pre>
+
+  <h2>Make the test command repeatable</h2>
+  <p>Replace the Lesson 1 <code>Makefile</code> with this version:</p>
+  <pre><code class="language-makefile">CC = gcc
+CPPFLAGS = -Isrc -Ithird_party
+CFLAGS = -Wall -Wextra -std=c17 -g
+
+monitor: src/main.c src/meminfo.c src/meminfo.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) src/main.c src/meminfo.c -o $@
+
+tests/test_meminfo: tests/test_meminfo.c src/meminfo.c src/meminfo.h third_party/acutest.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_meminfo.c src/meminfo.c -o $@
+
+test: tests/test_meminfo
+	./tests/test_meminfo
+
+clean:
+	rm -f monitor tests/test_meminfo
+
+.PHONY: test clean</code></pre>
+  <p>The <code>test</code> target depends on the test executable, so <code>make test</code> rebuilds it only when its source or headers change.</p>
+
+  <div class="exercise">
+    <h3>Practice: add one rule</h3>
+    <p>Add a test for a missing <code>MemAvailable</code> line and assert that parsing returns an error. The starter implementation only checks <code>MemTotal</code>, so this test should go red. Then change the return condition to require both fields and run <code>make test</code> again.</p>
+  </div>
+
+  <div class="quiz" data-quiz>
+    <strong>Retrieval check</strong>
+    <p>What should a parser unit test receive?</p>
+    <button data-answer="wrong">live system</button>
+    <button data-answer="correct">fixture text</button>
+    <button data-answer="wrong">terminal screen</button>
+    <p class="feedback" aria-live="polite"></p>
+  </div>
+
+  <p>Primary reading: the <a href="https://github.com/mity/acutest">Acutest README and examples</a>. Keep the <a href="../reference/testing-patterns.html">testing reference</a> nearby; it captures this seam as a reusable pattern.</p>
+  <p class="footer">You have earned a green test suite when the parser accepts the fixture and rejects the missing-field case. Ask follow-up questions about Acutest, fixtures, or the parser's pointer movement.</p>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-08-10T22:37:42.257Z",
+  "source": "https://missing.csail.mit.edu/2026/course-shell/",
+  "concepts": [
+    "awk"
+  ],
+  "wiki_paths": [
+    "Knowledge Wiki/wiki/MIT Missing Semester — Shell.md"
+  ],
+  "pass": "2",
+  "model": "byok:77723e9c-69c1-4fb1-9284-045c4e3f0ee8",
+  "verdict": {
+    "verdict": "ISSUES",
+    "issues": [
+      {
+        "severity": "high",
+        "location": "GNU Make section (Targets, Prerequisites & Recipes through Phony Targets)",
+        "issue": "The entire GNU Make section — targets, prerequisites, recipes, timestamp evaluation, self-updating builds, dependency tree resolution, intermediate object files, make variables, clean targets, .PHONY — is completely absent from the source material. The source is the MIT Missing Semester Shell lecture, which contains zero Make content. This appears to be from a different lesson and must be removed from this wiki page."
+      },
+      {
+        "severity": "medium",
+        "location": "File Permissions (ls -l), Wildcards & Globs, Bash Quoting, Shell Built-ins vs External Programs (child process memory isolation), Background Jobs (detailed), Parameter Expansion sections",
+        "issue": "These sections expand well beyond the lecture content (drawing from exercises or external knowledge) but present the material as if it were part of the lecture, with no source-scope disclaimer. The awk section correctly includes one ('Source scope: the lecture teaches only {print $2} and -F,'), but these sections do not. A student reading them would not know what came from the lecture versus what was added by the implementer. Each expanded section needs a scope note similar to the awk section's."
+      }
+    ]
+  }
+}

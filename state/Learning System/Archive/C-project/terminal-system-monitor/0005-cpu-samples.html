@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 5: CPU From Two Samples</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+  <script src="../assets/prism.js" defer></script>
+  <script src="../assets/mathjax.js" defer></script>
+  <script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+  <p class="kicker">Lesson 05 / Computation + Systems</p>
+  <h1>Measure change, not a snapshot.</h1>
+  <p class="dek">CPU usage is not stored as a ready-made percentage. Linux gives us cumulative time counters. Read them twice, subtract, and turn the work done during the interval into a percentage.</p>
+  <p class="meta">Estimated time: 75-120 minutes · Prerequisites: <a href="0004-real-memory.html">Lesson 4</a></p>
+
+  <nav class="nav"><a href="index.html">course map</a><a href="0004-real-memory.html">previous</a><a href="0006-process-list.html">next</a><a href="../reference/cpu-formulas.html">CPU formulas</a><a href="../reference/proc-fields.html">proc fields</a></nav>
+  <hr class="rule">
+
+  <h2>The counter line</h2>
+  <p>The first line of <code>/proc/stat</code> begins with <code>cpu</code> and then gives cumulative USER_HZ counters:</p>
+  <pre><code class="language-text">cpu  100 0 20 80 0 0 0 0 0 0</code></pre>
+  <p>For this course, group them as:</p>
+  <p>\[\mathrm{busy} = \mathrm{user} + \mathrm{nice} + \mathrm{system} + \mathrm{irq} + \mathrm{softirq} + \mathrm{steal}\]</p>
+  <p>\[\mathrm{idleBucket} = \mathrm{idle} + \mathrm{iowait}\]</p>
+  <p>\[\mathrm{total} = \mathrm{busy} + \mathrm{idleBucket}\]</p>
+  <p>Then calculate:</p>
+  <p>\[\mathrm{CPU\%} = 100 \times \frac{\Delta\mathrm{busy}}{\Delta\mathrm{total}}\]</p>
+  <p>The <code>guest</code> counters are already included in <code>user</code> and <code>nice</code>; adding them again would count the same time twice.</p>
+
+  <h2>Parse the aggregate line</h2>
+  <pre><code class="language-c">struct cpu_times {
+    unsigned long long user;
+    unsigned long long nice;
+    unsigned long long system;
+    unsigned long long idle;
+    unsigned long long iowait;
+    unsigned long long irq;
+    unsigned long long softirq;
+    unsigned long long steal;
+};
+
+int parse_cpu_line(const char *line, struct cpu_times *out)
+{
+    return sscanf(line, "cpu %llu %llu %llu %llu %llu %llu %llu %llu",
+                  &amp;out-&gt;user, &amp;out-&gt;nice, &amp;out-&gt;system, &amp;out-&gt;idle,
+                  &amp;out-&gt;iowait, &amp;out-&gt;irq, &amp;out-&gt;softirq, &amp;out-&gt;steal) == 8
+           ? 0 : -1;
+}</code></pre>
+  <p>Test the parser with two fixture lines. Use simple numbers where the expected answer is obvious: an earlier total of 200, a later total of 300, and 50 more busy ticks means 50% busy.</p>
+
+  <h2>Take two live readings</h2>
+  <pre><code class="language-c">static unsigned long long busy(struct cpu_times t)
+{
+    return t.user + t.nice + t.system + t.irq + t.softirq + t.steal;
+}
+
+static unsigned long long total(struct cpu_times t)
+{
+    return busy(t) + t.idle + t.iowait;
+}
+
+double cpu_percent(struct cpu_times before, struct cpu_times now)
+{
+    unsigned long long busy_before = busy(before);
+    unsigned long long busy_now = busy(now);
+    unsigned long long total_before = total(before);
+    unsigned long long total_now = total(now);
+
+    /* A counter regression means the two samples cannot be compared. */
+    if (busy_now &lt; busy_before || total_now &lt; total_before) return 0.0;
+
+    unsigned long long busy_delta = busy_now - busy_before;
+    unsigned long long total_delta = total_now - total_before;
+    if (total_delta == 0) return 0.0;
+    return 100.0 * busy_delta / total_delta;
+}</code></pre>
+  <p>Read once, wait roughly one second, read again, then call <code>cpu_percent</code>. The dashboard will repeat this process on every refresh.</p>
+
+  <div class="exercise">
+    <h3>Practice: verify the arithmetic by hand</h3>
+    <p>Use these samples:</p>
+    <pre><code class="language-text">before: cpu 100 0 20 80 0 0 0 0
+now:    cpu 140 0 30 130 0 0 0 0</code></pre>
+    <p>Calculate <code>busy_delta</code>, <code>total_delta</code>, and the percentage before running your program. Then add the two fixture cases to your Acutest suite.</p>
+  </div>
+
+  <div class="quiz" data-quiz>
+    <strong>Retrieval check</strong>
+    <p>How many counter readings produce a percentage?</p>
+    <button data-answer="wrong">one reading</button>
+    <button data-answer="correct">two readings</button>
+    <button data-answer="wrong">zero readings</button>
+    <p class="feedback" aria-live="polite"></p>
+  </div>
+
+  <p>Primary reading: <a href="https://man7.org/linux/man-pages/man5/proc_stat.5.html">proc_stat(5)</a>. Use <a href="../reference/cpu-formulas.html">CPU formulas</a> as the quick reference when your numbers look wrong.</p>
+  <p class="footer">Your tangible win is an aggregate CPU percentage based on elapsed work. Ask follow-up questions about USER_HZ, counter wraparound, or why two samples are necessary.</p>
+</body>
+</html>

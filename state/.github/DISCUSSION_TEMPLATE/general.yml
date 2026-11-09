@@ -1,0 +1,13 @@
+title: "[General]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Anything relevant to the project that does not fit another category. If it is a question, an idea, or something you built, please use Q&A, Ideas, or Show and tell instead.
+
+  - type: textarea
+    id: body
+    attributes:
+      label: What is on your mind?
+    validations:
+      required: true

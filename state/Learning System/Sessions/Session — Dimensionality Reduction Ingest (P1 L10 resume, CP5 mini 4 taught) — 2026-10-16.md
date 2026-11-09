@@ -1,0 +1,49 @@
+# Session — Dimensionality Reduction Ingest (P1 L10 resume, CP5 mini 4 taught) — 2026-10-16
+
+**Session:** Clerk (ingest from `Core/Pending Ingest.json`, partial `/pause` handoff) · **Date:** 2026-10-16 · **Track:** AIEFS · **Lesson:** Phase 1 L10 — Dimensionality Reduction (PCA, t-SNE, UMAP) — stays **in-progress**
+**Ingested:** **CP5 (UMAP) mini 4 taught 2026-10-16** — UMAP's global structure as a **goal, not a guarantee**: the whole-embedding negative-sampling repulsion + the symmetric union `B = A + Aᵀ − A∘Aᵀ`, the t-SNE gap contrast, the ⚠️ Rohit-vs-paper-vs-FAQ contradiction resolved as a graduated claim, and the Laplacian/spectral-init wrinkle (Kobak & Linderman 2019). The graded **exit ticket was not run** (the learner paused at the check-back).
+**Position written:** paused at **Checkpoint 5/6** — CP5 mini 4 taught 2026-10-16, exit ticket unrun (minis 2–3 sealed 2026-10-14; mini 1 sealed 2026-10-13; CP4 fully sealed 2026-10-12); **resume the CP5 (UMAP) mini 4 exit ticket**, then mini 5 (pipeline PCA→UMAP→HDBSCAN + center-only-vs-standardize), then CP6.
+**Sources:** `Learning System/Core/Pending Ingest.json` (partial handoff) → lesson `Learning System/Lessons/Lesson — Dimensionality Reduction — 2026-09-26.md`; teach session `Learning System/Sessions/Session — Dimensionality Reduction (P1 L10 resume, CP5 mini 4 taught) — 2026-10-16.md`; learning record `Learning System/Learning Records/0016-umap-global-structure-goal-not-guarantee.md`; raw bodies `Knowledge Wiki/raw/sources/2026-10-13 - dimensionality-reduction - umap-paper.md` (§3.2 graph layout + negative sampling, the `B = A + Aᵀ − A∘Aᵀ` union, §4.3 hyper-parameters, the Weaknesses section), `…- umap-faq.md` ("One of UMAPs goals …" + "How UMAP can go wrong"), `…- umap-params.md`, `…- rohit.md` (the flat "Better global structure" headline), plus Kobak & Linderman 2019 (cited as [29]).
+
+## What was written
+
+- **Wiki page deepened** `Knowledge Wiki/wiki/UMAP (Dimensionality Reduction).md` (provenance `status=synthesis`, `verified-by=—` — the review gate runs after the Clerk returns) with a new **`## Global structure: goal, not guarantee`** section:
+  - **Mechanism 1 — negative sampling puts push-back everywhere, not just along edges:** the cross-entropy's `(1 − µ(a)) log(1 − ν(a))` term "requires negative sampling – rather than computing this over all potential simplices we randomly sample potential 1-simplices and assume them to be a negative example (i.e. with membership strength 0)"; the negatives' vertex distribution `P(x_i) = Σ_{a : d₀(a)=xᵢ}(1 − µ(a)) / Σ_{b : d₀(b)≠xᵢ}(1 − µ(b))`, "reasonably approximated by a uniform distribution for sufficiently large data sets"; in force terms "whenever an attractive force is applied to an edge, one of that edge's vertices is repulsed by a sampling of other vertices" — so the repulsion is not edge-local, and drifting clusters meet push-back from the whole embedding.
+  - **Mechanism 2 — the symmetric union lets connectedness leak global information:** `B = A + Aᵀ − A∘Aᵀ` (∘ = Hadamard product), the probabilistic t-conorm reading ("`B_ij` is the probability that at least one of the two directed edges … exists"), so an edge survives if **either** direction voted and chains of overlapping charts transmit pull **indirectly** — the half of the mechanism the learner's own glue prior already had.
+  - **Why t-SNE's gaps are weaker:** cross-cluster `P_ij ≈ 0`, so rearranging gaps barely moves the objective (≈ 0, **not** exactly 0 — taught honestly in-session); the paper's structural version of the contrast (cross-entropy vs KL-divergence, "in how it penalizes failures to preserve non-local and global structure").
+  - **⚠️ Sources disagree — three sources, three strengths:** Rohit's flat advantage ("Better global structure. The relative positions of clusters in the output tend to be more meaningful than in t-SNE") vs the paper's hedge ("arguably preserves more of the global structure"; "if global structure is of primary interest then UMAP may not be the best choice") vs the FAQ's goal ("One of UMAPs goals is to have distance between clusters of points be meaningful") sitting in the same FAQ as the failure mode that destroys it ("Add a sufficiently large number of these points and our entire space gets pulled together…").
+  - **Resolution taught 2026-10-16 — a graduated claim, not a flat advantage:** a design goal, normally visible, breakable by the documented outlier collapse that `disconnection_distance` mitigates; trust relative arrangement more than t-SNE's, never as a certificate.
+  - **The Laplacian/spectral-init wrinkle:** "a significant contributor to UMAP's relative global structure preservation is derived from the Laplacian Eigenmaps initialization", with [29] = **Kobak & Linderman 2019** ("t-SNE, with similar initialization, can perform equivalently to UMAP in a particular measure of global structure preservation") and the paper's counterweight that the cross-entropy-vs-KL objective "is also a significant contributor"; the future-work note that the field is "hampered by the lack clear objective measures, or even definitions, of global structure preservation".
+- **`## Contrast with t-SNE`, `## Queued for this concept` and `## Open questions` re-cut:** the ⚠️ disagreement is no longer open/queued; the only work left in CP5 is the mini-4 **exit ticket**, then mini 5 and CP6.
+- **`## My understanding` appended** with **three more verbatim learner statements** (`status=learner-note`, now eight total) — the glue/overlap elicitation prior, the repulsion-pool answer ("i didnt quite understand the question but i think it should sample from edges which are disconnected"), and the fragmentation micro-check ("they should reach for n_neighbors … more overlap between neighborhoods and less seperate clumps") — annotated **around** (Source framing: the right half of the mechanism + the honest limit / right place but a wider pool / complete-correct), never paraphrased, polished or replaced.
+- **Active Concepts row** `UMAP (Dimensionality Reduction)` **enriched** and synced to `Attempts.json`: `last_reviewed` **2026-10-16**, `next_review` **2026-11-15**, Last Q Type **`micro-check`**, mastery **0.65** advisory, `interval_index` **3**, `consecutive_wrong` **0**.
+- **Mistakes: no new row.** The 2026-10-14 knob-crossing row was **patched in place** (second occurrence on 2026-10-16 W2): retries **0 → 1**, status stays `active`, next retry realigned **2026-10-28 → 2026-11-15**; the learner self-located this firing, so the repair is converging.
+- **Dependency events: none** (`dependency_events: []`) — no `just_tell_me`, no `told_repair`, no `declined_generation`. The "elaborate more and simply" request was logged as a **pacing call** honored with a corrected re-delivery; guiding budget 1 of 2. The learning record's `Dependency:` line stays "no opt-outs".
+- **Position reconciliation** across `Learning System/MISSION.md`, `Learning System/CURRICULUM.md` (Phase note + row 10 + the Phase-1 exit line), `Core/💡 Learning Profile.md` (new Last-Updated line + Current Focus + Current Position + Sequencing) and `Core/📚 Active Concepts.md` (metadata line + Live System Notes + Mastery Summary + the L10 DR section header): all now read **paused at Checkpoint 5/6 — CP5 mini 4 taught 2026-10-16, exit ticket unrun; resume the CP5 (UMAP) mini 4 exit ticket**. Historical Last-Updated lines were left as history.
+- `Knowledge Wiki/index.md` (the UMAP line in `## Concepts` re-cut to the global-structure resolution) + `Knowledge Wiki/log.md` (this ingest's entry).
+- `Core/Learner History.md` regenerated via `python3 scripts/learner_history.py`.
+
+## Attempts evidence (from `Core/Attempts.json` — written in-session by the Tutor, not by this ingest)
+
+- `UMAP (Dimensionality Reduction)` — 2026-10-16: pass (`applied`, sure, 0 hints — warm-up W1) · fail (`applied`, sure, 0 hints — warm-up W2, the knob-crossing slip's second firing) · pass (`micro-check`, 0 hints — the isomorphic micro-check); with the 2026-10-13 and 2026-10-14 rows: `last_reviewed` **2026-10-16**, `next_review` **2026-11-15**, mastery **0.65** advisory, `interval_index` **3**, `consecutive_wrong` **0**, `consecutive_correct` 1. Prereq edge UMAP → t-SNE (Dimensionality Reduction) unchanged.
+- `t-SNE (Dimensionality Reduction)` — no attempt on 2026-10-16; row and dates untouched (last_reviewed 2026-10-12, next_review 2026-11-11).
+
+## Consistency with the lesson file
+
+- The lesson file's own `**Status:**`/`**Resume from:**` (**paused at Checkpoint 5/6 — CP5 mini 4 taught, exit ticket unrun 2026-10-16**, resume **CP5 (UMAP) mini 4 exit ticket**) **agree** with the handoff's `status`/`resume_from` — no disagreement to surface, nothing merged.
+
+## Marker / digest (partial close)
+
+- `Core/Pending Ingest.json` **cleared** (the marker only — the file is gitignored) after the commit+push succeeded.
+- The **fresh** digest `Learning System/.tmp/context-01a134d5-4aeb-715d-8ab7-fe2f4f944481-dimensionality-reduction.json` is **KEPT** (created 2026-10-13, inside its 7-day TTL) for the mini-4 exit ticket and mini 5.
+- The lesson file and the CURRICULUM row stay **in-progress**.
+
+## Surfaced, not fixed
+
+- **Residual state-audit warning:** the kept fresh digest's `.tmp/` presence — deliberately expected at a partial close.
+- The lesson file's `Sources` block still names the retired 2026-09-25 digest as the "first-fetch baseline" (Tutor-owned file, left untouched).
+- Baseline audit warning on the UMAP row's stale `Next Review` (2026-10-28 vs Attempts.json 2026-11-15) — fixed by this ingest.
+
+## State audit
+
+- `python3 "$HOME/learning-pi/pi/audit_state.py" --root .` — see `STATE_AUDIT_VERDICT` in the Clerk receipt. Baseline before this ingest was 0 errors / 3 warnings (the UMAP row's stale `2026-10-28` next-review, the stale `Pending Ingest.json`, and the kept digest); the first two are fixed here, leaving the expected kept-digest warning.

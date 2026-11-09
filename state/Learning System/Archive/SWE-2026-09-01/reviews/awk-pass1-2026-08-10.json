@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-08-10T22:35:57.729Z",
+  "source": "https://missing.csail.mit.edu/2026/course-shell/",
+  "concepts": [
+    "awk"
+  ],
+  "wiki_paths": [
+    "Knowledge Wiki/wiki/MIT Missing Semester — Shell.md"
+  ],
+  "pass": "1",
+  "model": "byok:77723e9c-69c1-4fb1-9284-045c4e3f0ee8",
+  "verdict": {
+    "verdict": "ISSUES",
+    "issues": [
+      {
+        "severity": "high",
+        "location": "awk — Column-Oriented Data Processing section",
+        "issue": "The source only teaches `awk '{print $2}' file` and mentions `-F,` for comma-separated data, then says 'awk can do much more — see the exercises for a taste.' The wiki adds pattern/action pairs, built-in variables ($0, NF), match operators (~, !~), FS vs OFS, FPAT for quoted CSV, classic examples, and an extension-counting pattern — none of which appear in the source. This over-expansion misrepresents what the source actually covered."
+      },
+      {
+        "severity": "high",
+        "location": "xargs, curl, jq sections",
+        "issue": "These three sections present full tutorials that do not exist in the source. The source mentions xargs (exercise 13), curl (exercise 14), and jq (exercise 15) only as exploration tasks for the student to figure out — it does not teach them. The wiki presents them as taught content."
+      },
+      {
+        "severity": "high",
+        "location": "Parameter Expansion section",
+        "issue": "The entire Parameter Expansion section (${var%pattern}, ${var%%pattern}, ${var#pattern}, ${var##pattern}, ${var:-default}) is completely absent from the source. This is not taught, mentioned, or referenced anywhere in the Missing Semester shell lecture."
+      },
+      {
+        "severity": "high",
+        "location": "Shell Built-ins vs External Programs section",
+        "issue": "The source only says 'cd is built into the shell, and isn't a separate program (i.e., which cd will say no cd found).' The wiki adds an extensive section explaining WHY via child process memory isolation, listing internal shell state vs external programs, and providing a 'rule of thumb.' This explanation is not in the source."
+      },
+      {
+        "severity": "medium",
+        "location": "File Permissions (ls -l) section",
+        "issue": "Exercise 2 asks 'What do the first 10 characters of each line mean?' but the source does not provide the answer — it tells the student to use `man ls` to find out. The wiki provides a full answer (char 1 = type, chars 2-4 = owner, etc.) that goes beyond what the source teaches."
+      },
+      {
+        "severity": "medium",
+        "location": "Wildcards & Globs section",
+        "issue": "Exercise 3 asks 'What is a glob?' and tells the student to experiment, but the source does not explain globs. The wiki provides a full explanation of *, ?, [abc], {a,b} that is not in the source."
+      },
+      {
+        "severity": "medium",
+        "location": "Bash Quoting section",
+        "issue": "Exercise 4 asks about single quotes, double quotes, and ANSI-C quotes, but the source text for this exercise is cut off (the HTML ends mid-sentence). The wiki provides explanations for all three quoting mechanisms that are not present in the source."
+      },
+      {
+        "severity": "medium",
+        "location": "grep section additions",
+        "issue": "The source only says 'grep pattern file, which finds lines matching pattern in file' and mentions -r for recursive search. The wiki adds grep -c (count), line-by-line behavior, multiline limitations, and regex * meaning — none of which are in the source."
+      },
+      {
+        "severity": "medium",
+        "location": "find section additions",
+        "issue": "The source teaches find with -type, -name, -mtime, -size, and -exec. The wiki adds -print0/-0 for NUL-delimited filenames and a pattern for filtering extensionless files — neither of which are in the source."
+      },
+      {
+        "severity": "medium",
+        "location": "Shell Redirections additions",
+        "issue": "The source teaches >, >>, <, and mentions tee. The wiki adds 2> (stderr redirect), 2>&1, &> (redirect both), and a section on why redirection order matters — none of which are in the source."
+      },
+      {
+        "severity": "low",
+        "location": "Various minor additions",
+        "issue": "Minor expansions not in the source: '|| true' pattern, set -x security note, chmod +x explanation, 'cp vs >' comparison, background jobs (kill, jobs, fg), and prompt '#' for root. All correct but absent from the source material."
+      }
+    ]
+  }
+}

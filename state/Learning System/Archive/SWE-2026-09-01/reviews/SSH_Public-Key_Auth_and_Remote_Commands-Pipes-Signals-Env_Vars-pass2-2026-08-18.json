@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-08-18T20:41:59.065643Z",
+  "source": "https://missing.csail.mit.edu/2026/command-line-environment/",
+  "concepts": [
+    "SSH: Public-Key Auth & Remote Commands",
+    "Pipes & Pipeline Composition (parallelism)",
+    "Signals (only a few in practice)",
+    "Environment Variables (VAR=val prefix, bash -c inspect)"
+  ],
+  "pass": "2",
+  "model": "minimax-m3",
+  "verdict": {
+    "verdict": "PASS",
+    "issues": [
+      {
+        "severity": "low",
+        "location": "Public-Key Cryptography section",
+        "issue": "Several additions not present in source but accurate: (1) 'lock and key' metaphor, (2) 'cryptographic challenge' phrasing, (3) 'SSH encrypts the connection' elaboration. Addressed: added a scope note marking these as pedagogical clarifications."
+      },
+      {
+        "severity": "low",
+        "location": "Signals enrichment",
+        "issue": "SIGQUIT omitted from the 'few used in practice' list (source demonstrates SIGQUIT via Ctrl-\\. Addressed: added SIGQUIT to the common set."
+      }
+    ]
+  }
+}

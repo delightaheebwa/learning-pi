@@ -1,0 +1,15 @@
+# Review — Conjugate Priors — 2026-11-04
+
+- **Track/Source:** aiefs — Rohit P1 L07 + Think Bayes (Python)
+- **Type:** concept · **Q type:** `definitional`
+- **Why this slot:** priority-1 due mistake — ledger rows 2026-09-19, 2026-09-30 and 2026-10-17 all carried next retry 2026-10-24; the family-pairing half had failed three times before.
+- **Question:** the verbatim prompt text was **not carried in the handoff envelope** — recorded as a handoff gap, not reconstructed. The envelope carried the item type, the learner's verbatim answer and the graded gap quoted under *Why*.
+- **Learner answer (verbatim):** "it isnt right. indeed it is true that practical benefit is that updating beliefs is a mere addition operation. but the prior is in the same distribution as the likelihood is wrong. its rather that the prior is in the same distribution as the posterior."
+- **Verdict:** **PASS — confidence `hunch`, 0 hints (grade-audit agreed).**
+- **Why:** the family clause was repaired by the learner against their own 2026-09-30 line: prior ↔ **posterior** in the same distribution family, not prior ↔ likelihood — and the addition shorthand was kept correctly, as the parameter update Beta(a + s, b + f) (envelope note: "repair of own 2026-09-30 line; family clause patched to prior-posterior; addition survives as parameter-update shorthand Beta(a+s, b+f)").
+- **Surfaced (P1.1 gap, not filled):** this is a `concept` row, so the clone/Feynman check is mandatory, but the handoff envelope carried no `feynman` field for this item. The stored flag (`fail`) was left exactly as it was rather than invented.
+- **Attempts.json:** one attempt recorded 2026-11-04 — `pass` (`definitional`, `hunch`, hints 0). Net state: mastery **0.75** advisory, `interval_index` 1 → **3** (+2 on the second consecutive correct), `consecutive_correct` 1 → **2**, `consecutive_wrong` **0**, `last_reviewed` 2026-10-17 → **2026-11-04**, `next_review` 2026-10-24 → **2026-12-04** (concept ladder, +30d at the cap). Feynman flag stays `fail` — the envelope carried no explain-back result for this item (P1.1 gap surfaced above).
+- **Mistakes ledger:** **no new row** (a pass never opens one). The two family-pairing rows — 2026-09-30 and 2026-10-17 — advanced to `graduated` (retries 2) on two consecutive correct recalls on that thread (the 2026-10-17 discriminative MCQ pass plus this definitional pass), Next Retry realigned to 2026-12-04. The 2026-09-19 count-bookkeeping row stays `review` (retries 1, Next Retry realigned 2026-12-04) — its heads-vs-mixed-counts item was not re-tested.
+- **Active Concepts:** row synced — `last_reviewed` 2026-10-17 → **2026-11-04**; `next_review` 2026-10-24 → **2026-12-04**; `Last Q Type` discriminative → **definitional**; mastery 0.75 advisory and the two-row graduation noted.
+- **Advisory mastery:** **0.75** — Feynman: `fail` (unchanged; not re-tested this session).
+- **Carry-forward:** the count bookkeeping (heads-only vs mixed counts) and the Gamma–Poisson slot table (Σx_i → shape a, n → rate b) are still un-re-tested.

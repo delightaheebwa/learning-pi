@@ -1,0 +1,39 @@
+{
+  "gate": "review",
+  "run": "ingest review-gate (clerk, foreground) — cycle 1 on the exact text written",
+  "concepts": [
+    "Mutual Information",
+    "KL Divergence"
+  ],
+  "lesson_ref": "Learning System/Lessons/Lesson — Information Theory — 2026-09-11.md",
+  "pass_number": 1,
+  "cycle": 1,
+  "target": "Knowledge Wiki/wiki/Mutual Information.md (enriched — 'The KL connection, walked', 'Why MI can never be negative — and why there is no absolute value', 'MI vs correlation — the division of labor', fused-bar set-strip identity, distributions-not-variables precision) + Knowledge Wiki/wiki/KL Divergence.md (enriched — 'Mutual information is a KL divergence' rewritten with the four-move walkthrough, the 0.531-bit check and the MI-inherits-KL≥0 note) + the Active Concepts rows written this ingest (IT section header, Mutual Information row, KL Divergence row, Last Updated line)",
+  "verdict": "ISSUES",
+  "issues": [
+    {
+      "severity": "medium",
+      "location": "Knowledge Wiki/wiki/Mutual Information.md — \"H(X,Y) counts the overlap twice (once inside each bar) and the rest once, so H(X) + H(Y) − H(X,Y) leaves a single copy of the overlap\"",
+      "issue": "Inverts the bars bookkeeping mechanism: H(X)+H(Y) double-counts the overlap, H(X,Y) (the union) counts it once. As written the union is said to double-count, which misstates which term does the double-counting. The formula itself and the earlier gloss 'double-count the overlap, subtract the union once' are correct, so the error is explanatory, not numeric."
+    }
+  ],
+  "context_notes": [
+    {
+      "location": "Knowledge Wiki/wiki/Mutual Information.md — \"Form 1 is where the ≥ 0 and the symmetry are easiest to see\"",
+      "note": "Wording nit only; non-negativity is established via Form 4 / KL ≥ 0 and symmetry is most direct from Form 2. Left as written (defensible: Form 1 shows symmetry directly and H(X|Y) ≤ H(X) gives ≥ 0)."
+    },
+    {
+      "location": "Knowledge Wiki/wiki/Mutual Information.md — 2026-09-15/16 provenance lines and Open questions dates",
+      "note": "Bookkeeping/provenance, out of scope. Numbers checked: H(X,Y)=1.469, H(X|Y)=0.469, I=0.531; V=0.938; anti-correlated I=1; X∈{−1,0,1}, Y=X² ⇒ I≈0.918 — all correct."
+    },
+    {
+      "location": "Knowledge Wiki/wiki/KL Divergence.md — non-symmetry re-check anecdote",
+      "note": "Learner-history anecdote embedded in the page; no factual error. Numbers verified: 0.449 vs 0.326 bits; coin 0.189 vs 0.208; H(Q)=0.811, CE=1.0."
+    },
+    {
+      "location": "Learning System/Core/📚 Active Concepts.md rows",
+      "note": "Out-of-scope bookkeeping (dates, next_review, interval_index, attempts, position pointers); subject-matter content consistent with the wiki pages."
+    }
+  ],
+  "note": "Cycle 1 found exactly one medium in-target issue — the bars-bookkeeping sentence, inherited verbatim from the 2026-09-15 page revision and not introduced by this ingest; flagged because it sits inside the target text. Fixed in one apply: 'H(X) + H(Y) counts the overlap twice (once inside each bar) and the rest once, while H(X,Y) counts every region once'. Cycle 2 re-review returned PASS_WITH_FLAGS (0 issues)."
+}

@@ -1,0 +1,7 @@
+# Signals & Job Control (Command-line Environment)
+
+The learner mastered the signal model — a signal as a "software interrupt" the kernel delivers to a process — the one idea that makes all of job control coherent, plus the full toolkit (Ctrl-C/SIGINT, Ctrl-Z/SIGTSTP → `fg`/`bg`/`jobs`, the SIGTERM-vs-SIGKILL ladder, `&`/`$!`, `nohup`/`disown`, SIGHUP). Prior knowledge of env vars (`export`), return codes (`&&`/`||`/`$?`), tmux's purpose, aliases, and dotfiles was verified as already solid. This closes the only gap the probe found and clears B2.
+
+**Status:** active
+**Evidence:** Probe exposed the edge precisely — 2/2 signal questions missed, 5/5 on env/return-code/tmux/alias/dotfiles. Two-tier end quiz 5/5: Tier 1 retrieval (SIGKILL uncatchable; Ctrl-Z→`bg` = suspend-then-background; interleaved Make timestamp-rebuild question) and Tier 2 higher-order (predict: SIGKILL accepts uncleaned junk; explain why: a backgrounded job is still a child, so closing the terminal sends SIGHUP → survive with `nohup`/`disown`). Feynman explain-back passed with an original driving/officer analogy covering all three signal rungs. Highest Bloom level: **Evaluate** — the learner weighed the SIGTERM-cleanup vs SIGKILL-immediacy tradeoff, not just recalled it.
+**Implications:** Signals + job control are now on the retrieval schedule (`next_review` 2026-08-21). This unblocks the remaining B-strand process lessons (B3 dev environment, B4 debugging, B6 data wrangling) which assume signal/return-code fluency. B2 marked `done` in CURRICULUM.md.

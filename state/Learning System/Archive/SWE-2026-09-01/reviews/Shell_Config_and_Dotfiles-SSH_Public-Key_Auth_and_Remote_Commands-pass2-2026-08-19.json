@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-08-19T10:33:14.332365Z",
+  "source": "https://missing.csail.mit.edu/2026/command-line-environment/",
+  "concepts": [
+    "Shell Config & Dotfiles",
+    "SSH: Public-Key Auth & Remote Commands"
+  ],
+  "pass": "2",
+  "model": "minimax-m3",
+  "verdict": {
+    "verdict": "PASS",
+    "issues": []
+  }
+}

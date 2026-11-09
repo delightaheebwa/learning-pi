@@ -1,0 +1,20 @@
+{
+  "gate": "review",
+  "run": "closing verification (parent, run de46c3ba) after all flagged items were fixed",
+  "concepts": ["Cross-entropy (H(P,Q), CE loss, NLL)", "P1 L09 CP3 ingest — closing verification (Mistakes ledger lettering)"],
+  "lesson_ref": "Learning System/Lessons/Lesson — Information Theory — 2026-09-11.md",
+  "pass_number": 1,
+  "target": "learning content of the CP3 ingest + all state/audit files touched by the fixes",
+  "verdict": "PASS",
+  "issues": [],
+  "fixes_covered": [
+    "pass-1: Olah-vs-Rohit mis-attribution; flat 'false' for H(P,Q) >= H(P) — fixed on the wiki page",
+    "pass-2: KL 'has not been taught' wording vs lesson state 'emitted, never practiced' — fixed",
+    "post-cap re-check: position-of-record split (2/6/CP3 + L08 pointer) — fixed 47fdae7",
+    "audit-trail self-contradiction ('pass 3' claimed while 'no third pass' recorded) — fixed f863485",
+    "non-reproducible live-concept count breakdown — fixed fa01f45 (28 = 6 + 20 + 2; Bayes 20 = 12 L07 + 8 L08)",
+    "lesson-file CP4 lettering (KL = CE - H(P) under Olah letters) — fixed 3d92b8a",
+    "Mistakes.md row 38 lettering (live answer key for the 2026-09-14 review) + probe-note lettering note — fixed f6760a4"
+  ],
+  "note": "Cumulative closing PASS after seven flagged findings across cycles; every finding was fixed and each fix was independently re-verified."
+}

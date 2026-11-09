@@ -1,0 +1,40 @@
+title: "[Idea]: "
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before posting, search the existing Ideas and upvote the ones you support rather than opening a duplicate.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A written overview of the idea or proposed change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: The problem this idea solves, or the scenario where it helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: An optional sketch, config snippet, or worked example of how the idea might look.
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to related discussions, issues, or docs.
+    validations:
+      required: false

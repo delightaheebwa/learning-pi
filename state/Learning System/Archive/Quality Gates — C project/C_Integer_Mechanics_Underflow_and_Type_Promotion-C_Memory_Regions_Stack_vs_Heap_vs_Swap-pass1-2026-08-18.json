@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-08-18T09:24:32.514396Z",
+  "source": "https://raw.githubusercontent.com/delightaheebwa/learning-system/main/Knowledge%20Wiki/raw/sources/2026-08-18%20-%20gemini-c-memory-integer-mechanics.md",
+  "concepts": [
+    "C Integer Mechanics (Underflow & Type Promotion)",
+    "C Memory Regions (Stack vs Heap vs Swap)"
+  ],
+  "pass": "1",
+  "model": "minimax-m3",
+  "verdict": {
+    "verdict": "PASS",
+    "issues": []
+  }
+}

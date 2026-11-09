@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 4: Read Real Memory</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+  <script src="../assets/prism.js" defer></script>
+  <script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+  <p class="kicker">Lesson 04 / Systems + State</p>
+  <h1>Cross the seam.</h1>
+  <p class="dek">The parser is protected by fixtures. Now add the thin operating-system layer that reads the real <code>/proc/meminfo</code> file and hands its text to the parser.</p>
+  <p class="meta">Estimated time: 60-90 minutes · Prerequisites: <a href="0003-acutest-parser.html">Lesson 3</a></p>
+
+  <nav class="nav"><a href="index.html">course map</a><a href="0003-acutest-parser.html">previous</a><a href="0005-cpu-samples.html">next</a><a href="../reference/proc-fields.html">proc fields</a><a href="../reference/testing-patterns.html">testing reference</a></nav>
+  <hr class="rule">
+
+  <h2>Live files are interfaces</h2>
+  <p><code>/proc/meminfo</code> looks like a text file, but it is a kernel-provided interface. It may contain more fields than you need, and its values change between reads. Treat it like an external input: check whether opening and reading succeeded.</p>
+  <pre><code class="language-text">MemTotal:       16384256 kB
+MemFree:         1234567 kB
+MemAvailable:    9123456 kB
+Buffers:          123456 kB</code></pre>
+  <p>For the MVP, use <code>MemTotal</code> and <code>MemAvailable</code>. "Available" is more useful than "free" for a dashboard because it includes memory the kernel estimates it can reclaim without swapping.</p>
+
+  <h2>Thin I/O glue</h2>
+  <p>Keep file handling separate from parsing. This helper reads a complete file into a caller-owned buffer:</p>
+  <pre><code class="language-c">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+static char *read_file(const char *path)
+{
+    FILE *file = fopen(path, "r");
+    if (file == NULL) return NULL;
+
+    /* procfs streams are not ordinary seekable files. */
+    size_t capacity = 4096;
+    size_t length = 0;
+    char *text = malloc(capacity);
+    if (text == NULL) { fclose(file); return NULL; }
+
+    for (;;) {
+        if (length + 1 == capacity) {
+            capacity *= 2;
+            char *grown = realloc(text, capacity);
+            if (grown == NULL) { free(text); fclose(file); return NULL; }
+            text = grown;
+        }
+
+        size_t bytes = fread(text + length, 1, capacity - length - 1, file);
+        length += bytes;
+        if (bytes == 0) break;
+    }
+    int failed = ferror(file);
+    fclose(file);
+    if (failed) { free(text); return NULL; }
+
+    text[length] = '\0';
+    return text;
+}</code></pre>
+  <p>The production wrapper can now be small:</p>
+  <pre><code class="language-c">int read_meminfo(const char *path, struct memory *out)
+{
+    char *text = read_file(path);
+    if (text == NULL) return -1;
+
+    int status = parse_meminfo(text, out);
+    free(text);
+    return status;
+}
+
+/* In main(): */
+struct memory memory = {0};
+if (read_meminfo("/proc/meminfo", &amp;memory) != 0) {
+    fputs("could not read memory information\n", stderr);
+    return 1;
+}</code></pre>
+
+  <h2>Turn values into a useful display</h2>
+  <pre><code class="language-c">/* inside main() */
+if (memory.total_kb == 0 || memory.available_kb &gt; memory.total_kb) {
+    fputs("invalid memory totals\n", stderr);
+    return 1;
+}
+
+unsigned long used_kb = memory.total_kb - memory.available_kb;
+double used_percent = 100.0 * used_kb / memory.total_kb;
+
+printf("RAM: %lu / %lu kB (%5.1f%% used)\n",
+       used_kb, memory.total_kb, used_percent);</code></pre>
+  <p>Validate the counters before subtracting or dividing: both values are in kB, the total must be nonzero, and available memory should not exceed total memory.</p>
+
+  <div class="exercise">
+    <h3>Practice: add a smoke test</h3>
+    <p>Keep the parser tests fixture-based. Add one small executable or test function that calls <code>read_meminfo("/proc/meminfo", &amp;memory)</code> and checks that the total is positive and available memory is no greater than total memory. This is a smoke test, not a brittle exact-value test.</p>
+  </div>
+
+  <div class="quiz" data-quiz>
+    <strong>Retrieval check</strong>
+    <p>Which value is usually better for "memory available to start an app"?</p>
+    <button data-answer="wrong">MemFree</button>
+    <button data-answer="correct">MemAvailable</button>
+    <button data-answer="wrong">SwapFree</button>
+    <p class="feedback" aria-live="polite"></p>
+  </div>
+
+  <p>Primary reading: the Linux <a href="https://man7.org/linux/man-pages/man5/proc_meminfo.5.html">proc_meminfo(5)</a> page. Compare your output with <code>free</code>, but do not assume two tools must display the same "used" formula.</p>
+  <p class="footer">Your tangible win is a real RAM measurement backed by a tested parser. Ask follow-up questions about file ownership, error paths, or why the smoke test should avoid exact live values.</p>
+</body>
+</html>

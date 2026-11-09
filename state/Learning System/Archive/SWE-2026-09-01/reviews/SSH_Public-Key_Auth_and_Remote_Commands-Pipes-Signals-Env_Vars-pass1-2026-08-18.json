@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-08-18T20:40:38.600843Z",
+  "source": "https://missing.csail.mit.edu/2026/command-line-environment/",
+  "concepts": [
+    "SSH: Public-Key Auth & Remote Commands",
+    "Pipes & Pipeline Composition (parallelism)",
+    "Signals (only a few in practice)",
+    "Environment Variables (VAR=val prefix, bash -c inspect)"
+  ],
+  "pass": "1",
+  "model": "minimax-m3",
+  "verdict": {
+    "verdict": "ISSUES",
+    "issues": [
+      {
+        "severity": "medium",
+        "location": "SSH section, 'Why this matters' paragraph",
+        "issue": "Performance advice ('Run the expensive stages on the side that is big/expensive — usually remotely') is editorial material not present in the source. The source describes the mechanism of quoted vs unquoted ssh pipes but does not advise on which to choose."
+      },
+      {
+        "severity": "medium",
+        "location": "Enrichment: Pipes & Pipeline Composition",
+        "issue": "The specific claim that 'pipelines can terminate early when the downstream command exits (e.g. grep | head stops once head has enough lines)' is material not in the source. The source covers pipeline concurrency but not early-termination behavior or this example."
+      },
+      {
+        "severity": "low",
+        "location": "Enrichment: Signals; SSH section",
+        "issue": "SIGPIPE is listed in the small common-set summary but is not mentioned in the source. The '~30 signals' count is also not in the source. Minor: 'ssh falls back to prompting for the remote account's password' slightly misrepresents the source, which presents passwords as an alternative option rather than a fallback."
+      }
+    ]
+  }
+}

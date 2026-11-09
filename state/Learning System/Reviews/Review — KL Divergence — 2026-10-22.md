@@ -1,0 +1,16 @@
+# Review — KL Divergence — 2026-10-22
+
+- **Track/Source:** aiefs — Rohit P1 L09 + Olah (Python)
+- **Type:** concept · **Q type:** `definitional`
+- **Why this slot:** scheduled due review — Attempts.json `next_review` was 2026-10-26 (tested early in review queue), with prior mistake row 2026-09-18 due 2026-10-21. Question type: `definitional` + clone protocol proof-of-work.
+- **Question (definitional + clone PoW):** $Q=(0.5, 0.25, 0.25)$, $P=(0.25, 0.5, 0.25)$. (a) 3-line trace calculating divergence penalty in bits. (b) Physical meaning of individual term signs and whether negative term indicates negative correlation between variables. (c) Teach the clone: explain to junior colleague why individual term can be negative, code length interpretation, and why total sum $\ge 0$.
+- **Learner answer (verbatim):** "(a) Cross entropy H(Q||P) = -sum Q log_2 P = 1.75 bits (margin notes: 1.75 - 1.5 = 0.25 bits). (b) Positive sign means more bits than optimum used/wasted; negative sign means fewer bits used. (c) Term negative when too few bits used in code representation; sum >= 0 because beating optimum code representation is impossible."
+- **Expected:** (a) $D_{KL}(Q||P) = \sum_x q(x) \log_2(q(x)/p(x)) = 0.5(1) + 0.25(-1) + 0 = 0.25$ bits. (b) Negative term occurs when $p(x) > q(x)$ (model assigns more probability than truth, giving a per-event code length rebate); it has nothing to do with negative correlation between variables (this is two candidate distributions over a single outcome space, not paired random variables). (c) Clone failed: student believed negative term means negative correlation and could not justify why negative terms cannot sum to negative total.
+- **Verdict:** **FAIL** — grade-audit agreed. Named cross-entropy as primary quantity; omitted negative correlation explanation; failed clone protocol (did not specify $p(x) > q(x)$ rebate mechanism or refute correlation misconception).
+- **Proof-of-work:** clone protocol — **feynman_fail** (naive-student clone failed to grasp why negative terms cannot produce negative sum, and held to negative correlation belief).
+- **Feynman explain-back:** **fail** (`feynman_fail`).
+- **Attempts.json:** one attempt recorded 2026-10-22 — `fail` (definitional, `hunch`, hints 0, feynman_fail). Net state: mastery **0.60** advisory, `interval_index` 3 $\rightarrow$ **2** (concept schedule 14d), `next_review` 2026-10-26 $\rightarrow$ **2026-11-05**, `consecutive_correct` **0**, `consecutive_wrong` **1**, Feynman `fail`.
+- **Mistakes ledger:** new structural mistake row opened (2026-10-22, `structural`, `active` / retries 0 / next retry 2026-11-05); 2026-09-18 row realigned to 2026-11-05.
+- **Active Concepts:** row synced — `last_reviewed` 2026-09-24 $\rightarrow$ **2026-10-22**; `next_review` 2026-10-26 $\rightarrow$ **2026-11-05**; `Last Q Type` discriminative $\rightarrow$ **definitional**; mastery 0.60 advisory noted; Feynman flag moved to fail.
+- **Advisory mastery:** **0.60** — Feynman: fail.
+- **Carry-forward:** 0.25 bits divergence calculated, but rebate interpretation ($p(x) > q(x)$), correlation misconception refutation, and Gibbs' inequality / non-negativity proof-of-work require focused remediation.

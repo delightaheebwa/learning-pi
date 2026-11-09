@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-08-08T11:49:01.444Z",
+  "source": "http://localhost:8777/lesson3.html",
+  "concepts": [
+    "Testable Seam",
+    "Red-Green-Refactor",
+    "Sentinel Values vs Presence Flags"
+  ],
+  "wiki_paths": [
+    "Knowledge Wiki/wiki/Testable Seam.md",
+    "Knowledge Wiki/wiki/Red-Green-Refactor.md",
+    "Knowledge Wiki/wiki/Sentinel Values vs Presence Flags.md"
+  ],
+  "pass": "1",
+  "model": "byok:77723e9c-69c1-4fb1-9284-045c4e3f0ee8",
+  "verdict": {
+    "verdict": "PASS",
+    "issues": []
+  }
+}

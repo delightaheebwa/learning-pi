@@ -1,0 +1,21 @@
+{
+  "gate": "review",
+  "run": "ingest review-gate (clerk, foreground) — cycle 1 on the exact text written",
+  "concepts": [
+    "KL Divergence",
+    "Cross-Entropy from NLL"
+  ],
+  "lesson_ref": "Learning System/Lessons/Lesson — Information Theory — 2026-09-11.md",
+  "pass_number": 1,
+  "cycle": 1,
+  "target": "Knowledge Wiki/wiki/KL Divergence.md (new) + Knowledge Wiki/wiki/Cross-Entropy from NLL.md (enriched — KL bridge section)",
+  "verdict": "PASS",
+  "issues": [],
+  "context_notes": [
+    {
+      "location": "Knowledge Wiki/wiki/Cross-Entropy from NLL.md — Misconception paragraph / CP4 sentence",
+      "note": "Provenance/bookkeeping references (Mistakes.md date row, exit-ticket E3, the 2026-09-14 CP4 pass date) are out of the gate's scope and were not reviewed as issues; the math numbers cited in them were verified correct."
+    }
+  ],
+  "note": "Single 1-cycle PASS on the CP4 ingest target files: no accuracy, clarity or completeness issue at any severity. No fix cycle was needed (2-cycle cap not approached). State/bookkeeping files were deliberately out of scope and are covered by audit_state.py."
+}

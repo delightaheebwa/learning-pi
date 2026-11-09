@@ -1,0 +1,35 @@
+{
+  "gate": "review",
+  "concepts": [
+    "Cross-entropy (H(P,Q), CE loss, NLL)"
+  ],
+  "verdict": "ISSUES",
+  "pass_number": 1,
+  "cycle": 1,
+  "issues": [
+    {
+      "severity": "medium",
+      "location": "Knowledge Wiki/wiki/Cross-Entropy from NLL.md:24 (table row `| **Olah / this lesson (P1 L09)** | Q | P | H(P,Q) ≥ **H(Q)** |`, reinforced by line 90 `+ P1 L09 (Information Theory: H(P,Q), floor, conventions)`)",
+      "issue": "The page attributes the Olah letter convention (weights from Q, floor H(Q)) to \"P1 L09\", but the fetched source P1 L09 (phases/01-math-foundations/09-information-theory/docs/en.md) uses the OPPOSITE convention, the one the page itself lists under \"Rohit + most ML code and texts\": source line 71 `H(P, Q) = -sum( p(x) * log(q(x)) )  for all x`, line 74 `P is the true distribution (the labels). Q is your model's predictions.`, and line 90 `= H(P, Q) - H(P)`. So \"P1 L09\" appears in the Olah/KL-floor row (line 24), in the header as Rohit's lesson (line 3/5: `Rohit P1 L09, Checkpoint 3`, `Source: Rohit P1 L06 + P1 L09 + Olah`), and again in the Source section credited with `H(P,Q), floor, conventions` (line 90) — the same identifier is claimed for both conventions. The deliberate deviation is a property of THIS lesson (the lesson_ref states `this lesson uses Olah-style H(P,Q) ... Rohit/ML convention flips the letters`), not of Rohit's P1 L09 en.md. As written, a learner who re-reads the cited source while applying the page's own advice (line 29, `Check which letter carries the data before grading a formula`) will conclude the page contradicts its primary source. Fix: label the row `Olah (and this lesson)` and only credit P1 L09 with the flipped-letters convention, stating the deviation explicitly."
+    },
+    {
+      "severity": "medium",
+      "location": "Knowledge Wiki/wiki/Cross-Entropy from NLL.md:29 — `So the statement \"H(P,Q) ≥ H(P)\" is true under the Rohit/ML convention (P = truth) and false under this lesson's convention (P = model).`",
+      "issue": "The sentence asserts a truth value the page's own worked numbers contradict under the lesson's letters: with truth Q = (0.75,0.25) and model P = (0.5,0.5), H(P,Q) = 1.0 and H(P) = 1.0, i.e. H(P,Q) ≥ H(P) holds with equality; with the E3 coin Q = (0.9,0.1), P = (0.25,0.75), H(P,Q) = 1.84 ≥ H(P) ≈ 0.81 also holds. What is actually false under the lesson's convention is the general FLOOR CLAIM (a counterexample exists: weights q = (0.99,0.01), surprises p = (0.9,0.1) gives 0.184 < 0.469). Since the learner's tracked misconception (Core/🧯 Mistakes.md, 2026-09-12 row) is precisely \"the floor is the model's entropy H(P)\", the flat \"false\" next to an example where the inequality visibly holds is a re-anchoring hazard. Fix: say it \"is not a valid floor rule here — the floor is H(Q)\" instead of \"false\"."
+    },
+    {
+      "severity": "low",
+      "location": "Envelope field `source_url` (https://raw.githubusercontent.com/rohitg00/ai-engineer-from-scratch/main/phases/01-math-foundations/09-information-theory/docs/en.md)",
+      "issue": "The envelope URL 404s (repo slug is `ai-engineering-from-scratch`, not `ai-engineer-from-scratch`). Review was therefore done against the corrected URL for the same lesson (HTTP 200, 471 lines, cited by Learning System/CURRICULUM.md:61 `phases/01-math-foundations/09-* ... docs/en.md`). No wiki-content change needed; the typo is bookkeeping/traceability only."
+    },
+    {
+      "severity": "low",
+      "location": "Knowledge Wiki/wiki/Cross-Entropy from NLL.md:41 `Do not pass softmax outputs (that double-applies the softmax).` and line 74 `Fix the base per problem`",
+      "issue": "Imperative strings carried from/around the ingested material (source P1 L09 also carries PyTorch-doc imperatives and exercise instructions). Verified benign: both are learner-facing domain statements about the API/log base, not directives to the agent, and nothing in the fetched source or the page attempts to instruct the tooling. Flagged for the record only — no untrusted-instruction issue found."
+    }
+  ],
+  "lesson_ref": "Learning System/Lessons/Lesson — Information Theory — 2026-09-11.md",
+  "source_url": "https://raw.githubusercontent.com/rohitg00/ai-engineering-from-scratch/main/phases/01-math-foundations/09-information-theory/docs/en.md",
+  "date": "2026-09-12",
+  "note": "Enrichment of Cross-Entropy from NLL (P1 L09 CP3). Both medium issues fixed before pass 2 (Olah/P1-L09 attribution; 'false' -> 'not a valid floor rule' + counterexample). Low: envelope source_url slug typo corrected in pass 2."
+}

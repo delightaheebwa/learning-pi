@@ -1,0 +1,20 @@
+{
+  "gate": "review",
+  "concepts": [
+    "Cross-entropy (H(P,Q), CE loss, NLL)"
+  ],
+  "verdict": "ISSUES",
+  "pass_number": 2,
+  "cycle": 2,
+  "issues": [
+    {
+      "severity": "medium",
+      "location": "Knowledge Wiki/wiki/Cross-Entropy from NLL.md — section '## KL bridge — CP4 preview, not yet practiced', last sentence: \"KL itself has not been taught or practiced yet — this is the bridge only.\"",
+      "issue": "The page asserts KL was never taught, but the lesson state of record says the CP4 teaching block WAS delivered (just not answered/practiced). Verbatim counter-evidence: Learning System/Sessions/Session — Information Theory (P1 L09) — 2026-09-11.md: \"CP4 (KL) was emitted BEFORE the pause request but NOT answered/practiced — must be re-emitted fresh on resume\"; Learning System/Sessions/Session — Information Theory Ingest (CP3) — 2026-09-12.md: \"CP4 (KL divergence) NOT banked — taught but never answered or practiced; recorded only as a labelled preview on the cross-entropy page\"; Learning System/CURRICULUM.md row 09: \"CP4 KL taught but NOT practiced.\" The same ingest bundle therefore states opposite facts about whether the learner has seen KL content, and the wiki wording (unlike the section heading 'CP4 preview, not yet practiced', which is accurate) is the variant that contradicts the lesson file, the curriculum, and the ingest note. Fix: say 'not yet practiced/banked (emitted once on 2026-09-12, never answered) — this is the bridge only.'"
+    }
+  ],
+  "lesson_ref": "Learning System/Lessons/Lesson — Information Theory — 2026-09-11.md",
+  "source_url": "https://raw.githubusercontent.com/rohitg00/ai-engineering-from-scratch/main/phases/01-math-foundations/09-information-theory/docs/en.md",
+  "date": "2026-09-12",
+  "note": "Re-review of the post-fix page. Single medium issue (KL 'not taught' wording contradicted the lesson/CURRICULUM state) fixed after this pass; no third pass run (learning-review 2-cycle cap) - flag surfaced to the user."
+}

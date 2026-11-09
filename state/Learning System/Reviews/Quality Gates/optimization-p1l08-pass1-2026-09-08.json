@@ -1,0 +1,25 @@
+{
+  "gate": "review",
+  "concepts": [
+    "Adam (adaptive moments)",
+    "Gradient Descent (vanilla)",
+    "Learning Rate",
+    "Momentum (SGD with Momentum)"
+  ],
+  "verdict": "PASS",
+  "pass_number": 1,
+  "cycle": 1,
+  "issues": [
+    {
+      "severity": "low",
+      "location": "Gradient descent.md line 60",
+      "issue": "Literal backslash-n artifact at end of paragraph. Cosmetic."
+    },
+    {
+      "severity": "low",
+      "location": "Adam (adaptive moments).md line 38",
+      "issue": "Aggressive flattening imprecise \u2014 standard phrasing is aggressive adaptation. Meaning recoverable."
+    }
+  ],
+  "date": "2026-09-08"
+}
