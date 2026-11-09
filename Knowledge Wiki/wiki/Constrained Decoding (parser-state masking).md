@@ -90,6 +90,20 @@ It enforces the **grammar**, which is exactly the class of failure it was built 
 - **The flag set has never been run closed-book as a whole.** `in_string`, `expect`, `required_left`, `literal` were each pressed separately (one pass, several fails); no item has yet asked for the full tuple at one position.
 - **Calibration.** Confidence was `sure` at the spine check and the first predict probe, yet 9 of 11 attack/check items failed — an illusion-of-competence signal recorded in `🧯 Mistakes.md`.
 
+### Row-4 repair log (2026-11-09, reconciled from the Tutor's lesson file)
+
+What was tried on this gap, in order, so the resume does not repeat it:
+
+- **Predict probe** at `{"product": "Sony"` — predicted `,` / `}` (the decider's answer) where the rule returns `['a-z','"']`; the schema-side read was correct.
+- **Mechanism press** — the same trailing `"` demands `:` after a key and `,` after a value, so legality is not a function of the tail.
+- **Three schema-only repairs failed** ("next token distribution" → "keys and values" → naming rounds) → **repair mode entered**: a structural gap has nothing to cue.
+- **Repair step 1 — flag bookkeeping** over the emitted prefix: landed after 4 naming rounds + a nomenclature patch; re-owned by the learner as *"a boolean in progress."*
+- **Repair step 2 — mask + renormalise** from flag-state × schema-progress: the decider side landed (*"we simply hand the sampler e … the rest are masked"*).
+- **Contrast rounds 2/2 fail** — the three layers fused again (*"the flag is any; e has high probability"*).
+- **Closing fresh surface 1/3** at `{"product": "Sony", "price": 348}` — `,` right, both reasons taken from the rule.
+
+Ladder spend exceeded budget (the branch table and `else → ["any"]` were handed over) — a **difficulty signal** about the diagnosis regime, not a learner verdict. Resume rung: a **new** fresh surface after a flags × schema mask re-cap, then an own-words restatement of *"flags × schema → mask + renormalise, ≠ the last-char rule"*.
+
 ## Sources
 
 - `raw/sources/2026-11-09 - structured-outputs - rohit.md` — the spectrum's decoding rung, the Step-3 `next_valid_tokens` simulator and its `["any"]` catch-all (the rule this page contrasts).

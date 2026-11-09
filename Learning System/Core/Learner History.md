@@ -14,7 +14,7 @@ Tag rules (strict): `solid` = 2+ consecutive passes, interval_index ≥ 2,
 Tutor use: build directly on `solid`; probe-then-teach `neutral`;
 reteach-from-scratch `fuzzy` (check its mistake row / review note first).
 
-Totals: 324 concepts (95 with attempt history + 229 paused) — aiefs 46 · swe 66 · aie 212 · solid 8 · neutral 275 · fuzzy 41
+Totals: 325 concepts (96 with attempt history + 229 paused) — aiefs 47 · swe 66 · aie 212 · solid 8 · neutral 276 · fuzzy 41
 
 ## AIEFS — living (updated by Clerk each session)
 
@@ -56,6 +56,7 @@ Totals: 324 concepts (95 with attempt history + 229 paused) — aiefs 46 · swe 
 | Gradient Descent (vanilla) | procedure | solid |  | 2026-10-10 | Learning System/Reviews/Review — Gradient Descent (vanilla) — 2026-10-10.md |
 | Gradient Descent Failure Modes (zigzag vs overshoot) | concept | solid |  | 2026-10-02 | Learning System/Reviews/Review — Gradient Descent Failure Modes (zigzag vs overshoot) — 2026-10-02.md |
 | Information Content (Surprise) | concept | solid |  | 2026-10-11 | Learning System/Reviews/Review — Information Content (Surprise) — 2026-10-11.md |
+| JSON Schema Validation & Retry (Pydantic + Instructor) | concept | neutral |  | 2026-11-09 | last reviewed 2026-11-09 |
 | Label Smoothing | concept | neutral |  | 2026-10-02 | Learning System/Reviews/Review — Label Smoothing — 2026-10-02.md |
 | Learning Rate | concept | neutral |  | 2026-09-23 | Learning System/Reviews/Review — Learning Rate — 2026-09-23.md |
 | MLE vs MAP Estimation | concept | neutral |  | 2026-09-30 | Learning System/Reviews/Review — MLE vs MAP Estimation — 2026-09-30.md |

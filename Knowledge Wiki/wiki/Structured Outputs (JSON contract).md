@@ -101,10 +101,26 @@ Handoff carried from the Tutor at the pause. Preserved in dependency order; noth
 | 1 | Prompts-only output ~90% solution; matching tails at 'North&Fences/preamble failure mode', against Rohit's naive-solution case | `solid` | learner v1 item 1 vs *"This works 90% of the time … markdown code fences … preamble"* (rohit) |
 | 2 | It is a decoding problem, not a prompt-engineering problem | `solid` | learner v1 item 2 vs *"This is not a prompt engineering problem. It is a decoding problem."* (rohit) |
 | 3 | Ladder Prompting → JSON mode → Schema mode → Constrained decoding | `solid` | learner v1 item 3 vs "The Structured Output Spectrum" (rohit) |
-| 4 | FSM/CFG masking: "we mask tokens that would break the JSON schema" — deciding step now installed via repair; closing discriminator check still **OPEN** | `suspect` | learner v1 item 2 → [[Constrained Decoding (parser-state masking)]] |
+| 4 | FSM/CFG masking: "we mask tokens that would break the JSON schema" — deciding step installed by a two-step repair (flag bookkeeping landed — "a boolean in progress"; decider side landed — "we simply hand the sampler e … the rest are masked"); the **decider-vs-rule discriminator is still OPEN** after three fusion episodes, and the closing fresh-surface check graded **fail** | `suspect → repaired-in-progress` | learner v1 item 2 → [[Constrained Decoding (parser-state masking)]] |
 | 5 | Failure modes named as one lump — the lesson splits on catchability: hallucinated values escape schema validation ("type correct, value wrong"); enum confusion is the constrained-decoding-preventable case | `suspect`, `on_path: true`, `requires: ["row 4 closure"]` | learner v1 item 4 vs `## Failure modes` above |
 | 6 | Pydantic schema generation + Instructor validate-and-retry loop | `solid` | learner v1 item 5 vs rohit `## The Pydantic Pattern` / `### Instructor Library` |
 | 7 | OpenAI Structured Outputs supports only a subset of JSON Schema (composition keywords unsupported; strict mode requires all fields required) — noted from the scout digest, not yet surfaced/attacked | `missing`, `on_path: false` | openai docs vs rohit's "exact keys, types, and constraints" — see ⚠️ above |
+
+### Row-4 repair log (reconciled from the Tutor's lesson file, 2026-11-09)
+
+The attacks on triage row 4, in the order they ran — kept because the discrimination they failed is exactly what `/continue` resumes at:
+
+| Step | Probe | Outcome |
+|---|---|---|
+| 1 | Predict probe at `{"product": "Sony"` — what does the rule hand the sampler? | learner predicted `,` / `}` — the **decider's** answer; the rule returns `['a-z','"']`. Schema-side read correct. |
+| 2 | Mechanism press — the same trailing `"` demands `:` after a **key** and `,` after a **value** | legality is not a function of the tail; pressed, then lost. |
+| 3 | Three schema-only repairs ("next token distribution" → "keys and values" → naming rounds) | all failed → **repair mode entered** (a structural gap has nothing to cue). |
+| 4 | **Repair step 1** — flag bookkeeping over the emitted prefix ("you are here" = the flags) | landed after 4 naming rounds + one nomenclature patch; learner re-owned: **"a boolean in progress."** |
+| 5 | **Repair step 2** — legal set = flag-state × schema-progress, mask to zero, renormalise | decider side landed: "we simply hand the sampler e … the rest are masked." |
+| 6 | Contrast rounds, rule vs decider | **2/2 fail** — the rule layer, flag layer and distribution layer fused ("the flag is any; e has high probability"). |
+| 7 | **Closing fresh surface** at `{"product": "Sony", "price": 348}` | **1/3** — `,` correct; *why-legal* and *granted/withheld* both answered from the rule ("string" where `required_left` is the point). **Row 4 stays OPEN.** |
+
+Ladder spend exceeded budget on this gap (source returns including the branch table and `else → ["any"]`) — recorded as a **difficulty signal** (the diagnosis regime sat over the edge for self-repair), never as a learner verdict. The `## My understanding` fragments above are where the repair stopped and are deliberately left unpolished.
 
 **Open attacks, dependency order** (nothing in flight at the pause):
 

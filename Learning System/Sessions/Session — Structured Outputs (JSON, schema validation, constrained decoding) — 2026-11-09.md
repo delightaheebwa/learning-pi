@@ -1,6 +1,6 @@
 # SESSION: Structured Outputs — JSON, Schema Validation, Constrained Decoding (Phase 11 L03, branch) — 2026-11-09
 
-> **Purpose:** record of the interrogation up to the pause, and the provenance of everything ingested from it. Written by the ingest (Clerk) from the Tutor's inline handoff — **no lesson file, no learning record and no `Pending Ingest.json` existed on disk** (surfaced, not merged; there was nothing to disagree with).
+> **Purpose:** record of the interrogation up to the pause, and the provenance of everything ingested from it. Written by the pause-time ingest (Clerk) from the Tutor's inline handoff — **no lesson file, no learning record and no `Pending Ingest.json` existed on disk at that moment** (surfaced, not merged; there was nothing to disagree with). **Amended 2026-11-09 by the finalize `/ingest`:** the Tutor subsequently wrote the lesson file (`Learning System/Lessons/Lesson — Structured Outputs — 2026-11-09.md`, commit `7e38b5b`) and the `/pause` marker (`Learning System/Core/Pending Ingest.json`). Both were read at finalize and **agree with this note**: lesson-file `Status: PAUSED — mid-repair (partial close)` ↔ handoff `status: paused`, and lesson-file `Resume from:` ↔ handoff `resume_from` (the row-4 fresh-surface discriminator at `{"product": "Sony", "price": 348}`). Nothing disagreed, so nothing was merged; the marker was consumed and cleared, the lesson stays **in-progress**, the Scout digest is kept.
 
 ## Session Info
 
@@ -57,6 +57,16 @@
 - [ ] **Calibration** — `sure` at the spine check, then 9 of 11 attack/check items graded fail: illusion-of-competence signal; ledgered as `metacognitive`.
 - [ ] **`[?]` blanks in v1** — three blanks (`[?] of JSON` ×2, `ways to [?]`) were never re-worded by the learner; preserved as blanks on the page, deliberately not filled in by the AI.
 
+## Open attacks (dependency order, as carried by the handoff)
+
+Preserved here because the `/pause` marker that carried them (`Core/Pending Ingest.json`) was consumed and cleared at the 2026-11-09 finalize ingest. Nothing was in flight at the pause.
+
+1. **row 4 closure** — decider-vs-rule fresh-surface discriminator. `miss_class: discrimination`, `requires: null`, `on_path: true`. **Open:** the 2026-11-09 closing check at `{"product": "Sony", "price": 348}` graded `,` correct and both reasons wrong. Resume rung: a **new** fresh surface after a flags × schema mask re-cap, then an own-words restatement.
+2. **row 5** — split the failure-mode lump on catchability (a hallucinated value — "type correct, value wrong" — escapes every enforcement tier). `requires: ["row 4 closure"]`, `on_path: true`. **Not yet attacked.**
+3. **row 7** — OpenAI schema mode supports only a subset of JSON Schema (composition keywords unsupported; `strict` requires all fields required). `requires: null`, `on_path: false`. **Recorded, off-path this session, never surfaced to the learner.**
+
+Full triage rows 1–7 with buckets, quotes and the `requires`/`on_path` columns live on `Knowledge Wiki/wiki/Structured Outputs (JSON contract).md` → `## Interrogation record (2026-11-09)` (that table was **not** lost with the marker).
+
 ## Next Steps
 
 `/continue` resumes this branch at the **open fresh-surface discriminator** (row 4 closure), then row 5, then graduation (clone + exit ticket). The Phase 1 L10 pointer (Checkpoint 6/6, mini 1/3) is untouched — it remains the sequential curriculum position.
@@ -69,7 +79,7 @@ Single-concept session: the three new concepts are one lesson spine (contract �
 
 ## Provenance
 
-- **Tutor handoff:** inline (task payload) — `learner_model.v1` verbatim, `triage[]` (7 rows with buckets, `requires`/`on_path`), `open_attacks[]` in dependency order, `attempts[]` (14 items), `mistakes[]` (2), `battery_withheld`, `resume_from`. **Absent from disk:** `Lessons/Lesson — structured-outputs — *.md`, `Learning Records/Record — Structured Outputs — *.md`, `Core/Pending Ingest.json`. Nothing was invented to fill those; the session note is this ingest's reconstruction of the inline handoff, and the lesson file remains the Tutor's artifact to write on resume.
+- **Tutor handoff:** inline (task payload) — `learner_model.v1` verbatim, `triage[]` (7 rows with buckets, `requires`/`on_path`), `open_attacks[]` in dependency order, `attempts[]` (14 items), `mistakes[]` (2), `battery_withheld`, `resume_from`. **Absent from disk:** `Lessons/Lesson — structured-outputs — *.md`, `Learning Records/Record — Structured Outputs — *.md`, `Core/Pending Ingest.json`. Nothing was invented to fill those; the session note is this ingest's reconstruction of the inline handoff. **Reconciled 2026-11-09 (finalize ingest):** the lesson file now exists (`Lessons/Lesson — Structured Outputs — 2026-11-09.md`, commit `7e38b5b`) and the `/pause` marker existed and has been cleared; the lesson file's `Status:` / `Resume from:` agree with the handoff verbatim. Still **owed:** the learning record (`Learning Records/Record — Structured Outputs — *.md`) — a paused lesson does not close one.
 - **Scout digest:** `Learning System/.tmp/context-01a1bf90-c0bf-74e9-ae87-6014964ff653-structured-outputs.json` (fetched 2026-11-09, 11 raw bodies live-fetched, `failed_refs: []`, no drift — first digest for this slug). **Kept** (partial close, inside its 7-day TTL).
 - **Raw sources:** 12 files `Knowledge Wiki/raw/sources/2026-11-09 - structured-outputs - *.md`.
 - **Attempts:** 14 recorded from the handoff in order (1 spine pass on `Structured Outputs (JSON contract)`; 13 on `Constrained Decoding`, 3 pass / 10 fail).
