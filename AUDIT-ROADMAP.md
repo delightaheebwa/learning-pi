@@ -2,7 +2,7 @@
 
 > **Historical record.** This document describes work completed in 2026. It is
 > not current process. The current map is `docs/README.md`, and the authoritative
-> rules are `AGENTS.md`, `.opencode/loop.md`, and `CONTRACT.md`.
+> rules are `AGENTS.md` and `CONTRACT.md`.
 
 > **Status:** historical record. No longer updated.
 > **Scope:** the integrated system formed by `learning-system` (durable state, wiki, philosophy,

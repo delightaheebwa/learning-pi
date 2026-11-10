@@ -2,7 +2,7 @@
 
 > **Historical record.** This document describes work completed in 2026. It is
 > not current process. The current map is `docs/README.md`, and the authoritative
-> rules are `AGENTS.md`, `.opencode/loop.md`, and `CONTRACT.md`.
+> rules are `AGENTS.md` and `CONTRACT.md`.
 
 Each cascade stage appends its commit shas here so the review phase can scope its per-checkpoint
 review to the right changes.

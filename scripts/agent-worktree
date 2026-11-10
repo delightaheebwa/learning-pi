@@ -18,7 +18,8 @@
 # removes your worktree. Run it inside your worktree after the reviewer reports CLEAN. If main moved under you, land
 # merges origin/main back into your branch and retries (max 3 attempts). If
 # that merge conflicts, land stops with exit 3 and lists the files: resolve
-# them in your worktree (see AGENTS.md §4), re-verify, commit, and re-run
+# them in your worktree (keep both sides' intent; never delete or weaken tests or
+# `contracts/`; if unsure, report the files to the user), re-verify, commit, and re-run
 # land. Land never rebases, never force-pushes, and never resolves conflicts
 # itself — a conflict always needs the agent's judgment.
 set -uo pipefail
@@ -162,12 +163,14 @@ cmd_land() {
 
     # Absorb main into the branch first, so the final fast-forward cannot
     # conflict. A conflict here stops the land: the agent resolves it in
-    # the worktree (AGENTS.md §4), re-verifies, commits, and re-runs land.
+    # the worktree (keep both sides' intent; never delete or weaken tests or
+    # `contracts/`; if unsure, report the files), re-verifies, commits, and re-runs land.
     if ! git -C "$wt" merge origin/main -m "merge: origin/main into $branch" 2>/dev/null; then
       echo "agent-worktree: conflict merging origin/main into $branch — land stopped." >&2
       echo "agent-worktree: conflicted files:" >&2
       git -C "$wt" diff --name-only --diff-filter=U | sed 's/^/  /' >&2
-      echo "agent-worktree: resolve in this worktree per AGENTS.md §4, run" >&2
+      echo "agent-worktree: resolve in this worktree keeping both sides' intent; never delete" >&2
+      echo "agent-worktree: or weaken tests or contracts/, and report the files if unsure; run" >&2
       echo "agent-worktree: scripts/learn-check, commit, push, re-review if" >&2
       echo "agent-worktree: non-trivial, then re-run scripts/agent-worktree land." >&2
       exit 3

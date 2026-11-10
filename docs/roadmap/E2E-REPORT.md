@@ -2,7 +2,7 @@
 
 > **Historical record.** This document describes work completed in 2026. It is
 > not current process. The current map is `docs/README.md`, and the authoritative
-> rules are `AGENTS.md`, `.opencode/loop.md`, and `CONTRACT.md`.
+> rules are `AGENTS.md` and `CONTRACT.md`.
 
 > **Snapshot note (2026-10-16, updated 2026-10-27):** this report is the 2026-10-08 cascade result
 > (45/45 invariants, `learning-pi 5a31bed`). It does **not** cover P4 foundation-beats, the

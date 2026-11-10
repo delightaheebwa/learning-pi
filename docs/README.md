@@ -8,7 +8,7 @@ This file maps the docs in this repo. Read it before any other doc.
 | --- | --- |
 | What behavior is guaranteed, and which tests prove it | `CONTRACT.md` and `contracts/learning-core.json` |
 | How to verify a change | `scripts/learn-check` and `scripts/check-docs` |
-| How to work in this repo | `AGENTS.md` and `.opencode/loop.md` |
+| How to work in this repo | `AGENTS.md` |
 | What the system is and how to set it up | `README.md` |
 | Current teaching method | `docs/teaching-methodology.md` |
 
@@ -110,6 +110,6 @@ revise door described in `CONTRACT.md`. They are not fixed here.
 ## Reading order
 
 1. `README.md` for what the system is.
-2. `AGENTS.md` and `.opencode/loop.md` before changing anything.
+2. `AGENTS.md` before changing anything.
 3. `CONTRACT.md` before changing behavior.
 4. `docs/teaching-methodology.md` before changing teaching prompts.

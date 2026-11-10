@@ -2,7 +2,7 @@
 
 > **Historical record.** This document describes work completed in 2026. It is
 > not current process. The current map is `docs/README.md`, and the authoritative
-> rules are `AGENTS.md`, `.opencode/loop.md`, and `CONTRACT.md`.
+> rules are `AGENTS.md` and `CONTRACT.md`.
 
 This directory drives the staged implementation of the learning-system audit.
 It is executed by a **cascade of Herdr agents**: each stage agent implements its stage, verifies it,

@@ -28,6 +28,7 @@ BANNED = (
     "learning-system repository",
     "lives in a separate repository",
     "learning-system/infra/ACCESS.md",
+    ".opencode/loop.md",
 )
 
 violations = []
