@@ -10,5 +10,5 @@ useDefault = true
 [allowlist]
 description = "Frozen raw sources quote third-party text; generic-api-key matches there are false positives."
 paths = [
-  '''state/Knowledge Wiki/raw/sources/2026-10-28 - prompt-engineering - prompt-engineer\.md''',
+  '''(^|/)state/Knowledge Wiki/raw/sources/2026\-10\-28 \- prompt\-engineering \- prompt\-engineer\.md$''',
 ]
