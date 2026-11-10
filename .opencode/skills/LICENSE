@@ -22,9 +22,9 @@ SOFTWARE.
 
 ---
 
-Vendored from https://github.com/addyosmani/agent-skills at tag `0.6.15`
-(commit `301b02b12bff98e4688e6984af6556802322bbde`). MIT, Copyright (c) 2025
-Addy Osmani.
+Vendored from https://github.com/addyosmani/agent-skills at commit
+`301b02b12bff98e4688e6984af6556802322bbde` (tag `0.6.15` plus merge `#736`).
+MIT, Copyright (c) 2025 Addy Osmani.
 
 Vendored: `skills/` (25 skills), `../references/` (7 shared checklists), and
 `../docs/{agents,opencode-setup}.md`.

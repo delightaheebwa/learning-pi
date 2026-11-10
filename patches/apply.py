@@ -36,6 +36,13 @@ SETUP_NEW = (
     "projects. Its `CONTRIBUTING.md` has the `repo-scoped files` guidance."
 )
 
+DOCS_NOTE = (
+    "> **Project note:** This is the upstream document, kept for reference. "
+    "The lifecycle slash commands it mentions (`/ship`, `/review`, `/test`, "
+    "`/webperf`) are Claude Code commands this project did not adopt; the "
+    "personas here are composed by the parent agent with `Task` calls.\n\n"
+)
+
 REPLACEMENTS = (
     ("skills/spec-driven-development/SKILL.md", SPEC_OLD, SPEC_NEW),
     ("docs/opencode-setup.md", SETUP_OLD, SETUP_NEW),
@@ -61,5 +68,17 @@ for relative, old, new in REPLACEMENTS:
             file=sys.stderr,
         )
         failed = True
+
+docs_agents = ROOT / ".opencode" / "docs" / "agents.md"
+if docs_agents.is_file():
+    text = docs_agents.read_text()
+    if text.startswith(DOCS_NOTE):
+        print("already applied .opencode/docs/agents.md")
+    else:
+        docs_agents.write_text(DOCS_NOTE + text)
+        print("patched .opencode/docs/agents.md")
+else:
+    print("FAIL .opencode/docs/agents.md: missing", file=sys.stderr)
+    failed = True
 
 sys.exit(1 if failed else 0)

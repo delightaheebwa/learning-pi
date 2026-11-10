@@ -1,3 +1,5 @@
+> **Project note:** This is the upstream document, kept for reference. The lifecycle slash commands it mentions (`/ship`, `/review`, `/test`, `/webperf`) are Claude Code commands this project did not adopt; the personas here are composed by the parent agent with `Task` calls.
+
 # Agent Personas
 
 Specialist personas that play a single role with a single perspective. Each persona is a Markdown file consumed as a system prompt by your harness (Claude Code, Cursor, Copilot, etc.).
