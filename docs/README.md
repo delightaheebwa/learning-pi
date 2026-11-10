@@ -7,7 +7,8 @@ This file maps the docs in this repo. Read it before any other doc.
 | Question | File |
 | --- | --- |
 | What behavior is guaranteed, and which tests prove it | `CONTRACT.md` and `contracts/learning-core.json` |
-| How to verify a change | `scripts/learn-check` and `scripts/check-docs` |
+| What "good enough to ship" means, and what must not be weakened in a diff | `CONSTRAINTS.md` |
+| How to verify a change | `scripts/learn-check`, `scripts/check-docs`, `scripts/check-skills`, and `scripts/floor-guard.mjs` |
 | How to work in this repo | `AGENTS.md` |
 | What the system is and how to set it up | `README.md` |
 | Current teaching method | `docs/teaching-methodology.md` |
@@ -17,7 +18,8 @@ invariant count, and per-invariant test names change over time. No other doc
 repeats those numbers. Point at the JSON instead.
 
 Root CI (`.github/workflows/learn-check.yml`) runs `scripts/learn-check --no-load`,
-`scripts/check-docs`, and the state unit tests.
+`scripts/check-docs`, `scripts/check-skills`, `scripts/floor-guard.mjs`, and the
+state unit tests.
 
 ## Current docs
 
