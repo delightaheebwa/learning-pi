@@ -508,7 +508,6 @@ harness/e2e-runner.py        e2e runner (--tier smoke|full)
 harness/man/                 lpi(1) man page
 harness/audit-recent-sessions.sh + systemd/  weekly provenance audit
 scripts/learn-check          the single test entrypoint (7 deno suites + graph suite + bridge + contract checks + load probe + sidecar py_compile)
-scripts/agent-worktree       worktree helper (new/list/clean/land)
 test/gate_test.mjs           core gate behavior (mocked pi)
 test/golden/                 write-gate / scout / review-delegation / retry / demotion scenarios
 test/judge_*.mjs + live_judge_test.mjs  judge suites (live variants opt-in, need models)
