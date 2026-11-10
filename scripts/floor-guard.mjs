@@ -75,14 +75,28 @@ const added = [];
 const removed = [];
 const deleted = [];
 const pathOf = (s) => s.replace(/^[ab]\//, '');
+const isTestPath = (f) => /\.(test|spec)\.|_test\.|test_/.test(f);
 let file = '';
 let oldFile = '';
+let renameFrom = '';
 let inHeader = false;
 for (const line of diff.split('\n')) {
-  if (line.startsWith('diff ')) inHeader = true;
-  else if (line.startsWith('@@')) inHeader = false;
+  if (line.startsWith('diff ')) {
+    inHeader = true;
+    renameFrom = '';
+  } else if (line.startsWith('@@')) inHeader = false;
   else if (inHeader) {
-    if (line.startsWith('--- ')) oldFile = pathOf(line.slice(4));
+    // A 100%-similarity rename has no ---/+++ pair; catch a test renamed to a
+    // non-test here so deleting a test by renaming it still trips the gate.
+    if (line.startsWith('rename from ')) {
+      renameFrom = pathOf(line.slice('rename from '.length));
+    } else if (line.startsWith('rename to ')) {
+      const renameTo = pathOf(line.slice('rename to '.length));
+      if (renameFrom && isTestPath(renameFrom) && !isTestPath(renameTo)) {
+        deleted.push(renameFrom);
+      }
+      renameFrom = '';
+    } else if (line.startsWith('--- ')) oldFile = pathOf(line.slice(4));
     else if (line.startsWith('+++ ')) {
       const newFile = pathOf(line.slice(4));
       file = newFile === '/dev/null' ? oldFile : newFile;
@@ -130,7 +144,7 @@ const isIgnored = (f) =>
 
 const findings = [];
 const flag = (rule, f, text) => findings.push({ rule, file: f, text: text.trim().slice(0, 120) });
-const isTest = (f) => /\.(test|spec)\.|_test\.|test_/.test(f);
+const isTest = isTestPath;
 // Exact root file only: a lookalike such as docs/CONSTRAINTS.md must not be
 // treated as the bar (or exempted from the pattern checks).
 const isConstraints = (f) => f === 'CONSTRAINTS.md';
@@ -238,8 +252,14 @@ if (findings.length === 0) {
   console.log('floor-guard: clean');
   process.exit(0);
 }
+// Never echo a live credential into CI logs; keep a short prefix for debugging.
+const redact = (s) =>
+  s
+    .replace(/\b(?:gh[pousr]_|sk_live_|sk_test_|AKIA|AIza|xox[baprs]-)[A-Za-z0-9_-]{6,}/g, (m) => m.slice(0, 4) + '…')
+    .replace(/((?:secret|token|password|api[_-]?key)\s*[=:]\s*)\S+/gi, '$1…');
+
 console.error('floor-guard: ' + findings.length + ' floor violation(s):');
-for (const f of findings) console.error(`  [${f.rule}] ${f.file}: ${f.text}`);
+for (const f of findings) console.error(`  [${f.rule}] ${f.file}: ${redact(f.text)}`);
 if (findings.some((f) => f.rule === 'rule-removed')) {
   console.error(
     "\nA rule-removed finding can also mean the rule's label changed: rename a rule in one commit and change its thresholds in another."
