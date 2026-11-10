@@ -440,8 +440,10 @@ terminal popup is gone. Both read the same `bin/pi-review-status` helper, which
 matches the calendar date review-clerk stamps on the note, so they cannot
 disagree.
 
-The `lpi` opencode skill is registered by `skills.paths` in
-`~/.config/opencode/opencode.json` pointing at `~/learning-pi/opencode`.
+The `lpi` command is `harness/pi-safe-update`. The legacy
+`opencode/skills/lpi` directory is not on OpenCode's discovery path
+(`.opencode/skills/`), so it is not loaded today; it is kept for reference and
+is a deprecation candidate.
 
 Commands (one umbrella):
 
