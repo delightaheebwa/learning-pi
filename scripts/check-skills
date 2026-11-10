@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Fail when the vendored agent-skills pack is incomplete or self-inconsistent.
+
+The pack is a vendored copy of addyosmani/agent-skills. This guard pins the
+inventory, validates each SKILL.md frontmatter, resolves every relative link in
+the pack, checks the persona definitions, and confirms the Chrome DevTools MCP
+pin. It is the characterization test for the `.opencode/` layer.
+"""
+from pathlib import Path
+import json
+import re
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+PACK = ROOT / ".opencode"
+
+EXPECTED_SKILLS = (
+    "api-and-interface-design",
+    "browser-testing-with-devtools",
+    "ci-cd-and-automation",
+    "code-review-and-quality",
+    "code-simplification",
+    "constraint-driven-development",
+    "context-engineering",
+    "debugging-and-error-recovery",
+    "deprecation-and-migration",
+    "documentation-and-adrs",
+    "doubt-driven-development",
+    "frontend-ui-engineering",
+    "git-workflow-and-versioning",
+    "idea-refine",
+    "incremental-implementation",
+    "interview-me",
+    "observability-and-instrumentation",
+    "performance-optimization",
+    "planning-and-task-breakdown",
+    "security-and-hardening",
+    "shipping-and-launch",
+    "source-driven-development",
+    "spec-driven-development",
+    "test-driven-development",
+    "using-agent-skills",
+)
+
+SHARED_REFERENCES = (
+    "definition-of-done.md",
+    "security-checklist.md",
+    "performance-checklist.md",
+    "accessibility-checklist.md",
+    "testing-patterns.md",
+    "observability-checklist.md",
+    "orchestration-patterns.md",
+)
+
+EXPECTED_PERSONAS = (
+    "code-reviewer.md",
+    "security-auditor.md",
+    "test-engineer.md",
+    "web-performance-auditor.md",
+)
+
+LINK_RE = re.compile(r"\]\(([^)]+)\)")
+DESCRIPTION_MAX = 1024
+
+violations = []
+
+
+def fail(message):
+    violations.append(message)
+
+
+def read_frontmatter(path):
+    text = path.read_text(errors="replace")
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    fields = {}
+    for line in lines[1:]:
+        if line.strip() == "---":
+            return fields
+        if ":" not in line or line.startswith((" ", "\t", "-")):
+            continue
+        key, _, value = line.partition(":")
+        fields[key.strip()] = value.strip()
+    return None
+
+
+def iter_markdown(base):
+    for path in sorted(base.rglob("*.md")):
+        if "node_modules" in path.parts:
+            continue
+        yield path
+
+
+def check_links(base):
+    for path in iter_markdown(base):
+        text = path.read_text(errors="replace")
+        for match in LINK_RE.finditer(text):
+            target = match.group(1).strip()
+            if target.startswith(("http://", "https://", "#", "mailto:")):
+                continue
+            target = target.split("#", 1)[0]
+            if not target or not target.endswith((".md", ".mjs", ".sh", ".json")):
+                continue
+            if not (path.parent / target).resolve().exists():
+                fail(f"{path.relative_to(ROOT)}: broken link {target}")
+
+
+# 1. Inventory.
+for name in EXPECTED_SKILLS:
+    skill_file = PACK / "skills" / name / "SKILL.md"
+    if not skill_file.is_file():
+        fail(f".opencode/skills/{name}/SKILL.md: missing")
+
+for name in SHARED_REFERENCES:
+    if not (PACK / "references" / name).is_file():
+        fail(f".opencode/references/{name}: missing")
+
+for name in EXPECTED_PERSONAS:
+    if not (PACK / "agents" / name).is_file():
+        fail(f".opencode/agents/{name}: missing")
+
+# 2. Skill frontmatter.
+for name in EXPECTED_SKILLS:
+    skill_file = PACK / "skills" / name / "SKILL.md"
+    if not skill_file.is_file():
+        continue
+    fields = read_frontmatter(skill_file)
+    if fields is None:
+        fail(f"{skill_file.relative_to(ROOT)}: missing frontmatter")
+        continue
+    declared = fields.get("name", "")
+    if declared != name:
+        fail(
+            f"{skill_file.relative_to(ROOT)}: name {declared!r} does not match "
+            f"directory {name!r}"
+        )
+    description = fields.get("description", "")
+    if not description:
+        fail(f"{skill_file.relative_to(ROOT)}: empty description")
+    elif len(description) > DESCRIPTION_MAX:
+        fail(
+            f"{skill_file.relative_to(ROOT)}: description is {len(description)} "
+            f"chars (max {DESCRIPTION_MAX})"
+        )
+
+# 3. Persona frontmatter.
+for name in EXPECTED_PERSONAS:
+    persona = PACK / "agents" / name
+    if not persona.is_file():
+        continue
+    fields = read_frontmatter(persona)
+    if fields is None:
+        fail(f"{persona.relative_to(ROOT)}: missing frontmatter")
+        continue
+    for key in ("description", "mode", "model"):
+        if not fields.get(key):
+            fail(f"{persona.relative_to(ROOT)}: missing {key!r} in frontmatter")
+    if "permissions" not in fields:
+        fail(f"{persona.relative_to(ROOT)}: missing 'permissions' in frontmatter")
+    if fields.get("mode") and fields["mode"] != "subagent":
+        fail(f"{persona.relative_to(ROOT)}: mode is not 'subagent'")
+
+# 4. Link integrity across the whole pack.
+for base in (PACK / "skills", PACK / "agents", PACK / "docs"):
+    if base.is_dir():
+        check_links(base)
+
+# 5. Chrome DevTools MCP pin stays load-bearing.
+config_path = ROOT / "opencode.json"
+if not config_path.is_file():
+    fail("opencode.json: missing")
+else:
+    try:
+        config = json.loads(config_path.read_text())
+    except json.JSONDecodeError as exc:
+        fail(f"opencode.json: invalid JSON ({exc})")
+    else:
+        command = (
+            config.get("mcp", {})
+            .get("servers", {})
+            .get("chrome-devtools", {})
+            .get("command", [])
+        )
+        if not any("chrome-devtools-mcp@1.12.0" in str(part) for part in command):
+            fail("opencode.json: chrome-devtools MCP is not pinned to 1.12.0")
+
+if violations:
+    for violation in violations:
+        print(f"FAIL {violation}")
+    print(f"check-skills: {len(violations)} violation(s)")
+    sys.exit(1)
+print("check-skills: OK")
