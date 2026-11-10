@@ -11,8 +11,10 @@
         "command": [
           "npx",
           "-y",
-          "chrome-devtools-mcp@latest",
-          "--isolated"
+          "chrome-devtools-mcp@1.12.0",
+          "--isolated",
+          "--no-usage-statistics",
+          "--no-performance-crux"
         ]
       }
     }

@@ -110,6 +110,10 @@ applies.
   plan, or test when the skill demands it.
 - A skill may reference its own `references/` and `scripts/` directories; use
   those paths rather than guessing.
+- The skill packs are MIT-licensed; see `.opencode/skills/LICENSE`.
+- `constraint-driven-development` maps onto this repo's existing bar:
+  `CONTRACT.md` and `contracts/` already are the written contract. Do not create
+  a parallel `CONSTRAINTS.md`, and do not edit guarded files to satisfy it.
 
 Lifecycle mapping:
 
