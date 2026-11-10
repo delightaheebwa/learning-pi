@@ -98,3 +98,32 @@ If `land` stops with a conflict (exit 3), resolve it in your worktree:
   → re-run `scripts/agent-worktree land`.
 - Still conflicted after 3 land attempts, or anything above tells you to
   stop → report the branch, the SHA, and the conflicted files to the user.
+
+## Agent Skills (project-local)
+
+Skills from `addyosmani/agent-skills` live in this repo under
+`.opencode/skills/`. Start with `using-agent-skills` when unsure which one
+applies.
+
+- If a task matches a skill, load it with the `skill` tool before acting.
+- Follow the skill workflow strictly; never skip a required step such as spec,
+  plan, or test when the skill demands it.
+- A skill may reference its own `references/` and `scripts/` directories; use
+  those paths rather than guessing.
+
+Lifecycle mapping:
+
+- DEFINE → `spec-driven-development`, `interview-me`, `idea-refine`
+- PLAN → `planning-and-task-breakdown`
+- BUILD → `incremental-implementation`, `test-driven-development`
+- VERIFY → `debugging-and-error-recovery`, `browser-testing-with-devtools`,
+  `performance-optimization`
+- REVIEW → `code-review-and-quality`, `code-simplification`,
+  `security-and-hardening`
+- SHIP → `shipping-and-launch`, `ci-cd-and-automation`,
+  `documentation-and-adrs`
+- Cross-cutting → `context-engineering`, `git-workflow-and-versioning`,
+  `observability-and-instrumentation`, `deprecation-and-migration`,
+  `api-and-interface-design`, `frontend-ui-engineering`,
+  `constraint-driven-development`, `doubt-driven-development`,
+  `source-driven-development`
