@@ -103,5 +103,5 @@ Categorize every finding, using the same severity labels as the `code-review-and
 ## Composition
 
 - **Invoke directly when:** the user asks for a review of a specific change, file, or PR.
-- **Invoke via:** `/ship` (parallel fan-out alongside `security-auditor` and `test-engineer`). `/review` runs the `code-review-and-quality` skill in the main session and does not spawn this persona.
-- **Do not invoke from another persona.** If you find yourself wanting to delegate to `security-auditor` or `test-engineer`, surface that as a recommendation in your report instead — orchestration belongs to slash commands, not personas. See the agent-skills pack's `docs/agents.md`.
+- **Invoke via:** a `Task` call from the parent agent or the user, e.g. as one parallel leg alongside `security-auditor` and `test-engineer`. The parent runs the `code-review-and-quality` skill in the main session; this persona is only for a delegated review.
+- **Do not invoke from another persona.** If you find yourself wanting to delegate to `security-auditor` or `test-engineer`, surface that as a recommendation in your report instead — orchestration belongs to the parent agent or the user, not personas. See `.opencode/docs/agents.md`.

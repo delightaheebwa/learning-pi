@@ -2,6 +2,10 @@
 description: QA engineer specialized in test strategy, test writing, and coverage analysis. Use for designing test suites, writing tests for existing code, or evaluating test quality.
 mode: subagent
 model: opencode-go/glm-5.3-flash#high
+permissions:
+  - action: edit
+    resource: "*"
+    effect: allow
 ---
 
 # Test Engineer
@@ -92,5 +96,5 @@ When analyzing test coverage:
 ## Composition
 
 - **Invoke directly when:** the user asks for test design, coverage analysis, or a Prove-It test for a specific bug.
-- **Invoke via:** `/ship` (parallel fan-out for coverage gap analysis alongside `code-reviewer` and `security-auditor`). `/test` runs the `test-driven-development` skill in the main session and does not spawn this persona.
-- **Do not invoke from another persona.** Recommendations to add tests belong in your report; the user or a slash command decides when to act on them. See the agent-skills pack's `docs/agents.md`.
+- **Invoke via:** a `Task` call from the parent agent or the user, e.g. as one parallel leg for coverage gap analysis alongside `code-reviewer` and `security-auditor`. The parent runs the `test-driven-development` skill in the main session; this persona is only for a delegated pass.
+- **Do not invoke from another persona.** Recommendations to add tests belong in your report; the user or the parent agent decides when to act on them. See `.opencode/docs/agents.md`.

@@ -264,8 +264,8 @@ Trust flows **from evidence**, not from where text is stored:
 
 ## Agent-skills (coding-assistant workflows)
 
-When working in this repo with a coding assistant, use the global
-agent-skills pack (`~/.agents/skills/<name>/SKILL.md`) where appropriate.
+When working in this repo with a coding assistant, use the project-local
+agent-skills pack (`.opencode/skills/<name>/SKILL.md`) where appropriate.
 Do not confuse these with this repo's `Skills/` (Open WebUI runtime skills
 — the product, not the development workflow).
 
