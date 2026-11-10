@@ -59,6 +59,9 @@ EXPECTED_PERSONAS = (
     "web-performance-auditor.md",
 )
 
+# Skill IDs this project deliberately does not register (see opencode.json).
+FORBIDDEN_SKILLS = ("ovm",)
+
 LINK_RE = re.compile(r"\]\(([^)]+)\)")
 DESCRIPTION_MAX = 1024
 
@@ -75,13 +78,21 @@ def read_frontmatter(path):
     if not lines or lines[0].strip() != "---":
         return None
     fields = {}
+    key = None
     for line in lines[1:]:
         if line.strip() == "---":
             return fields
-        if ":" not in line or line.startswith((" ", "\t", "-")):
+        if line[:1] in (" ", "\t"):
+            # Continuation of a folded/block value (e.g. `description: >`).
+            if key:
+                fields[key] = (fields.get(key, "") + " " + line.strip()).strip()
+            continue
+        key = None
+        if ":" not in line:
             continue
         key, _, value = line.partition(":")
-        fields[key.strip()] = value.strip()
+        key = key.strip()
+        fields[key] = value.strip()
     return None
 
 
@@ -120,6 +131,10 @@ for name in EXPECTED_PERSONAS:
     if not (PACK / "agents" / name).is_file():
         fail(f".opencode/agents/{name}: missing")
 
+for name in FORBIDDEN_SKILLS:
+    if (PACK / "skills" / name).exists():
+        fail(f".opencode/skills/{name}: forbidden skill ID is present")
+
 # 2. Skill frontmatter.
 for name in EXPECTED_SKILLS:
     skill_file = PACK / "skills" / name / "SKILL.md"
@@ -135,7 +150,7 @@ for name in EXPECTED_SKILLS:
             f"{skill_file.relative_to(ROOT)}: name {declared!r} does not match "
             f"directory {name!r}"
         )
-    description = fields.get("description", "")
+    description = fields.get("description", "").lstrip(">|").strip()
     if not description:
         fail(f"{skill_file.relative_to(ROOT)}: empty description")
     elif len(description) > DESCRIPTION_MAX:
@@ -162,7 +177,7 @@ for name in EXPECTED_PERSONAS:
         fail(f"{persona.relative_to(ROOT)}: mode is not 'subagent'")
 
 # 4. Link integrity across the whole pack.
-for base in (PACK / "skills", PACK / "agents", PACK / "docs"):
+for base in (PACK / "skills", PACK / "agents", PACK / "docs", PACK / "references"):
     if base.is_dir():
         check_links(base)
 
@@ -184,6 +199,15 @@ else:
         )
         if not any("chrome-devtools-mcp@1.12.0" in str(part) for part in command):
             fail("opencode.json: chrome-devtools MCP is not pinned to 1.12.0")
+        permissions = config.get("permissions", [])
+        if not any(
+            isinstance(rule, dict)
+            and rule.get("action") == "skill"
+            and str(rule.get("resource", "")).startswith("ovm")
+            and rule.get("effect") == "deny"
+            for rule in permissions
+        ):
+            fail("opencode.json: the ovm skill is not denied for this project")
 
 if violations:
     for violation in violations:

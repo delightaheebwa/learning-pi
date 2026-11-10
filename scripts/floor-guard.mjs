@@ -25,7 +25,10 @@ const base = (() => {
 // new file, so that output is kept. Any other failure is null, and null never reads as clean.
 const git = (args, { diffExit = false } = {}) => {
   try {
-    return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    return execFileSync('git', ['-c', 'core.quotePath=false', ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
   } catch (e) {
     return diffExit && e.status === 1 && typeof e.stdout === 'string' ? e.stdout : null;
   }
@@ -128,7 +131,9 @@ const isIgnored = (f) =>
 const findings = [];
 const flag = (rule, f, text) => findings.push({ rule, file: f, text: text.trim().slice(0, 120) });
 const isTest = (f) => /\.(test|spec)\.|_test\.|test_/.test(f);
-const isConstraints = (f) => /CONSTRAINTS\.md$/.test(f);
+// Exact root file only: a lookalike such as docs/CONSTRAINTS.md must not be
+// treated as the bar (or exempted from the pattern checks).
+const isConstraints = (f) => f === 'CONSTRAINTS.md';
 
 // 1. Silenced checker — extended for Python, Deno, and Bash. The vendored pack
 //    and this guard are exempt (see header).
@@ -139,7 +144,7 @@ const STUBS =
   /throw new (Error|NotImplemented).*[Nn]ot implemented|raise NotImplementedError|catch\s*\(\w*\)\s*\{\s*\}|catch\s*\{\s*\}|\bTODO\b|\bpass\s*# *stub/;
 // 2. A test made easier (added skips).
 const SKIPS =
-  /\.(skip|todo)\b|\bxit\(|\bxdescribe\(|@pytest\.mark\.skip|@unittest\.skip|t\.Skip\(|Deno\.test\.ignore|\.only\(/;
+  /\.(skip|todo)\b|\bxit\(|\bxdescribe\(|@pytest\.mark\.skip|@unittest\.skip|@unittest\.expectedFailure|pytest\.xfail|t\.Skip\(|Deno\.test\.ignore|\.only\(/;
 
 // A file that is entirely new has no "before" state; its floor patterns were
 // reviewed when the file was created. Skip unless it is inside the ignore list.
