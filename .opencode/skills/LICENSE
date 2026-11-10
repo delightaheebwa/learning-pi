@@ -26,3 +26,7 @@ The skill directories in this folder are copied from
 https://github.com/addyosmani/agent-skills (MIT, Copyright (c) 2025 Addy
 Osmani). Local modifications: none; `AGENTS.md` maps their intent routing onto
 this repository's own quality bar.
+
+This notice also covers the personas in `../agents/` and the checklist in
+`../references/`, copied from the same repository (local changes: OpenCode
+frontmatter and adjusted in-repo paths).
