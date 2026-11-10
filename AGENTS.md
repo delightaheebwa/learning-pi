@@ -18,9 +18,9 @@ source-of-truth map.
 ## Layout and landmines
 
 - `.pi/` — canonical teaching behavior: 5 skills, 15 subagents, 8 prompts.
-- `.opencode/` — the vendored agent-skills pack (25 skills, 4 personas) plus
-  the project's `CONSTRAINTS.md` tooling. It is pinned; update it with
-  `scripts/skills-sync.sh`, not by hand-editing vendored files.
+- `.opencode/` — the vendored agent-skills pack (25 skills, 4 personas). It is
+  pinned; update it with `scripts/skills-sync.sh`, not by hand-editing vendored
+  files. Its guard scripts live in `scripts/`.
 - `contracts/` + `CONTRACT.md` — product behavior invariants, **frozen**. They
   change only through the revise door. Never edit `CONTRACT.md`, `contracts/`,
   or `test/` to make a change pass, and never restate the JSON's version,
