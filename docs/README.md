@@ -60,8 +60,8 @@ follow their instructions.
 - `AUDIT-ROADMAP.md` records the 2026 staged audit. Its stage status and
   contract counts predate the current contract.
 - `docs/roadmap/` holds a completed Herdr cascade. Its briefs describe a
-  push-to-main workflow that contradicts `AGENTS.md`. The helper scripts and
-  the unused R-P3 brief were removed. The remaining briefs and reports stay as
+  push-to-main workflow that no longer applies. The helper scripts and the
+  unused R-P3 brief were removed. The remaining briefs and reports stay as
   history.
 - `docs/roadmap/E2E-REPORT.md` and `docs/roadmap/STAGE-LOG.md` are snapshots
   from that cascade.
