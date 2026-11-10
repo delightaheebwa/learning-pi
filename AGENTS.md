@@ -31,7 +31,9 @@ source-of-truth map.
   update conductor. No lint or coverage tool is configured; verify with the
   commands above.
 - System-level changes (packages, `/etc`, systemd, boot) are out of scope for
-  ordinary work and must be tested in the `ovm` VM first.
+  this repository. `ovm` VM testing is not used here: every change is
+  repository-local and reversible with git, and `opencode.json` denies the
+  `ovm` skill for this project.
 
 ## Agent skills
 

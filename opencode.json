@@ -3,6 +3,13 @@
   "instructions": [
     "AGENTS.md"
   ],
+  "permissions": [
+    {
+      "action": "skill",
+      "resource": "ovm",
+      "effect": "deny"
+    }
+  ],
   "mcp": {
     "servers": {
       "chrome-devtools": {
