@@ -1,0 +1,4 @@
+# Paths exempt from the CONSTRAINTS.md floor guard's pattern checks.
+# These are vendored upstream docs and recorded examples, not this project's code.
+.opencode/**
+docs/adr/**
