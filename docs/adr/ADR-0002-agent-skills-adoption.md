@@ -81,3 +81,14 @@ Supporting decisions:
   inventory.
 - A coverage or performance metric becomes meaningful enough to record as a
   ratchet.
+
+## Amendment (2026-11-10)
+
+`E1` is retired. `gitleaks` (pinned to `8.30.1`) now runs in CI against tracked
+content and blocks on findings, giving the bar an external constraint. It runs
+CI-only to keep laptops clean; `.gitleaks.toml` extends the default ruleset and
+allowlists one frozen raw source whose `generic-api-key` match is a quoted model
+name, not a credential.
+
+The `ovm` VM rule is waived for this repository: every change is repo-local and
+reversible with git, and `opencode.json` denies the `ovm` skill for this project.

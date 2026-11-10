@@ -1,0 +1,14 @@
+# Gitleaks config for learning-pi.
+#
+# Extend the default ruleset (a config without this replaces it, leaving no
+# rules). The generic-api-key rule fires on a frozen raw source that quotes an
+# article's model names ("access text-davinci-003, gpt-3.5-turbo-instruct, ...").
+# That is a false positive, not a credential, so allowlist that one file.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Frozen raw sources quote third-party text; generic-api-key matches there are false positives."
+paths = [
+  '''state/Knowledge Wiki/raw/sources/2026-10-28 - prompt-engineering - prompt-engineer\.md''',
+]

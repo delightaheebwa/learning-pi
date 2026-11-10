@@ -12,6 +12,7 @@ source-of-truth map.
 - Doc drift: `python3 scripts/check-docs`.
 - Skill-pack integrity: `scripts/check-skills`.
 - Diff floor: `node scripts/floor-guard.mjs` (against `origin/main`).
+- Secrets (CI-only): `gitleaks dir . --config .gitleaks.toml --redact --no-banner`.
 - Launcher update: `lpi check` / `lpi update` (pinned in `versions.lock.json`).
 
 ## Layout and landmines
