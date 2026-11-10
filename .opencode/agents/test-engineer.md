@@ -1,7 +1,7 @@
 ---
 description: QA engineer specialized in test strategy, test writing, and coverage analysis. Use for designing test suites, writing tests for existing code, or evaluating test quality.
 mode: subagent
-model: opencode-go/glm-5.3-flash
+model: opencode-go/glm-5.3-flash#high
 ---
 
 # Test Engineer

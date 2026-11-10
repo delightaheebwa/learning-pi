@@ -43,10 +43,10 @@ They do not call each other; the parent agent or user composes them.
 
 | Subagent | Model | Edits |
 | --- | --- | --- |
-| `code-reviewer` | `opencode-go/glm-5.3-flash` | denied |
-| `security-auditor` | `opencode-go/glm-5.3-flash` | denied |
-| `test-engineer` | `opencode-go/glm-5.3-flash` | allowed (it writes tests) |
-| `web-performance-auditor` | `opencode-go/deepseek-v4.1-flash` | denied |
+| `code-reviewer` | `opencode-go/glm-5.3-flash#high` | denied |
+| `security-auditor` | `opencode-go/glm-5.3-flash#high` | denied |
+| `test-engineer` | `opencode-go/glm-5.3-flash#high` | allowed (it writes tests) |
+| `web-performance-auditor` | `opencode-go/deepseek-v4.1-flash#high` | denied |
 
 The web performance auditor's baseline checklist is
 `.opencode/references/performance-checklist.md`.
