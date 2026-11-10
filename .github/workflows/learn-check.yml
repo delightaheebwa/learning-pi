@@ -9,7 +9,11 @@ jobs:
   offline:
     runs-on: ubuntu-latest
     steps:
+      # Full history so the floor guard and the guarded-file check can find a
+      # merge base / base commit.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: denoland/setup-deno@v2
         with:
@@ -19,6 +23,10 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       # Offline checks only: behavior suites, resources, contract coverage,
       # sidecar compile. The load probe needs a pi binary and runs locally in
       # the update conductor.
@@ -27,6 +35,50 @@ jobs:
 
       - name: check-docs
         run: python3 scripts/check-docs
+
+      # New gate: warns until 2026-11-24, then promote to blocking if it stayed
+      # clean for the whole window (see CONSTRAINTS.md).
+      - name: check-skills
+        continue-on-error: true
+        run: scripts/check-skills
+
+      # The floor blocks: a diff that adds suppressions, weakens a test, or
+      # loosens a CONSTRAINTS.md threshold fails the change.
+      - name: floor-guard
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            echo "no base commit; floor guard skipped for a new branch"
+          else
+            node scripts/floor-guard.mjs --base "$BASE_SHA"
+          fi
+
+      # CONTRACT.md, contracts/, and test/ are the revise door. A change may
+      # touch them only under a revise(contract): commit, so a drive-by edit is
+      # loud instead of silent.
+      - name: guarded files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            echo "no base commit; guarded-file check skipped for a new branch"
+            exit 0
+          fi
+          guarded="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -E '^(CONTRACT\.md|contracts/|test/)' || true)"
+          if [[ -z "$guarded" ]]; then
+            echo "guarded files untouched"
+            exit 0
+          fi
+          if git log --format=%s "$BASE_SHA..$HEAD_SHA" | grep -q '^revise(contract):'; then
+            echo "revise-door change; allowed"
+            exit 0
+          fi
+          echo "guarded files changed without a revise(contract): commit:" >&2
+          echo "$guarded" >&2
+          exit 1
 
       - name: state unit tests
         working-directory: state
