@@ -22,11 +22,18 @@ SOFTWARE.
 
 ---
 
-The skill directories in this folder are copied from
-https://github.com/addyosmani/agent-skills (MIT, Copyright (c) 2025 Addy
-Osmani). Local modifications: none; `AGENTS.md` maps their intent routing onto
-this repository's own quality bar.
+Vendored from https://github.com/addyosmani/agent-skills at tag `0.6.15`
+(commit `301b02b12bff98e4688e6984af6556802322bbde`). MIT, Copyright (c) 2025
+Addy Osmani.
 
-This notice also covers the personas in `../agents/` and the checklist in
-`../references/`, copied from the same repository (local changes: OpenCode
-frontmatter and adjusted in-repo paths).
+Vendored: `skills/` (25 skills), `../references/` (7 shared checklists), and
+`../docs/{agents,opencode-setup}.md`.
+
+Local modifications, reapplied by `scripts/skills-sync.sh` from `patches/`:
+the path translation in `spec-driven-development/SKILL.md` and the
+`CONTRIBUTING.md` link removal in `../docs/opencode-setup.md`.
+
+Project-owned, not vendored: the four personas in `../agents/` (adapted with
+OpenCode frontmatter, permission scopes, and parent-orchestration composition),
+`../../scripts/check-skills`, `../../scripts/floor-guard.mjs`, and
+`../../.constraintsignore`. See `../UPSTREAM.md` for the update procedure.
