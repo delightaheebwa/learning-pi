@@ -30,7 +30,7 @@ A practical guide to running your spaced-repetition learning system from the pi 
 | `/teach <topic>` | New topic: Scout gathers live sources → entry gate → triage → targeted attacks |
 | `/lesson` | Next curriculum lesson (sequential within the phase) |
 | `/continue` | Resume a paused lesson at its next mini-checkpoint (no Scout needed) |
-| `/pause` | Stop cleanly: exit ticket, partial lesson file, bank progress via Clerk |
+| `/pause` | Stop cleanly: partial lesson file, bank progress via Clerk |
 | `/review` | Spaced-repetition review session (Review Scout builds the queue → up to 5 concepts → review-clerk persists) |
 | `/solo` | AI-free closed-book check (Review Scout builds the queue; teaching and hints are withheld by the gate; attempts recorded `mode:"solo"` to feed the independence gate) |
 | `/ingest <content or URL>` | Standalone ingest via Clerk (also used after a lesson handoff: `/ingest` with no args) |

@@ -587,7 +587,7 @@ PROMPTS = [
     {
         "command": "pause",
         "name": "Pause Lesson",
-        "content": "Pause the current lesson where we are. Switch to the Learning Tutor preset, load the learning-teach skill (view_skill \"learning-teach\"), and run the pause protocol: exit ticket for today's mini-checkpoints only, partial lesson file with Status + Resume-from pointer (Checkpoint N/M, mini K/L), partial Pending Ingest.json, then hand to the Clerk preset with /ingest to bank today's progress. The gate Filter enforces foreground GATE envelopes — do not bypass it.",
+        "content": "Pause the current lesson where we are. Switch to the Learning Tutor preset, load the learning-teach skill (view_skill \"learning-teach\"), and run the pause protocol: partial lesson file with Status + Resume-from pointer (Checkpoint N/M, mini K/L), partial Pending Ingest.json, then hand to the Clerk preset with /ingest to bank today's progress. The gate Filter enforces foreground GATE envelopes — do not bypass it.",
     },
 ]
 

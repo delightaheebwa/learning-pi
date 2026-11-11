@@ -423,18 +423,14 @@ re-check. Repair is unbounded; the hint ladder caps hints, not repair attempts.
 
 ## Step 5 — Pause (`/pause` or "let's stop here")
 
-1. **Model-recall exit ticket:** ask **one** question that produces a model, not a summary: *"Without
-   looking at your notes, state the part of your model you are least sure about and one case you
-   think might break it."* Verify the question with `quiz-audit` (`context:"practice"`) and the
-   answer with `grade-audit` (mechanism + proposed breaking case). A fail is recorded, not softened.
-2. Write the partial handoff batch (lesson file with `Status: Paused at Checkpoint N/M, mini K/L` and
+1. Write the partial handoff batch (lesson file with `Status: Paused at Checkpoint N/M, mini K/L` and
    a `## Resume` section naming the next unresolved attack **or the open repair gap** + its exact
    source pointer; session note; learning record; `Pending Ingest.json` with `partial:true`,
    `status:"in-progress"`, `resume_from`, `learner_model:{v1,v2}`, `triage`, `open_attacks`,
    `repairs`, `repair_steps`, `concepts`, `mistakes`, `attempts`, `dependency_events`).
-3. Dispatch ONE foreground `tutor-audit` on the batch; on `ISSUES`, fix and re-audit until zero
+2. Dispatch ONE foreground `tutor-audit` on the batch; on `ISSUES`, fix and re-audit until zero
    issues.
-4. Tell the learner the model and open attacks are banked, to run `/ingest` to sync the wiki/state,
+3. Tell the learner the model and open attacks are banked, to run `/ingest` to sync the wiki/state,
    and that `/continue` picks up at the first unresolved attack with no re-reading.
 
 ## Resume (`/continue`)

@@ -87,7 +87,7 @@ The setup script (`scripts/setup_openwebui.py`) creates everything:
 `/teach` — `Teach me about: {{topic}} — Switch to Scout to gather context, then to Learning Tutor, load learning-teach, run probe → plan → teach. Gate enforces foreground GATE envelopes.`
 `/lesson` — `Run the next curriculum lesson. Switch to Scout to gather context for the next lesson, then to Learning Tutor, load learning-teach.`
 `/continue` — `Continue the current lesson where we left off. Load learning-teach. If the lesson file exists, it is the source of truth — no Scout digest needed.`
-`/pause` — `Pause the current lesson where we are. Switch to the Learning Tutor preset, load learning-teach, run the pause protocol (exit ticket for today's mini-checkpoints only, partial lesson file with Status + Resume-from pointer — Checkpoint N/M, mini K/L — partial Pending Ingest.json), then hand to Clerk with /ingest to bank today's progress. Partial ingests keep the lesson in-progress and the Scout digest alive; curriculum row becomes in-progress (paused N/M).`
+`/pause` — `Pause the current lesson where we are. Switch to the Learning Tutor preset, load learning-teach, run the pause protocol (partial lesson file with Status + Resume-from pointer — Checkpoint N/M, mini K/L — partial Pending Ingest.json), then hand to Clerk with /ingest to bank today's progress. Partial ingests keep the lesson in-progress and the Scout digest alive; curriculum row becomes in-progress (paused N/M).`
 
 ## Operating notes
 
