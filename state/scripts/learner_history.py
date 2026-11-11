@@ -16,7 +16,8 @@ Tag rules (strict solid):
   fuzzy   = open mistake OR consecutive_wrong > 0 OR last attempt failed
   neutral = everything else
 
-Track inference: concept in live Active Concepts rows -> aiefs;
+Track inference: concept in live Active Concepts rows -> aiefs; a concept whose
+Attempts next_review is `paused` -> paused (outside the AIE 80/20 sprint);
 else by last_reviewed date (<= 2026-07-28 -> aie, else swe).
 
 Usage: python3 scripts/learner_history.py   (run from repo root)
@@ -229,11 +230,13 @@ def main():
     live = live_concepts()
     reviews = review_index()
 
-    rows = {"aiefs": [], "swe": [], "aie": []}
+    rows = {"aiefs": [], "paused": [], "swe": [], "aie": []}
     for name, entry in concepts.items():
         last_rev = entry.get("last_reviewed", "")
         if name in live:
             track = "aiefs"
+        elif entry.get("next_review") == "paused":
+            track = "paused"
         elif last_rev <= "2026-07-28":
             track = "aie"
         else:
@@ -289,7 +292,7 @@ def main():
         "reteach-from-scratch `fuzzy` (check its mistake row / review note first).",
         "",
         f"Totals: {total} concepts ({len(concepts)} with attempt history + {total - len(concepts)} paused)"
-        f" — aiefs {len(rows['aiefs'])} · swe {len(rows['swe'])} · aie {len(rows['aie'])} · "
+        f" — aiefs {len(rows['aiefs'])} · paused {len(rows['paused'])} · swe {len(rows['swe'])} · aie {len(rows['aie'])} · "
         f"solid {sum(r['tag'] == 'solid' for rs in rows.values() for r in rs)} · "
         f"neutral {sum(r['tag'] == 'neutral' for rs in rows.values() for r in rs)} · "
         f"fuzzy {sum(r['tag'] == 'fuzzy' for rs in rows.values() for r in rs)}",
@@ -297,10 +300,11 @@ def main():
     ]
     titles = {
         "aiefs": "## AIEFS — living (updated by Clerk each session)",
+        "paused": "## Paused — outside the AIE 80/20 sprint (archived 2026-11-11)",
         "swe": "## SWE era — frozen 2026-09-01 (see `Archive/SWE-2026-09-01/`)",
         "aie": "## AIE era — frozen 2026-07-28 (see `Archive/AIE-2026-07-28/`)",
     }
-    for track in ("aiefs", "swe", "aie"):
+    for track in ("aiefs", "paused", "swe", "aie"):
         lines += [
             titles[track],
             "",
