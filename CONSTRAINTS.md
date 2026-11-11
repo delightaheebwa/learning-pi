@@ -1,6 +1,6 @@
 # Constraints
 
-Last reviewed: 2026-11-10 by @delightaheebwa
+Last reviewed: 2026-11-11 by @delightaheebwa
 
 This is the **engineering** quality bar: what "good enough to ship" means for
 any change, and what must never be weakened in a diff. Product behavior is a
@@ -47,7 +47,7 @@ no gate.
 
 | Metric | Today | Direction |
 | --- | --- | --- |
-| Test files | 17 | must not fall |
+| Test files | 18 | must not fall |
 | Suppression comments or `TODO` markers in first-party source | 30 | must not rise |
 
 These are recorded, not gated: no coverage, performance, or accessibility tool
@@ -56,7 +56,7 @@ Coverage, performance, and accessibility remain deferred; secrets are covered by
 `gitleaks` in CI. Measure with:
 
 ```sh
-find test state/scripts scripts -type f \( -name '*_test.py' -o -name '*_test.mjs' -o -name '*_test.sh' -o -name 'test_*.py' \) | wc -l
+find test state/scripts scripts harness -type f \( -name '*_test.py' -o -name '*_test.mjs' -o -name '*_test.sh' -o -name 'test_*.py' \) | wc -l
 grep -rIn --exclude-dir=node_modules --exclude-dir=.git -E '@ts-ignore|@ts-nocheck|eslint-disable|# *noqa|# *type: *ignore|TODO' bridge pi harness scripts bin test .pi state/scripts deploy | wc -l
 ```
 
