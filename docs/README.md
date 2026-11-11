@@ -56,20 +56,23 @@ checks. A prose edit that removes an asserted phrase turns
 
 ## Historical docs
 
-These are records of work already done. They are not current process. Do not
-follow their instructions.
+Completed work is archived under [`docs/archive/`](archive/README.md). These are
+records of work already done, not current process; do not follow their
+instructions, and their internal paths are frozen snapshots that may no longer
+resolve.
 
-- `AUDIT-ROADMAP.md` records the 2026 staged audit. Its stage status and
+- `docs/archive/AUDIT-ROADMAP.md` — the 2026 staged audit; its stage status and
   contract counts predate the current contract.
-- `docs/roadmap/` holds a completed Herdr cascade. Its briefs describe a
+- `docs/archive/roadmap/` — a completed Herdr cascade. Its briefs describe a
   push-to-main workflow that no longer applies. The helper scripts and the
-  unused R-P3 brief were removed. The remaining briefs and reports stay as
-  history.
-- `docs/roadmap/E2E-REPORT.md` and `docs/roadmap/STAGE-LOG.md` are snapshots
-  from that cascade.
-- `docs/plans/intelligent-ui/` is a completed spike. It names modules that do
-  not exist in this tree and pins an older Open WebUI version.
-- `docs/AUDIT-2026-10-08.md` is the original deep audit, explicitly historical.
+  unused R-P3 brief were removed.
+- `docs/archive/roadmap/E2E-REPORT.md` and `docs/archive/roadmap/STAGE-LOG.md` —
+  snapshots from that cascade.
+- `docs/archive/plans/intelligent-ui/` — a completed spike. It names modules
+  that do not exist in this tree and pins an older Open WebUI version.
+  `PHASE0-FINDINGS.md` records the live `@openuidev/browser-bundle` pin rationale.
+- `docs/archive/AUDIT-2026-10-08.md` — the original deep audit, explicitly
+  historical.
 
 ## Retired components
 

@@ -4,7 +4,7 @@ pi-bridge is an OpenAI-compatible endpoint, not an Open WebUI Filter/Pipe, so it
 cannot use the Filter `__event_emitter__` path. It uses the public REST route
 instead: append a second assistant message to the chat and attach an `embeds`
 event to it, so the widget renders **below** the prose (Rich UI message embeds
-render above a message's own text; see docs/plans/intelligent-ui/PHASE0-FINDINGS.md).
+render above a message's own text; see docs/archive/plans/intelligent-ui/PHASE0-FINDINGS.md).
 """
 from __future__ import annotations
 

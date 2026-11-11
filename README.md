@@ -28,8 +28,8 @@ An AI tutor that teaches and remembers what you know.
 > This project is built in public.
 
 > **Docs:** [`docs/README.md`](docs/README.md) maps every doc and names the sources of
-> truth. `AUDIT-ROADMAP.md` is a historical record of the 2026 staged audit. Read
-> `CONTRACT.md` before changing teaching behavior or the gate.
+> truth. Completed audit and roadmap records live in [`docs/archive/`](docs/archive/README.md).
+> Read `CONTRACT.md` before changing teaching behavior or the gate.
 
 > **Methodology:** [`docs/teaching-methodology.md`](docs/teaching-methodology.md) covers how the
 > interrogation flow relates to LearnHarness — what is imported (measurement, dependency ordering,

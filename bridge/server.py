@@ -44,11 +44,11 @@ _FLOW_MARKER = "[[FLOW:"
 # `http(s)://` (or protocol-relative) string as a URL, and renders a `data:`
 # embed as literal text. So the shell document, the pinned OpenUI bundle, and
 # its stylesheet are self-hosted same-origin (written by
-# `learning-system/scripts/setup_openwebui.py`), and the payload rides in the
+# `state/scripts/setup_openwebui.py`), and the payload rides in the
 # URL fragment (persisted as chat embed metadata alongside the transcript). The
 # payload is declarative OpenUI Lang (no script, no network), so a data-only
-# fragment is safe. See `docs/plans/intelligent-ui/`.
-OPENUI_BUNDLE_VERSION = "0.2.1"  # pinned per docs/plans/intelligent-ui/PHASE0-FINDINGS.md
+# fragment is safe. See `docs/archive/plans/intelligent-ui/`.
+OPENUI_BUNDLE_VERSION = "0.2.1"  # pinned per docs/archive/plans/intelligent-ui/PHASE0-FINDINGS.md
 _OPENUI_STATIC_PATH = "/static/openui"
 _OPENUI_WIDGET_FILE = "widget.html"
 
