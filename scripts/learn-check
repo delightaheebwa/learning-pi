@@ -8,6 +8,7 @@
 #      binding every invariant to passing tests across the gate AND bridge output
 #   4. load probe (test/contract/load_probe.py) — candidate pi loads the layer
 #   5. py_compile of the learning-pi sidecars
+#   5b. harness unit tests (harness/*_test.py) — pure helpers, temp files only
 #   6. optionally (--with-sidecars) the learning-system ops unittest suite,
 #      read-only, against the real checkout
 #   7. optionally (--e2e) short learner journeys with real models in a sandbox
@@ -49,7 +50,7 @@ while [ $# -gt 0 ]; do
     --e2e-retries) E2E_RETRIES="$2"; shift 2 ;;
     --keep) KEEP=1; shift ;;
     -h|--help)
-      sed -n '2,20p' "$0"
+      sed -n '2,21p' "$0"
       exit 0
       ;;
     *)
@@ -188,6 +189,15 @@ if [ "${#PY_FILES[@]}" -gt 0 ]; then
     cat "$TMP/pycompile.err"
     FAILED=1
   fi
+fi
+
+# 5b. harness unit tests (pure helpers; temp files only) ------------------
+if python3 -m unittest discover -s "$LAYER/harness" -p '*_test.py' >"$TMP/harness.out" 2>&1; then
+  echo "PASS harness tests ($(grep -Eo 'Ran [0-9]+ tests?' "$TMP/harness.out" | head -1))"
+else
+  echo "FAIL harness tests:"
+  tail -25 "$TMP/harness.out"
+  FAILED=1
 fi
 
 # 6. optional sidecar suite (read-only, real checkout) --------------------
