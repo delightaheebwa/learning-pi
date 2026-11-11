@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# install.sh — wire the pi learning layer into a learning-system checkout.
+# install.sh — wire the pi learning layer into a learning-state tree.
 #
 # Creates symlinks in <STATE_ROOT>/.pi pointing at this repo's .pi/, and makes
 # git ignore them. Nothing is copied or committed into the state repo.
 #
 # Usage:
 #   ./install.sh [STATE_ROOT]
-# STATE_ROOT resolution: arg, else $LEARNING_SYSTEM_ROOT, else ~/learning-system.
+# STATE_ROOT resolution: arg, else $LEARNING_SYSTEM_ROOT, else <layer>/state.
 
 set -euo pipefail
 
 PI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REQUESTED_ROOT="${1:-${LEARNING_SYSTEM_ROOT:-$HOME/learning-system}}"
+REQUESTED_ROOT="${1:-${LEARNING_SYSTEM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/state}}"
 STATE_ROOT="$(cd "$REQUESTED_ROOT" 2>/dev/null && pwd || true)"
 
 if [ -z "$STATE_ROOT" ] || [ ! -d "$STATE_ROOT/Learning System" ]; then

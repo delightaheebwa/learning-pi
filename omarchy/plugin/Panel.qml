@@ -34,7 +34,7 @@ BarWidget {
 
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string statusBin: home + "/.local/bin/pi-review-status"
-  readonly property string learningRoot: Quickshell.env("LEARNING_SYSTEM_ROOT") || (home + "/learning-system")
+  readonly property string learningRoot: Quickshell.env("LEARNING_SYSTEM_ROOT") || (home + "/learning-pi/state")
   readonly property int refreshIntervalSec: {
     var value = parseInt(String(setting("refreshIntervalSec", 60)), 10)
     if (!isFinite(value)) value = 60

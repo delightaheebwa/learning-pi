@@ -673,8 +673,8 @@ def main() -> int:
     ap.add_argument("--flows", default="", help="comma-separated flow filter")
     ap.add_argument("--diff", action="store_true", help="select flows affected by the git diff")
     ap.add_argument("--base", default="HEAD", help="git base for --diff (default: HEAD)")
-    ap.add_argument("--diff-ls", default="", help="learning-system checkout to also diff (default: $LEARNING_SYSTEM_ROOT or ~/learning-system)")
-    ap.add_argument("--no-diff-ls", action="store_true", help="do not diff the learning-system checkout")
+    ap.add_argument("--diff-ls", default="", help="learning-state root to also diff (default: $LEARNING_SYSTEM_ROOT or <layer>/state)")
+    ap.add_argument("--no-diff-ls", action="store_true", help="do not diff the learning-state tree")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--pi", default=os.environ.get("LEARN_CHECK_PI") or str(DEFAULT_LAYER / "bin" / "pi"))
     ap.add_argument("--layer", default=os.environ.get("LEARNING_PI_ROOT") or str(DEFAULT_LAYER))
@@ -709,7 +709,7 @@ def main() -> int:
         extra_repos: list[tuple[Path, list[dict]]] = []
         if not args.no_diff_ls:
             ls = Path(args.diff_ls).expanduser() if args.diff_ls else Path(
-                os.environ.get("LEARNING_SYSTEM_ROOT", str(Path.home() / "learning-system"))
+                os.environ.get("LEARNING_SYSTEM_ROOT", str(Path(__file__).resolve().parents[1] / "state"))
             )
             if (ls / ".git").exists():
                 extra_repos.append((ls, impact.get("learning_system_paths") or []))

@@ -9,7 +9,7 @@ from pathlib import Path
 from .server import BridgeConfig, serve
 
 DEFAULT_PI = str(Path.home() / "learning-pi" / "bin" / "pi")
-DEFAULT_STATE = str(Path.home() / "learning-system")
+DEFAULT_STATE = str(Path(__file__).resolve().parents[1] / "state")
 DEFAULT_MODELS = "learning,learning-tutor,learning-review,learning-teach,learning-ingest"
 
 

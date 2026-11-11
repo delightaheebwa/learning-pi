@@ -43,7 +43,7 @@ esac
 [ -d "$(dirname "$TARGET")" ] || { echo "error: parent dir of '$TARGET' does not exist." >&2; exit 2; }
 TARGET_ABS="$(cd "$(dirname "$TARGET")" && pwd)/$(basename "$TARGET")"
 case "$TARGET_ABS" in
-  "$HOME"|"$HOME/learning-system"|"$HOME/learning-system/"*)
+  "$HOME"|"$HOME/learning-pi/state"|"$HOME/learning-pi/state/"*|"$HOME/learning-system"|"$HOME/learning-system/"*)
     echo "error: refusing to touch $TARGET_ABS (live checkout or HOME). Pick a new path." >&2; exit 2;;
   "$PI_ROOT"|"$PI_ROOT"/*)
     echo "error: refusing to build inside the pi repo ($TARGET_ABS). Pick a path outside it." >&2; exit 2;;

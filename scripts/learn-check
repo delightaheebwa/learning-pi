@@ -24,7 +24,7 @@
 # Env:
 #   LEARN_CHECK_PI     pi binary under test (default: <layer>/bin/pi)
 #   LEARNING_PI_ROOT   layer root (default: parent of this script)
-#   LEARNING_SYSTEM_ROOT  real checkout for --with-sidecars
+#   LEARNING_SYSTEM_ROOT  in-repo state/ tree for --with-sidecars
 set -uo pipefail
 
 LAYER="${LEARNING_PI_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -212,7 +212,7 @@ fi
 
 # 6. optional sidecar suite (read-only, real checkout) --------------------
 if [ "$WITH_SIDECARS" = 1 ]; then
-  LS="${LEARNING_SYSTEM_ROOT:-$HOME/learning-system}"
+  LS="${LEARNING_SYSTEM_ROOT:-$LAYER/state}"
   if [ -f "$LS/scripts/ops_test.py" ]; then
     if (cd "$LS" && python3 -m unittest scripts.ops_test) >"$TMP/ops.out" 2>&1; then
       echo "PASS ops_test (sidecar, read-only)"

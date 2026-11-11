@@ -94,12 +94,6 @@ in `CONTRACT.md` because it touches a file under `test/`. Last verified:
 
 ### Ordinary commits
 
-- Several tools still default to the pre-merge standalone checkout instead of
-  the in-repo `state/` tree. `install.sh`, `pi/graph.py`,
-  `bin/pi-review-status`, and `omarchy/review-reminder.sh` are the holders;
-  `init-state.sh` takes a required target and never defaults. Set
-  `LEARNING_SYSTEM_ROOT` or pass `--root` until those defaults change. Flipping
-  them also requires migrating live learner data first.
 - `state/Skills/` is described as frozen, but `state/scripts/setup_openwebui.py`
   still ships those skill bodies to the live Open WebUI instance. The docs
   should say so; reconciling the two stacks is a separate redesign.

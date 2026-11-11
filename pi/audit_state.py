@@ -7,8 +7,8 @@ For mechanically-fixable findings it also prints a machine-readable `STATE_AUDIT
 JSON array of remediation hints; a learning flow may apply the hints it touched.
 
 Usage:
-    python3 audit_state.py [--root /path/to/learning-system]
-Root resolution: --root, else $LEARNING_SYSTEM_ROOT, else ~/learning-system.
+    python3 audit_state.py [--root /path/to/state]
+Root resolution: --root, else $LEARNING_SYSTEM_ROOT, else <layer>/state.
 """
 
 from __future__ import annotations
@@ -20,6 +20,8 @@ import os
 import re
 import sys
 from pathlib import Path
+
+import _root
 
 LESSON_RE = re.compile(r"\bL(\d{1,2})\b")
 DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
@@ -508,7 +510,7 @@ def check_stale_paths(root: Path) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default=os.environ.get("LEARNING_SYSTEM_ROOT") or str(Path.home() / "learning-system"))
+    ap.add_argument("--root", default=os.environ.get("LEARNING_SYSTEM_ROOT") or str(_root.DEFAULT_STATE_ROOT))
     args = ap.parse_args()
     root = Path(args.root).expanduser().resolve()
     if not (root / "Learning System").is_dir():

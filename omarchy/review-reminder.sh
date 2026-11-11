@@ -23,12 +23,14 @@
 # Test hooks (harmless in normal runs):
 #   REVIEW_REMINDER_TARGET=YYYY-MM-DD   force the target day
 #   REVIEW_REMINDER_FORCE=1             ignore the clock window
-#   LEARNING_SYSTEM_ROOT=/path          override the checkout location
+#   LEARNING_SYSTEM_ROOT=/path          override the state-root location
 #   PI_REVIEW_STATUS_BIN=/path          override the status helper
 #
 set -euo pipefail
 
-ROOT="${LEARNING_SYSTEM_ROOT:-$HOME/learning-system}"
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+LAYER="$(cd "$(dirname "$SELF")/.." && pwd)"
+ROOT="${LEARNING_SYSTEM_ROOT:-$LAYER/state}"
 SESSIONS="$ROOT/Learning System/Sessions"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
 STATUS_BIN="${PI_REVIEW_STATUS_BIN:-$HOME/.local/bin/pi-review-status}"
@@ -84,7 +86,7 @@ fi
 if command -v omarchy-notification-send >/dev/null 2>&1; then
   omarchy-notification-send -u normal -t 15000 \
     "Review reminder" \
-    "No review session for $target yet — cd ~/learning-system && pi, then /review" \
+    "No review session for $target yet — cd ~/learning-pi/state && pi, then /review" \
     >/dev/null 2>&1 || true
 fi
 

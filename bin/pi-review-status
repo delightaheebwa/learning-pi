@@ -20,13 +20,15 @@
 #   missed:  today's review is not done and it is already late (hour >= 23).
 #
 # Test hooks:
-#   LEARNING_SYSTEM_ROOT=/path     override checkout location
+#   LEARNING_SYSTEM_ROOT=/path     override state-root location
 #   REVIEW_STATUS_DATE=YYYY-MM-DD  override "today"
 #   REVIEW_STATUS_NOW=HH[:MM]      override the clock's time-of-day
 #
 set -euo pipefail
 
-ROOT="${LEARNING_SYSTEM_ROOT:-$HOME/learning-system}"
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+LAYER="$(cd "$(dirname "$SELF")/.." && pwd)"
+ROOT="${LEARNING_SYSTEM_ROOT:-$LAYER/state}"
 SESSIONS="$ROOT/Learning System/Sessions"
 
 # --- today + time-of-day (overridable for tests) -----------------------------

@@ -16,8 +16,9 @@ Usage:
 
 Resolution:
     --session  explicit pi session .jsonl file
-    --root     session directory to scan (default: the learning-system session dir,
-               else ~/.pi/agent/sessions/--home-delight-learning-system--)
+    --root     session directory to scan (default: the in-repo state session dir
+               ~/.pi/agent/sessions/--home-delightaheebwa-learning-pi-state--,
+               then the legacy pre-merge session dirs)
     default session = the newest top-level *.jsonl in the session directory.
 
 Exit status: 0 when no findings, 1 when any finding is reported.
@@ -35,6 +36,7 @@ import sys
 from pathlib import Path
 
 DEFAULT_SESSION_DIRS = [
+    "~/.pi/agent/sessions/--home-delightaheebwa-learning-pi-state--",
     "~/.pi/agent/sessions/--home-delight-learning-system--",
     "~/.pi/agent/sessions/--home-delight-learning--",
 ]

@@ -8,7 +8,7 @@
 set -uo pipefail
 
 LAYER="${LEARNING_PI_ROOT:-$HOME/learning-pi}"
-SESS_DIR="${PI_SESSION_DIR:-$HOME/.pi/agent/sessions/--home-delight-learning-system--}"
+SESS_DIR="${PI_SESSION_DIR:-$HOME/.pi/agent/sessions/--home-delightaheebwa-learning-pi-state--}"
 LOG="${XDG_CACHE_HOME:-$HOME/.cache}/learning-pi/audit-recent.log"
 mkdir -p "$(dirname "$LOG")"
 

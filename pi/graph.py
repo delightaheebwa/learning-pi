@@ -46,7 +46,7 @@ Every provenance point must carry a non-empty `file` (the material the claim cam
 from); `session`/`message` are optional context. A re-merged id that was
 previously retracted is revived with its provenance unioned.
 
-Root resolution: --root, else $LEARNING_SYSTEM_ROOT, else ~/learning-system.
+Root resolution: --root, else $LEARNING_SYSTEM_ROOT, else <layer>/state.
 """
 
 from __future__ import annotations
@@ -54,10 +54,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import re
 import sys
 from pathlib import Path
+
+try:  # run as a script (pi/ is on sys.path) or imported by file path from tests
+    import _root
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import _root
 
 GRAPH_DIR = "Knowledge Wiki/graph"
 NODES_FILE = "nodes.jsonl"
@@ -116,20 +121,12 @@ def chain_id(premises: list[str], conclusion: str) -> str:
 # ---------------------------------------------------------------------------
 
 def resolve_root(explicit: str | None) -> Path:
-    candidates = [
-        explicit or "",
-        os.environ.get("LEARNING_SYSTEM_ROOT", ""),
-        os.path.expanduser("~/learning-system"),
-    ]
-    for candidate in candidates:
-        if not candidate:
-            continue
-        path = Path(candidate).expanduser().resolve()
-        if (path / "Learning System" / "Core").is_dir():
-            return path
-    raise GraphError(
-        "no learning-system checkout found (need 'Learning System/Core'); pass --root"
-    )
+    try:
+        return _root.resolve_state_root(explicit).resolve()
+    except _root.StateRootError as exc:
+        raise GraphError(
+            "no learning-state root found (need 'Learning System/Core'); pass --root"
+        ) from exc
 
 
 def graph_dir(root: Path) -> Path:
@@ -812,7 +809,7 @@ def cmd_export(root: Path, as_json: bool) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="learning-system knowledge graph CLI")
-    parser.add_argument("--root", default=None, help="learning-system checkout (default: detect)")
+    parser.add_argument("--root", default=None, help="learning-state root (default: <layer>/state)")
     sub = parser.add_subparsers(dest="command", required=True)
 
     status = sub.add_parser("status", help="integrity/counts")
