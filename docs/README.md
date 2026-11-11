@@ -31,6 +31,7 @@ state unit tests.
 | `docs/README.md` | This index. |
 | `docs/teaching-methodology.md` | Current LearnHarness-hybrid teaching method. |
 | `docs/adr/ADR-0001-transcript-parsing.md` | Decision to keep the two transcript readers separate. |
+| `docs/adr/ADR-0002-agent-skills-adoption.md` | Why the agent-skills pack is vendored under `.opencode/`. |
 | `bridge/README.md` | `B-*` bridge invariants. |
 | `deploy/README.md` and `deploy/SECURITY.md` | Docker Open WebUI deployment and its security notes. |
 | `harness/README.md`, `bin/README.md`, `omarchy/README.md` | Per-component guides. |
@@ -50,7 +51,7 @@ asserts on their content, so edit them with care.
 | `antigravity/skills/` | 9 | Retired control layer. |
 | `state/Skills/` | 4 | Frozen Open WebUI snapshot. `state/scripts/` reads its `gate_pipe.py`. |
 
-Twenty invariants in `contracts/learning-core.json` bind to these resource
+The invariants in `contracts/learning-core.json` bind to these resource
 checks. A prose edit that removes an asserted phrase turns
 `scripts/learn-check` red.
 

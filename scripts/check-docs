@@ -11,7 +11,7 @@ CURRENT = [
     "deploy/SECURITY.md", "harness/README.md", "bin/README.md",
     "antigravity/README.md", "omarchy/README.md", "state/README.md",
 ]
-for base in (".pi", "antigravity/skills", "opencode/skills"):
+for base in (".pi", "antigravity/skills"):
     CURRENT += sorted(
         str(p.relative_to(ROOT)) for p in (ROOT / base).rglob("*.md")
     )

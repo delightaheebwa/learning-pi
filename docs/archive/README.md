@@ -10,6 +10,7 @@ not follow the instructions, commands, or paths in these files. The live map is
 | `AUDIT-2026-10-08.md` | The original deep audit capture. |
 | `roadmap/` | The completed Herdr cascade: briefs, reviews, E2E report, stage log. |
 | `plans/intelligent-ui/` | A completed Open WebUI spike. `PHASE0-FINDINGS.md` records why `@openuidev/browser-bundle` is pinned; live bridge comments still cite it. |
+| `opencode-lpi-skill/` | The retired `opencode/skills/lpi` OpenCode skill stub, not on the discovery path. |
 
 These files were moved here during the 2026-11-11 repo cleanup. Their internal
 links and file paths describe the layout at the time they were written and are

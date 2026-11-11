@@ -440,10 +440,10 @@ terminal popup is gone. Both read the same `bin/pi-review-status` helper, which
 matches the calendar date review-clerk stamps on the note, so they cannot
 disagree.
 
-The `lpi` command is `harness/pi-safe-update`. The legacy
-`opencode/skills/lpi` directory is not on OpenCode's discovery path
-(`.opencode/skills/`), so it is not loaded today; it is kept for reference and
-is a deprecation candidate.
+The `lpi` command is `harness/pi-safe-update`. The retired `lpi` OpenCode skill
+stub is archived at
+[`docs/archive/opencode-lpi-skill/`](docs/archive/opencode-lpi-skill/SKILL.md);
+it is not on OpenCode's discovery path and is not loaded.
 
 Commands (one umbrella):
 
@@ -518,7 +518,6 @@ test/bridge/                 bridge suite (fake_pi + run_tests.py → B-* covera
 test/contract/               resource checks, load probe
 test/e2e/scenarios/          7 e2e scenarios (smoke + full, incl. openui-smoke)
 test/fixtures/               synthetic learning-system state (never real data)
-opencode/skills/lpi/         opencode skill: gated update, diagnosis/repair, and e2e
 .pi/extensions/learning-gate/gate-core/   pure, pi-independent decision logic
 .pi/extensions/learning-gate/pi-adapter/  the ONLY pi-version-aware file
 omarchy/                     Omarchy review integration: local.pi-review bar widget,
