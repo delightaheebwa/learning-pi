@@ -1,3 +1,8 @@
+> **Inherited record.** This file came from the pre-merge standalone
+> `learning-system` checkout. Root `AGENTS.md`, `README.md`, and `deploy/`
+> describe the current single-repo setup; this file is kept for its
+> historical detail.
+
 # ACCESS — every surface, how to reach it, what lives there
 
 > Read this before touching the system. Cross-reference: `infra/VERSIONS.md`

@@ -1,3 +1,8 @@
+> **Inherited record.** This file came from the pre-merge standalone
+> `learning-system` checkout. Root `AGENTS.md`, `README.md`, and `deploy/`
+> describe the current single-repo setup; this file is kept for its
+> historical detail.
+
 # AGENTS.md — Repo Context for Agents Modifying This Codebase
 
 > **Canonical runtime: [`learning-pi`](https://github.com/delightaheebwa/learning-pi).**

@@ -1,3 +1,8 @@
+> **Inherited record.** This file came from the pre-merge standalone
+> `learning-system` checkout. Root `AGENTS.md`, `README.md`, and `deploy/`
+> describe the current single-repo setup; this file is kept for its
+> historical detail.
+
 # VERSIONS — environment manifest (pin everything a fresh restore needs)
 
 > **Snapshot 2026-09-08, re-checked 2026-10-16:** image digests below still match
