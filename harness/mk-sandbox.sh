@@ -58,7 +58,7 @@ done
 # headless, and add the load probe as an explicit extension path. Optionally
 # carry candidate package specs so `pi install` stages them here, not in the
 # real ~/.pi/agent.
-printf '{"%s": true}\n' "$DEST/state" > "$DEST/agent/trust.json"
+python3 -c 'import json, sys; print(json.dumps({sys.argv[1]: True}))' "$DEST/state" > "$DEST/agent/trust.json"
 if [ -n "$PACKAGES_JSON" ]; then
   python3 - "$PACKAGES_JSON" <<'PY' >"$DEST/agent/packages.json" || { echo "mk-sandbox: --packages must be a JSON array" >&2; exit 2; }
 import json, sys

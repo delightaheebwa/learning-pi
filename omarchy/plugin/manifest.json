@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "learning-pi",
   "license": "MIT",
-  "description": "Shows whether the day's pi spaced-repetition review is done. Only visible in the evening window (18:00-04:00).",
+  "description": "Shows whether the day's pi spaced-repetition review is done. Only visible in the evening window (18:00-03:59).",
   "kinds": ["bar-widget"],
   "entryPoints": {
     "barWidget": "Panel.qml"

@@ -75,13 +75,13 @@ if [[ "${1:-}" == "--check" ]]; then
 fi
 
 # --- default: JSON status ----------------------------------------------------
-done=false
-if review_done "$today"; then done=true; fi
+is_done=false
+if review_done "$today"; then is_done=true; fi
 
 visible=false
 if (( hour >= 18 || hour < 4 )); then visible=true; fi
 
 missed=false
-if [[ "$done" == false ]] && (( hour >= 23 )); then missed=true; fi
+if [[ "$is_done" == false ]] && (( hour >= 23 )); then missed=true; fi
 
-printf '{"date":"%s","done":%s,"visible":%s,"missed":%s}\n' "$today" "$done" "$visible" "$missed"
+printf '{"date":"%s","done":%s,"visible":%s,"missed":%s}\n' "$today" "$is_done" "$visible" "$missed"

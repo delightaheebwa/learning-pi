@@ -11,11 +11,11 @@
 set -euo pipefail
 
 PI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE_ROOT="${1:-${LEARNING_SYSTEM_ROOT:-$HOME/learning-system}}"
-STATE_ROOT="$(cd "$STATE_ROOT" 2>/dev/null && pwd || true)"
+REQUESTED_ROOT="${1:-${LEARNING_SYSTEM_ROOT:-$HOME/learning-system}}"
+STATE_ROOT="$(cd "$REQUESTED_ROOT" 2>/dev/null && pwd || true)"
 
 if [ -z "$STATE_ROOT" ] || [ ! -d "$STATE_ROOT/Learning System" ]; then
-  echo "error: '$STATE_ROOT' does not look like a learning-system checkout (missing 'Learning System/')." >&2
+  echo "error: '$REQUESTED_ROOT' does not look like a learning-system checkout (missing 'Learning System/')." >&2
   exit 2
 fi
 
