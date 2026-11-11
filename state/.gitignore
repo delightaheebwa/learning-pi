@@ -6,6 +6,8 @@ Learning System/Core/Pending Ingest.json
 infra/.env
 backups/
 
-# pi and Antigravity overlays linked by install.sh (local-only)
+# pi overlay linked by install.sh (local-only)
 .pi/
+# legacy: .agents/ symlinks may remain from installs made before the 2026-11
+# cleanup. Kept so stale links stay ignored; safe to remove after one release.
 .agents/

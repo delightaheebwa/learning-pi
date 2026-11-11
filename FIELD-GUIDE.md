@@ -10,11 +10,10 @@ A practical guide to running your spaced-repetition learning system from the pi 
 ~/learning-pi/            this repo: the pi layer and the learner state
 ~/learning-pi/state/      Learning System/ , Knowledge Wiki/ , scripts/
   .pi/                    symlinks -> ~/learning-pi/.pi   (local-only, git-excluded)
-  .agents/                retired Antigravity overlay (unused)
 ```
 
 - **State** lives in `state/` with its full history. The separate state repo is retired.
-- **The pi layer** lives at the repo root. `install.sh` links `.pi/` into `state/`. It also links `.agents/`, which is retired and unused.
+- **The pi layer** lives at the repo root. `install.sh` links `.pi/` into `state/`.
 - **You run pi from the state tree:**
   ```bash
   cd ~/learning-pi/state && pi

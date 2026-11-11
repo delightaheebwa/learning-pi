@@ -62,11 +62,6 @@ open integration work on `install.sh` and `init-state.sh`.
 
 Both hit the same tutor and the same notebook. Pick per session.
 
-The Antigravity Desktop layer in `antigravity/` is retired. It is no longer used.
-The files stay because `test/contract/check_antigravity_layer.py` asserts on
-them, and removing that check is a revise-door change. See
-[`docs/README.md`](docs/README.md).
-
 ## Set up (one-shot per platform)
 
 The prerequisites below set up the pi layer. The learner state already lives in
@@ -528,5 +523,5 @@ test/pi_review_status_test.sh  status-helper boundary tests (standalone)
 ## Uninstall
 
 ```bash
-rm -rf ~/learning-pi/state/.pi ~/learning-pi/state/.agents
+rm -rf ~/learning-pi/state/.pi
 ```

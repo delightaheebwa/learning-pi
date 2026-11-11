@@ -13,8 +13,7 @@ Its full commit history is preserved in this repo's history.
 | `Skills/` | Frozen Open WebUI skill snapshot. `state/scripts/` reads its `gate_pipe.py`, so it stays. The canonical teaching skills are at `.pi/skills/`. |
 | `AGENTS.md` | State-tree conventions from the former repo. Root `AGENTS.md` governs the whole repo. |
 
-Run `pi` from this directory. `install.sh` links `.pi/` here. It also links
-`.agents/`, the retired Antigravity layer, which is unused.
+Run `pi` from this directory. `install.sh` links `.pi/` here.
 See [`docs/README.md`](../docs/README.md) for the doc map and the open
 integration work.
 

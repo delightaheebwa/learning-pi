@@ -25,9 +25,8 @@ source-of-truth map.
   change only through the revise door. Never edit `CONTRACT.md`, `contracts/`,
   or `test/` to make a change pass, and never restate the JSON's version,
   invariant count, or test names — point at it.
-- `state/` — the learner notebook (merged). `antigravity/` is a retired layer
-  kept only because a contract test asserts on it; do not delete it without
-  checking `test/contract/check_antigravity_layer.py`.
+- `state/` — the learner notebook (merged). The retired Antigravity layer was
+  removed in the 2026-11 cleanup and no longer exists.
 - `bridge/`, `deploy/`, `harness/`, `omarchy/` — runtime, packaging, and the
   update conductor. No lint or coverage tool is configured; verify with the
   commands above.

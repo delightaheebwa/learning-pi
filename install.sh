@@ -31,25 +31,10 @@ for entry in "${ENTRIES[@]}"; do
   echo "linked .pi/$entry"
 done
 
-# Wire Antigravity Desktop layer (.agents/) if antigravity/ exists
-AGY_ROOT="$PI_ROOT/antigravity"
-if [ -d "$AGY_ROOT" ]; then
-  mkdir -p "$STATE_ROOT/.agents"
-  AGY_ENTRIES=(AGENTS.md hooks.json scripts agents skills)
-  for entry in "${AGY_ENTRIES[@]}"; do
-    src="$AGY_ROOT/$entry"
-    dst="$STATE_ROOT/.agents/$entry"
-    [ -e "$src" ] || { echo "skip (missing): $entry"; continue; }
-    rm -rf "$dst"
-    ln -s "$src" "$dst"
-    echo "linked .agents/$entry"
-  done
-fi
-
 # Keep overlays out of the state repo without touching its tracked .gitignore.
 EXCLUDE="$STATE_ROOT/.git/info/exclude"
 if [ -d "$STATE_ROOT/.git/info" ]; then
-  for excl in ".pi/" ".agents/"; do
+  for excl in ".pi/"; do
     if ! grep -qxF "$excl" "$EXCLUDE" 2>/dev/null; then
       printf "\n# learning overlays (local-only)\n%s\n" "$excl" >> "$EXCLUDE"
       echo "excluded $excl in .git/info/exclude"
@@ -69,11 +54,6 @@ Installed. Next:
     2) run: pi (approve/trust once)
     3) try: /review, /lesson, /continue, /teach <topic>, /ingest <content>
 
-  Antigravity Desktop:
-    1) Open "$STATE_ROOT" as a project/workspace in Antigravity Desktop
-    2) Slash commands: /teach, /lesson, /continue, /pause, /review, /solo, /ingest, /audit
-    3) Subagents (scout, verifier, ui-generator, clerk, auditor) run via invoke_subagent and monitor in the Subagents panel
-
-State repo:  $STATE_ROOT  (untouched except for untracked .pi/ & .agents/ symlinks)
+State repo:  $STATE_ROOT  (untouched except for untracked .pi/ symlinks)
 Control repo: $PI_ROOT
 EOF

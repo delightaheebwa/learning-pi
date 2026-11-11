@@ -9,9 +9,9 @@ CURRENT = [
     "README.md", "FIELD-GUIDE.md", "CONTRACT.md", "docs/README.md",
     "docs/teaching-methodology.md", "bridge/README.md", "deploy/README.md",
     "deploy/SECURITY.md", "harness/README.md", "bin/README.md",
-    "antigravity/README.md", "omarchy/README.md", "state/README.md",
+    "omarchy/README.md", "state/README.md",
 ]
-for base in (".pi", "antigravity/skills"):
+for base in (".pi",):
     CURRENT += sorted(
         str(p.relative_to(ROOT)) for p in (ROOT / base).rglob("*.md")
     )

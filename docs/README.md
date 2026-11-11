@@ -49,7 +49,6 @@ asserts on their content, so edit them with care.
 | `.pi/prompts/` | 8 | Slash-command entry points. Seven of the eight carry a `[[FLOW:...]]` marker; `audit.md` is not a gated flow. |
 | `.pi/agents/` | 15 | Verifiers and workers dispatched by the gate. |
 | `.pi/APPEND_SYSTEM.md` | 1 | Tutor stance loaded every turn. |
-| `antigravity/skills/` | 9 | Retired control layer. |
 | `state/Skills/` | 4 | Frozen Open WebUI snapshot whose bodies `state/scripts/setup_openwebui.py` still ships live; `state/scripts/` reads its `gate_pipe.py`. |
 
 The invariants in `contracts/learning-core.json` bind to these resource
@@ -76,21 +75,9 @@ resolve.
 - `docs/archive/AUDIT-2026-10-08.md` — the original deep audit, explicitly
   historical.
 
-## Retired components
-
-The current setup is pi plus Open WebUI. The Antigravity Desktop layer in
-`antigravity/` is no longer used. `scripts/learn-check` still runs
-`test/contract/check_antigravity_layer.py`, which asserts on
-`antigravity/AGENTS.md`, `hooks.json`, six agent files, and nine skill files.
-Removing the layer therefore needs a revise-door change to the checker and the
-contract. Until then, treat `antigravity/` as frozen. `install.sh` still links
-the retired `.agents/` overlay into the state tree.
-
 ## Open work
 
-Known gaps. Most land as ordinary commits; one needs the revise door described
-in `CONTRACT.md` because it touches a file under `test/`. Last verified:
-2026-11-12.
+Known gaps. All land as ordinary commits. Last verified: 2026-11-12.
 
 ### Ordinary commits
 
@@ -104,12 +91,6 @@ in `CONTRACT.md` because it touches a file under `test/`. Last verified:
 skill is its operational step-index. Both load paths are bound by contract
 resource checks, so `harness/protocol_sync_test.py` pins their shared markers
 instead of merging them. A physical dedupe still needs the revise door.
-
-### Needs the revise door (touches `test/`)
-
-- The retired `antigravity/` layer is kept only because
-  `test/contract/check_antigravity_layer.py` asserts on it. Removing it deletes
-  a file under `test/` and therefore needs a revise commit.
 
 ## Reading order
 
