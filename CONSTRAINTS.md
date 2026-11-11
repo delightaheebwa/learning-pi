@@ -47,7 +47,7 @@ no gate.
 
 | Metric | Today | Direction |
 | --- | --- | --- |
-| Test files | 19 | must not fall |
+| Test files | 20 | must not fall |
 | Suppression comments or `TODO` markers in first-party source | 30 | must not rise |
 
 These are recorded, not gated: no coverage, performance, or accessibility tool

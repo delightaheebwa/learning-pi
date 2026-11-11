@@ -6,3 +6,4 @@
 - `locktool.py` — `versions.lock.json` / journal helper.
 - `audit-recent-sessions.sh` + `systemd/` — weekly provenance audit over real sessions.
 - `man/lpi.1` — `lpi` man page.
+- `protocol_sync_test.py` — pins the shared markers of the two stress-test protocol copies (presence, not semantics).
