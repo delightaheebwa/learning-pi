@@ -250,7 +250,7 @@ Configured in `.pi/settings.json` (project scope only):
 
 | Role | Model |
 | --- | --- |
-| Tutor (main session) | `glm-5.3-flash` |
+| Tutor (main session) | `gpt-6-luna` (high) |
 | Scout / Clerk / review-scout / review-clerk | `deepseek-v4.1-flash` |
 | Graduation clone (`naive-student`) | `deepseek-v4.1-flash` |
 | Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `ui-audit` / `graph-audit`) | `muse-spark-1.3-contributor` (high) |

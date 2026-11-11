@@ -1,5 +1,6 @@
 {
-  "defaultModel": "glm-5.3-flash",
+  "defaultModel": "gpt-6-luna",
+  "defaultThinkingLevel": "high",
   "tuiMode": "fullscreen",
   "subagents": {
     "defaultModel": "deepseek-v4.1-flash",
