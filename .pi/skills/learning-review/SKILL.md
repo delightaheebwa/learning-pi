@@ -84,6 +84,7 @@ For each NEW concept, spot-check 1–2 load-bearing factual claims (mechanisms, 
 ### 5. Report
 
 Tell the user concisely: gate result per concept (passed after N cycles / flags remaining), verdict file path(s), what was fixed, and anything unverified or still flagged. If the result is not `PASS`, say so plainly — the ingest still proceeds with a visible `⚠️ REVIEW FLAGS SURFACED` banner; it is not blocked.
+Scope: this banner applies to out-of-scope bookkeeping flags demoted to `context_notes`. In-scope issues still block the review-session close and keep the uncapped fix loop running until the verifier returns `PASS`; the ingest turn itself is never hard-blocked.
 
 ## Rules
 

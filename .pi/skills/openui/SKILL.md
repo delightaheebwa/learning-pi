@@ -66,6 +66,8 @@ cannot carry. Declaring `none` with a real reason is legal; guessing prose for a
 is not. No visual may preview the mechanism, the patched rule, or the qualitative outcome the learner
 is about to be asked for; no roadmap before triage.
 
+Contract note: the gate binds on the inline `payload` + `rendered_content` fields of the `ui-audit` envelope. `visual_plan.widget_file` is an advisory routing hint for file-backed artifacts only; no gate code reads it.
+
 ## OpenUI Lang (authoring rules)
 
 Each statement is `identifier = Expression`. Expressions are strings, numbers, booleans, null,

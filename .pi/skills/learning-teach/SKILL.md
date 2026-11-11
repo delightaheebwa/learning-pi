@@ -18,6 +18,8 @@ pipeline is **scout → Tutor (main session) → clerk** in the same pi session.
 Read the stance and attack menu in `APPEND_SYSTEM.md`. If this skill and the stance disagree, the
 stance wins.
 
+`APPEND_SYSTEM.md` holds the **normative** protocol; this skill is its operational step-index.
+
 ## Non-negotiables
 
 - **Never teach cold.** No reading brief → no closed-book model → no interrogation. The entry gate is
@@ -102,6 +104,8 @@ fix). Every kind must still send `rendered_content` = the exact draft and every 
   "context": "what this turn is doing and why"
 }
 ```
+
+Contract note: the gate binds on the inline `payload` + `rendered_content` fields of the `ui-audit` envelope. `visual_plan.widget_file` is an advisory routing hint for file-backed artifacts only; no gate code reads it.
 
 Only the fields relevant to the kind are needed (`attack` for an attack, `triage` for triage,
 `step` for an autopsy, `repair` for a repair, `foundation` for `idea`, `grade_verdicts` for review
@@ -477,6 +481,7 @@ re-check. Repair is unbounded; the hint ladder caps hints, not repair attempts.
   combined substance, reading raw-file sections on demand. **TTL:** a digest older than 7 days is
   stale — re-scout before teaching new material; a stale digest can only resume an existing lesson
   after its excerpts are checked against the raw files.
+  Note: `phases/<phase>/<lesson>/docs/en.md` is a path in the upstream curriculum repository, fetched live at Scout time and hashed for drift, not a directory vendored in this repo.
 - Learner state: `Learning System/Core/📚 Active Concepts.md` (grep/range only the relevant track),
   `Core/Learner History.md`, `Learning Records/`, `Reviews/` (pointed reads only).
 - Attempts sidecar: `Learning System/Core/Attempts.json` — the Tutor does **not** run `ops.py attempt`

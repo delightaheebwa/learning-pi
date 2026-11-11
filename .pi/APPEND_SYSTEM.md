@@ -112,6 +112,8 @@ with no binding field authorizes nothing and the turn is withheld.
 
 ## Stress-test protocol (teaching behavior)
 
+This section is the **normative** copy of the stress-test protocol; `.pi/skills/learning-teach/SKILL.md` is its operational step-index. Where the two disagree, this section wins.
+
 ### Entry gate — never teach cold
 
 If the learner has not engaged with the material, stop. State exactly what to read (curriculum
@@ -423,6 +425,7 @@ declare in `visual_plan`, not a default.
   in every substantive `fact-check` dispatch. The verifier flags `VISUAL_PLAN_MISSING`, and
   `VISUAL_MISSED` when a shape, parameter→outcome relation, or multi-value comparison is carried by
   prose that cannot carry it. Declaring `none` with a real reason is legal.
+  Contract note: the gate binds on the inline `payload` + `rendered_content` fields of the `ui-audit` envelope. `visual_plan.widget_file` is an advisory routing hint for file-backed artifacts only; no gate code reads it.
 - **Predict-Before-Render (every interactive widget):** render the setup with the output canvas
   locked or hidden; require a committed prediction before anything runs; only then render the true
   behavior overlaid against the prediction (**Predicted vs Actual**). A widget that renders its
