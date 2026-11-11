@@ -50,7 +50,7 @@ asserts on their content, so edit them with care.
 | `.pi/agents/` | 15 | Verifiers and workers dispatched by the gate. |
 | `.pi/APPEND_SYSTEM.md` | 1 | Tutor stance loaded every turn. |
 | `antigravity/skills/` | 9 | Retired control layer. |
-| `state/Skills/` | 4 | Frozen Open WebUI snapshot. `state/scripts/` reads its `gate_pipe.py`. |
+| `state/Skills/` | 4 | Frozen Open WebUI snapshot whose bodies `state/scripts/setup_openwebui.py` still ships live; `state/scripts/` reads its `gate_pipe.py`. |
 
 The invariants in `contracts/learning-core.json` bind to these resource
 checks. A prose edit that removes an asserted phrase turns
@@ -88,9 +88,9 @@ the retired `.agents/` overlay into the state tree.
 
 ## Open work
 
-Known gaps. Most land as ordinary commits; two need the revise door described
-in `CONTRACT.md` because they touch files under `test/`. Last verified:
-2026-11-11.
+Known gaps. Most land as ordinary commits; one needs the revise door described
+in `CONTRACT.md` because it touches a file under `test/`. Last verified:
+2026-11-12.
 
 ### Ordinary commits
 
@@ -103,26 +103,16 @@ in `CONTRACT.md` because they touch files under `test/`. Last verified:
 - `state/Skills/` is described as frozen, but `state/scripts/setup_openwebui.py`
   still ships those skill bodies to the live Open WebUI instance. The docs
   should say so; reconciling the two stacks is a separate redesign.
-- `.pi/skills/learning-review/SKILL.md` contradicts itself on whether a flagged
-  issue blocks ingest: it says every in-scope issue blocks, but also that ingest
-  proceeds with a `⚠️ REVIEW FLAGS SURFACED` banner. This is a
-  behavior-defining prompt; align it with the gate.
-- `.pi/APPEND_SYSTEM.md` requires `visual_plan.widget_file` while
-  `.pi/skills/openui/SKILL.md` requires `payload` and `rendered_content`. The
-  gate enforces only the latter; `widget_file` is read by no code.
-- `.pi/skills/learning-system/SKILL.md` and
-  `.pi/skills/learning-teach/SKILL.md` name a `phases/` curriculum tree that
-  does not exist here. It is an upstream path fetched live at scout time.
-- Nine `.pi/agents/*.md` files pin a host-specific absolute path to the
-  `pi-web-access` extension. No test asserts the path; confirm the loader
-  accepts a portable form before switching.
+
+### Deliberate duplication, guarded
+
+`.pi/APPEND_SYSTEM.md` owns the normative stress-test protocol; the teaching
+skill is its operational step-index. Both load paths are bound by contract
+resource checks, so `harness/protocol_sync_test.py` pins their shared markers
+instead of merging them. A physical dedupe still needs the revise door.
 
 ### Needs the revise door (touches `test/`)
 
-- `.pi/APPEND_SYSTEM.md` and `.pi/skills/learning-teach/SKILL.md` carry two
-  copies of the stress-test protocol. `test/contract/check_learning_layer.py`
-  asserts on both, so deduplicating means editing the checker in the same
-  commit.
 - The retired `antigravity/` layer is kept only because
   `test/contract/check_antigravity_layer.py` asserts on it. Removing it deletes
   a file under `test/` and therefore needs a revise commit.
