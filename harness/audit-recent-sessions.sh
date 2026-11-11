@@ -8,7 +8,15 @@
 set -uo pipefail
 
 LAYER="${LEARNING_PI_ROOT:-$HOME/learning-pi}"
-SESS_DIR="${PI_SESSION_DIR:-$HOME/.pi/agent/sessions/--home-delightaheebwa-learning-pi-state--}"
+STATE_SESS_DIR="$HOME/.pi/agent/sessions/--home-delightaheebwa-learning-pi-state--"
+if [ -d "$STATE_SESS_DIR" ]; then
+  DEFAULT_SESS_DIR="$STATE_SESS_DIR"
+else
+  # Before the first pi run from state/, fall back to the most recently touched
+  # session dir so the weekly audit is never silently empty.
+  DEFAULT_SESS_DIR="$(find "$HOME/.pi/agent/sessions" -maxdepth 1 -type d -name '--home-*' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)"
+fi
+SESS_DIR="${PI_SESSION_DIR:-${DEFAULT_SESS_DIR:-$STATE_SESS_DIR}}"
 LOG="${XDG_CACHE_HOME:-$HOME/.cache}/learning-pi/audit-recent.log"
 mkdir -p "$(dirname "$LOG")"
 
