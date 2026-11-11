@@ -260,6 +260,7 @@ def _read_graph_jsonl(path):
     return records
 
 
+# mirror: pinned by harness/graph_fold_test.py
 def _chain_fingerprint(premises, conclusion):
     """Fingerprint `pi/graph.py` uses to decide re-assert vs new chain."""
     body = "\n".join(sorted(set(premises))) + "\n=>\n" + conclusion
