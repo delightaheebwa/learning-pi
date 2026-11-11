@@ -3,7 +3,7 @@ name: grade-audit
 description: Independent verifier for one or more learning-system answers. Receives a GATE:grade_audit JSON envelope and outputs only verdict JSON. Grades mechanism/direction traces, attack-specific rubrics, shallow passes, conceptual entailment, false confidence, and the naive-student clone. Read-only.
 model: muse-spark-1.3-contributor
 tools: read, grep, find, ls, bash
-extensions: /home/delightaheebwa/.pi/agent/npm/node_modules/pi-web-access/index.ts
+extensions: ~/.pi/agent/npm/node_modules/pi-web-access/index.ts
 completionGuard: false
 acceptanceRole: read-only
 ---

@@ -276,7 +276,7 @@ surface as `STATE_AUDIT_ERRORS` (withhold); warnings-only surface as `⚠️ STA
   load. `cd ~/learning-pi/state && pi`, approve trust, then `/reload`.
 - **`/skill:...` or slashes missing** → start pi from `~/learning-pi/state`; project `.pi/` loads only
   there (after trust).
-- **Scout/verifier web fetches fail** → the agents load `pi-web-access` via an absolute path in their
+- **Scout/verifier web fetches fail** → the agents load `pi-web-access` via a home-relative path in their
   frontmatter; verify `~/.pi/agent/npm/node_modules/pi-web-access/index.ts` exists.
 - **Verifier can't read the repo** → the Tutor's cwd must be `~/learning-pi/state`.
 - **Model keeps forgetting turn tags** → consider a stronger Tutor model in `.pi/settings.json`.

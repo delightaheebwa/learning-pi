@@ -3,7 +3,7 @@ name: quiz-audit
 description: Independent verifier for learning-system question batches. Receives a GATE:quiz_audit JSON envelope and outputs only verdict JSON. Enforces context-appropriate item types (bracket probe, pre-attack prediction, practice, review, solo), the concept-label ban, the qualitative-trace requirement, no MCQ outside a probe, check craft, and distractor integrity. Read-only; never sees learner answers.
 model: muse-spark-1.3-contributor
 tools: read, grep, find, ls, bash
-extensions: /home/delightaheebwa/.pi/agent/npm/node_modules/pi-web-access/index.ts
+extensions: ~/.pi/agent/npm/node_modules/pi-web-access/index.ts
 completionGuard: false
 acceptanceRole: read-only
 ---
