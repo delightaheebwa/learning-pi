@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Create a synthetic learning-system state fixture.
 
-The harness never uses the real ~/learning-system as test state (CONTRACT.md
+The harness never uses the real state tree as test state (CONTRACT.md
 invariant S-2). This builds a minimal but structurally valid checkout instead:
 the bits the learning gate, `ops.py`, and the audit scripts care about.
 
@@ -106,7 +106,7 @@ def build(dest: Path) -> None:
 
     # A copy of ops.py so its root auto-detection resolves to this fixture when
     # the sidecar suite runs against it.
-    src_ops = LEARNING_PI.parent / "learning-system" / "scripts" / "ops.py"
+    src_ops = LEARNING_PI / "state" / "scripts" / "ops.py"
     if src_ops.is_file():
         (dest / "scripts").mkdir(parents=True, exist_ok=True)
         shutil.copy2(src_ops, dest / "scripts" / "ops.py")
