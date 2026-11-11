@@ -27,6 +27,9 @@ const git = (args, { diffExit = false } = {}) => {
   try {
     return execFileSync('git', ['-c', 'core.quotePath=false', ...args], {
       encoding: 'utf8',
+      // A learner-data commit can add well over Node's 1 MB default; without
+      // this the guard bails out (exit 2) instead of reporting a verdict.
+      maxBuffer: 64 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch (e) {
