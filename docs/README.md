@@ -17,9 +17,10 @@ This file maps the docs in this repo. Read it before any other doc.
 invariant count, and per-invariant test names change over time. No other doc
 repeats those numbers. Point at the JSON instead.
 
-Root CI (`.github/workflows/learn-check.yml`) runs `scripts/learn-check --no-load`,
-`scripts/check-docs`, `scripts/check-skills`, `scripts/floor-guard.mjs`, and the
-state unit tests.
+Root CI (`.github/workflows/learn-check.yml`) runs `scripts/learn-check --no-load`
+(which also runs the `harness/` suite), `scripts/check-docs`, `scripts/check-skills`,
+`scripts/floor-guard.mjs`, the state unit tests, `gitleaks`, and the
+`revise(contract):` commit-subject check.
 
 ## Current docs
 
@@ -87,31 +88,44 @@ the retired `.agents/` overlay into the state tree.
 
 ## Open work
 
-The following are known gaps. Each needs a behavior change and therefore the
-revise door described in `CONTRACT.md`. They are not fixed here.
+Known gaps. Most land as ordinary commits; two need the revise door described
+in `CONTRACT.md` because they touch files under `test/`. Last verified:
+2026-11-11.
 
-- `install.sh` and `init-state.sh` still assume a separate state checkout.
-  After the merge the learner state lives in `state/`. Set
-  `LEARNING_SYSTEM_ROOT` to `state/` or pass `--root` until those defaults
-  change. `pi/graph.py`, `harness/e2e-runner.py`, `harness/audit-recent-sessions.sh`,
-  `harness/systemd/learning-pi-audit.service`, `omarchy/review-reminder.sh`,
-  and `init-state.sh` carry the same default.
-- Two active teaching stacks remain. `.pi/skills/` is canonical for pi.
-  `state/Skills/` is the frozen Open WebUI snapshot that `state/scripts/` reads
-  for `gate_pipe.py`. `antigravity/skills/` is retired. Reconciling the two
-  active stacks is a redesign.
+### Ordinary commits
+
+- Several tools still default to the pre-merge standalone checkout instead of
+  the in-repo `state/` tree. `install.sh`, `pi/graph.py`,
+  `bin/pi-review-status`, and `omarchy/review-reminder.sh` are the holders;
+  `init-state.sh` takes a required target and never defaults. Set
+  `LEARNING_SYSTEM_ROOT` or pass `--root` until those defaults change. Flipping
+  them also requires migrating live learner data first.
+- `state/Skills/` is described as frozen, but `state/scripts/setup_openwebui.py`
+  still ships those skill bodies to the live Open WebUI instance. The docs
+  should say so; reconciling the two stacks is a separate redesign.
 - `.pi/skills/learning-review/SKILL.md` contradicts itself on whether a flagged
-  issue blocks ingest.
+  issue blocks ingest: it says every in-scope issue blocks, but also that ingest
+  proceeds with a `⚠️ REVIEW FLAGS SURFACED` banner. This is a
+  behavior-defining prompt; align it with the gate.
 - `.pi/APPEND_SYSTEM.md` requires `visual_plan.widget_file` while
   `.pi/skills/openui/SKILL.md` requires `payload` and `rendered_content`. The
-  two define two different widget contracts.
-- `.pi/APPEND_SYSTEM.md` and `.pi/skills/learning-teach/SKILL.md` carry two
-  copies of the stress-test protocol.
-- Nine `.pi/agents/*.md` files pin a host-specific absolute path to the
-  `pi-web-access` extension.
+  gate enforces only the latter; `widget_file` is read by no code.
 - `.pi/skills/learning-system/SKILL.md` and
   `.pi/skills/learning-teach/SKILL.md` name a `phases/` curriculum tree that
-  does not exist.
+  does not exist here. It is an upstream path fetched live at scout time.
+- Nine `.pi/agents/*.md` files pin a host-specific absolute path to the
+  `pi-web-access` extension. No test asserts the path; confirm the loader
+  accepts a portable form before switching.
+
+### Needs the revise door (touches `test/`)
+
+- `.pi/APPEND_SYSTEM.md` and `.pi/skills/learning-teach/SKILL.md` carry two
+  copies of the stress-test protocol. `test/contract/check_learning_layer.py`
+  asserts on both, so deduplicating means editing the checker in the same
+  commit.
+- The retired `antigravity/` layer is kept only because
+  `test/contract/check_antigravity_layer.py` asserts on it. Removing it deletes
+  a file under `test/` and therefore needs a revise commit.
 
 ## Reading order
 
