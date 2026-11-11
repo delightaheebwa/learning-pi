@@ -11,7 +11,7 @@ Creates (or updates) everything the system needs, using the Open WebUI REST API:
   - Subagent system prompt (keyed GATE: templates)
   - OpenUI widget assets (pinned @openuidev/browser-bundle + widget.html/js) into
     --openui-static-dir (default ~/learning-pi/deploy/openui), which the canonical
-    compose mounts read-only at Open WebUI's /static/openui (intelligent-ui Phase 3)
+    compose mounts read-only at Open WebUI's /static/openui (intelligent-ui Phase 3; see docs/archive/plans/intelligent-ui/PLAN.md)
 
 All verification gates run as foreground subagent tasks (delegate_task) with
 Pydantic envelope validation; fixed prompts live in the global subagent system
@@ -56,7 +56,7 @@ GATE_FILTER_FILES = [
 ]
 
 # ---------------------------------------------------------------------------
-# OpenUI widget assets (intelligent-ui Phase 3)
+# OpenUI widget assets (intelligent-ui Phase 3; see docs/archive/plans/intelligent-ui/PLAN.md)
 #
 # The pi learning layer emits verified ```openui OpenUI Lang payloads; the bridge
 # delivers each one as a same-origin embed URL of the form

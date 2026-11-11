@@ -75,7 +75,7 @@ services:
       # CSP injected into sandboxed iframe documents (Artifacts previews etc.).
       # The OpenUI bundle is self-hosted same-origin, so no CDN origin is needed;
       # `connect-src 'none'` keeps rendered widgets/artifacts offline. The bundle
-      # is served from the read-only ./openui mount below (intelligent-ui Phase 3).
+      # is served from the read-only ./openui mount below (intelligent-ui Phase 3; see docs/archive/plans/intelligent-ui/PLAN.md).
       # Keep Personal -> Interface -> "iframe Sandbox Allow Same Origin" OFF: the
       # widget shell relies on its own opaque-origin sandbox (see SECURITY.md).
       IFRAME_CSP: "${IFRAME_CSP:-default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src 'none'}"
