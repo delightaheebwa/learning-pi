@@ -14,7 +14,7 @@ Tag rules (strict): `solid` = 2+ consecutive passes, interval_index ≥ 2,
 Tutor use: build directly on `solid`; probe-then-teach `neutral`;
 reteach-from-scratch `fuzzy` (check its mistake row / review note first).
 
-Totals: 325 concepts (96 with attempt history + 229 paused) — aiefs 27 · paused 20 · swe 66 · aie 212 · solid 8 · neutral 280 · fuzzy 37
+Totals: 325 concepts (96 with attempt history + 229 paused) — aiefs 47 · swe 66 · aie 212 · solid 8 · neutral 275 · fuzzy 42
 
 ## AIEFS — living (updated by Clerk each session)
 
@@ -23,55 +23,50 @@ Totals: 325 concepts (96 with attempt history + 229 paused) — aiefs 27 · paus
 | Adam (adaptive moments) | procedure | fuzzy |  | 2026-11-08 | Learning System/Reviews/Review — Adam (adaptive moments) — 2026-11-08.md |
 | Bits vs Nats | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Bits vs Nats — 2026-11-04.md |
 | Chain Rule for Neural Networks | procedure | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Chain Rule for Neural Networks — 2026-10-20.md |
-| Constrained Decoding (parser-state masking) | concept | fuzzy |  | 2026-11-09 | last reviewed 2026-11-09 |
+| Conditional Independence | concept | fuzzy |  | 2026-11-08 | Learning System/Reviews/Review — Conditional Independence — 2026-11-08.md |
+| Conjugate Priors | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Conjugate Priors — 2026-11-04.md |
+| Constrained Decoding (parser-state masking) | concept | fuzzy |  | 2026-11-11 | last reviewed 2026-11-11 |
 | Cosine Similarity | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Cosine Similarity — 2026-10-20 (II).md |
 | Entropy (Average Surprise) | concept | fuzzy |  | 2026-11-04 | Learning System/Reviews/Review — Entropy (Average Surprise) — 2026-11-04.md |
 | KL Divergence | concept | fuzzy |  | 2026-10-22 | Learning System/Reviews/Review — KL Divergence — 2026-10-22.md |
+| Laplace Smoothing | concept | fuzzy |  | 2026-10-22 | Learning System/Reviews/Review — Laplace Smoothing — 2026-10-22.md |
 | Learning-rate Schedules (four types) | concept | fuzzy |  | 2026-11-08 | Learning System/Reviews/Review — Learning-rate Schedules (four types) — 2026-11-08.md |
+| Likelihood | concept | fuzzy |  | 2026-10-09 | Learning System/Reviews/Review — Likelihood — 2026-10-09.md |
 | Mini-batch Noise (two effects) | concept | fuzzy |  | 2026-10-17 | Learning System/Reviews/Review — Mini-batch Noise (two effects) — 2026-10-17.md |
 | Mutual Information | concept | fuzzy |  | 2026-09-28 | Learning System/Reviews/Review — Mutual Information — 2026-09-28.md |
+| Naive Bayes | concept | fuzzy |  | 2026-10-09 | Learning System/Reviews/Review — Naive Bayes — 2026-10-09.md |
 | Optimizer Selection (Rohit heuristic) | concept | fuzzy |  | 2026-11-08 | Learning System/Reviews/Review — Optimizer Selection (Rohit heuristic) — 2026-11-08.md |
+| PCA (Dimensionality Reduction) | concept | fuzzy |  | 2026-10-23 | last reviewed 2026-10-23 |
 | Perplexity | concept | fuzzy |  | 2026-10-03 | Learning System/Reviews/Review — Perplexity — 2026-10-03.md |
 | PMF vs PDF | concept | fuzzy |  | 2026-11-08 | Learning System/Reviews/Review — PMF vs PDF — 2026-11-08.md |
 | Prompt Engineering | concept | fuzzy |  | 2026-10-29 | last reviewed 2026-10-29 |
 | Saddle Points (critical point triage) | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Saddle Points (critical point triage) — 2026-10-20 (II).md |
+| Sequential Bayesian Updating | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Sequential Bayesian Updating — 2026-10-20.md |
 | Softmax Subtract-Max Trick | procedure | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Softmax Subtract-Max Trick — 2026-10-20.md |
+| Software Architecture — intro | concept | fuzzy |  | 2026-11-06 | last reviewed 2026-11-06 |
+| Structured Outputs (JSON contract) | concept | fuzzy |  | 2026-11-11 | last reviewed 2026-11-11 |
+| UMAP (Dimensionality Reduction) | concept | fuzzy | t-SNE (Dimensionality Reduction): neutral | 2026-10-19 | last reviewed 2026-10-19 |
+| Variance & Covariance | concept | fuzzy |  | 2026-10-20 | Learning System/Reviews/Review — Variance & Covariance — 2026-10-20 (II).md |
 | 4-Layer AI Environment Stack | concept | neutral |  | 2026-10-03 | Learning System/Reviews/Review — 4-Layer AI Environment Stack — 2026-10-03.md |
+| Base Rate Fallacy | concept | neutral |  | 2026-10-05 | Learning System/Reviews/Review — Base Rate Fallacy — 2026-10-05.md |
+| Bayes' Theorem | concept | solid |  | 2026-10-20 | Learning System/Reviews/Review — Bayes' Theorem — 2026-10-20.md |
+| Bayesian A/B Testing | concept | neutral |  | 2026-10-05 | last reviewed 2026-10-05 |
 | Cross-Entropy from NLL | concept | neutral |  | 2026-09-23 | Learning System/Reviews/Review — Cross-Entropy from NLL — 2026-09-23.md |
+| Curse of dimensionality | concept | solid |  | 2026-10-10 | Learning System/Reviews/Review — Curse of dimensionality — 2026-10-10.md |
+| Eigenvalues & Eigenvectors | concept | neutral |  | 2026-10-03 | Learning System/Archive/AIE-2026-07-28/reviews/Review — Eigenvalues & Eigenvectors — 2026-07-16.md |
 | Gradient Descent (vanilla) | procedure | solid |  | 2026-10-10 | Learning System/Reviews/Review — Gradient Descent (vanilla) — 2026-10-10.md |
 | Gradient Descent Failure Modes (zigzag vs overshoot) | concept | solid |  | 2026-10-02 | Learning System/Reviews/Review — Gradient Descent Failure Modes (zigzag vs overshoot) — 2026-10-02.md |
 | Information Content (Surprise) | concept | solid |  | 2026-10-11 | Learning System/Reviews/Review — Information Content (Surprise) — 2026-10-11.md |
 | JSON Schema Validation & Retry (Pydantic + Instructor) | concept | neutral |  | 2026-11-09 | last reviewed 2026-11-09 |
 | Label Smoothing | concept | neutral |  | 2026-10-02 | Learning System/Reviews/Review — Label Smoothing — 2026-10-02.md |
 | Learning Rate | concept | neutral |  | 2026-09-23 | Learning System/Reviews/Review — Learning Rate — 2026-09-23.md |
+| MLE vs MAP Estimation | concept | neutral |  | 2026-09-30 | Learning System/Reviews/Review — MLE vs MAP Estimation — 2026-09-30.md |
 | Momentum (SGD with Momentum) | procedure | solid |  | 2026-10-17 | Learning System/Reviews/Review — Momentum (SGD with Momentum) — 2026-10-17.md |
-| Structured Outputs (JSON contract) | concept | neutral |  | 2026-11-09 | last reviewed 2026-11-09 |
-| Variation of Information | concept | neutral |  | 2026-09-24 | last reviewed 2026-09-24 |
-
-## Paused — outside the AIE 80/20 sprint (archived 2026-11-11)
-
-| Concept | Type | Tag | Prereqs | Last evidenced | Evidence |
-| --- | --- | --- | --- | --- | --- |
-| Conditional Independence | concept | fuzzy |  | 2026-11-08 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Conditional Independence — 2026-11-08.md |
-| Laplace Smoothing | concept | fuzzy |  | 2026-10-22 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Laplace Smoothing — 2026-10-22.md |
-| Naive Bayes | concept | fuzzy |  | 2026-10-09 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Naive Bayes — 2026-10-09.md |
-| Sequential Bayesian Updating | concept | fuzzy |  | 2026-10-20 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Sequential Bayesian Updating — 2026-10-20.md |
-| Software Architecture — intro | concept | fuzzy |  | 2026-11-06 | last reviewed 2026-11-06 |
-| UMAP (Dimensionality Reduction) | concept | fuzzy | t-SNE (Dimensionality Reduction): neutral | 2026-10-19 | last reviewed 2026-10-19 |
-| Base Rate Fallacy | concept | neutral |  | 2026-10-05 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Base Rate Fallacy — 2026-10-05.md |
-| Bayes' Theorem | concept | solid |  | 2026-10-20 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Bayes' Theorem — 2026-10-20.md |
-| Bayesian A/B Testing | concept | neutral |  | 2026-10-05 | last reviewed 2026-10-05 |
-| Conjugate Priors | concept | neutral |  | 2026-11-04 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Conjugate Priors — 2026-11-04.md |
-| Curse of dimensionality | concept | solid |  | 2026-10-10 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Curse of dimensionality — 2026-10-10.md |
-| Eigenvalues & Eigenvectors | concept | neutral |  | 2026-10-03 | Learning System/Archive/AIE-2026-07-28/reviews/Review — Eigenvalues & Eigenvectors — 2026-07-16.md |
-| Likelihood | concept | neutral |  | 2026-10-09 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Likelihood — 2026-10-09.md |
-| MLE vs MAP Estimation | concept | neutral |  | 2026-09-30 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — MLE vs MAP Estimation — 2026-09-30.md |
-| PCA (Dimensionality Reduction) | concept | neutral |  | 2026-10-23 | last reviewed 2026-10-23 |
-| Posterior Probability | concept | solid |  | 2026-10-08 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Posterior Probability — 2026-10-08.md |
-| Prior Probability | concept | solid |  | 2026-10-17 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Prior Probability — 2026-10-17.md |
+| Posterior Probability | concept | solid |  | 2026-10-08 | Learning System/Reviews/Review — Posterior Probability — 2026-10-08.md |
+| Prior Probability | concept | solid |  | 2026-10-17 | Learning System/Reviews/Review — Prior Probability — 2026-10-17.md |
 | Software Architecture — failure-list placement of 'non-functional' | concept | neutral |  | 2026-11-06 | last reviewed 2026-11-06 |
 | t-SNE (Dimensionality Reduction) | concept | neutral | KL Divergence: fuzzy | 2026-10-12 | last reviewed 2026-10-12 |
-| Variance & Covariance | concept | neutral |  | 2026-10-20 | Learning System/Archive/AIE-sprint-2026-11-11/reviews/Review — Variance & Covariance — 2026-10-20 (II).md |
+| Variation of Information | concept | neutral |  | 2026-09-24 | last reviewed 2026-09-24 |
 
 ## SWE era — frozen 2026-09-01 (see `Archive/SWE-2026-09-01/`)
 

@@ -1256,7 +1256,7 @@
       "consecutive_correct": 3,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-20",
-      "next_review": "paused",
+      "next_review": "2026-11-19",
       "feynman": "pass"
     },
     "Prior Probability": {
@@ -1287,7 +1287,7 @@
       "consecutive_correct": 3,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-17",
-      "next_review": "paused",
+      "next_review": "2026-11-16",
       "feynman": "pass"
     },
     "Likelihood": {
@@ -1350,7 +1350,7 @@
       "consecutive_correct": 1,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-09",
-      "next_review": "paused",
+      "next_review": "2026-11-08",
       "feynman": "pass"
     },
     "Posterior Probability": {
@@ -1397,7 +1397,7 @@
       "consecutive_correct": 2,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-08",
-      "next_review": "paused",
+      "next_review": "2026-11-07",
       "feynman": "pass"
     },
     "Base Rate Fallacy": {
@@ -1438,7 +1438,7 @@
       "consecutive_correct": 2,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-05",
-      "next_review": "paused",
+      "next_review": "2026-11-04",
       "feynman": "fail"
     },
     "Naive Bayes": {
@@ -1493,7 +1493,7 @@
       "consecutive_correct": 0,
       "consecutive_wrong": 1,
       "last_reviewed": "2026-10-09",
-      "next_review": "paused",
+      "next_review": "2026-10-23",
       "feynman": "fail"
     },
     "Laplace Smoothing": {
@@ -1524,7 +1524,7 @@
       "consecutive_correct": 0,
       "consecutive_wrong": 1,
       "last_reviewed": "2026-10-22",
-      "next_review": "paused",
+      "next_review": "2026-11-05",
       "feynman": "pass"
     },
     "Conditional Independence": {
@@ -1613,7 +1613,7 @@
       "consecutive_correct": 0,
       "consecutive_wrong": 2,
       "last_reviewed": "2026-11-08",
-      "next_review": "paused",
+      "next_review": "2026-11-11",
       "feynman": "pass"
     },
     "MLE vs MAP Estimation": {
@@ -1654,7 +1654,7 @@
       "consecutive_correct": 2,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-09-30",
-      "next_review": "paused",
+      "next_review": "2026-10-30",
       "feynman": "fail"
     },
     "Conjugate Priors": {
@@ -1735,7 +1735,7 @@
       "consecutive_correct": 2,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-11-04",
-      "next_review": "paused",
+      "next_review": "2026-12-04",
       "feynman": "fail"
     },
     "Bayesian A/B Testing": {
@@ -1770,7 +1770,7 @@
       "consecutive_correct": 2,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-05",
-      "next_review": "paused",
+      "next_review": "2026-11-04",
       "feynman": null
     },
     "Adam (adaptive moments)": {
@@ -1967,7 +1967,7 @@
       "consecutive_correct": 0,
       "consecutive_wrong": 2,
       "last_reviewed": "2026-10-20",
-      "next_review": "paused",
+      "next_review": "2026-10-27",
       "feynman": null
     },
     "Saddle Points (critical point triage)": {
@@ -2735,7 +2735,7 @@
       "consecutive_correct": 6,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-03",
-      "next_review": "paused",
+      "next_review": "2026-11-02",
       "feynman": null
     },
     "Variance & Covariance": {
@@ -2814,7 +2814,7 @@
       "consecutive_correct": 3,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-20",
-      "next_review": "paused",
+      "next_review": "2026-11-19",
       "feynman": null
     },
     "t-SNE (Dimensionality Reduction)": {
@@ -2881,7 +2881,7 @@
       "consecutive_correct": 7,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-12",
-      "next_review": "paused",
+      "next_review": "2026-11-11",
       "feynman": null,
       "prereqs": [
         "KL Divergence"
@@ -2911,7 +2911,7 @@
       "consecutive_correct": 2,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-10",
-      "next_review": "paused",
+      "next_review": "2026-11-09",
       "feynman": "pass"
     },
     "PCA (Dimensionality Reduction)": {
@@ -3158,7 +3158,7 @@
       "consecutive_correct": 1,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-10-23",
-      "next_review": "paused",
+      "next_review": "2026-11-22",
       "feynman": null
     },
     "UMAP (Dimensionality Reduction)": {
@@ -3305,7 +3305,7 @@
       "consecutive_correct": 0,
       "consecutive_wrong": 1,
       "last_reviewed": "2026-10-19",
-      "next_review": "paused",
+      "next_review": "2026-11-02",
       "feynman": null,
       "prereqs": [
         "t-SNE (Dimensionality Reduction)"
@@ -3586,7 +3586,7 @@
       "consecutive_correct": 1,
       "consecutive_wrong": 0,
       "last_reviewed": "2026-11-06",
-      "next_review": "paused",
+      "next_review": "2026-11-13",
       "feynman": null
     },
     "Software Architecture — intro": {
@@ -3613,7 +3613,7 @@
       "consecutive_correct": 0,
       "consecutive_wrong": 1,
       "last_reviewed": "2026-11-06",
-      "next_review": "paused",
+      "next_review": "2026-11-09",
       "feynman": null
     },
     "Structured Outputs (JSON contract)": {
@@ -3625,13 +3625,146 @@
           "result": "pass",
           "q_type": "free-recall",
           "confidence": "sure"
+        },
+        {
+          "date": "2026-11-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "sure"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "hunch"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "sure"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure"
         }
       ],
       "interval_index": 1,
       "consecutive_correct": 1,
       "consecutive_wrong": 0,
-      "last_reviewed": "2026-11-09",
-      "next_review": "2026-11-16",
+      "last_reviewed": "2026-11-11",
+      "next_review": "2026-11-18",
       "feynman": null
     },
     "Constrained Decoding (parser-state masking)": {
@@ -3718,13 +3851,100 @@
           "is_correct": false,
           "result": "fail",
           "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-10",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-10",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check",
+          "confidence": "sure"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": false,
+          "result": "fail",
+          "q_type": "micro-check"
+        },
+        {
+          "date": "2026-11-11",
+          "is_correct": true,
+          "result": "pass",
+          "q_type": "micro-check",
+          "confidence": "sure"
         }
       ],
-      "interval_index": 0,
-      "consecutive_correct": 0,
-      "consecutive_wrong": 3,
-      "last_reviewed": "2026-11-09",
-      "next_review": "2026-11-12",
+      "interval_index": 2,
+      "consecutive_correct": 1,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-11",
+      "next_review": "2026-11-25",
       "feynman": null
     },
     "JSON Schema Validation & Retry (Pydantic + Instructor)": {
