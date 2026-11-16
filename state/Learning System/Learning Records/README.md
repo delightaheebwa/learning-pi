@@ -1,19 +1,27 @@
 # Learning Records
 
-ADR-style records that capture demonstrated understanding, disclosed prior knowledge, corrected misconceptions, and mission shifts. They are the ZPD signal used by the `learning-teach` skill to pick what to teach next.
+ADR-style records. Each one captures demonstrated understanding, disclosed prior
+knowledge, corrected misconceptions, or a mission shift. The `learning-teach`
+skill reads these records as its ZPD signal to pick what to teach next.
 
 ## Naming
 
-`0001-<dash-case-name>.md`, incrementing by one (scan for the highest number first).
+`0001-<dash-case-name>.md`, incrementing by one. Scan for the highest number
+first.
 
-## When to write one (trigger)
+## When to write one
 
-1. **Demonstrated genuine understanding** of something non-trivial (retrieval check pass + Feynman explain-back) — sets the new floor.
-2. **Disclosed prior knowledge** during the probe ("I already know X") — record it with the claimed depth.
-3. **Misconception corrected** — highest value; predicts future stumbling blocks.
-4. **The mission shifted** — cross-link to `../MISSION.md` and update it (confirm with user).
+1. The learner demonstrates genuine understanding of something non-trivial,
+   through a retrieval check pass and a Feynman explain-back. This sets the new
+   floor.
+2. The learner discloses prior knowledge during the probe ("I already know X").
+   Record it with the claimed depth.
+3. A misconception is corrected. This trigger has the highest value, because it
+   predicts future stumbling blocks.
+4. The mission shifts. Cross-link to `../MISSION.md` and update that file after
+   you confirm the change with the user.
 
-Not mere coverage. Not duplicate glossary terms.
+Coverage alone is not a trigger, and neither is a duplicate glossary term.
 
 ## Format
 
@@ -27,4 +35,5 @@ Not mere coverage. Not duplicate glossary terms.
 **Implications:** {what this unlocks or rules out next}
 ```
 
-Optional: `Status` frontmatter (mark superseded rather than deleting), `Evidence`, `Implications` — only when they add value.
+The `Status`, `Evidence`, and `Implications` fields are optional. Add each one
+only when it adds value. Mark a record superseded rather than deleting it.

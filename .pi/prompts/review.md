@@ -2,16 +2,37 @@
 description: Run a spaced-repetition review on the active learning track
 ---
 [[FLOW:review]]
+
 Run a spaced-repetition review. Load the `learning-system` skill and follow its Review flow.
 
-First `dispatch` the `review-scout` agent to gather the context and build the due queue; the digest's `queue` is authoritative — use it verbatim and do not rebuild or re-sort it. Derive the active track and position from `Learning System/MISSION.md` and `CURRICULUM.md`; if they disagree, stop and report.
+## Context and queue
 
-Reviews test cue selection and transfer, not recognition: compose **unlabeled, interleaved** items with the **3-line qualitative trace** (cue & principle → mechanism/knob-turn → direction & extreme check). **Terse/keyword lines are the default — form is never graded, content is:** all three lines are still required, and the teach-the-clone item's transcript must carry what it is → when/why it applies → the mechanism in one full causal clause → a failure regime (when it breaks) → the nearest-neighbour contrast. **No MCQs, no calculation/derivation prompts.** Include composite scenarios when the queue has 3+ entries, at least one decoy/near-miss, one perturbation, one misapplication, and the teach-the-clone item above for a `concept`/`design` entry. Before asking a queued concept, run `ops.py prereqs "<concept>"` and defer a downstream item when a direct prerequisite is fuzzy. When the digest's `prior_knowledge` names graph propositions/chains for an item, copy their ids into that question's `targets[]` (never invent ids; omit when none) and carry them onto the grade item and `REVIEW_WRITES.grade_verdicts[].targets`.
+Dispatch `review-scout` first to gather context and build the due queue. The digest's `queue` is authoritative. Use it verbatim. Do not rebuild or re-sort it. Derive the active track and position from `Learning System/MISSION.md` and `Learning System/CURRICULUM.md`. If they disagree, stop and report.
 
-Ask the whole batch in ONE `[[TURN:quiz]]` message and verify it with ONE `quiz-audit` (`context:"review"`, `questions_json` + `rendered_content` = the exact full batch). No visuals until the answers are graded. Grade the reply with the clone phase first (`naive-student` when a teach-the-clone item was answered), then ONE batched `grade-audit` (`items[]` with traces, `pow`, `qtype`, `confidence`, `tutor_turns`, `naive_student_receipt`).
+## Compose the batch
 
-Then present verified feedback (`fact-check` `turn_kind:"grade_feedback"` + `grade_verdicts`, smallest visual that carries it) and **pause for learner questions in the same turn**. Persist nothing until the learner explicitly says "no questions" (silence is not consent). Answer questions through the inquiry loop with verified `answer`/`repair` turns, re-grading any disputed item, then pause again.
+Reviews test cue selection and transfer, not recognition. Use unlabeled, interleaved items with a 3-line qualitative trace: cue and principle, mechanism or knob turn, then direction and extreme check. Terse and keyword lines are the default. Form is never graded; content is. All three lines are still required.
 
-At the close, `dispatch` ONE `review-clerk` (`REVIEW_WRITES` envelope with the exact transcript, verdicts, battery outcomes, `dependency_events`, and mistakes), then ONE `review-session-audit` on the exact writes. A `PASS` releases the verified closing summary; `ISSUES` withholds it until the writes are fixed and a fresh audit returns zero issues — no cycle cap. You write no state yourself.
+For a teach-the-clone item, the transcript must carry what the concept is, when and why it applies, the mechanism in one full causal clause, a failure regime, and the nearest-neighbour contrast.
 
-Begin every assistant message with a turn tag; dispatch each verifier once (`dispatch({ agent, task: { ...envelope... } })`, foreground) and emit the verified draft unchanged.
+Do not use MCQs. Do not use calculation or derivation prompts.
+
+Include composite scenarios when the queue has 3 or more entries, at least one decoy or near miss, one perturbation, one misapplication, and the teach-the-clone item for a `concept` or `design` entry. Before asking a queued concept, run `ops.py prereqs "<concept>"`. Defer a downstream item when a direct prerequisite is fuzzy.
+
+When the digest's `prior_knowledge` names graph propositions or chains for an item, copy their ids into that question's `targets[]`. Never invent ids. Omit the field when there are none. Carry the ids onto the grade item and into `REVIEW_WRITES.grade_verdicts[].targets`.
+
+## Ask, verify, and grade
+
+Ask the whole batch in one `[[TURN:quiz]]` message. Verify it with one `quiz-audit` using `context:"review"`. Send `questions_json` and set `rendered_content` to the exact full batch. Show no visuals until the answers are graded.
+
+When the learner replies, grade the clone phase first with `naive-student` when a teach-the-clone item was answered. Then run one batched `grade-audit` with `items[]` carrying traces, `pow`, `qtype`, `confidence`, `tutor_turns`, and `naive_student_receipt`.
+
+## Feedback and pause
+
+Present verified feedback with `fact-check` (`turn_kind:"grade_feedback"` and `grade_verdicts`). Use the smallest visual that carries it. Pause for learner questions in the same turn. Persist nothing until the learner explicitly says "no questions". Silence is not consent. Answer questions through the inquiry loop with verified `answer` and `repair` turns. Re-grade any disputed item. Then pause again.
+
+## Close
+
+Dispatch one `review-clerk` with a `REVIEW_WRITES` envelope carrying the exact transcript, verdicts, battery outcomes, `dependency_events`, and mistakes. Then dispatch one `review-session-audit` on the exact writes. A `PASS` releases the verified closing summary. An `ISSUES` verdict withholds it until the writes are fixed and a fresh audit returns zero issues. There is no cycle cap. You write no state yourself.
+
+Begin every assistant message with a turn tag. Dispatch each verifier once in the foreground with `dispatch({ agent, task: { ...envelope... } })`. Emit the verified draft unchanged.

@@ -815,4 +815,4 @@ Goal: Capstone Projects — see upstream `phases/19-*/docs/en.md` per lesson. Go
 
 - **Upstream:** https://github.com/rohitg00/ai-engineering-from-scratch — `ROADMAP.md` + `phases/*/docs/en.md` + `phases/*/code/` (MIT). Cached at switch: `main` 2026-09-01 (~323h, 20 phases, 523 lessons).
 - **Previous roadmap archived:** `Learning System/Archive/CURRICULUM — SWE Primary Colors — archived 2026-09-01.md` + `Learning System/Archive/MISSION — SWE Stage 0 — archived 2026-09-01.md` + wiki banner.
-- **Environment note (Docker Desktop Windows-side, separate from WSL):** OpenWebUI base URL inside WSL is `http://host.docker.internal:3000` (not `localhost:3000`); workspace repo at `/home/user/learning-system` (container) vs `/home/delinux/learning-system` (WSL). See `OPENWEBUI.md`.
+- **Environment note:** the learner state and pi layer live in one repo at `~/learning-pi/state`; the optional Open WebUI face is `~/learning-pi/deploy/` (Linux-only) on `127.0.0.1:3000`, fronted by `pi-bridge`. See the root `README.md` + `deploy/README.md`.

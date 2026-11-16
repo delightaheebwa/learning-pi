@@ -1,6 +1,9 @@
 # omarchy/
 
-Omarchy review integration: `local.pi-review` bar widget + desktop reminder + systemd timer.
+Omarchy review integration: a `local.pi-review` bar widget, a desktop reminder,
+and a systemd timer.
 
-- Install: `~/learning-pi/omarchy/install.sh`.
-- Status via shared `bin/pi-review-status` (calendar-date match; visible 18:00–03:59; `missed` from 23:00).
+- To install, run `~/learning-pi/omarchy/install.sh`.
+- The shared `bin/pi-review-status` reports review status. It matches the
+  calendar date, sets `visible` from 18:00 to 03:59, and sets `missed` from
+  23:00.

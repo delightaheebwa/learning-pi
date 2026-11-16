@@ -32,8 +32,8 @@ The learning loop (OpenWebUI: Scout → Tutor → Clerk) adapts to upstream chan
 - Guided Socratic questioning (never pure Socratic — resolve confusion immediately).
 - Push toward higher-order thinking (Bloom), phase-mapped; lessons short and completable.
 - Advancement only after practice + retrieval check + Feynman explain-back (Learning Record).
-- Local-first repo (`/home/user/learning-system` in container, `/home/delightaheebwa/learning-system` in WSL on this host); OpenWebUI is the frozen legacy control layer, pi is canonical.
-- OpenWebUI runs in **Docker Desktop on Windows side, separate from WSL** — UI at `http://localhost:3000` from Windows/WSL/browsers (container-to-container uses service names / `host.docker.internal`); `~/.git-credentials` lives in Open Terminal volume. See `OPENWEBUI.md` + `infra/ACCESS.md`.
+- Single repo: `~/learning-pi`, with this state under `~/learning-pi/state` (remote https://github.com/delightaheebwa/learning-pi); OpenWebUI is the frozen legacy control layer, pi is canonical.
+- The optional Open WebUI face is `~/learning-pi/deploy/` (Linux-only), published on `127.0.0.1:3000`; it holds chat transcripts only. See the root `README.md` + `deploy/README.md`.
 - Archived SWE Primary Colors roadmap is paused and strictly out of scope for Scout/Tutor grep (see `📦 Concept Archive.md`).
 
 ## Out of scope

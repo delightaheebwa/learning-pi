@@ -1,31 +1,59 @@
-# 📚 Learning System (canonical: pi · Open WebUI frozen)
+# Learning System
 
-A local-first, spaced-repetition learning system that turns your assistant into a rigorous tutor. It forces retrieval instead of passive reading, checks prerequisites, and preserves memory across sessions. Originally built with Zo + Obsidian; Open WebUI path frozen — canonical runtime is **pi** (`learning-pi`).
+This is a local-first spaced-repetition learning system that turns your
+assistant into a rigorous tutor. It forces retrieval instead of passive reading,
+checks prerequisites, and preserves memory across sessions. It was originally
+built with Zo and Obsidian. The Open WebUI path is frozen, and the canonical
+runtime is pi in `learning-pi`.
 
 ## How it works
 
-Say `/review`, `/ingest`, `/teach`, `/lesson`, `/continue`, or `/pause` — the assistant runs the pi **`learning-system`** skill (legacy Open WebUI copy: `Skills/learning-system`), which handles reviews, ingestion, and the writes below. The review gate is a review-gate subagent task (runs after standalone ingests AND at lesson end when a lesson wrote wiki content); teaching verification uses batched fact-check subagent tasks; question batches (probe and end-of-lesson quiz) are audited by quiz-audit subagent tasks before the learner sees them. Verifiers run on the **calling preset's own base model** (Open WebUI has no separate verifier-model setting — see `OPENWEBUI.md`) — enforcement rests on the deterministic Pipe checks.
+Say `/review`, `/solo`, `/ingest`, `/teach`, `/lesson`, `/continue`, `/pause`, or
+`/audit`. The assistant then runs the pi `learning-system` skill. The copy under
+`Skills/` is a frozen legacy snapshot. That skill handles reviews, ingestion, and
+the writes listed below.
 
-Agent behavioral conventions (consistency checks, git sync) live in `AGENTS.md`.
+The review gate is a `review-gate` subagent task. It runs after standalone
+ingests, and at lesson end when a lesson wrote wiki content. Teaching
+verification uses batched `fact-check` subagent tasks. `quiz-audit` audits the
+question batches, both probe and end-of-lesson quiz, before the learner sees
+them.
+
+Verifier models are configured in `.pi/settings.json`. The gate requires a
+matching passing receipt, and it does not depend on model separation. See the
+root `README.md` and `FIELD-GUIDE.md`.
+
+Agent behavioral conventions, including the consistency checks and git sync,
+live in `AGENTS.md`.
 
 ## Layout
 
-- `Core/` — live state: `💡 Learning Profile.md`, `📚 Active Concepts.md` (the review schedule), `Attempts.json` (mastery sidecar), `🧯 Mistakes.md`, `Learner History.md` (generated), `📦 Concept Archive.md`, session/review templates (`📖 Scripture Memory.md` archived 2026-09-08 to `Archive/frozen/`)
-- `Sessions/` — session notes
-- `Reviews/` — review notes (incl. `Quality Gates/`, `Session Audits/`)
-- `Lessons/` — lesson files (5 live)
-- `Learning Records/` — numbered records (ADR-style)
-- `Concept Notes/` — archived stub (frozen 2026-09-08, do not add)
-- `build-artifacts/` — built lesson artifacts (e.g. optimizers)
-- `.tmp/` — ephemeral Scout digests (gitignored, 7-day TTL)
-- `Archive/` — reference-only historical material
-- `Knowledge Wiki/` (sibling folder) — curated wiki pages, `index.md`, `log.md`
-- `Skills/` (repo root) — FROZEN Open WebUI snapshot: `learning-system`, `learning-teach`, `learning-review` (quality gate), `llm-wiki` (+ `learning-review/openwebui/` gate files)
+- `Core/` holds live state: `💡 Learning Profile.md`, `📚 Active Concepts.md`
+  for the review schedule, `Attempts.json` as the mastery sidecar,
+  `🧯 Mistakes.md`, the generated `Learner History.md`, `📦 Concept Archive.md`,
+  and the session and review templates. `📖 Scripture Memory.md` was archived on
+  2026-09-08 to `Archive/frozen/`.
+- `Sessions/` holds session notes.
+- `Reviews/` holds review notes, including `Quality Gates/` and
+  `Session Audits/`.
+- `Lessons/` holds lesson files, with 5 live.
+- `Learning Records/` holds numbered records in ADR style.
+- `Concept Notes/` is an archived stub, frozen on 2026-09-08. Do not add to it.
+- `build-artifacts/` holds built lesson artifacts, for example optimizers.
+- `.tmp/` holds ephemeral Scout digests. It is gitignored and has a 7-day TTL.
+- `Archive/` holds reference-only historical material.
+- `Knowledge Wiki/` is the sibling folder with curated wiki pages, `index.md`,
+  and `log.md`.
+- `state/Skills/` is the frozen Open WebUI snapshot: `learning-system`,
+  `learning-teach`, `learning-review` as the quality gate, and `llm-wiki`, plus
+  the `learning-review/openwebui/` gate files.
 
 ## Principles
 
-- Clarity is not comprehension
-- Prerequisites come first
-- Retrieval beats recognition
-- Open questions stay open until resolved
-- Active Concepts is the persistent memory
+The system follows these principles:
+
+- Clarity is not comprehension.
+- Prerequisites come first.
+- Retrieval beats recognition.
+- Open questions stay open until resolved.
+- Active Concepts is the persistent memory.

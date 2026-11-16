@@ -10,6 +10,10 @@ CURRENT = [
     "docs/teaching-methodology.md", "bridge/README.md", "deploy/README.md",
     "deploy/SECURITY.md", "harness/README.md", "bin/README.md",
     "omarchy/README.md", "state/README.md",
+    "state/AGENTS.md", "state/OPENWEBUI.md",
+    "state/infra/ACCESS.md", "state/infra/VERSIONS.md",
+    "state/Learning System/AGENTS.md", "state/Learning System/README.md",
+    "state/Knowledge Wiki/AGENTS.md",
 ]
 for base in (".pi",):
     CURRENT += sorted(
@@ -18,6 +22,10 @@ for base in (".pi",):
 
 BANNED = (
     "~/learning-system",
+    "git@github.com:delightaheebwa/learning-system",
+    "delightaheebwa/learning-system.git",
+    "/home/user/learning-system",
+    "/home/delightaheebwa/learning-system",
     "bridge/genui.py",
     "v12, 72",
     "72 invariants",

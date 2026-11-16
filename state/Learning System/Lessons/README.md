@@ -1,12 +1,17 @@
 # Lessons
 
-Live teaching artifacts produced by the `learning-teach` skill. One markdown file per tangible-win unit, written after (or during) a teaching walkthrough — the durable record of the lesson, not the source.
+Live teaching artifacts from the `learning-teach` skill. Each tangible-win unit
+gets one markdown file, which the tutor writes after or during a teaching
+walkthrough. The file is the durable record of the lesson, not the lesson's
+source.
 
 ## Naming
 
 `Lesson — <slug> — <YYYY-MM-DD>.md`
 
-## Template (what a lesson file contains)
+## Template
+
+A lesson file contains these sections.
 
 ```md
 # <Title>
@@ -30,4 +35,4 @@ Link/pointer to `../Learning Records/<NNNN-slug>.md` (Feynman explain-back + Blo
 The next curriculum lesson (per CURRICULUM.md rotation).
 ```
 
-Writes to the Knowledge Wiki happen separately (reference pages), never inline in lessons.
+Knowledge Wiki pages are written separately, never inline in lessons.
