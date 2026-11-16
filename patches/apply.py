@@ -43,6 +43,20 @@ DOCS_NOTE = (
     "personas here are composed by the parent agent with `Task` calls.\n\n"
 )
 
+DOCS_HANDOFF_ANCHOR = "## Prose Review\n"
+DOCS_HANDOFF_NOTE = (
+    "> **Project note:** This skill owns what to record, which file and "
+    "template, and which facts survive. The style pass on the prose belongs to "
+    "`technical-writing` and `unslop` in `.agents/skills/`, managed by "
+    "`skills-lock.json`. Draft inside the templates here, then run "
+    "`technical-writing`, then `unslop`. Keep ADR and README headings, status "
+    "lines, tables, and telegraphic bullets as these templates define them; "
+    "they are structure, not prose. Where `unslop` and `technical-writing` "
+    "disagree on punctuation, `unslop` runs last and wins. No style pass may "
+    "invent a fact or guarantee the draft does not support. See AGENTS.md, "
+    "\"Doc work: who owns what\".\n\n"
+)
+
 REPLACEMENTS = (
     ("skills/spec-driven-development/SKILL.md", SPEC_OLD, SPEC_NEW),
     ("docs/opencode-setup.md", SETUP_OLD, SETUP_NEW),
@@ -68,6 +82,33 @@ for relative, old, new in REPLACEMENTS:
             file=sys.stderr,
         )
         failed = True
+
+docs_skill = (
+    ROOT / ".opencode" / "skills" / "documentation-and-adrs" / "SKILL.md"
+)
+if docs_skill.is_file():
+    text = docs_skill.read_text()
+    if DOCS_HANDOFF_NOTE in text:
+        print(f"already applied {docs_skill.relative_to(ROOT)}")
+    elif DOCS_HANDOFF_ANCHOR in text:
+        docs_skill.write_text(
+            text.replace(
+                DOCS_HANDOFF_ANCHOR,
+                DOCS_HANDOFF_NOTE + DOCS_HANDOFF_ANCHOR,
+                1,
+            )
+        )
+        print(f"patched {docs_skill.relative_to(ROOT)}")
+    else:
+        print(
+            f"FAIL {docs_skill.relative_to(ROOT)}: handoff anchor not found; "
+            "upstream text moved, reconcile patches/apply.py",
+            file=sys.stderr,
+        )
+        failed = True
+else:
+    print(f"FAIL {docs_skill.relative_to(ROOT)}: missing", file=sys.stderr)
+    failed = True
 
 docs_agents = ROOT / ".opencode" / "docs" / "agents.md"
 if docs_agents.is_file():

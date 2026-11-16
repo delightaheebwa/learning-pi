@@ -26,6 +26,10 @@ fails loudly if upstream has moved the target text.
    which is not vendored.
 3. `docs/agents.md` — prepended a note that its lifecycle slash commands were
    not adopted here and that personas are composed by the parent agent.
+4. `skills/documentation-and-adrs/SKILL.md` — prepended a handoff note to the
+   Prose Review section. It assigns content, templates, and factual
+   preservation to this skill, and the style pass to the CLI-managed
+   `technical-writing` and `unslop` skills in `.agents/skills/`.
 
 ## Project-owned (never overwritten by a sync)
 

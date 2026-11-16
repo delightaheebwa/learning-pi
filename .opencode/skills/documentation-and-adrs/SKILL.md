@@ -257,6 +257,8 @@ Special consideration for AI agent context:
 - **ADRs** — Help agents understand why past decisions were made (prevents re-deciding)
 - **Inline gotchas** — Prevent agents from falling into known traps
 
+> **Project note:** This skill owns what to record, which file and template, and which facts survive. The style pass on the prose belongs to `technical-writing` and `unslop` in `.agents/skills/`, managed by `skills-lock.json`. Draft inside the templates here, then run `technical-writing`, then `unslop`. Keep ADR and README headings, status lines, tables, and telegraphic bullets as these templates define them; they are structure, not prose. Where `unslop` and `technical-writing` disagree on punctuation, `unslop` runs last and wins. No style pass may invent a fact or guarantee the draft does not support. See AGENTS.md, "Doc work: who owns what".
+
 ## Prose Review
 
 After checking the technical content, review the prose for the people who will use it. Clearer wording must not change the decision or its limits.

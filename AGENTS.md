@@ -21,6 +21,9 @@ source-of-truth map.
 - `.opencode/` — the vendored agent-skills pack (25 skills, 4 personas). It is
   pinned; update it with `scripts/skills-sync.sh`, not by hand-editing vendored
   files. Its guard scripts live in `scripts/`.
+- `.agents/skills/` — two CLI-managed skills from
+  `michael-denyer/pstack-claude`, pinned by `skills-lock.json`. Update them with
+  `npx skills update -p -y` and commit the result, not by hand-editing them.
 - `contracts/` + `CONTRACT.md` — product behavior invariants, **frozen**. They
   change only through the revise door. Never edit `CONTRACT.md`, `contracts/`,
   or `test/` to make a change pass, and never restate the JSON's version,
@@ -40,13 +43,34 @@ source-of-truth map.
 Skills live in `.opencode/skills/` and OpenCode advertises them natively from
 their descriptions; that is the only router. Load the skill that matches the
 task; do not preload the whole pack. Start with `using-agent-skills` only when
-the task is ambiguous. Typical chains:
+the task is ambiguous. Two more skills, `technical-writing` and `unslop`, live
+in `.agents/skills/` and are managed by `skills-lock.json`. Typical chains:
 
 - Feature: `spec-driven-development` → `planning-and-task-breakdown` →
   `incremental-implementation` + `test-driven-development` →
   `code-review-and-quality`.
 - Bug: `debugging-and-error-recovery` → `test-driven-development` →
   `code-review-and-quality`.
+- Prose: draft the doc → `technical-writing` → `unslop`.
+
+### Doc work: who owns what
+
+All three doc skills can match the same task. Split the work by concern, not by
+trigger, in this order:
+
+1. `documentation-and-adrs` decides what to record, which file and template,
+   and which facts and caveats must survive. Follow its templates.
+2. Draft the prose inside that structure.
+3. `technical-writing` refines structure and sentences. Run it on the draft.
+4. `unslop` runs last and strips AI tells. Where it disagrees with
+   `technical-writing` on punctuation, unslop wins because it is the final
+   pass.
+
+ADR and README headings, status lines, tables, and telegraphic bullets are
+template structure, not prose. Keep them as the templates define them and apply
+the style passes only to the prose written inside them. No style pass may
+invent a fact or guarantee the draft does not support. The same handoff is
+noted in `.opencode/skills/documentation-and-adrs/SKILL.md`.
 
 Read `CONSTRAINTS.md` before writing code. Do not weaken it to make a change
 pass. It is the engineering bar; `CONTRACT.md` is the product bar. They are

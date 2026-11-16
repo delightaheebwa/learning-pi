@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "skills": {
+    "technical-writing": {
+      "source": "michael-denyer/pstack-claude",
+      "commit": "a12b04786023e762f12f5de7bb5fafb8c23f8c36",
+      "sourceType": "github",
+      "skillPath": "plugins/pstack/skills/technical-writing/SKILL.md",
+      "computedHash": "a38ab910f132d6fbbf7249f46488238aa3032405b1f31ad2f3c7352fe5ca2d16"
+    },
+    "unslop": {
+      "source": "michael-denyer/pstack-claude",
+      "commit": "a12b04786023e762f12f5de7bb5fafb8c23f8c36",
+      "sourceType": "github",
+      "skillPath": "plugins/pstack/skills/unslop/SKILL.md",
+      "computedHash": "bd12759050c0ec80aa342ec1499727bd1989b2efb731f36e7ed83869eee7f781"
+    }
+  }
+}
