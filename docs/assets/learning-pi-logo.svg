@@ -1,12 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1222 358" width="1222" height="358" role="img" aria-label="learning-pi: an AI tutor that teaches and remembers">
-  <rect width="1222" height="358" fill="#ffffff"/>
-  <g>
-    <path fill="#E78C7F" d="M98 40 H334 a12 12 0 0 1 12 12 V198 H266 V119 H98 a12 12 0 0 1 -12 -12 V52 a12 12 0 0 1 12 -12 Z"/>
-    <path fill="#3E8BA8" d="M86 119 H166 V162 H226 V236 H166 V299 H86 Z"/>
-    <rect x="266" y="198" width="80" height="59" fill="#E7B84B"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">learning-pi logo</title>
+  <desc id="desc">A geometric three-part mark in coral, blue and amber, paired with the learning-pi wordmark.</desc>
+  <rect width="1200" height="420" fill="#FFFFFF"/>
+  <g transform="translate(52 42)">
+    <!-- Three interlocking learning blocks; the open centre suggests a path through the system. -->
+    <path d="M34 0H272Q286 0 286 14V190H210V76H34Z" fill="#F27F72"/>
+    <path d="M34 76H110V152H172V228H110V304H34Z" fill="#4599B8"/>
+    <path d="M210 190H286V304H210Z" fill="#F2BD55"/>
+    <!-- Small, deliberate corner softening keeps the geometry friendly at app-icon scale. -->
+    <path d="M34 0H272Q286 0 286 14V190H210V76H34Z" fill="none" stroke="#FFFFFF" stroke-opacity=".20" stroke-width="3"/>
   </g>
-  <g font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif">
-    <text x="410" y="215" font-size="104" font-weight="700" fill="#1C2B3A" letter-spacing="-2">learning<tspan fill="#E78C7F" dx="14">-pi</tspan></text>
-    <text x="414" y="265" font-size="26" font-weight="600" fill="#6C8399" letter-spacing="5">AN AI TUTOR THAT TEACHES AND REMEMBERS</text>
+  <g font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-weight="650" letter-spacing="-3">
+    <text x="405" y="238" font-size="112" fill="#182B3A">learning</text>
+    <text x="890" y="238" font-size="112" fill="#F27F72">-pi</text>
   </g>
+  <text x="412" y="294" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="500" letter-spacing="4" fill="#647887">AN AI TUTOR THAT TEACHES AND REMEMBERS</text>
 </svg>
