@@ -10,7 +10,7 @@ This file maps the docs in this repo. Read it before any other doc.
 | What "good enough to ship" means, and what must not be weakened in a diff | `CONSTRAINTS.md` |
 | How to verify a change | `scripts/learn-check`, `scripts/check-docs`, `scripts/check-skills`, and `scripts/floor-guard.mjs` |
 | How to work in this repo | `AGENTS.md` |
-| What the system is and how to set it up | `README.md` |
+| What the system is and how to set it up | `README.md` and `docs/setup.md` |
 | Current teaching method | `docs/teaching-methodology.md` |
 
 `contracts/learning-core.json` is the authoritative invariant set. The file's
@@ -30,6 +30,7 @@ which also runs the `harness/` suite. CI also runs `scripts/check-docs`,
 | `FIELD-GUIDE.md` | Day-to-day operator reference and failure diagnosis. |
 | `CONTRACT.md` | Prose statement of the behavior contract and the two-door change rule. |
 | `docs/README.md` | This index. |
+| `docs/setup.md` | Per-platform setup, PATH, and clone/SSH notes. |
 | `docs/teaching-methodology.md` | Current LearnHarness-hybrid teaching method. |
 | `docs/adr/ADR-0001-transcript-parsing.md` | Decision to keep the two transcript readers separate. |
 | `docs/adr/ADR-0002-agent-skills-adoption.md` | Why the agent-skills pack is vendored under `.opencode/`. |

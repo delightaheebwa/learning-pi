@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1222 358" width="1222" height="358" role="img" aria-label="learning-pi: an AI tutor that teaches and remembers">
+  <rect width="1222" height="358" fill="#ffffff"/>
+  <g>
+    <path fill="#E78C7F" d="M98 40 H334 a12 12 0 0 1 12 12 V198 H266 V119 H98 a12 12 0 0 1 -12 -12 V52 a12 12 0 0 1 12 -12 Z"/>
+    <path fill="#3E8BA8" d="M86 119 H166 V162 H226 V236 H166 V299 H86 Z"/>
+    <rect x="266" y="198" width="80" height="59" fill="#E7B84B"/>
+  </g>
+  <g font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="410" y="215" font-size="104" font-weight="700" fill="#1C2B3A" letter-spacing="-2">learning<tspan fill="#E78C7F" dx="14">-pi</tspan></text>
+    <text x="414" y="265" font-size="26" font-weight="600" fill="#6C8399" letter-spacing="5">AN AI TUTOR THAT TEACHES AND REMEMBERS</text>
+  </g>
+</svg>

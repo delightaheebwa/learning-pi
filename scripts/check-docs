@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 CURRENT = [
     "README.md", "FIELD-GUIDE.md", "CONTRACT.md", "docs/README.md",
-    "docs/teaching-methodology.md", "bridge/README.md", "deploy/README.md",
+    "docs/setup.md", "docs/teaching-methodology.md", "bridge/README.md", "deploy/README.md",
     "deploy/SECURITY.md", "harness/README.md", "bin/README.md",
     "omarchy/README.md", "state/README.md",
     "state/AGENTS.md", "state/OPENWEBUI.md",
