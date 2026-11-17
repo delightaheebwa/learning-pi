@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/learning-pi-logo.svg" alt="learning-pi: an AI tutor that teaches and remembers" width="610">
+  <img src="docs/assets/learning-pi-logo.svg" alt="learning-pi logo with the tagline 'Probe. Verify. Remember.'" width="610">
 </p>
 
 # learning-pi
