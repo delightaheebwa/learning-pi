@@ -34,6 +34,7 @@ which also runs the `harness/` suite. CI also runs `scripts/check-docs`,
 | `docs/teaching-methodology.md` | Current LearnHarness-hybrid teaching method. |
 | `docs/adr/ADR-0001-transcript-parsing.md` | Decision to keep the two transcript readers separate. |
 | `docs/adr/ADR-0002-agent-skills-adoption.md` | Why the agent-skills pack is vendored under `.opencode/`. |
+| `docs/adr/ADR-0003-architecture-seams-and-isolation.md` | Why the modular monolith and its seams stay, and why the learning lock was not narrowed. |
 | `bridge/README.md` | `B-*` bridge invariants. |
 | `deploy/README.md` and `deploy/SECURITY.md` | Docker Open WebUI deployment and its security notes. |
 | `harness/README.md`, `bin/README.md`, `omarchy/README.md` | Per-component guides. |
