@@ -100,6 +100,29 @@ the AI:
   claim. The AI's job is to check it against the cited source and name what is
   missing, not to replace it.
 
+## Mind-map snapshots
+
+A photographed paper mind-map enters the raw layer. The graph receives
+candidates only when an ingest opts in. The flow is decided in
+`docs/adr/ADR-0003-solo-first-operating-mode.md` and planned in
+`docs/plans/solo-first-implementation.md`.
+
+- The photo is the immutable source of truth:
+  `raw/assets/mindmap-<slug>-<date>.jpg`, resized under about 1 MB.
+- The agent transcribes the photo into `raw/mindmaps/<date>-<slug>.excalidraw`.
+  Transcription is a faithful copy, never an improvement: no reorganizing,
+  reconnecting, or completing the model. The file is immutable once confirmed.
+- The learner confirms the transcription before ingest. If a node or an arrow
+  was misread, the agent fixes the copy and the idea stays the learner's.
+- A source note at `raw/sources/<date> - <slug> - mindmap.md` embeds the photo
+  and links the transcription. It is the provenance anchor for anything
+  downstream.
+- Parse with `python3 scripts/parse_excalidraw.py <file>` from `state/`. Node
+  text is verbatim label text and needs curation before any merge. Inferred
+  edges stay in the parser's `notes[]` and are never proposed as chains.
+- A mind-map-only ingest stays in the raw layer: it writes a `log.md` entry and
+  no wiki page, so it needs no `index.md` row.
+
 ## Source of truth
 
 This repo is authoritative. Any Open WebUI mirror, such as the Knowledge base or
