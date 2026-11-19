@@ -14,27 +14,27 @@ Chain candidates come from fully bound arrows. Geometrically inferred edges go t
 only. The parser is stdlib-only, uses argparse, and follows the house script pattern.
 
 **Acceptance criteria:**
-- [ ] Nodes: a shape's label comes from the bound text element, preferring `originalText` over
+- [x] Nodes: a shape's label comes from the bound text element, preferring `originalText` over
       `text` via `containerId`; a standalone text element is a node; elements with `isDeleted`
       are skipped
-- [ ] Edges: an arrow becomes a chain candidate only when both `startBinding.elementId` and
+- [x] Edges: an arrow becomes a chain candidate only when both `startBinding.elementId` and
       `endBinding.elementId` resolve; the parser reads `elementId` and treats other binding
       fields as optional
-- [ ] Inferred edges: an unbound or half-bound arrow gets a geometric fallback (nearest
+- [x] Inferred edges: an unbound or half-bound arrow gets a geometric fallback (nearest
       container within a threshold), lands in `notes[]` marked as inferred, and is never proposed
       as a chain
-- [ ] Provenance: every node and chain references the `--source` path (the source note) with a
+- [x] Provenance: every node and chain references the `--source` path (the source note) with a
       non-empty `file` value
-- [ ] Exits: 0 on a valid file with at least one node; non-zero on invalid JSON, an empty
+- [x] Exits: 0 on a valid file with at least one node; non-zero on invalid JSON, an empty
       element array, or zero parseable nodes
-- [ ] No unknown fields in output records: the emitted JSON passes `pi/graph.py merge`
+- [x] No unknown fields in output records: the emitted JSON passes `pi/graph.py merge`
       validation shape (fields from the merge spec only)
 
 **Verification:**
-- [ ] `python3 -m unittest discover -s scripts -p '*_test.py'` passes from `state/`, including
+- [x] `python3 -m unittest discover -s scripts -p '*_test.py'` passes from `state/`, including
       the new `parse_excalidraw_test.py` with synthetic in-test fixtures
-- [ ] `scripts/learn-check --no-load` green
-- [ ] `git diff --stat` shows only the two new files
+- [x] `scripts/learn-check --no-load` green
+- [x] `git diff --stat` shows only the two new files
 
 **Dependencies:** None
 **Files likely touched:** `state/scripts/parse_excalidraw.py`,
@@ -43,9 +43,9 @@ only. The parser is stdlib-only, uses argparse, and follows the house script pat
 
 ## Checkpoint 1
 
-- [ ] State unit tests pass from `state/`
-- [ ] `scripts/learn-check --no-load` green
-- [ ] `python3 scripts/check-docs` green
+- [x] State unit tests pass from `state/`
+- [x] `scripts/learn-check --no-load` green
+- [x] `python3 scripts/check-docs` green
 
 ## Task 2: Pilot artifacts
 
@@ -57,16 +57,16 @@ the outcome lands: the `Open Question` cell of the concept's row, with a `Type m
 for facts that survive the filter.
 
 **Acceptance criteria:**
-- [ ] Learning log exists with a header matching the existing template style and a worked first
+- [x] Learning log exists with a header matching the existing template style and a worked first
       row for the pilot start
-- [ ] Memorization-filter doc lists the three questions and the recording convention, and cites
+- [x] Memorization-filter doc lists the three questions and the recording convention, and cites
       ADR-0003 as its decision record
-- [ ] `audit_state.py` stays silent about both files (new files are audit-invisible)
+- [x] `audit_state.py` stays silent about both files (new files are audit-invisible)
 
 **Verification:**
-- [ ] `python3 scripts/audit_state.py --root .` or a `/audit` run shows no new errors or
+- [x] `python3 scripts/audit_state.py --root .` or a `/audit` run shows no new errors or
       warnings caused by these files
-- [ ] State commit includes only `state/Learning System`
+- [x] State commit includes only `state/Learning System`
 
 **Dependencies:** None (parallel-safe with Task 1)
 **Files likely touched:** `state/Learning System/Core/📓 Learning Log.md`,
@@ -82,14 +82,14 @@ confirmed), the confirm-before-ingest rule, the source-note requirement (photo e
 linked), and the parser invocation.
 
 **Acceptance criteria:**
-- [ ] The section names every file location and the naming patterns from the plan's flow diagram
-- [ ] The confirm step is stated as a rule: transcription is a faithful copy, and the photo is
+- [x] The section names every file location and the naming patterns from the plan's flow diagram
+- [x] The confirm step is stated as a rule: transcription is a faithful copy, and the photo is
       the source of truth
-- [ ] No banned tokens; `scripts/check-docs` stays green
+- [x] No banned tokens; `scripts/check-docs` stays green
 
 **Verification:**
-- [ ] `python3 scripts/check-docs` green
-- [ ] `scripts/learn-check --no-load` green
+- [x] `python3 scripts/check-docs` green
+- [x] `scripts/learn-check --no-load` green
 
 **Dependencies:** Task 1 (the parser invocation it documents exists)
 **Files likely touched:** `state/Knowledge Wiki/AGENTS.md`
