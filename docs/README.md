@@ -32,6 +32,7 @@ which also runs the `harness/` suite. CI also runs `scripts/check-docs`,
 | `docs/README.md` | This index. |
 | `docs/setup.md` | Per-platform setup, PATH, and clone/SSH notes. |
 | `docs/teaching-methodology.md` | Current LearnHarness-hybrid teaching method. |
+| `docs/plans/solo-first-implementation.md` | Implementation plan for ADR-0003: Excalidraw mindmap ingest, pilot artifacts, and the runbook. |
 | `docs/adr/ADR-0001-transcript-parsing.md` | Decision to keep the two transcript readers separate. |
 | `docs/adr/ADR-0002-agent-skills-adoption.md` | Why the agent-skills pack is vendored under `.opencode/`. |
 | `docs/adr/ADR-0003-solo-first-operating-mode.md` | Solo-first division of labor after the Sung-methodology comparison; learner owns encoding, the system owns ingest and graded recall. |
