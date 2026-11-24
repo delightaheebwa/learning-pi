@@ -922,8 +922,9 @@ class TestBenchmarkCommand(unittest.TestCase):
 
 
 class TestBenchmarkQueue(unittest.TestCase):
-    """P2: a due benchmark row is one normal queue slot carrying its type and the
-    ledger key; the shots themselves advance the ladder one step per session."""
+    """P2/P4: a due benchmark row is surfaced on its due date as an extra slot
+    beyond the cap — it never displaces a due mistake or review — and the shots
+    themselves advance the ladder one step per session."""
 
     SESSION = TestBenchmarkCommand.SESSION
 
@@ -952,6 +953,19 @@ class TestBenchmarkQueue(unittest.TestCase):
             ops.do_benchmark(self.SESSION, day, str(qpath))
         return root
 
+    def _add_due_concepts(self, root, count, day="2026-11-25"):
+        ac = root / "Learning System" / "Core" / "📚 Active Concepts.md"
+        att_path = root / "Learning System" / "Core" / "Attempts.json"
+        att = json.loads(att_path.read_text(encoding="utf-8"))
+        lines = [ac.read_text(encoding="utf-8").rstrip("\n")]
+        for i in range(count):
+            name = f"Due Concept {i + 1}"
+            lines.append(f"| {name} | aiefs | concept | developing | test source | {day} | {day} | definitional | test |")
+            att["concepts"][name] = {"type": "concept", "interval_index": 0,
+                                     "next_review": day, "attempts": []}
+        ac.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        att_path.write_text(json.dumps(att), encoding="utf-8")
+
     def _set_next_review(self, root, day):
         path = root / "Learning System" / "Core" / "Attempts.json"
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -967,6 +981,8 @@ class TestBenchmarkQueue(unittest.TestCase):
         self.assertEqual(entry["type"], "benchmark")
         self.assertEqual(entry["due_kind"], "review")
         self.assertEqual(entry["next_review"], "2026-11-25")
+        self.assertEqual(payload["benchmark_extra"], 1)
+        self.assertEqual(payload["due_reviews"], 0)
 
     def test_not_due_benchmark_row_is_omitted(self):
         root = self._seed()
@@ -974,6 +990,29 @@ class TestBenchmarkQueue(unittest.TestCase):
         payload = ops._build_queue("aiefs", ops._parse_date("2026-11-25"), 5)
         self.assertEqual(payload["queue"], [])
         self.assertEqual(payload["due_reviews"], 0)
+        self.assertEqual(payload["benchmark_extra"], 0)
+
+    def test_due_benchmark_rides_beyond_a_full_cap(self):
+        root = self._seed()
+        self._add_due_concepts(root, 8)
+        payload = ops._build_queue("aiefs", ops._parse_date("2026-11-25"), 5)
+        # 5 capped due reviews + the benchmark appended beyond the cap.
+        self.assertEqual(len(payload["queue"]), 6)
+        self.assertEqual(payload["due_reviews"], 5)
+        self.assertEqual(payload["benchmark_extra"], 1)
+        self.assertEqual(payload["queue"][-1]["concept"], self.SESSION)
+        self.assertEqual(payload["queue"][-1]["type"], "benchmark")
+        for entry in payload["queue"][:-1]:
+            self.assertNotEqual(entry["type"], "benchmark")
+
+    def test_benchmark_never_displaces_a_capped_review(self):
+        root = self._seed()
+        self._add_due_concepts(root, 8)
+        with_bench = ops._build_queue("aiefs", ops._parse_date("2026-11-25"), 5)
+        self._set_next_review(root, "2026-12-01")  # control: benchmark not due
+        without_bench = ops._build_queue("aiefs", ops._parse_date("2026-11-25"), 5)
+        self.assertEqual([e["concept"] for e in with_bench["queue"][:-1]],
+                         [e["concept"] for e in without_bench["queue"]])
 
     def test_one_shot_advances_the_ladder_once(self):
         root = self._seed()

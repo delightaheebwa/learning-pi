@@ -1050,9 +1050,10 @@
     {
       "id": "R-benchmark-fixed-shots",
       "severity": "hard",
-      "statement": "Benchmark sessions run the fixed +1-day/+7-day/+30-day ladder: each shot records one attempt that advances the ladder exactly one step regardless of result, a miss re-appears through a `[miss: …]` Mistakes row without moving the dates, and the third recorded shot graduates the session.",
+      "statement": "Benchmark sessions run the fixed +1-day/+7-day/+30-day ladder: each shot records one attempt that advances the ladder exactly one step regardless of result, a miss re-appears through a `[miss: …]` Mistakes row without moving the dates, and the third recorded shot graduates the session. A due benchmark session is always surfaced: it rides in the review queue as an extra slot after the cap and never displaces a due mistake or review.",
       "tests": [
-        "resources: benchmark shots are a fixed ladder with one attempt per shot and miss rows"
+        "resources: benchmark shots are a fixed ladder with one attempt per shot and miss rows",
+        "resources: due benchmark sessions ride as an extra queue slot on the due date"
       ]
     },
     {

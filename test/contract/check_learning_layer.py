@@ -819,6 +819,16 @@ def check_resources(root: Path) -> None:
     else:
         ok("resources: the review flow routes benchmark entries to the reading retrieval procedure")
 
+    benchmark_surface_needles = (
+        "rides as an extra slot after the queue cap",
+        "never displaces a due mistake or review",
+    )
+    missing_benchmark_surface = [n for n in benchmark_surface_needles if n.lower() not in skill_text.lower()]
+    if missing_benchmark_surface:
+        fail(f"resources: learning-system/SKILL.md missing benchmark queue-surface rule(s): {missing_benchmark_surface}")
+    else:
+        ok("resources: due benchmark sessions ride as an extra queue slot on the due date")
+
     quiz_read_needles = ("Read-flow retrieval", "not shown while the learner is still dumping", "rated confidence")
     missing_quiz_read = [n for n in quiz_read_needles if n.lower() not in quiz_text.lower()]
     if missing_quiz_read:

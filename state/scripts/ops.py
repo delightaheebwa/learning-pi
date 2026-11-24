@@ -982,7 +982,11 @@ def _build_queue(track: str, day: date, slots: int = 5) -> dict:
             break
 
     # Remaining slots: due reviews from Attempts.json (scheduler truth).
+    # Benchmark sessions are collected separately: they never take a standard
+    # slot and are always appended after the cap, so a fixed 1/7/30 shot is
+    # surfaced on its due date even when the review backlog is full.
     candidates = []
+    benchmarks = []
     for name, row in track_rows.items():
         if name in seen:
             continue
@@ -993,7 +997,10 @@ def _build_queue(track: str, day: date, slots: int = 5) -> dict:
             continue
         nr = _parse_date(e.get("next_review"))
         if nr and nr <= day:
-            candidates.append((name, row, e))
+            if (e.get("type") or "").strip().lower() == "benchmark":
+                benchmarks.append((name, row, e))
+            else:
+                candidates.append((name, row, e))
 
     rng = random.Random(f"{track}:{day.isoformat()}")
     rng.shuffle(candidates)
@@ -1004,6 +1011,15 @@ def _build_queue(track: str, day: date, slots: int = 5) -> dict:
     queue = [_queue_entry(row, attempts, "mistake", m) for m, row in due_mistakes]
     for name, row, _e in ordered[:max(0, slots - len(queue))]:
         queue.append(_queue_entry(row, attempts, "review"))
+
+    # Due benchmark sessions ride after the cap: never displacing a due
+    # mistake or review, always surfaced on their due date. Deterministic
+    # order (next_review, then name) so a digest is reproducible.
+    for name, row, _e in sorted(
+        benchmarks, key=lambda t: ((t[2].get("next_review") or ""), t[0])
+    ):
+        queue.append(_queue_entry(row, attempts, "review"))
+    benchmark_extra = len(benchmarks)
 
     # Drift: Active Concepts next_review vs Attempts.json (scheduler truth).
     for name, row in track_rows.items():
@@ -1016,7 +1032,9 @@ def _build_queue(track: str, day: date, slots: int = 5) -> dict:
 
     return {
         "track": track, "date": day.isoformat(),
-        "due_mistakes": len(due_mistakes), "due_reviews": len(queue) - len(due_mistakes),
+        "due_mistakes": len(due_mistakes),
+        "due_reviews": len(queue) - len(due_mistakes) - benchmark_extra,
+        "benchmark_extra": benchmark_extra,
         "slots": slots, "queue": queue, "warnings": notes,
     }
 
@@ -1033,6 +1051,7 @@ def do_queue(track: str, day: date, slots: int = 5, as_json: bool = False,
             "generated_at": datetime.now().isoformat(timespec="seconds"),
             "position": None, "queue": payload["queue"],
             "due_mistakes": payload["due_mistakes"], "due_reviews": payload["due_reviews"],
+            "benchmark_extra": payload.get("benchmark_extra", 0),
             "warnings": payload["warnings"],
         }
         p.write_text(json.dumps(digest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -1051,8 +1070,11 @@ def do_queue(track: str, day: date, slots: int = 5, as_json: bool = False,
 
 def _print_queue_table(payload: dict) -> None:
     q = payload["queue"]
+    extra = payload.get("benchmark_extra", 0)
+    bench = f" + {extra} due benchmark" if extra else ""
     print(f"REVIEW QUEUE — track {payload['track']} — {payload['date']}    "
-          f"({len(q)} slot(s): {payload['due_mistakes']} due mistake(s), {payload['due_reviews']} due review(s))")
+          f"({payload['slots']} slot(s){bench}: {payload['due_mistakes']} due mistake(s), "
+          f"{payload['due_reviews']} due review(s))")
     if not q:
         print("(nothing due — no mistakes or reviews on or before today)")
     for i, e in enumerate(q, 1):

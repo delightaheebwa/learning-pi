@@ -51,7 +51,8 @@ remotes, or commands. The old text stays in git history.
   `review` to `graduated`.
 - Review queues default to 5 slots. The first 2 slots take due mistakes, then
   due reviews fill the rest. A same-Source adjacency guard and question-type
-  alternation apply.
+  alternation apply. A due benchmark session rides as an extra slot after the
+  cap; it never displaces a due mistake or review.
 - New concepts start `developing`, with `last_reviewed` today and `next_review`
   at +3d.
 

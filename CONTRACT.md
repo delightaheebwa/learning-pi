@@ -704,7 +704,9 @@ model. The machine-readable invariants and their tagged tests live in
 - **R-benchmark-fixed-shots** *(hard)* — benchmark sessions run the fixed
   +1d/+1w/+1m ladder; one attempt per shot regardless of result; a miss
   re-appears via a `[miss: …]` Mistakes row without moving the dates; the third
-  shot graduates the session.
+  shot graduates the session. A due benchmark session is always surfaced in the
+  review queue as an extra slot beyond the cap, never displacing a due mistake
+  or review.
 - **R-benchmark-isolation** *(policy)* — benchmark scheduling never alters the
   other four types' ladders and vice versa; the level label is record-only data,
   never a scheduling input.
