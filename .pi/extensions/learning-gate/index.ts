@@ -7,7 +7,7 @@
  * `gate-core/`. See ../../../CONTRACT.md for the invariants this gate enforces.
  *
  * Turn type is explicit, not guessed:
- *   - Prompt templates carry a flow marker (`[[FLOW:teach|resume|review|ingest]]`).
+ *   - Prompt templates carry a flow marker (`[[FLOW:teach|resume|review|ingest|solo|read]]`).
  *   - Every assistant message in a learning flow must start with a turn tag
  *     `[[TURN:claims|quiz|grade|ui|none]]`. The gate strips the tag before the learner sees it.
  *   - claims -> a fact-check receipt whose `rendered_content` covers the emitted text

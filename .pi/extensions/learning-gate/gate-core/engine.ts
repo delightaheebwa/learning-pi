@@ -132,12 +132,22 @@ export function createGate(options: GateOptions = {}): GateEngine {
   };
 
   // Turn-shape checks (G-foundation-beats / G-triage-shape / G-attack-shape)
-  // apply only to the teaching flows: a teach/resume claims turn must declare
-  // its shape (triage table, one attack subtype, or an idea's foundation).
-  // Other flows (review/solo/ingest) keep the existing behavior.
+  // apply only to the gated claims flows: a teach/resume claims turn must
+  // declare its shape (triage table, one attack subtype, or an idea's
+  // foundation), and a reading (`read`) claims turn declares its vocabulary
+  // (`plan` for the session brief, `answer` for a free-recall check or a model
+  // diagnosis). Other flows (review/solo/ingest) keep the existing behavior.
+  const flowKinds = () => P.flowTurnKinds(run.flow);
+  const foundationGapsOf = (r: P.Receipt): string[] => {
+    const kinds = flowKinds();
+    return kinds
+      ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation, r.triage, r.attack, r.step, kinds)
+      : [];
+  };
+  // Repair sequencing (G-repair-complete) and its shape check remain
+  // teach/resume-only: they are interrogation machinery, not a claims
+  // vocabulary check, so the reading flow never arms REPAIR_INCOMPLETE.
   const foundationApplies = () => run.flow === "teach" || run.flow === "resume";
-  const foundationGapsOf = (r: P.Receipt): string[] =>
-    foundationApplies() ? P.foundationGaps(r.renderedContent, r.turnKind, r.foundation, r.triage, r.attack, r.step) : [];
   // A grade+repair turn is not a claims turn, so it may not *require* a
   // turn_kind; but if its repair prose is explicitly labelled an idea, the beat
   // is still enforced. (A disguise, e.g. an idea labelled `repair`, is the
@@ -148,6 +158,18 @@ export function createGate(options: GateOptions = {}): GateEngine {
       : [];
   const foundationRemedy = (r: P.Receipt, gaps: string[]): string => {
     if (gaps.length === 1 && gaps[0] === "turn_kind") {
+      const kinds = flowKinds();
+      // A claims flow with a narrower vocabulary than the interrogation set
+      // (the reading flow: `plan` | `answer`) names only its own kinds.
+      if (kinds && !kinds.has("idea")) {
+        const allowed = [...kinds].map((k) => `\`"${k}"\``).join(" or ");
+        return (
+          `This ${run.flow} claims turn declares no valid \`turn_kind\`. Declare ${allowed}: ` +
+          "`plan` for the session brief, `answer` for a free-recall check or a model diagnosis. " +
+          "Interview turn kinds (triage, attack, autopsy, repair) do not apply to this flow. " +
+          "Re-dispatch the fact-check envelope with the field, then emit this draft unchanged."
+        );
+      }
       return (
         "This teach/resume claims turn declares no valid `turn_kind`. Add `\"turn_kind\": \"idea\"` (with a `foundation` block) " +
         "when the turn introduces a new idea the learner asked for; otherwise use `\"plan\"|\"triage\"|\"attack\"|\"hint\"|\"autopsy\"|\"answer\"|\"repair\"|\"grade_feedback\"` " +

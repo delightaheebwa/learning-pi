@@ -168,17 +168,17 @@ shape checks must NOT arm in the reading flow. Update the stale flow lists in
 the doc comments (`index.ts:10`, `primitives.ts:362`).
 
 **Acceptance criteria:**
-- [ ] `detectFlow` returns `"read"` for a `[[FLOW:read]]` message; `"other"`
+- [x] `detectFlow` returns `"read"` for a `[[FLOW:read]]` message; `"other"`
       still fails open for unmarked messages
-- [ ] A reading-flow claims turn with no `turn_kind` is withheld; one with a
+- [x] A reading-flow claims turn with no `turn_kind` is withheld; one with a
       valid kind passes; `triage|attack|autopsy|repair` shapes are not enforced
       in the reading flow
-- [ ] Every existing gate suite passes unchanged (teach/review/solo behavior
+- [x] Every existing gate suite passes unchanged (teach/review/solo behavior
       is byte-identical)
 
 **Verification:**
-- [ ] Deno gate suites + `scripts/learn-check --no-load` green
-- [ ] No file under `contracts/`, `CONTRACT.md`, or `test/` in the diff
+- [x] Deno gate suites + `scripts/learn-check --no-load` green
+- [x] No file under `contracts/`, `CONTRACT.md`, or `test/` in the diff
 
 **Dependencies:** None
 **Files likely touched:** `.pi/extensions/learning-gate/gate-core/primitives.ts`,

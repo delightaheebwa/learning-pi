@@ -48,7 +48,7 @@ export const LENGTH_SLACK_TOKENS = 12;
 export const VERDICT_ONLY_MIN_TOKENS = 12;
 export const VERDICT_ONLY_MAX_RATIO = 0.5;
 export const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|ui|none)\]\]\s*/i;
-export const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest|solo)\]\]/i;
+export const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest|solo|read)\]\]/i;
 export const STATE_AUDIT_RE = /(\d+)\s+errors?\b[^\d]*(\d+)\s+warnings?/i;
 export const WRITE_TOOLS = new Set(["write", "edit"]);
 
@@ -60,7 +60,7 @@ export const VERIFIER_FALLBACK_MODEL = "opencode-go/deepseek-v4.1-flash";
 export const SCOUT_FALLBACK_MODEL = "opencode-go/muse-spark-1.3-contributor";
 export const FALLBACK_AFTER_FAILURES = 2;
 
-export type Flow = "teach" | "resume" | "review" | "ingest" | "solo" | "other";
+export type Flow = "teach" | "resume" | "review" | "ingest" | "solo" | "read" | "other";
 
 export interface Receipt {
   gate: string;
@@ -77,11 +77,12 @@ export interface Receipt {
   // joined. Lets the gate check that every hard fact in the draft was actually
   // placed before the verifier (see `missingHardFacts`).
   claimsText?: string;
-  // The kind this teach/resume claims turn declared (`plan`, `triage`,
-  // `attack`, `hint`, `autopsy`, `answer`, `repair`, `grade_feedback`, `idea`).
-  // A triage/attack turn must carry its shape fields, an `autopsy` must carry
-  // one reasoning `step`, an `idea` must carry a `foundation` block; other
-  // kinds need neither.
+  // The kind this gated claims turn declared. Teach/resume allow `plan`,
+  // `triage`, `attack`, `hint`, `autopsy`, `answer`, `repair`, `grade_feedback`,
+  // `idea`; the reading flow allows only `plan` or `answer` (see
+  // `FLOW_TURN_KINDS`). A triage/attack turn must carry its shape fields, an
+  // `autopsy` must carry one reasoning `step`, an `idea` must carry a
+  // `foundation` block; other kinds need neither.
   turnKind?: string;
   // Triage rows supplied on a `turn_kind:"triage"` turn.
   triage?: TriageRow[];
@@ -360,8 +361,9 @@ export function promptText(prompt: any): string {
 
 /**
  * Flow detection is EXPLICIT-ONLY: a learning flow starts iff the prompt
- * carries a `[[FLOW:teach|resume|review|ingest]]` marker. Every prompt
- * template in `.pi/prompts/` emits one.
+ * carries a `[[FLOW:teach|resume|review|ingest|solo|read]]` marker. Every
+ * prompt template in `.pi/prompts/` emits one. A missing or unrecognized
+ * marker is `other`: the gate stays off and the message fails open.
  *
  * Do NOT reintroduce keyword matching here. The old fallback ("learn",
  * "ingest ", "continue the current lesson", ...) was the root cause of an
@@ -790,6 +792,26 @@ const NON_IDEA_TURN_KINDS = new Set([
 /** The interrogation turn kinds a teach/resume claims turn may declare. */
 export const VALID_TURN_KINDS = new Set([...NON_IDEA_TURN_KINDS, "idea"]);
 
+/**
+ * The claims `turn_kind` vocabulary each gated flow allows. Teach/resume keep
+ * the full interrogation set; the reading flow maps its session brief to
+ * `plan` and its free-recall checks / model diagnoses to `answer`, so no
+ * teach-only kind (triage/attack/autopsy/repair/idea/...) can arm there. Flows
+ * absent from this map (review/solo/ingest/other) keep the old behavior: a
+ * claims turn declares no shape.
+ */
+export const FLOW_TURN_KINDS: Record<string, ReadonlySet<string>> = {
+  teach: VALID_TURN_KINDS,
+  resume: VALID_TURN_KINDS,
+  read: new Set(["plan", "answer"]),
+};
+
+/** The turn kinds `flow` allows on a claims turn, or undefined when its shape
+ * is not gated. */
+export function flowTurnKinds(flow: Flow): ReadonlySet<string> | undefined {
+  return FLOW_TURN_KINDS[flow];
+}
+
 /** The attack menu. One attack per turn is enforced by the shape check. */
 export const ATTACK_KINDS = new Set([
   "mechanism",
@@ -936,7 +958,7 @@ function attackGaps(attack: string | undefined): string[] {
 }
 
 /**
- * Deterministic shape check for a teach/resume `claims` turn.
+ * Deterministic shape check for a gated `claims` turn.
  *
  *   - no/invalid `turn_kind`             -> ["turn_kind"]
  *   - `triage`                           -> every row valid, grounded, acyclic
@@ -945,6 +967,11 @@ function attackGaps(attack: string | undefined): string[] {
  *   - answer/repair/hint/...             -> [] (no shape required)
  *   - `turn_kind: "idea"`                -> every foundation field non-empty AND
  *     its prose bound into the verified draft
+ *
+ * `kinds` is the declaring flow's vocabulary (`flowTurnKinds`). It defaults to
+ * the teach/resume set so the grade-turn callers keep their behavior; the
+ * reading flow passes its narrow `plan|answer` set, which makes every other
+ * kind an invalid `turn_kind` before any teach-only shape check can run.
  */
 export function foundationGaps(
   renderedContent: string | undefined,
@@ -952,10 +979,11 @@ export function foundationGaps(
   foundation: FoundationBlock | undefined,
   triage?: TriageRow[],
   attack?: string,
-  step?: StepBlock
+  step?: StepBlock,
+  kinds: ReadonlySet<string> = VALID_TURN_KINDS
 ): string[] {
   const kind = typeof turnKind === "string" ? turnKind.trim().toLowerCase() : "";
-  if (!VALID_TURN_KINDS.has(kind)) return ["turn_kind"];
+  if (!kinds.has(kind)) return ["turn_kind"];
   if (kind === "triage") return triageGaps(triage);
   if (kind === "attack") return attackGaps(attack);
   if (kind === "autopsy") return stepGaps(renderedContent, step);
