@@ -44,6 +44,7 @@ You receive ONLY data via a `GATE:fact_check` envelope — never freeform tutor 
   "source_urls":[...],
   "raw_files":[{"label":"...","url":"...","path":"Knowledge Wiki/raw/sources/..."}],
   "reference_excerpt":"...",
+  "read_source":{"attached_text":"the learner's attached text for the reading flow, or null","source_refs":["path or URL per attached chunk"]},
   "context":"..."}
 ```
 
@@ -64,6 +65,21 @@ field where the kind requires one is an `ISSUES` verdict.
    to attempt, and what to bring back. It must NOT summarize the material, preview the mechanism, name
    the "right" framing, or pre-solve anything. A summary or mechanism preview is `CUE_LEAKAGE`
    (`ISSUES`).
+1b. **Reading-flow session brief (`turn_kind:"plan"` in the read flow).** The brief is scope,
+    outcome, exactly 15 leveled questions (5 `Low:` / 5 `Mid:` / 5 `High:`, free recall), and a
+    flat keyword list. Verify the question counts and level labels, then check every question and
+    every keyword against `read_source` — the attached text or its `source_refs`. Three codes
+    withhold the brief:
+    - `BRIEF_UNGROUNDED`: a benchmark question or keyword has no traceable anchor in the attached
+      source text. The Tutor must carry the attached text or its `source_refs` in `read_source` so
+      the anchor is checkable; an anchor you cannot recover is `BRIEF_UNGROUNDED`.
+    - `BRIEF_TEACHES`: the brief answers its own questions, explains a mechanism, or summarizes
+      the content beyond gist-level orientation.
+    - `BRIEF_WITHOUT_SOURCE`: benchmark questions or keywords are emitted with no source text
+      attached. The correct turn asks for the text and stops, and never generates questions from
+      general knowledge of a title.
+
+    Any of these is an `ISSUES` verdict and withholds the turn.
 2. **Source grounding.** Read the specified `raw_files` on disk first — they are Scout's fetched
    bodies and the primary evidence. Verify each claim in `claims` and every hard fact in
    `rendered_content` (numbers, formulas, mechanisms, boundary conditions) against those passages.

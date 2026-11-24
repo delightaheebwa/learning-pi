@@ -236,16 +236,16 @@ grounding rule: every question and keyword must be traceable to the attached
 source, else the turn is withheld.
 
 **Acceptance criteria:**
-- [ ] The brief is one turn, then stops; 15 questions, all free-recall
-- [ ] A declaration without attached text yields a text request and zero
+- [x] The brief is one turn, then stops; 15 questions, all free-recall
+- [x] A declaration without attached text yields a text request and zero
       questions
-- [ ] fact-check rules state the grounding withhold for unanchored brief items
-- [ ] No teaching content in the brief per the skill's own examples
+- [x] fact-check rules state the grounding withhold for unanchored brief items
+- [x] No teaching content in the brief per the skill's own examples
 
 **Verification:**
-- [ ] `scripts/learn-check --no-load` green
+- [x] `scripts/learn-check --no-load` green
 - [ ] Manual dry run: declare + attach a short text; brief comes back with all
-      four parts, each question answerable from that text
+      four parts, each question answerable from that text (Checkpoint 4)
 
 **Dependencies:** Task R2
 **Files likely touched:** `.pi/skills/learning-read/SKILL.md`, `.pi/agents/fact-check.md`

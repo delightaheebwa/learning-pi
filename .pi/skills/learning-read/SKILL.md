@@ -47,7 +47,16 @@ These sections are placeholders. Each owning module fills its own; until then, t
 
 ### Session brief
 
-Placeholder, owned by `benchmark-session`. Fill with the four brief parts, the 15-question benchmark, and the keyword rule.
+One `[[TURN:claims]]` turn with `turn_kind:"plan"`, then stop until the learner has read. Four parts, in order:
+
+1. **Scope.** Where to stop reading and why, sized to one sitting, taken from the attached text (chapter or section boundaries). Never invented.
+2. **Outcome.** What the learner will *do* with the knowledge up to that point, as performance, not coverage: "predict how a fee change moves behavior", not "finish pages 1-24".
+3. **Benchmark.** Exactly 15 questions: 5 low (recall/understand), 5 mid (apply), 5 high (evaluate/judge). Free recall only: no MCQ, no true/false. Mid and high are written at the level and cue-style of real use, real scenarios and decisions, not trivia. Label each on its own line, starting the line with its level so the labels stay greppable: `Low: ...`, `Mid: ...`, `High: ...`. Targets, from memory: 90% low, 80% mid, 70% high.
+4. **Keywords.** The minimal necessary set of plain keywords from the scoped text. A flat list: no groupings, no relations, no connections. The learner does the connecting.
+
+State the retrieval dates in one line: the benchmark returns at +1 day, +1 week, and +1 month.
+
+No attached text: ask for the text and stop. Never generate questions from general knowledge of a title. No teaching in the brief: no answers, no explanations, no content summaries; gist-level orientation only.
 
 ### Free recall
 
