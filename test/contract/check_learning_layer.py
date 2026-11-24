@@ -33,6 +33,7 @@ EXPECTED_PROMPTS = {
     "review": "review",
     "ingest": "ingest",
     "solo": "solo",
+    "read": "read",
     "audit": None,
 }
 EXPECTED_AGENTS = {
@@ -52,7 +53,7 @@ EXPECTED_AGENTS = {
     "graph-extract",
     "graph-audit",
 }
-EXPECTED_SKILLS = {"learning-system", "learning-teach", "learning-review", "llm-wiki", "openui"}
+EXPECTED_SKILLS = {"learning-system", "learning-teach", "learning-review", "learning-read", "llm-wiki", "openui"}
 
 FAILURES: list[str] = []
 # Every resource-level `PASS` becomes part of the contract-coverage corpus, so
@@ -673,6 +674,157 @@ def check_resources(root: Path) -> None:
         fail(f"resources: targets missing liveness rule(s): {missing_liveness}")
     else:
         ok("resources: graph targets are liveness-checked at record time")
+
+    # --- Reading-mode resource contract -----------------------------------
+    # A Sung-style reading session is scoped, generates before feedback, and
+    # diagnoses the learner's model without rewriting it. These checks bind the
+    # R-* invariants to the prompt/skill/agent files that encode the behavior.
+    read_skill_text = (root / ".pi" / "skills" / "learning-read" / "SKILL.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+
+    read_sections = ("1b.", "1c.", "1d.", "1e.")
+    missing_read_sections = [n for n in read_sections if n.lower() not in fact_check_text.lower()]
+    if missing_read_sections:
+        fail(f"resources: fact-check.md missing reading-flow section(s): {missing_read_sections}")
+    else:
+        ok("resources: fact-check carries reading-flow sections 1b through 1e")
+
+    read_brief_needles = ("BRIEF_UNGROUNDED", "read_source")
+    missing_read_brief = [n for n in read_brief_needles if n.lower() not in fact_check_text.lower()]
+    if missing_read_brief:
+        fail(f"resources: fact-check.md missing reading-brief grounding rule(s): {missing_read_brief}")
+    else:
+        ok("resources: reading brief is anchored in the read_source text (BRIEF_UNGROUNDED)")
+
+    read_no_teach_needles = ("BRIEF_TEACHES", "BRIEF_WITHOUT_SOURCE")
+    missing_read_no_teach = [n for n in read_no_teach_needles if n.lower() not in fact_check_text.lower()]
+    if missing_read_no_teach:
+        fail(f"resources: fact-check.md missing reading-brief no-teaching rule(s): {missing_read_no_teach}")
+    else:
+        ok("resources: reading brief never teaches and never emits without a source (BRIEF_TEACHES, BRIEF_WITHOUT_SOURCE)")
+
+    read_recall_needles = ("PREMATURE_FEEDBACK", "UNQUOTED_VERDICT", "MODEL_GHOSTWRITING")
+    missing_read_recall = [n for n in read_recall_needles if n.lower() not in fact_check_text.lower()]
+    if missing_read_recall:
+        fail(f"resources: fact-check.md missing free-recall feedback rule(s): {missing_read_recall}")
+    else:
+        ok("resources: free-recall check is generate-before-feedback (PREMATURE_FEEDBACK, UNQUOTED_VERDICT, MODEL_GHOSTWRITING)")
+
+    read_diagnose_needles = ("UNQUOTED_DIAGNOSIS", "DIAGNOSIS_REWRITE", "PRIOR_UNGROUNDED", "read_model")
+    missing_read_diagnose = [n for n in read_diagnose_needles if n.lower() not in fact_check_text.lower()]
+    if missing_read_diagnose:
+        fail(f"resources: fact-check.md missing model-diagnosis rule(s): {missing_read_diagnose}")
+    else:
+        ok("resources: model diagnosis quotes the learner and never rewrites (UNQUOTED_DIAGNOSIS, DIAGNOSIS_REWRITE, PRIOR_UNGROUNDED)")
+
+    read_payload_needles = ("read_source", "read_recall", "read_model", "payload keys")
+    missing_read_payload = [n for n in read_payload_needles if n.lower() not in fact_check_text.lower()]
+    if missing_read_payload:
+        fail(f"resources: fact-check.md missing reading-flow payload-key scope rule(s): {missing_read_payload}")
+    else:
+        ok("resources: reading-flow checks bind on the envelope payload keys")
+
+    read_procedure_needles = ("### Session brief", "### Free recall", "### Model diagnosis", "### Retrieval sessions")
+    missing_read_procedures = [n for n in read_procedure_needles if n.lower() not in read_skill_text.lower()]
+    if missing_read_procedures:
+        fail(f"resources: learning-read/SKILL.md missing reading procedure(s): {missing_read_procedures}")
+    else:
+        ok("resources: learning-read carries the four reading procedures")
+
+    read_stance_needles = ("no triage table", "no attack battery", "no hint ladder", "no repair mode", "no graduation clones")
+    missing_read_stance = [n for n in read_stance_needles if n.lower() not in read_skill_text.lower()]
+    if missing_read_stance:
+        fail(f"resources: learning-read/SKILL.md missing no-interrogation rule(s): {missing_read_stance}")
+    else:
+        ok("resources: the reading flow runs no triage, attacks, hint ladder, repair, or clones")
+
+    benchmark_fixed_sources = (
+        (
+            "review-clerk.md",
+            review_clerk_text,
+            ("any result advances the ladder one step", "1/7/30 dates", "after the third recorded shot", "[miss:"),
+        ),
+        (
+            "learning-read/SKILL.md",
+            read_skill_text,
+            (
+                "+1d / +1w / +1m dates are fixed",
+                "a miss re-appears at the next shot without resetting the clock",
+                "third shot graduates",
+            ),
+        ),
+    )
+    missing_benchmark_fixed = [
+        f"{name}: {needle}"
+        for name, text, needles in benchmark_fixed_sources
+        for needle in needles
+        if needle.lower() not in text.lower()
+    ]
+    if missing_benchmark_fixed:
+        fail(f"resources: benchmark fixed-shot rule(s) missing: {missing_benchmark_fixed}")
+    else:
+        ok("resources: benchmark shots are a fixed ladder with one attempt per shot and miss rows")
+
+    benchmark_iso_sources = (
+        (
+            "review-session-audit.md",
+            review_session_text,
+            ("fixed and result-agnostic", "applies to the other four types only", "never shortens, extends, or resets"),
+        ),
+        (
+            "review-clerk.md",
+            review_clerk_text,
+            ("never recorded as 15 attempts", "not in `Attempts.json`", "never move the 1/7/30 dates"),
+        ),
+    )
+    missing_benchmark_iso = [
+        f"{name}: {needle}"
+        for name, text, needles in benchmark_iso_sources
+        for needle in needles
+        if needle.lower() not in text.lower()
+    ]
+    if missing_benchmark_iso:
+        fail(f"resources: benchmark isolation rule(s) missing: {missing_benchmark_iso}")
+    else:
+        ok("resources: benchmark scheduling is isolated from the other four types and is record-only")
+
+    benchmark_report_sources = (
+        (
+            "review-session-audit.md",
+            review_session_text,
+            ("Benchmark score report arithmetic", "recompute", "Any mismatch is ISSUES"),
+        ),
+        (
+            "review-clerk.md",
+            review_clerk_text,
+            ("Benchmark score report", "pass count / question count per level"),
+        ),
+    )
+    missing_benchmark_report = [
+        f"{name}: {needle}"
+        for name, text, needles in benchmark_report_sources
+        for needle in needles
+        if needle.lower() not in text.lower()
+    ]
+    if missing_benchmark_report:
+        fail(f"resources: benchmark score-report rule(s) missing: {missing_benchmark_report}")
+    else:
+        ok("resources: benchmark score report is recomputed from the ledger shot records")
+
+    benchmark_branch_needles = ("follow the `learning-read` skill's Retrieval sessions procedure",)
+    missing_benchmark_branch = [n for n in benchmark_branch_needles if n.lower() not in skill_text.lower()]
+    if missing_benchmark_branch:
+        fail(f"resources: learning-system/SKILL.md missing benchmark branch rule(s): {missing_benchmark_branch}")
+    else:
+        ok("resources: the review flow routes benchmark entries to the reading retrieval procedure")
+
+    quiz_read_needles = ("Read-flow retrieval", "not shown while the learner is still dumping", "rated confidence")
+    missing_quiz_read = [n for n in quiz_read_needles if n.lower() not in quiz_text.lower()]
+    if missing_quiz_read:
+        fail(f"resources: quiz-audit.md missing read-flow retrieval rule(s): {missing_quiz_read}")
+    else:
+        ok("resources: quiz-audit enforces the read-flow retrieval order (rule 12)")
 
 
 def check_contract(root: Path, test_outputs: list[Path]) -> None:

@@ -55,6 +55,12 @@ const blocked = (r, code) => !!(r && r.message && outText(r).startsWith('⛔') &
 const stripped = (r) => allowed(r) && !outText(r).includes('[[TURN');
 const assert = (n, c) => console.log((c ? 'PASS ' : 'FAIL ') + n);
 
+// A session that never starts a learning flow (no [[FLOW:...]] marker) is never
+// gated; an unmarked message passes through untouched. This must run before any
+// flow starts, since a flow persists for the rest of the session.
+const unmarked = await msg('It is four.', 'stop');
+assert('unmarked message fails open', unmarked === undefined);
+
 const GATE = JSON.stringify({ verdict: 'PASS', agrees: true, correct_verdict: 'pass', issues: [] });
 const NOTIFY = `Background task completed: **grade-audit**\n\ngrade-audit:\n[[TURN:none]]\n${GATE}\n\nRetention-managed async directory: /tmp/x`;
 const PARTIAL = '[[TURN:grade]]\nGraded (verifier-agreed):\n\n| Item | Verdict |\n|---|---|\n| W1 | PASS |';
@@ -1817,6 +1823,58 @@ const AUTOPSY_STEP = {
   assert(
     'claims turn with an unknown turn_kind is withheld',
     blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('turn_kind')
+  );
+}
+
+// ============================================================================
+// Reading flow (R-read-turn-kinds). A [[FLOW:read]] claims turn declares only
+// the reading vocabulary — `plan` for the session brief, `answer` for a
+// free-recall check or model diagnosis — and the interview kinds never arm.
+// ============================================================================
+const READ_BRIEF =
+  'Read section 3 and stop there. You will predict how a fee change moves behavior. ' +
+  'Low: What is a fee? Mid: How does a fee change demand? High: Judge when a fee fails to move demand. ' +
+  'Keywords: fee, demand, behavior.';
+const READ_CHECK =
+  'The fee shifted demand left. Source: "a fee raises the price buyers pay." ' +
+  'Missing: the demand curve. Source: "demand slopes down."';
+const readEnv = (turnKind, draft = READ_BRIEF) =>
+  JSON.stringify({
+    gate: 'fact_check',
+    turn_kind: turnKind,
+    claims: [{ id: 1, claim: 'the reading turn is scope or a quoted check' }],
+    rendered_content: draft,
+    source_urls: ['https://e.com'],
+  });
+const runReadClaims = async (id, turnKind, draft = READ_BRIEF) => {
+  await setPrompt('[[FLOW:read]] I am going to read section 3');
+  const envelope = readEnv(turnKind, draft);
+  await dispatch('fact-check', envelope, id);
+  await fg(id, 'fact-check', envelope, FC_PASS);
+  return msg(`[[TURN:claims]]\n${draft}`, 'stop');
+};
+
+assert('detectFlow recognizes the read flow', P.detectFlow('[[FLOW:read]] I am reading chapter 3') === 'read');
+{
+  const r = await runReadClaims('read1', 'plan');
+  assert('read claims turn with plan is released', allowed(r));
+}
+{
+  const r = await runReadClaims('read2', 'answer', READ_CHECK);
+  assert('read claims turn with answer is released', allowed(r));
+}
+{
+  const r = await runReadClaims('read3', undefined);
+  assert(
+    'read claims turn without turn_kind is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('`"plan"`') && outText(r).includes('`"answer"`')
+  );
+}
+{
+  const r = await runReadClaims('read4', 'triage');
+  assert(
+    'read claims turn with an interview kind is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('Interview turn kinds')
   );
 }
 

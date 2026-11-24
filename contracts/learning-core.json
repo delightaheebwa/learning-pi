@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
-  "version": 13,
-  "updated": "2026-10-27",
+  "version": 14,
+  "updated": "2026-11-24",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -993,6 +993,82 @@
         "quiz targets do not break full-batch binding",
         "resources: practice items carry graph targets",
         "resources: graph targets are liveness-checked at record time"
+      ]
+    },
+    {
+      "id": "R-read-turn-kinds",
+      "severity": "hard",
+      "statement": "In a `[[FLOW:read]]` flow a `claims` turn declares exactly one `turn_kind`: `plan` for the session brief, `answer` for a free-recall check or a model diagnosis. A missing kind, or any kind outside `plan|answer`, is withheld (`FOUNDATION_INCOMPLETE`) with a remedy naming `plan` or `answer`; the interview kinds (`triage`, `attack`, `autopsy`, `repair`) and the repair machinery are unreachable in the read flow, so a reading session cannot silently become an interrogation.",
+      "tests": [
+        "detectFlow recognizes the read flow",
+        "read claims turn with plan is released",
+        "read claims turn with answer is released",
+        "read claims turn without turn_kind is withheld",
+        "read claims turn with an interview kind is withheld"
+      ]
+    },
+    {
+      "id": "R-brief-grounded",
+      "severity": "hard",
+      "statement": "Every session-brief benchmark question and keyword is anchored in the attached source text: the fact-check envelope carries that text as `read_source` (the attached text or its `source_refs`), and any question or keyword whose anchor cannot be recovered from it is withheld (`BRIEF_UNGROUNDED`). A brief generated from general knowledge of a title is ungrounded.",
+      "tests": [
+        "resources: reading brief is anchored in the read_source text"
+      ]
+    },
+    {
+      "id": "R-brief-no-teaching",
+      "severity": "policy",
+      "statement": "The reading brief never answers its own questions, explains a mechanism, or summarizes the content beyond gist-level orientation (`BRIEF_TEACHES`), and no brief is emitted without attached text (`BRIEF_WITHOUT_SOURCE`); with no text the Tutor asks for it and stops instead of generating questions.",
+      "tests": [
+        "resources: reading brief never teaches and never emits without a source"
+      ]
+    },
+    {
+      "id": "R-generate-before-feedback",
+      "severity": "hard",
+      "statement": "No check feedback is revealed before a completed dump carrying a confidence mark (`sure`/`hunch`/`no-idea`) per dumped item (`PREMATURE_FEEDBACK`), every `wrong` or `missing` verdict carries a source quote anchored in `read_source` (`UNQUOTED_VERDICT`), and explaining a gap into place instead of naming and quoting it is `MODEL_GHOSTWRITING`. The learner generates and rates first; a hint, a partial confirmation, or \"you're close\" before that is the same defect.",
+      "tests": [
+        "resources: free-recall check is generate-before-feedback"
+      ]
+    },
+    {
+      "id": "R-diagnose-never-rewrite",
+      "severity": "hard",
+      "statement": "Every diagnosis verdict (`wrong`, `missing`, `misplaced`) quotes the learner's verbatim words from `read_model` and the source passage from `read_source` (`UNQUOTED_DIAGNOSIS`; an invented or paraphrased you-said is `PRIOR_UNGROUNDED`), and the draft never rewrites, restructures, redraws, or cleans up the learner's model (`DIAGNOSIS_REWRITE`). Quoting a single link with what is wrong is legal; a redrawn map or a cleaned-up model version is not.",
+      "tests": [
+        "resources: model diagnosis quotes the learner and never rewrites"
+      ]
+    },
+    {
+      "id": "R-read-no-interrogation",
+      "severity": "policy",
+      "statement": "The reading flow runs no triage tables, attacks, hint ladder, repair mode, or graduation clones. A reading session scopes the reading, checks free recall, and diagnoses the learner's model; it never borrows the teach flow's interrogation machinery.",
+      "tests": [
+        "resources: the reading flow runs no triage, attacks, hint ladder, repair, or clones"
+      ]
+    },
+    {
+      "id": "R-benchmark-fixed-shots",
+      "severity": "hard",
+      "statement": "Benchmark sessions run the fixed +1-day/+7-day/+30-day ladder: each shot records one attempt that advances the ladder exactly one step regardless of result, a miss re-appears through a `[miss: …]` Mistakes row without moving the dates, and the third recorded shot graduates the session.",
+      "tests": [
+        "resources: benchmark shots are a fixed ladder with one attempt per shot and miss rows"
+      ]
+    },
+    {
+      "id": "R-benchmark-isolation",
+      "severity": "policy",
+      "statement": "Benchmark scheduling never alters the other four types' ladders and vice versa: the 2-consecutive-correct graduation rule applies to the other four types only, a benchmark shot records one `Attempts.json` attempt for the whole session rather than 15, and a question's level label is record-only data in the benchmark ledger, never a scheduling input.",
+      "tests": [
+        "resources: benchmark scheduling is isolated from the other four types and is record-only"
+      ]
+    },
+    {
+      "id": "R-score-report-matches",
+      "severity": "hard",
+      "statement": "A benchmark session note's per-level score report is recomputed from the ledger's shot records (pass count over the shot's question count per level) and follows the trajectory across shots in order; any mismatch is an `ISSUES` verdict.",
+      "tests": [
+        "resources: benchmark score report is recomputed from the ledger shot records"
       ]
     }
   ]

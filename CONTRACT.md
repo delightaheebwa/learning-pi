@@ -671,6 +671,47 @@ coverage check as the deno gate suites.
   (`pi/node_mastery.py`, G-node-mastery-derived); `ops.py mastery` remains
   per-concept, and per-node mastery scoring is still deferred.
 
+### Reading mode (Sung-style reading sessions)
+
+A reading session is its own flow (`[[FLOW:read]]`), not a teach or review
+session. It scopes the reading, checks free recall, and diagnoses the learner's
+model. The machine-readable invariants and their tagged tests live in
+[`contracts/learning-core.json`](contracts/learning-core.json).
+
+- **R-read-turn-kinds** *(hard)* — a read-flow `claims` turn declares exactly one
+  `turn_kind`: `plan` (session brief) or `answer` (free-recall check or model
+  diagnosis). A missing or other kind is withheld (`FOUNDATION_INCOMPLETE`) with
+  a remedy naming `plan|answer`; the interview kinds and the repair machinery are
+  unreachable in the read flow.
+- **R-brief-grounded** *(hard)* — every benchmark question and keyword in the
+  session brief is anchored in the attached source text carried as `read_source`
+  (the text or its `source_refs`); an unanchored item is withheld
+  (`BRIEF_UNGROUNDED`).
+- **R-brief-no-teaching** *(policy)* — the brief never answers its own questions,
+  explains a mechanism, or summarizes content beyond gist-level orientation
+  (`BRIEF_TEACHES`), and no brief is emitted without attached text
+  (`BRIEF_WITHOUT_SOURCE`).
+- **R-generate-before-feedback** *(hard)* — no check feedback before a completed
+  dump carrying a confidence mark per item (`PREMATURE_FEEDBACK`); every `wrong`
+  or `missing` verdict carries a source quote (`UNQUOTED_VERDICT`); a gap
+  explained into place instead of named and quoted is `MODEL_GHOSTWRITING`.
+- **R-diagnose-never-rewrite** *(hard)* — every diagnosis verdict quotes the
+  learner's verbatim words and the source (`UNQUOTED_DIAGNOSIS`; an invented
+  "you said…" is `PRIOR_UNGROUNDED`), and the draft never rewrites,
+  restructures, or cleans up the learner's model (`DIAGNOSIS_REWRITE`).
+- **R-read-no-interrogation** *(policy)* — the reading flow runs no triage
+  tables, attacks, hint ladder, repair mode, or graduation clones.
+- **R-benchmark-fixed-shots** *(hard)* — benchmark sessions run the fixed
+  +1d/+1w/+1m ladder; one attempt per shot regardless of result; a miss
+  re-appears via a `[miss: …]` Mistakes row without moving the dates; the third
+  shot graduates the session.
+- **R-benchmark-isolation** *(policy)* — benchmark scheduling never alters the
+  other four types' ladders and vice versa; the level label is record-only data,
+  never a scheduling input.
+- **R-score-report-matches** *(hard)* — a benchmark session note's per-level
+  score report is recomputed from the ledger's shot records; any mismatch is an
+  `ISSUES` verdict.
+
 ## Adding a newly installed extension
 
 If a new extension participates in the learning flow, add its behavioral role
