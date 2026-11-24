@@ -22,6 +22,7 @@ Load the matching skill and follow it. Do not improvise.
 
 - "review" uses the `learning-system` skill and its Review flow. `review-scout` gathers context, the main session reviews, and `review-clerk` writes at the close.
 - "solo", "AI-free check", or "closed-book" uses the `learning-system` skill and its Solo flow with `[[FLOW:solo]]`. This is an unassisted operational check. The gate withholds teaching, hints, and widgets.
+- "I'm going to read ...", "I'm reading ...", or "reading session" uses the `learning-read` skill and its reading pipeline with `[[FLOW:read]]`. The learner attaches the source text; the session brief scopes the reading, then the retrieval checks follow.
 - "teach me X", "learn", "study", "lesson", "continue", or "pause" uses the `learning-teach` skill.
 - "ingest" uses the `learning-system` skill and its Ingest flow, delegated to the `clerk` subagent.
 - "audit" runs the read-only state consistency audit with `python3 "$HOME/learning-pi/pi/audit_state.py" --root .` and reports findings loudly. It never writes.

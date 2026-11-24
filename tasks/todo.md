@@ -198,18 +198,19 @@ presence-based resource checks tolerate the extra files before Phase 3
 (expected-list edits are deferred to V1).
 
 **Acceptance criteria:**
-- [ ] "I'm going to read X" routes to the reading flow and loads
+- [x] "I'm going to read X" routes to the reading flow and loads
       learning-read; teach/review/solo routes unchanged
-- [ ] `scripts/learn-check --no-load` stays green with the new files present
+- [x] `scripts/learn-check --no-load` stays green with the new files present
       (presence-based checks tolerate extras; if not, stop and move the
       expected-list edits into V1's commit)
-- [ ] The prompt carries exactly one `[[FLOW:read]]` tag matching the check's
+- [x] The prompt carries exactly one `[[FLOW:read]]` tag matching the check's
       regex shape
 
 **Verification:**
-- [ ] `scripts/learn-check --no-load` green
-- [ ] Manual: a routing sentence in a scratch pi session starts the reading
-      flow, not a teach session
+- [x] `scripts/learn-check --no-load` green
+- [x] Manual: a routing sentence in a scratch pi session starts the reading
+      flow, not a teach session (routing trace + gate flow-detection smoke;
+      live confirmation comes with the Checkpoint 4 dry run)
 
 **Dependencies:** Task R1
 **Files likely touched:** `.pi/prompts/read.md`, `.pi/skills/learning-read/SKILL.md`,
@@ -218,8 +219,8 @@ presence-based resource checks tolerate the extra files before Phase 3
 
 ## Checkpoint 3
 
-- [ ] A reading session starts gated (one turn tag per message enforced)
-- [ ] Teach/review/solo flows unchanged (suites green)
+- [x] A reading session starts gated (one turn tag per message enforced)
+- [x] Teach/review/solo flows unchanged (suites green)
 - [ ] Review with human before Phase 2
 
 ## Task B1: Session brief (`benchmark-session`)

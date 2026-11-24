@@ -27,7 +27,7 @@
  *     (tag mismatch / would-be evasion).
  *   - A dropped tag is inferred from a bound verifier receipt, or from the
  *     single pending valid receipt when a bound draft is unavailable (async
- *     notify mints) — in teach/resume/review alike — so a forgotten tag never
+ *     notify mints) — in teach/resume/review/read alike — so a forgotten tag never
  *     dead-ends the turn: grade/quiz from a bound grade/quiz receipt, claims
  *     from a fact-check whose `rendered_content` covers the emission. `none` is
  *     not inferred for ordinary turns; the one implicit `none` is the

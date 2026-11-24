@@ -15,6 +15,7 @@ The active learning system. It runs in pi against the learner state tree in the 
 - "solo", "AI-free check", or "closed-book" runs the solo flow. This is a closed-book review of the active track. The gate withholds teaching with `SOLO_NO_TEACHING`. The queue and close are the same as the review flow, but `review-clerk` records every attempt with `mode:"solo"` so the attempt feeds the independence gate. Teaching and hints are impossible by construction. Grade the closed-book answers only.
 - "teach me X", "learn", or "study" starts the teaching loop. Use the `learning-teach` skill, not a review. The word "review" on its own still means the review flow.
 - "lesson" or "continue" starts the next curriculum lesson. Use the `learning-teach` skill.
+- "I'm going to read ...", "I'm reading ...", or "reading session" uses the `learning-read` skill, not a review and not a teach session. The learner attaches the source text and the session brief scopes it.
 
 ### Position discipline
 
