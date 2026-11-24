@@ -61,6 +61,19 @@ None. This was an ingest of learner-supplied material, not an interrogation: no 
 
 ---
 
+## Reading-mode retrofit — 2026-11-25
+
+The reading mode (benchmark brief, free recall, fixed +1d/+1w/+1m retrieval) landed after the 2026-11-24 ingest. This section records the retro-integration of the session's retrieval layer.
+
+- **Benchmark ingested.** The learner's separate ChatGPT session (share id `6b05d698-a7bc-83e9-b17b-c6affa3f92f9`, generated 2026-11-23 from the attached PDF extract) produced an Introduction-only benchmark: 15 questions, 5 low / 5 mid / 5 high, targets 90 / 80 / 70 from memory. It is seeded as `Psychology of Money (Introduction) — benchmark` (type `benchmark`, `interval_index` 0, session date 2026-11-24) via `ops.py benchmark`; the questions and levels live in `Learning System/Core/🎯 Benchmarks.json`, the row sits in `Active Concepts`, and the ladder is fixed: **+1d 2026-11-25 (due), +1w 2026-12-01, +1m 2026-12-24** — one attempt per shot, result-agnostic, a miss re-appears without moving the dates.
+- **Free recall.** Not performed on 2026-11-24; the feature did not exist yet. The +1d retrieval session opens with the closed-book dump of the Introduction *before* the questions — that dump is the retrieval practice this session owed, one day late rather than skipped.
+- **Keywords.** The final short list the learner asked for (20 terms) is preserved verbatim in `Knowledge Wiki/raw/sources/2026-11-25 - psychology-of-money - chatgpt-benchmark.md`. No groupings were recorded; connecting stayed with the learner.
+- **Model revision trail.** The ingested Mermaid model matches the ChatGPT-suggested final structure. The earlier ASCII v1 and Mermaid v2 exist only in the shared chat; the raw source note of 2026-11-24 remains the anchor for the ingested model.
+- **Queue reality.** The benchmark row is due today, but the 5-slot queue is taken by the overdue backlog (46 due reviews on this track), and due reviews are shuffled per day. The benchmark joins that rotation; it surfaces when drawn, or can be requested explicitly.
+- **Grading requirement.** A retrieval shot graded against the book needs the PDF attached again — the repo holds only the three verbatim passages, so an unquoted check cannot be grounded.
+
+---
+
 ## Open Questions
 
 - [ ] If money behaviour is a soft skill, what is the *teachable* unit — rules that pre-commit behaviour (automatic saving, fixed holding periods), exposure to other people's samples, or explicit history/base-rate reading? The source names the difficulty and stops.

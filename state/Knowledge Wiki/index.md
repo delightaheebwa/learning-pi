@@ -31,6 +31,7 @@
 - [[2026-10-13 - dimensionality-reduction - rohit]] + 3b1b-eigen / cs229-prob / distill / gundersen / shlens / sklearn-kpca / umap / umap-faq / umap-paper / umap-params — P1 L10 DR re-scout (2026-10-13, PASS; TTL to ~2026-10-20)
 - [[2026-10-28 - prompt-engineering - rohit]] + anthropic / claude-best-practices / cot-wei / dair / dair-cot / dair-settings / openai / prompt-engineer — Phase 11 L01 prompt-engineering first scout (2026-10-28, scout-audit PASS)
 - [[2026-11-24 - psychology-of-money - housel-introduction]] — learner-supplied mental model (Mermaid) + three verbatim passages from Morgan Housel, *The Psychology of Money*, Introduction (standalone, off-curriculum)
+- [[2026-11-25 - psychology-of-money - chatgpt-benchmark]] — ChatGPT-generated Introduction benchmark (15 leveled questions, 90/80/70) + final short keyword list for Housel's *The Psychology of Money*, Introduction (learner-supplied 2026-11-23; seeded into the benchmark ledger 2026-11-25)
 
 ## Concepts
 

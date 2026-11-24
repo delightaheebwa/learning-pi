@@ -1143,3 +1143,15 @@ A personal synthesis of professionalism, engineering mindset, delivering value, 
 - **Mistakes:** none (no items asked). **Dependency events:** none. **Calibration:** no data.
 - **Graph:** propositions distilled from the taught material (soft skill vs hard science, the negated knowledge→behaviour edge, the sample/weight disproportion, story-driven behaviour) and merged; see the `GRAPH_MERGE` receipt in the Clerk return.
 - `Core/Learner History.md` regenerated via `python3 scripts/learner_history.py`.
+
+### 2026-11-25 — ingest: The Psychology of Money — ChatGPT benchmark retrofit (reading mode, standalone)
+
+- **What:** retro-integration of the learner's separate ChatGPT reading-benchmark session (share id `6b05d698-a7bc-83e9-b17b-c6affa3f92f9`, generated 2026-11-23) for the 2026-11-24 Introduction ingest. The reading mode (brief, free recall, fixed +1d/+1w/+1m retrieval) landed after that session, so its retrieval layer was missing.
+- **Benchmark seeded:** `Psychology of Money (Introduction) — benchmark` (type `benchmark`, `aiefs`, `developing`, `interval_index` 0, `next_review` **2026-11-25**) via `ops.py benchmark`; 15 level-tagged questions (5 low / 5 mid / 5 high; 90 / 80 / 70 targets) in `Core/🎯 Benchmarks.json`; fixed ladder **+1d 2026-11-25 / +1w 2026-12-01 / +1m 2026-12-24**; one attempt per shot, result-agnostic; a miss re-appears without moving the dates.
+- **Free recall:** not performed 2026-11-24 (feature absent); scheduled as the closed-book opening of the +1d retrieval shot.
+- **Keywords:** the final short list (20 terms) preserved verbatim in the new raw source note; no groupings recorded.
+- **Raw source (new):** `raw/sources/2026-11-25 - psychology-of-money - chatgpt-benchmark.md` — benchmark questions, keyword list, model-revision provenance, and the note that grading needs the PDF attached.
+- **Wiki pages:** unchanged (both Psychology pages remain `status=synthesis` with learner-note `## My understanding`). **Concepts:** no concept rows changed; 1 benchmark session row added (49 concept rows + 1 benchmark = 50 aiefs rows). **Attempts.json:** the benchmark entry seeded with `attempts: []`.
+- **Mistakes:** none. **Dependency events:** none. **Graph:** no propositions added (no new world-knowledge claims).
+- **Queue note:** the benchmark row is due today but the 5-slot queue is filled by the overdue backlog (46 due reviews on the track); due reviews are shuffled per day, so it surfaces when drawn or on explicit request.
+- `Core/Learner History.md` not regenerated: no new attempts (mastery unknown, unchanged).

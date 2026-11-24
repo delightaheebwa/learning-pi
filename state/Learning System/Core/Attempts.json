@@ -3976,6 +3976,16 @@
       "last_reviewed": "2026-11-24",
       "next_review": "2026-11-27",
       "feynman": null
+    },
+    "Psychology of Money (Introduction) — benchmark": {
+      "type": "benchmark",
+      "attempts": [],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-24",
+      "next_review": "2026-11-25",
+      "feynman": null
     }
   },
   "meta": {
