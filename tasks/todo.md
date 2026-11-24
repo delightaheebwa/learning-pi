@@ -293,14 +293,14 @@ photographed maps; no attack battery, no repair ladder, no clones in this
 flow.
 
 **Acceptance criteria:**
-- [ ] The four verdict categories are defined with quote requirements for each
-- [ ] Diagnose-never-rewrite stated as a withhold-level rule
-- [ ] Session close records the final model + diagnosis history
+- [x] The four verdict categories are defined with quote requirements for each
+- [x] Diagnose-never-rewrite stated as a withhold-level rule
+- [x] Session close records the final model + diagnosis history
 
 **Verification:**
-- [ ] `scripts/learn-check --no-load` green
+- [x] `scripts/learn-check --no-load` green
 - [ ] Manual dry run: paste a small mermaid/ascii model; diagnosis quotes
-      learner + source; pi produces no corrected model
+      learner + source; pi produces no corrected model (Checkpoint 4)
 
 **Dependencies:** Task R2 (parallel-safe with B1 and F1)
 **Files likely touched:** `.pi/skills/learning-read/SKILL.md`, `.pi/agents/fact-check.md`

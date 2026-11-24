@@ -76,7 +76,20 @@ Forbidden: feedback of any kind before dump-complete plus confidence marks; rewr
 
 ### Model diagnosis
 
-Placeholder, owned by `model-diagnose`. Fill with the four diagnosis buckets and the no-rewrite rule.
+The learner presents their mental model in any form: prose, list, ASCII, mermaid, or a photographed drawn map. A photo goes through the existing photo → excalidraw ingestion path documented in `state/Knowledge Wiki/AGENTS.md`; its rules apply as written.
+
+One presentation yields exactly one `[[TURN:claims]]` turn with `turn_kind:"answer"`. Four buckets:
+
+- **right**: relations that match the source. Confirm briefly; no re-teaching, no polished restatement.
+- **wrong**: links or claims that contradict the source. Quote the learner's words, quote the source, say what is wrong. Supply no corrected version.
+- **missing**: load-bearing concepts from the scoped text that the model omits. Name each and quote it; never explain it into place.
+- **misplaced**: relations present but wrong in direction or level (A-drives-B where the source says B-modulates-A). Quote both the learner's version and the source's version.
+
+Every verdict quotes the learner's verbatim words and the source passage. An invented or paraphrased "you said…" is `PRIOR_UNGROUNDED`, the same standard as every other flow.
+
+The learner revises and re-presents; each re-presentation gets one fresh diagnosis turn. The loop closes when a re-presented model draws only `right` verdicts, or `missing` items the learner consciously parks in their own words. Parked items stay parked, recorded with those words. The final model version, verbatim, plus the diagnosis history enters the session handoff.
+
+The forbidden move: pi never rewrites, redraws, restates in cleaner prose, or "cleans up" the learner's model. Correct a single link if it is wrong, but only as a quoted verdict; never return a restructured model. No attack battery, no hint ladder, no repair mode, no graduation clones in this flow.
 
 ### Retrieval sessions
 

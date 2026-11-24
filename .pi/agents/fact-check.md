@@ -45,6 +45,7 @@ You receive ONLY data via a `GATE:fact_check` envelope — never freeform tutor 
   "raw_files":[{"label":"...","url":"...","path":"Knowledge Wiki/raw/sources/..."}],
   "reference_excerpt":"...",
   "read_source":{"attached_text":"the learner's attached text for the reading flow, or null","source_refs":["path or URL per attached chunk"]},
+  "read_model":{"learner_model":"the learner's verbatim presented model"},
   "read_recall":{"dump":"the learner's verbatim dump from the scoped reading","confidence":{"<item>":"sure|hunch|no-idea"}},
   "context":"..."}
 ```
@@ -98,6 +99,25 @@ field where the kind requires one is an `ISSUES` verdict.
     `MODEL_GHOSTWRITING` verdict — not a new code. Restating the dump in cleaner prose, or
     re-teaching an item already marked `right`, is also `MODEL_GHOSTWRITING`. Either code
     here is an `ISSUES` verdict and withholds the turn.
+1d. **Model diagnosis (`turn_kind:"answer"` in the read flow).** The diagnosis returns itemized
+    verdicts (`right`, `wrong`, `missing`, `misplaced`) over the learner's presented mental
+    model. The Tutor carries that model verbatim in `read_model` so its words are checkable
+    against `read_source`. Two codes withhold the diagnosis:
+    - `UNQUOTED_DIAGNOSIS`: a `wrong`, `missing`, or `misplaced` verdict lacking either the
+      learner's verbatim quote from `read_model` or the source quote anchored in `read_source`
+      exactly as in 1b. An invented or paraphrased "you said…" is the existing
+      `PRIOR_UNGROUNDED` verdict — not this code.
+    - `DIAGNOSIS_REWRITE`: the draft redraws, restructures, rewords, or otherwise produces a
+      corrected version of the learner's model (the diagnose-never-rewrite rule).
+      `MODEL_GHOSTWRITING` already covers restating the model in cleaner prose;
+      `DIAGNOSIS_REWRITE` covers the stronger case of replacing or restructuring it. Quoting a
+      single link with what is wrong is legal; a redrawn mermaid/ASCII map or a cleaned-up
+      model version is this code.
+
+    A diagnosis turn that interleaves quizzes or attack-style probes in this flow is out of
+    shape and is an `ISSUES` verdict.
+
+    Either code here is an `ISSUES` verdict and withholds the turn.
 
 2. **Source grounding.** Read the specified `raw_files` on disk first — they are Scout's fetched
    bodies and the primary evidence. Verify each claim in `claims` and every hard fact in
