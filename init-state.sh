@@ -306,7 +306,8 @@ cat > "Learning System/Core/Attempts.json" <<'EOF'
       "memory": [0, 1, 3, 7, 14, 30, 60],
       "concept": [3, 7, 14, 30],
       "procedure": [3, 7, 14],
-      "design": [14, 28]
+      "design": [14, 28],
+      "benchmark": [1, 7, 30]
     }
   }
 }

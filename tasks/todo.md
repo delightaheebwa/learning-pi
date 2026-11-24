@@ -352,17 +352,17 @@ the schedule prose that today names only the four types:
 intervals line.
 
 **Acceptance criteria:**
-- [ ] A due reading session appears in the queue with all 15 questions
-- [ ] A missed question re-appears next session; its +1/+7/+30 dates never
+- [x] A due reading session appears in the queue with all 15 questions
+- [x] A missed question re-appears next session; its +1/+7/+30 dates never
       change
-- [ ] The third shot graduates the row (far-future next_review + graduated
+- [x] The third shot graduates the row (far-future next_review + graduated
       marking)
-- [ ] Concept/memory/procedure/design scheduling is unaffected
-- [ ] The audit's interval-consistency check knows the fifth schedule
+- [x] Concept/memory/procedure/design scheduling is unaffected
+- [x] The audit's interval-consistency check knows the fifth schedule
 
 **Verification:**
-- [ ] `ops_test.py`: simulated +1/+7/+30 queue dates, miss-no-reset, graduation
-- [ ] `scripts/learn-check --no-load` green
+- [x] `ops_test.py`: simulated +1/+7/+30 queue dates, miss-no-reset, graduation
+- [x] `scripts/learn-check --no-load` green
 
 **Dependencies:** Task P1
 **Files likely touched:** `state/scripts/ops.py`, `state/scripts/ops_test.py`,

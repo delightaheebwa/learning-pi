@@ -720,6 +720,285 @@ class TestBenchmarkScheduling(unittest.TestCase):
         self.assertEqual(entry["next_review"], "2026-09-18")  # concept[2] = 14d
 
 
+class TestBenchmarkIntervals(unittest.TestCase):
+    """P2: a known type missing from the live `meta.intervals` map keeps its own
+    default ladder instead of silently inheriting the concept schedule.
+
+    The live Attempts.json was seeded before `benchmark` existed, so its
+    `meta.intervals` pins only the four original types."""
+
+    LIVE_META = {"memory": [0, 1, 3, 7, 14, 30, 60], "concept": [3, 7, 14, 30],
+                 "procedure": [3, 7, 14], "design": [14, 28]}
+
+    def test_benchmark_missing_from_live_map_uses_its_own_ladder(self):
+        self.assertEqual(ops._intervals_for({"meta": {"intervals": self.LIVE_META}},
+                                            "benchmark"), [1, 7, 30])
+
+    def test_unknown_type_still_falls_back_to_concept(self):
+        self.assertEqual(ops._intervals_for({"meta": {"intervals": self.LIVE_META}},
+                                            "mystery"), [3, 7, 14, 30])
+
+    def test_live_map_fail_steps_benchmark_up_to_seven_days(self):
+        # With the concept ladder a fail at index 0 would land on +3d; the
+        # benchmark ladder must land on +7d whatever the result.
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        core = Path(tmp.name) / "Learning System" / "Core"
+        core.mkdir(parents=True)
+        seed = {"concepts": {"Bench Item": {
+            "type": "benchmark", "attempts": [], "interval_index": 0,
+            "consecutive_correct": 0, "consecutive_wrong": 0,
+            "last_reviewed": "2026-11-24", "next_review": "2026-11-25", "feynman": None,
+        }}, "meta": {"version": 1, "intervals": self.LIVE_META}}
+        (core / "Attempts.json").write_text(json.dumps(seed), encoding="utf-8")
+        old = ops.ROOT
+        ops.ROOT = Path(tmp.name)
+        self.addCleanup(setattr, ops, "ROOT", old)
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("Bench Item", "fail", date="2026-11-25")
+        entry = json.loads((core / "Attempts.json").read_text(encoding="utf-8"))["concepts"]["Bench Item"]
+        self.assertEqual(entry["interval_index"], 1)
+        self.assertEqual(entry["next_review"], "2026-12-02")  # +7d, not +3d
+
+
+class TestBenchmarkCommand(unittest.TestCase):
+    """P2: `ops.py benchmark` seeds one ledger session + one row + one shot ladder.
+
+    The per-question results live in the ledger, so a session's 15 answers never
+    become 15 attempts (which would jump the ladder 15 steps)."""
+
+    HEADER = ("| Concept | Track | Type | Status | Source | Last Reviewed | "
+              "Next Review | Last Q Type | Open Question |")
+    SEP = "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    SESSION = "Psychology of Money — Introduction"
+
+    @staticmethod
+    def _questions(levels=None):
+        levels = levels or ["low"] * 5 + ["mid"] * 5 + ["high"] * 5
+        return {"source": "Morgan Housel, *The Psychology of Money*, Introduction",
+                "scope": "Introduction, pp. 1-24",
+                "questions": [{"idx": i, "level": lv, "text": f"Benchmark question {i}"}
+                              for i, lv in enumerate(levels, 1)]}
+
+    def _make_root(self, active_rows=()):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        core = root / "Learning System" / "Core"
+        core.mkdir(parents=True)
+        # Live-shaped meta.intervals: the four original types only.
+        (core / "Attempts.json").write_text(json.dumps({
+            "concepts": {},
+            "meta": {"version": 1, "intervals": TestBenchmarkIntervals.LIVE_META},
+        }), encoding="utf-8")
+        (core / "📚 Active Concepts.md").write_text("\n".join([
+            "# KNOWLEDGE BASE", "", "## AIEFS Track", "", self.HEADER, self.SEP,
+            *active_rows,
+        ]) + "\n", encoding="utf-8")
+        old = ops.ROOT
+        ops.ROOT = root
+        self.addCleanup(setattr, ops, "ROOT", old)
+        return root
+
+    def _questions_file(self, spec=None):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "questions.json"
+        path.write_text(json.dumps(spec if spec is not None else self._questions()),
+                        encoding="utf-8")
+        return str(path)
+
+    def _ledger(self, root):
+        return json.loads((root / ops.BENCHMARK_LEDGER_PATH).read_text(encoding="utf-8"))
+
+    def _attempts(self, root):
+        return json.loads((root / "Learning System" / "Core" / "Attempts.json")
+                          .read_text(encoding="utf-8"))
+
+    def test_seeds_ledger_row_and_one_shot_ladder(self):
+        root = self._make_root()
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ops.do_benchmark(self.SESSION, "2026-11-24", self._questions_file())
+        self.assertIn("BENCHMARK OK", buf.getvalue())
+
+        session = self._ledger(root)["sessions"][self.SESSION]
+        self.assertEqual(session["date"], "2026-11-24")
+        self.assertEqual(session["track"], "aiefs")
+        self.assertEqual(session["scope"], "Introduction, pp. 1-24")
+        self.assertEqual(len(session["questions"]), 15)
+        self.assertEqual(session["shots"], [])
+        self.assertEqual([q["idx"] for q in session["questions"]], list(range(1, 16)))
+        self.assertEqual(session["questions"][0]["level"], "low")
+        self.assertEqual(session["questions"][-1]["level"], "high")
+
+        entry = self._attempts(root)["concepts"][self.SESSION]
+        self.assertEqual(entry["type"], "benchmark")
+        self.assertEqual(entry["interval_index"], 0)
+        self.assertEqual(entry["next_review"], "2026-11-25")  # date + 1 day
+        self.assertEqual(entry["attempts"], [])  # results live in the ledger
+
+        row = ops._active_rows("aiefs")[0][self.SESSION]
+        self.assertEqual(row["type"], "benchmark")
+        self.assertEqual(row["status"], "developing")
+        self.assertEqual(row["last_reviewed"], "2026-11-24")
+        self.assertEqual(row["next_review"], "2026-11-25")
+
+    def test_rerun_same_name_and_date_is_a_no_op(self):
+        root = self._make_root()
+        path = self._questions_file()
+        with redirect_stdout(io.StringIO()):
+            ops.do_benchmark(self.SESSION, "2026-11-24", path)
+        before = self._ledger(root)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ops.do_benchmark(self.SESSION, "2026-11-24", path)
+        self.assertIn("BENCHMARK NO-OP", buf.getvalue())
+        self.assertEqual(self._ledger(root), before)
+        self.assertEqual(self._attempts(root)["concepts"][self.SESSION]["attempts"], [])
+        text = (root / "Learning System" / "Core" / "📚 Active Concepts.md").read_text(encoding="utf-8")
+        self.assertEqual(text.count(self.SESSION), 1)  # one row, never a duplicate
+
+    def test_different_date_for_existing_name_is_rejected(self):
+        root = self._make_root()
+        path = self._questions_file()
+        with redirect_stdout(io.StringIO()):
+            ops.do_benchmark(self.SESSION, "2026-11-24", path)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with self.assertRaises(SystemExit) as cm:
+                ops.do_benchmark(self.SESSION, "2026-11-25", path)
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("already seeded for 2026-11-24", buf.getvalue())
+        self.assertEqual(self._ledger(root)["sessions"][self.SESSION]["date"], "2026-11-24")
+
+    def test_bad_level_writes_nothing(self):
+        root = self._make_root()
+        path = self._questions_file(self._questions(["low"] * 5 + ["mid"] * 5 + ["extreme"] * 5))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with self.assertRaises(SystemExit) as cm:
+                ops.do_benchmark(self.SESSION, "2026-11-24", path)
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("expected one of: low, mid, high", buf.getvalue())
+        self.assertFalse((root / ops.BENCHMARK_LEDGER_PATH).exists())
+        self.assertEqual(self._attempts(root)["concepts"], {})
+        self.assertNotIn(self.SESSION, ops._active_rows("")[0])
+
+    def test_empty_question_text_is_rejected(self):
+        root = self._make_root()
+        spec = self._questions()
+        spec["questions"][3]["text"] = "   "
+        path = self._questions_file(spec)
+        with redirect_stdout(io.StringIO()) as buf:
+            with self.assertRaises(SystemExit) as cm:
+                ops.do_benchmark(self.SESSION, "2026-11-24", path)
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("empty text", buf.getvalue())
+        self.assertFalse((root / ops.BENCHMARK_LEDGER_PATH).exists())
+
+    def test_idx_is_auto_assigned_when_absent(self):
+        root = self._make_root()
+        spec = self._questions()
+        for q in spec["questions"]:
+            del q["idx"]
+        with redirect_stdout(io.StringIO()):
+            ops.do_benchmark(self.SESSION, "2026-11-24", self._questions_file(spec))
+        questions = self._ledger(root)["sessions"][self.SESSION]["questions"]
+        self.assertEqual([q["idx"] for q in questions], list(range(1, 16)))
+
+    def test_cli_seeds_a_benchmark_session(self):
+        root = self._make_root()
+        path = self._questions_file()
+        old_argv = sys.argv
+        sys.argv = ["ops.py", "benchmark", self.SESSION, "--date", "2026-11-24",
+                    "--questions-file", path]
+        self.addCleanup(setattr, sys, "argv", old_argv)
+        with redirect_stdout(io.StringIO()):
+            ops.main()
+        self.assertIn(self.SESSION, self._ledger(root)["sessions"])
+        self.assertEqual(self._attempts(root)["concepts"][self.SESSION]["next_review"],
+                         "2026-11-25")
+
+
+class TestBenchmarkQueue(unittest.TestCase):
+    """P2: a due benchmark row is one normal queue slot carrying its type and the
+    ledger key; the shots themselves advance the ladder one step per session."""
+
+    SESSION = TestBenchmarkCommand.SESSION
+
+    def _seed(self, day="2026-11-24"):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        core = root / "Learning System" / "Core"
+        core.mkdir(parents=True)
+        (core / "Attempts.json").write_text(json.dumps({
+            "concepts": {},
+            "meta": {"version": 1, "intervals": TestBenchmarkIntervals.LIVE_META},
+        }), encoding="utf-8")
+        (core / "📚 Active Concepts.md").write_text("\n".join([
+            "# KNOWLEDGE BASE", "", "## AIEFS Track", "",
+            TestBenchmarkCommand.HEADER, TestBenchmarkCommand.SEP,
+        ]) + "\n", encoding="utf-8")
+        qtmp = tempfile.TemporaryDirectory()
+        self.addCleanup(qtmp.cleanup)
+        qpath = Path(qtmp.name) / "questions.json"
+        qpath.write_text(json.dumps(TestBenchmarkCommand._questions()), encoding="utf-8")
+        old = ops.ROOT
+        ops.ROOT = root
+        self.addCleanup(setattr, ops, "ROOT", old)
+        with redirect_stdout(io.StringIO()):
+            ops.do_benchmark(self.SESSION, day, str(qpath))
+        return root
+
+    def _set_next_review(self, root, day):
+        path = root / "Learning System" / "Core" / "Attempts.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["concepts"][self.SESSION]["next_review"] = day
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+    def test_due_benchmark_row_enters_the_queue_as_one_slot(self):
+        self._seed()
+        payload = ops._build_queue("aiefs", ops._parse_date("2026-11-25"), 5)
+        self.assertEqual(len(payload["queue"]), 1)
+        entry = payload["queue"][0]
+        self.assertEqual(entry["concept"], self.SESSION)  # == the ledger key
+        self.assertEqual(entry["type"], "benchmark")
+        self.assertEqual(entry["due_kind"], "review")
+        self.assertEqual(entry["next_review"], "2026-11-25")
+
+    def test_not_due_benchmark_row_is_omitted(self):
+        root = self._seed()
+        self._set_next_review(root, "2026-12-01")
+        payload = ops._build_queue("aiefs", ops._parse_date("2026-11-25"), 5)
+        self.assertEqual(payload["queue"], [])
+        self.assertEqual(payload["due_reviews"], 0)
+
+    def test_one_shot_advances_the_ladder_once(self):
+        root = self._seed()
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt(self.SESSION, "fail", date="2026-11-25")
+        entry = json.loads((root / "Learning System" / "Core" / "Attempts.json")
+                           .read_text(encoding="utf-8"))["concepts"][self.SESSION]
+        self.assertEqual(entry["interval_index"], 1)
+        self.assertEqual(entry["next_review"], "2026-12-02")  # +7d
+        self.assertEqual(len(entry["attempts"]), 1)  # one attempt, not 15
+        ledger = json.loads((root / ops.BENCHMARK_LEDGER_PATH).read_text(encoding="utf-8"))
+        self.assertEqual(ledger["sessions"][self.SESSION]["shots"], [])  # results are ledger data
+
+    def test_three_shots_stay_on_the_fixed_ladder(self):
+        root = self._seed()
+        for shot_day in ("2026-11-25", "2026-12-02", "2027-01-01"):
+            with redirect_stdout(io.StringIO()):
+                ops.do_attempt(self.SESSION, "fail", date=shot_day)
+        entry = json.loads((root / "Learning System" / "Core" / "Attempts.json")
+                           .read_text(encoding="utf-8"))["concepts"][self.SESSION]
+        self.assertEqual(entry["interval_index"], 2)  # clamped at the 30d shot
+        self.assertEqual([a["date"] for a in entry["attempts"]],
+                         ["2026-11-25", "2026-12-02", "2027-01-01"])
+
+
 class TestAttemptLevel(unittest.TestCase):
     """P1: `--level` is a validated, record-only per-question label."""
 

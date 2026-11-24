@@ -50,6 +50,17 @@ Usage:
                                    (repeatable) records the concept's direct prerequisite
                                    edges. Prints mastery + next_review for the skill to
                                    copy via apply.
+  ops.py benchmark "Session Name" --date YYYY-MM-DD --questions-file PATH [--track TRACK]
+                                   Seed a reading session's retrieval track: write the session
+                                   (source, scope, level-tagged questions) to the benchmark
+                                   ledger (`Core/🎯 Benchmarks.json`), create its `benchmark`
+                                   Active Concepts row, and seed the Attempts.json shot ladder
+                                   at interval_index 0 with next_review = date + 1 day. Idempotent
+                                   for the same name+date; a different date for an existing
+                                   name is rejected — the 1/7/30 shot dates never move.
+                                   File shape: {"source": "...", "scope": "...",
+                                   "questions": [{"idx": 1, "level": "low|mid|high", "text": "..."}]}
+                                   (idx optional — auto-assigned 1..n).
   ops.py amend "Concept" --date OLD [--new-date NEW] [--field FIELD --value VALUE] --reason "..." [--occurrence N] [--json]
                                    Audited in-place correction of ONE recorded attempt:
                                    re-date it and/or fix a metadata field (date|q_type|
@@ -141,6 +152,13 @@ DEFAULT_INTERVALS = {
 ATTEMPTS_PATH = "Learning System/Core/Attempts.json"
 MISTAKES_PATH = "Learning System/Core/🧯 Mistakes.md"
 ACTIVE_PATH = "Learning System/Core/📚 Active Concepts.md"
+# One row per reading session (never per question): the session's source, scope,
+# and level-tagged questions live here, and each shot's per-question results are
+# appended to `shots`. The queue entry's concept name is the ledger key.
+BENCHMARK_LEDGER_PATH = "Learning System/Core/🎯 Benchmarks.json"
+ACTIVE_HEADER = ("| Concept | Track | Type | Status | Source | Last Reviewed | "
+                 "Next Review | Last Q Type | Open Question |")
+ACTIVE_SEP = "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
 WIKI_DIR = "Knowledge Wiki/wiki"
 MASTERY_WEIGHTS = [0.4, 0.25, 0.15, 0.1, 0.1]
 ERROR_TYPES = ("structural", "deviation", "application", "metacognitive")
@@ -507,8 +525,77 @@ def _load_attempts() -> tuple:
 
 
 def _intervals_for(data: dict, ctype: str):
+    """The interval ladder for a type: live meta.intervals first, then the default.
+
+    A type this tool knows can be missing from an older live `meta.intervals` map
+    (the four original types were seeded before `benchmark` existed), so it must
+    fall back to `DEFAULT_INTERVALS[type]` — never to the concept ladder, which
+    would silently schedule benchmark shots on [3, 7, 14, 30]. A type in neither
+    map keeps the concept fallback."""
     sched = (data.get("meta") or {}).get("intervals") or DEFAULT_INTERVALS
-    return sched.get(ctype, sched.get("concept", [3, 7, 14, 30]))
+    if ctype in sched:
+        return sched[ctype]
+    if ctype in DEFAULT_INTERVALS:
+        return DEFAULT_INTERVALS[ctype]
+    return sched.get("concept", [3, 7, 14, 30])
+
+
+def _load_benchmark_ledger() -> tuple:
+    """Parsed benchmark ledger ({} sessions when the file does not exist yet)."""
+    p = _resolve(BENCHMARK_LEDGER_PATH)
+    if not p.is_file():
+        return {"version": 1, "sessions": {}}, p
+    data = json.loads(p.read_text(encoding="utf-8"))
+    data.setdefault("sessions", {})
+    return data, p
+
+
+def _load_benchmark_questions(path: str) -> dict:
+    """Parse + validate a benchmark questions file.
+
+    Shape: {"source": ..., "scope": ..., "questions": [{idx, level, text}]}.
+    Levels must be low|mid|high and every text non-empty; `idx` is auto-assigned
+    (1..n) when absent. Raises ValueError with a clear message; the caller
+    rejects with exit 2."""
+    try:
+        raw = Path(path).expanduser().read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"cannot read questions file {path!r}: {exc}") from exc
+    try:
+        spec = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"questions file is not valid JSON: {exc}") from exc
+    if not isinstance(spec, dict):
+        raise ValueError("questions file must be a JSON object")
+    source = str(spec.get("source") or "").strip()
+    scope = str(spec.get("scope") or "").strip()
+    if not source:
+        raise ValueError("questions file needs a non-empty source")
+    if not scope:
+        raise ValueError("questions file needs a non-empty scope")
+    questions = spec.get("questions")
+    if not isinstance(questions, list) or not questions:
+        raise ValueError("questions file needs a non-empty questions list")
+    parsed, seen = [], set()
+    for n, q in enumerate(questions, 1):
+        if not isinstance(q, dict):
+            raise ValueError(f"question {n} must be an object")
+        text = str(q.get("text") or "").strip()
+        if not text:
+            raise ValueError(f"question {n} has an empty text")
+        level = normalize_level(q.get("level"))
+        if level is None:
+            raise ValueError(f"question {n} has level {q.get('level')!r}; "
+                             f"expected one of: {', '.join(LEVELS)}")
+        try:
+            idx = int(q.get("idx", n))
+        except (TypeError, ValueError):
+            raise ValueError(f"question {n} has a non-integer idx {q.get('idx')!r}") from None
+        if idx < 1 or idx in seen:
+            raise ValueError(f"question {n} has idx {idx}; ids must be unique positive integers")
+        seen.add(idx)
+        parsed.append({"idx": idx, "level": level, "text": text})
+    return {"source": source, "scope": scope, "questions": parsed}
 
 
 def _recent_correctness(attempts: list) -> float:
@@ -664,6 +751,51 @@ def _active_rows(track: str):
     return track_rows, all_rows
 
 
+def _active_section_bounds(lines, track: str):
+    """(start, end) line indexes of the `## … <track> …` section, else None."""
+    start = None
+    for i, line in enumerate(lines):
+        if re.match(r"^##\s", line) and re.search(rf"\b{re.escape(track)}\b", line, re.I):
+            start = i
+            break
+    if start is None:
+        return None
+    for j in range(start + 1, len(lines)):
+        if re.match(r"^##\s", lines[j]):
+            return start, j
+    return start, len(lines)
+
+
+def _append_active_row(cells) -> None:
+    """Append one row to the Active Concepts table in its track section.
+
+    Inserts after the section's last table row (or scaffolds the section + header
+    when the track has none yet) so `ops.py state <track>` and the queue read the
+    row where a hand-written row would live. Callers check for an existing row
+    first; this never deduplicates."""
+    path = _resolve(ACTIVE_PATH)
+    row = "| " + " | ".join(cells) + " |"
+    lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+    bounds = _active_section_bounds(lines, cells[1])
+    if bounds is None:
+        block = [f"## {cells[1].upper()} Track", "", ACTIVE_HEADER, ACTIVE_SEP, row]
+        if lines and lines[-1].strip():
+            block.insert(0, "")
+        lines = lines + block
+    else:
+        start, end = bounds
+        last_row = None
+        for j in range(start, end):
+            if lines[j].strip().startswith("|"):
+                last_row = j
+        if last_row is None:
+            lines[start + 1:start + 1] = ["", ACTIVE_HEADER, ACTIVE_SEP, row]
+        else:
+            lines.insert(last_row + 1, row)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def _extract_prereq(text: str):
     """Split a `[prereq: NAME]` marker off the front of a self-attribution cell.
 
@@ -798,6 +930,9 @@ def _queue_entry(row: dict, attempts: dict, due_kind: str, mistake=None) -> dict
             qtype = "transfer-far"
     return {
         "concept": name,
+        # For a `benchmark` row the concept name IS the benchmark-ledger session
+        # key, so the session loads its questions from the ledger instead of
+        # improvising them from this entry.
         "type": ctype,
         "source": row.get("source", ""),
         "last_q_type": last_q,
@@ -936,6 +1071,94 @@ def _print_queue_table(payload: dict) -> None:
             print(f" - {n}")
 
 
+def do_benchmark(session: str, day: str, questions_file: str, track: str = "aiefs") -> None:
+    """Seed a reading session's retrieval track (P2).
+
+    One Active Concepts row per session (`Type benchmark`) plus one Attempts.json
+    entry at interval_index 0 with next_review = date + 1 day, so the +1/+7/+30
+    shots fire and each shot advances the ladder exactly one step whatever the
+    result. The 15 per-question results live in the ledger's `shots`, never as 15
+    attempts — that would jump the index 15 steps inside one session."""
+    session = (session or "").strip()
+    if not session:
+        print("BENCHMARK FAILED: session name is required")
+        sys.exit(2)
+    start = _parse_date(day)
+    if start is None:
+        print(f"BENCHMARK FAILED: bad --date {day!r}, want YYYY-MM-DD")
+        sys.exit(2)
+    track = (track or "aiefs").strip().lower()
+    try:
+        spec = _load_benchmark_questions(questions_file)
+    except ValueError as exc:
+        print(f"BENCHMARK FAILED: {exc}")
+        sys.exit(2)
+
+    # Every conflict is checked before the first write, so a rejected re-run
+    # cannot leave a half-seeded session behind.
+    ledger, ledger_path = _load_benchmark_ledger()
+    existing = ledger["sessions"].get(session)
+    if existing is not None:
+        if existing.get("date") == start.isoformat():
+            print(f"BENCHMARK NO-OP: {session} is already seeded for {start.isoformat()} "
+                  f"({len(existing.get('questions') or [])} question(s))")
+            return
+        print(f"BENCHMARK FAILED: {session} is already seeded for {existing.get('date')}; "
+              "the 1/7/30 shot dates never move — seed a new session name")
+        sys.exit(2)
+
+    data, attempts_path = _load_attempts()
+    entry = data["concepts"].get(session)
+    if entry is not None and (entry.get("type") or "").strip().lower() != "benchmark":
+        print(f"BENCHMARK FAILED: Attempts.json already has {session!r} as type "
+              f"{entry.get('type')!r}; benchmark sessions need their own name")
+        sys.exit(2)
+
+    rows = _active_rows("")[1]
+    row = next((r for r in rows if r["concept"] == session), None)
+    if row is not None and (row.get("type") or "").strip().lower() != "benchmark":
+        print(f"BENCHMARK FAILED: Active Concepts already has {session!r} as type "
+              f"{row.get('type')!r}; benchmark sessions need their own name")
+        sys.exit(2)
+
+    next_day = (start + timedelta(days=1)).isoformat()
+    questions = spec["questions"]
+    counts = " / ".join(
+        f"{sum(1 for q in questions if q['level'] == level)} {level}" for level in LEVELS
+    )
+    ledger["sessions"][session] = {
+        "date": start.isoformat(), "track": track,
+        "source": spec["source"], "scope": spec["scope"],
+        "questions": questions, "shots": [],
+    }
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    ledger_path.write_text(json.dumps(ledger, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    if entry is None:
+        data["concepts"][session] = {
+            "type": "benchmark", "attempts": [], "interval_index": 0,
+            "consecutive_correct": 0, "consecutive_wrong": 0,
+            "last_reviewed": start.isoformat(), "next_review": next_day, "feynman": None,
+        }
+        attempts_path.parent.mkdir(parents=True, exist_ok=True)
+        attempts_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+                                 encoding="utf-8")
+    if row is None:
+        _append_active_row([
+            session, track, "benchmark", "developing",
+            spec["source"], start.isoformat(), next_day, "—",
+            f"Benchmark session — scope: {spec['scope']}; "
+            f"{len(questions)} question(s) ({counts}); scores in {BENCHMARK_LEDGER_PATH}",
+        ])
+
+    print(f"BENCHMARK OK: {session} — {len(questions)} question(s) ({counts}) — {spec['source']}")
+    print(f"wrote {BENCHMARK_LEDGER_PATH}; Active Concepts row "
+          f"{'created' if row is None else 'already present'}; Attempts.json "
+          f"{'seeded' if entry is None else 'already present'}")
+    print(f"next_review {next_day} (interval_index 0) — shots at +1/+7/+30 days, "
+          "one attempt per shot")
+
+
 def do_attempt(concept: str, result: str, feynman: str = None, date: str = None,
                qtype: str = None, ctype: str = None, confidence: str = None,
                hints: int = None, mode: str = None, prereqs: list = None,
@@ -1022,8 +1245,9 @@ def do_attempt(concept: str, result: str, feynman: str = None, date: str = None,
     else:
         entry["interval_index"] = int(entry.get("interval_index", 0)) - 1
     sched = _intervals_for(data, entry.get("type", "concept"))
-    # At the ladder end a benchmark row would re-surface every 30 days;
-    # graduation (clerk prose, far-future next_review) is Task P2's job.
+    # At the ladder end a benchmark row would re-surface every 30 days; the
+    # third recorded shot graduates it at review close (clerk prose: status
+    # `graduated` + far-future next_review written through `ops.py apply`).
     entry["interval_index"] = max(0, min(int(entry["interval_index"]), len(sched) - 1))
     rec = {"date": day, "is_correct": is_correct, "result": result, "q_type": qtype}
     # Optional per-attempt evidence (P0.4): confidence tag, hints used, and
@@ -1558,6 +1782,29 @@ def main() -> None:
         do_attempt(concept, result, feynman=feynman, date=day, qtype=qtype, ctype=ctype,
                    confidence=confidence, hints=hints, mode=mode, targets=targets,
                    prereqs=prereqs if prereqs else None, level=level)
+    elif cmd == "benchmark":
+        if not rest or rest[0].startswith("--"):
+            print('usage: ops.py benchmark "Session Name" --date YYYY-MM-DD '
+                  '--questions-file PATH [--track TRACK]')
+            sys.exit(2)
+        session = rest[0]
+        bench_date = questions_file = None
+        bench_track = "aiefs"
+        i = 1
+        while i < len(rest):
+            tok = rest[i]
+            if tok == "--date" and i + 1 < len(rest):
+                bench_date = rest[i + 1]; i += 2
+            elif tok == "--questions-file" and i + 1 < len(rest):
+                questions_file = rest[i + 1]; i += 2
+            elif tok == "--track" and i + 1 < len(rest):
+                bench_track = rest[i + 1]; i += 2
+            else:
+                i += 1
+        if not bench_date or not questions_file:
+            print("benchmark: --date and --questions-file are required")
+            sys.exit(2)
+        do_benchmark(session, bench_date, questions_file, track=bench_track)
     elif cmd == "grade-mcq":
         key = answers = ""
         as_json = False

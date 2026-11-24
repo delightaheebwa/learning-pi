@@ -223,7 +223,7 @@ Trigger: "solo", "AI-free check", or "closed-book". This is an unassisted operat
 4. When the learner replies, dispatch `naive-student` for the clone item, then one batched `grade-audit` with `items[]`, traces, `pow`, and `naive_student_receipt`. Report the verifier's Pass and Fail verdicts directly. Give no repairs and no teaching. The only allowed message while the check is open is a `[[TURN:none]]` one-line reminder.
 5. Hand the durable writes to one `review-clerk` with `"mode":"solo"` so every attempt is recorded AI-free and feeds the independence gate. Then dispatch one `review-session-audit` on the exact writes. Report the score and updated mastery. The gate withholds `[[TURN:claims]]` as `SOLO_NO_TEACHING` and `[[TURN:ui]]` as `SOLO_NO_AIDS` by construction.
 
-Intervals are type aware: memory uses 0, 1, 3, 7, 14, 30, and 60 days; concept uses 3, 7, 14, and 30 days; procedure uses 3, 7, and 14 days; design uses 14 and 28 days.
+Intervals are type aware: memory uses 0, 1, 3, 7, 14, 30, and 60 days; concept uses 3, 7, 14, and 30 days; procedure uses 3, 7, and 14 days; design uses 14 and 28 days. Benchmark uses 1, 7, and 30 days, fixed regardless of result — each retrieval shot records one attempt and advances the ladder one step.
 
 ## Ingest flow
 

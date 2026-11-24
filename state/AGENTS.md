@@ -39,6 +39,11 @@ remotes, or commands. The old text stays in git history.
   `memory`, `concept`, `procedure`, or `design`, and it drives the intervals in
   `scripts/ops.py` (`memory [0,1,3,7,14,30,60]d`, `concept [3,7,14,30]`,
   `procedure [3,7,14]`, `design [14,28]`).
+- Benchmark rows are the fifth type (`benchmark`): a fixed `1/7/30`-day ladder,
+  result-agnostic, with one attempt per retrieval shot, so `interval_index`
+  always gains 1 (never -1 or +2). The session's questions and per-question
+  results live in the benchmark ledger (`Core/🎯 Benchmarks.json`), not in
+  `Attempts.json`; the third shot graduates the row.
 - `Attempts.json` is an advisory mastery sidecar, updated through
   `scripts/ops.py`. Its `interval_index` gains 1 on a pass, gains 2 on two
   consecutive passes, and loses 1 on a fail.
