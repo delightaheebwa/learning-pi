@@ -60,7 +60,19 @@ No attached text: ask for the text and stop. Never generate questions from gener
 
 ### Free recall
 
-Placeholder, owned by `free-recall`. Fill with the dump, confidence, and quoted-check procedure.
+Closed book, no interruption. The learner dumps everything they remember from the scoped reading, in any form: prose, list, rough map. Do not comment, correct, or complete anything mid-dump. If they ask "is this right?" mid-dump, decline and ask them to finish first.
+
+After they signal the dump is complete, they mark each dumped item `sure`, `hunch`, or `no-idea` before any feedback is revealed.
+
+Then one `[[TURN:claims]]` turn with `turn_kind:"answer"` returns the itemized check against the attached text:
+
+- **wrong**: contradicts the source. Quote the source passage.
+- **missing**: load-bearing content in the scoped text the dump omitted. Name it and quote it; never explain it into place.
+- **right**: confirmed briefly. No re-teaching, no polished restatement.
+
+Every verdict carries a source quote. `sure`-but-wrong items are the most urgent gaps: record them under a `priority_gaps` heading in the session handoff so retrieval prioritizes them. The same procedure runs verbatim at the start of every retrieval session (+1d/+1w/+1m) over the same scoped material.
+
+Forbidden: feedback of any kind before dump-complete plus confidence marks; rewriting or "cleaning up" the learner's dump; filling gaps proactively.
 
 ### Model diagnosis
 

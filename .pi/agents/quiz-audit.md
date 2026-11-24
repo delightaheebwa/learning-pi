@@ -88,6 +88,10 @@ present they must describe the item, not replace the question text.
     in their own words when the Tutor asks for the restatement. A re-ask or a recitation-shaped item
     is `ISSUES` (it cannot distinguish a repaired model from an echoed one). The concept-label ban,
     trace requirement, and no-MCQ rule are unchanged.
+12. **Read-flow retrieval.** In a read-flow retrieval session the batch follows the free-recall
+    dump and its confidence marks; it is not shown while the learner is still dumping. It must not
+    reveal answers, carry a cueing figure, or grade before the learner has attempted every question
+    and rated confidence. The no-MCQ rule and the no-cueing rules apply unchanged.
 
 ## Output
 

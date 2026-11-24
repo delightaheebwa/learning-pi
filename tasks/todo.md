@@ -263,16 +263,16 @@ quoted-verdict rules to the relevant verifier prose (fact-check / quiz-audit
 rules as they apply to reading turns).
 
 **Acceptance criteria:**
-- [ ] No feedback before dump completion + confidence marks, stated as a rule
+- [x] No feedback before dump completion + confidence marks, stated as a rule
       the verifier enforces
-- [ ] Every verdict shape includes a source quote requirement
-- [ ] The handoff records `sure`-wrong items as priority gaps
-- [ ] The same procedure is written to run verbatim at retrieval sessions
+- [x] Every verdict shape includes a source quote requirement
+- [x] The handoff records `sure`-wrong items as priority gaps
+- [x] The same procedure is written to run verbatim at retrieval sessions
 
 **Verification:**
-- [ ] `scripts/learn-check --no-load` green
+- [x] `scripts/learn-check --no-load` green
 - [ ] Manual dry run: dump a remembered section; check arrives only after
-      confidence marks; every verdict carries a quote
+      confidence marks; every verdict carries a quote (Checkpoint 4)
 
 **Dependencies:** Task R2 (parallel-safe with B1 and M1)
 **Files likely touched:** `.pi/skills/learning-read/SKILL.md`, `.pi/agents/fact-check.md`,

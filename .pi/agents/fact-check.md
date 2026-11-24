@@ -45,6 +45,7 @@ You receive ONLY data via a `GATE:fact_check` envelope — never freeform tutor 
   "raw_files":[{"label":"...","url":"...","path":"Knowledge Wiki/raw/sources/..."}],
   "reference_excerpt":"...",
   "read_source":{"attached_text":"the learner's attached text for the reading flow, or null","source_refs":["path or URL per attached chunk"]},
+  "read_recall":{"dump":"the learner's verbatim dump from the scoped reading","confidence":{"<item>":"sure|hunch|no-idea"}},
   "context":"..."}
 ```
 
@@ -80,6 +81,24 @@ field where the kind requires one is an `ISSUES` verdict.
       general knowledge of a title.
 
     Any of these is an `ISSUES` verdict and withholds the turn.
+1c. **Free-recall check (`turn_kind:"answer"` in the read flow).** The check returns itemized
+    verdicts (`wrong`, `missing`, `right`) over the learner's closed-book dump. The Tutor
+    carries that dump and its confidence marks in `read_recall` so timing and quotes are
+    checkable. Two codes withhold the check:
+    - `PREMATURE_FEEDBACK`: the draft reveals a verdict, correction, or any other feedback
+      while `read_recall` lacks a completed dump carrying a confidence mark
+      (`sure|hunch|no-idea`) per dumped item. The learner generates and rates first; a
+      hint, a partial confirmation, or "you're close" before that is the same defect.
+      Feedback emitted with no `read_recall` block at all is also this code.
+    - `UNQUOTED_VERDICT`: a `wrong` or `missing` verdict with no quoted source passage,
+      anchored in `read_source` exactly as in 1b. An anchor you cannot recover from the
+      attached text or its `source_refs` is `UNQUOTED_VERDICT`.
+
+    Explaining a gap the dump omitted, instead of naming it and quoting it, is the existing
+    `MODEL_GHOSTWRITING` verdict — not a new code. Restating the dump in cleaner prose, or
+    re-teaching an item already marked `right`, is also `MODEL_GHOSTWRITING`. Either code
+    here is an `ISSUES` verdict and withholds the turn.
+
 2. **Source grounding.** Read the specified `raw_files` on disk first — they are Scout's fetched
    bodies and the primary evidence. Verify each claim in `claims` and every hard fact in
    `rendered_content` (numbers, formulas, mechanisms, boundary conditions) against those passages.
