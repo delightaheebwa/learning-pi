@@ -69,7 +69,7 @@ The reading mode (benchmark brief, free recall, fixed +1d/+1w/+1m retrieval) lan
 - **Free recall.** Not performed on 2026-11-24; the feature did not exist yet. The +1d retrieval session opens with the closed-book dump of the Introduction *before* the questions — that dump is the retrieval practice this session owed, one day late rather than skipped.
 - **Keywords.** The final short list the learner asked for (20 terms) is preserved verbatim in `Knowledge Wiki/raw/sources/2026-11-25 - psychology-of-money - chatgpt-benchmark.md`. No groupings were recorded; connecting stayed with the learner.
 - **Model revision trail.** The ingested Mermaid model matches the ChatGPT-suggested final structure. The earlier ASCII v1 and Mermaid v2 exist only in the shared chat; the raw source note of 2026-11-24 remains the anchor for the ingested model.
-- **Queue reality.** The benchmark row is due today, but the 5-slot queue is taken by the overdue backlog (46 due reviews on this track), and due reviews are shuffled per day. The benchmark joins that rotation; it surfaces when drawn, or can be requested explicitly.
+- **Queue reality.** The benchmark row is due today. The 5-slot queue was full with the overdue backlog (46 due reviews on this track) and draws due reviews by daily shuffle, which would have pushed the shot out by days. Fixed on 2026-11-25: a due benchmark session now rides as an extra slot after the cap and never displaces a due mistake or review, so the +1d shot fires today.
 - **Grading requirement.** A retrieval shot graded against the book needs the PDF attached again — the repo holds only the three verbatim passages, so an unquoted check cannot be grounded.
 
 ---

@@ -1153,5 +1153,5 @@ A personal synthesis of professionalism, engineering mindset, delivering value, 
 - **Raw source (new):** `raw/sources/2026-11-25 - psychology-of-money - chatgpt-benchmark.md` — benchmark questions, keyword list, model-revision provenance, and the note that grading needs the PDF attached.
 - **Wiki pages:** unchanged (both Psychology pages remain `status=synthesis` with learner-note `## My understanding`). **Concepts:** no concept rows changed; 1 benchmark session row added (49 concept rows + 1 benchmark = 50 aiefs rows). **Attempts.json:** the benchmark entry seeded with `attempts: []`.
 - **Mistakes:** none. **Dependency events:** none. **Graph:** no propositions added (no new world-knowledge claims).
-- **Queue note:** the benchmark row is due today but the 5-slot queue is filled by the overdue backlog (46 due reviews on the track); due reviews are shuffled per day, so it surfaces when drawn or on explicit request.
+- **Queue note:** the benchmark row is due today; the 5-slot queue was filled by the overdue backlog (46 due reviews on the track), so on 2026-11-25 a due benchmark session was made to ride as an extra slot after the cap (revise-door change) — it never displaces a due mistake or review, and the +1d shot fires today.
 - `Core/Learner History.md` not regenerated: no new attempts (mastery unknown, unchanged).
