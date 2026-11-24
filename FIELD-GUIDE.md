@@ -217,7 +217,7 @@ Set these in `~/learning-pi/.pi/settings.json`. The scope is project only.
 
 | Role | Model |
 | --- | --- |
-| Tutor (your session) | `glm-5.3-flash` (high) |
+| Tutor (your session) | `glm-5.3` (high) |
 | Scout / Clerk / Review Scout / Review Clerk | `deepseek-v4.1-flash` |
 | Gate verifiers (`fact-check` / `quiz-audit` / `grade-audit` / `tutor-audit` / `review-session-audit` / `ui-audit` / `graph-audit`) | `muse-spark-1.3-contributor` (high) |
 | Ingest reviewer (`review-gate`) / lesson-start context auditor (`scout-audit`) | `muse-spark-1.3-contributor` |
