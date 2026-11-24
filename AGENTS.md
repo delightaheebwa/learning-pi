@@ -17,7 +17,7 @@ source-of-truth map.
 
 ## Layout and landmines
 
-- `.pi/` — canonical teaching behavior: 5 skills, 15 subagents, 8 prompts.
+- `.pi/` — canonical teaching behavior: 6 skills, 15 subagents, 9 prompts.
 - `.opencode/` — the vendored agent-skills pack (25 skills, 4 personas). It is
   pinned; update it with `scripts/skills-sync.sh`, not by hand-editing vendored
   files. Its guard scripts live in `scripts/`.

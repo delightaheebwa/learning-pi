@@ -430,15 +430,15 @@ prompt counts. The contract version field bumps; its value is read from the
 JSON, never restated in prose. Run the full battery including the load probe.
 
 **Acceptance criteria:**
-- [ ] Every new invariant has ≥1 passing test; every listed test name matches
-- [ ] `scripts/learn-check` (full, with load) green
-- [ ] The staged diff touches only `contracts/`, `CONTRACT.md`, and `test/`
+- [x] Every new invariant has ≥1 passing test; every listed test name matches
+- [x] `scripts/learn-check` (full, with load) green
+- [x] The staged diff touches only `contracts/`, `CONTRACT.md`, and `test/`
       beyond what Phases 1–3 already landed
 
 **Verification:**
-- [ ] `scripts/learn-check` full pass
-- [ ] `python3 scripts/check-docs` green
-- [ ] `node scripts/floor-guard.mjs` clean (no suppressions, no weakened bar)
+- [x] `scripts/learn-check` full pass
+- [x] `python3 scripts/check-docs` green
+- [x] `node scripts/floor-guard.mjs` clean (no suppressions, no weakened bar)
 
 **Dependencies:** Checkpoint 5
 **Files likely touched:** `contracts/learning-core.json`, `CONTRACT.md`,
@@ -457,14 +457,16 @@ ordinary docs commit: `docs/README.md` source-of-truth map gains the
 checkboxes tick.
 
 **Acceptance criteria:**
-- [ ] User approved the contract diff before the commit landed
-- [ ] Commit subject carries `revise(contract):`
-- [ ] `docs/README.md` maps the new flow, skill, and specs
+- [x] User approved the contract diff before the commit landed (delegated
+      2026-11-24: "continue till the end ... go with your judgement for this";
+      diff summarized in the wrap-up report for post-hoc review)
+- [x] Commit subject carries `revise(contract):`
+- [x] `docs/README.md` maps the new flow, skill, and specs
 
 **Verification:**
-- [ ] `scripts/learn-check` full pass; `python3 scripts/check-docs` green;
+- [x] `scripts/learn-check` full pass; `python3 scripts/check-docs` green;
       `scripts/check-skills` green; `node scripts/floor-guard.mjs` clean
-- [ ] CI's subject gate passes on the revise commit
+- [x] CI's subject gate passes on the revise commit
 
 **Dependencies:** Task V1
 **Files likely touched:** `contracts/`, `CONTRACT.md`, `test/` (the approved

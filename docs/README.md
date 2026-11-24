@@ -36,6 +36,7 @@ which also runs the `harness/` suite. CI also runs `scripts/check-docs`,
 | `docs/adr/ADR-0001-transcript-parsing.md` | Decision to keep the two transcript readers separate. |
 | `docs/adr/ADR-0002-agent-skills-adoption.md` | Why the agent-skills pack is vendored under `.opencode/`. |
 | `docs/adr/ADR-0003-solo-first-operating-mode.md` | Solo-first division of labor after the Sung-methodology comparison; learner owns encoding, the system owns ingest and graded recall. |
+| `docs/specs/CAPABILITY-MAP-reading-mode.md` + `docs/specs/SPEC-*.md` | Approved capability map and module specs for the Sung-style reading mode (benchmark sessions, free recall, model diagnosis, fixed +1d/+1w/+1m retrieval), frozen by the `R-*` contract invariants. |
 | `bridge/README.md` | `B-*` bridge invariants. |
 | `deploy/README.md` and `deploy/SECURITY.md` | Docker Open WebUI deployment and its security notes. |
 | `harness/README.md`, `bin/README.md`, `omarchy/README.md` | Per-component guides. |
@@ -48,8 +49,8 @@ asserts on their content, so edit them with care.
 
 | Tree | Files | Role |
 | --- | --- | --- |
-| `.pi/skills/` | 5 | Canonical teaching flows for pi. |
-| `.pi/prompts/` | 8 | Slash-command entry points. Seven of the eight carry a `[[FLOW:...]]` marker, and `audit.md` is not a gated flow. |
+| `.pi/skills/` | 6 | Canonical teaching flows for pi. |
+| `.pi/prompts/` | 9 | Slash-command entry points. Eight of the nine carry a `[[FLOW:...]]` marker, and `audit.md` is not a gated flow. |
 | `.pi/agents/` | 15 | Verifiers and workers dispatched by the gate. |
 | `.pi/APPEND_SYSTEM.md` | 1 | Tutor stance loaded every turn. |
 | `state/Skills/` | 4 | Frozen Open WebUI snapshot. `state/scripts/setup_openwebui.py` still ships these skill bodies live, and `state/scripts/` reads its `gate_pipe.py`. |
