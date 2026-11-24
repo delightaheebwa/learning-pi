@@ -32,12 +32,17 @@ Usage:
                                       "replaces": [{"path": "...", "find": "...",
                                                     "replace_with": "..."}]}
                                    Prints a per-op summary. Use with a quoted heredoc.
-  ops.py attempt "Concept" pass|fail [feynman_pass|feynman_fail] [--date YYYY-MM-DD] [--qtype TYPE] [--type memory|concept|procedure|design] [--confidence sure|hunch|no-idea] [--hints N] [--mode normal|solo] [--targets n_…,arg_…] [--prereq NAME ...]
+  ops.py attempt "Concept" pass|fail [feynman_pass|feynman_fail] [--date YYYY-MM-DD] [--qtype TYPE] [--type memory|concept|procedure|design|benchmark] [--confidence sure|hunch|no-idea] [--level low|mid|high] [--hints N] [--mode normal|solo] [--targets n_…,arg_…] [--prereq NAME ...]
                                    Record one answer in Attempts.json (interval_index
-                                   +1 pass / +2 on 2 consecutive passes / -1 fail,
-                                   next_review from type schedule). --qtype is
+                                   +1 pass / +2 on 2 consecutive passes / -1 fail;
+                                   type `benchmark` is the exception: it advances +1 on
+                                   any result, never stepwise down, for the fixed
+                                   +1/+7/+30 day shots. next_review from type
+                                   schedule). --qtype is
                                    validated against the enum (legacy aliases are
-                                   normalized; unknown values are rejected). --targets
+                                   normalized; unknown values are rejected). --level
+                                   tags the question difficulty (record-only) and is
+                                   validated as low|mid|high. --targets
                                    records the knowledge-graph ids (n_… propositions /
                                    arg_… chains) the item retrieved; ids must be
                                    well-formed AND live in the graph ledger (a
@@ -129,6 +134,9 @@ DEFAULT_INTERVALS = {
     "concept": [3, 7, 14, 30],
     "procedure": [3, 7, 14],
     "design": [14, 28],
+    # Benchmark shots: fixed +1/+7/+30 day retrieval, result-agnostic (the
+    # ladder advances one step on every attempt, never resets on a miss).
+    "benchmark": [1, 7, 30],
 }
 ATTEMPTS_PATH = "Learning System/Core/Attempts.json"
 MISTAKES_PATH = "Learning System/Core/🧯 Mistakes.md"
@@ -179,6 +187,9 @@ TRANSFER_Q_TYPES = {"transfer", "transfer-near", "transfer-far", "novel", "error
 TRANSFER_FAR_Q_TYPES = {"transfer-far", "novel"}
 EXPLAIN_BACK_Q_TYPES = {"explain-back", "explain_back"}
 CONFIDENCE_LEVELS = ("sure", "hunch", "no-idea")
+# Per-question difficulty label for benchmark shots (P1). Record-only: a level
+# never influences scheduling, question choice, or any computed value.
+LEVELS = ("low", "mid", "high")
 
 
 def normalize_qtype(qtype):
@@ -206,6 +217,19 @@ def normalize_confidence(confidence):
     if c == "noidea":
         c = "no-idea"
     return c
+
+
+def normalize_level(level):
+    """Canonical difficulty label, or None when unknown/empty.
+
+    An unrecognized value returns None so the caller can reject it with a clear
+    error (same contract as `normalize_qtype`)."""
+    if level is None:
+        return None
+    value = str(level).strip().lower()
+    if not value:
+        return None
+    return value if value in LEVELS else None
 
 
 # Knowledge-graph record ids: content-derived propositions (`n_…`) and reasoning
@@ -915,7 +939,7 @@ def _print_queue_table(payload: dict) -> None:
 def do_attempt(concept: str, result: str, feynman: str = None, date: str = None,
                qtype: str = None, ctype: str = None, confidence: str = None,
                hints: int = None, mode: str = None, prereqs: list = None,
-               targets: list = None) -> None:
+               targets: list = None, level: str = None) -> None:
     result = (result or "").lower().strip()
     if result not in ("pass", "fail"):
         print(f"ATTEMPT FAILED: result must be pass|fail, got {result!r}")
@@ -930,6 +954,12 @@ def do_attempt(concept: str, result: str, feynman: str = None, date: str = None,
     if confidence is not None and confidence not in CONFIDENCE_LEVELS:
         print(f"ATTEMPT FAILED: unknown --confidence {confidence!r}; expected one of: {', '.join(CONFIDENCE_LEVELS)}")
         sys.exit(2)
+    if level is not None:
+        normalized = normalize_level(level)
+        if normalized is None:
+            print(f"ATTEMPT FAILED: unknown --level {level!r}; expected one of: {', '.join(LEVELS)}")
+            sys.exit(2)
+        level = normalized
     if mode is not None:
         mode = str(mode).strip().lower()
         if mode not in ("normal", "solo"):
@@ -977,13 +1007,23 @@ def do_attempt(concept: str, result: str, feynman: str = None, date: str = None,
     if is_correct:
         entry["consecutive_correct"] = int(entry.get("consecutive_correct", 0)) + 1
         entry["consecutive_wrong"] = 0
-        step = 2 if entry["consecutive_correct"] >= 2 else 1
-        entry["interval_index"] = int(entry.get("interval_index", 0)) + step
     else:
         entry["consecutive_wrong"] = int(entry.get("consecutive_wrong", 0)) + 1
         entry["consecutive_correct"] = 0
+    # Benchmark shots run a fixed, result-agnostic ladder: every recorded
+    # attempt advances exactly one step, so a miss never shortens or resets the
+    # +1/+7/+30 schedule and the two-consecutive-passes bonus never applies.
+    # Other types keep the pass +1 / two-passes +2 / fail -1 ladder.
+    if (entry.get("type") or "").strip().lower() == "benchmark":
+        entry["interval_index"] = int(entry.get("interval_index", 0)) + 1
+    elif is_correct:
+        step = 2 if entry["consecutive_correct"] >= 2 else 1
+        entry["interval_index"] = int(entry.get("interval_index", 0)) + step
+    else:
         entry["interval_index"] = int(entry.get("interval_index", 0)) - 1
     sched = _intervals_for(data, entry.get("type", "concept"))
+    # At the ladder end a benchmark row would re-surface every 30 days;
+    # graduation (clerk prose, far-future next_review) is Task P2's job.
     entry["interval_index"] = max(0, min(int(entry["interval_index"]), len(sched) - 1))
     rec = {"date": day, "is_correct": is_correct, "result": result, "q_type": qtype}
     # Optional per-attempt evidence (P0.4): confidence tag, hints used, and
@@ -995,6 +1035,8 @@ def do_attempt(concept: str, result: str, feynman: str = None, date: str = None,
         rec["hints"] = int(hints)
     if mode:
         rec["mode"] = mode
+    if level:
+        rec["level"] = level
     if targets:
         rec["targets"] = targets
     entry["attempts"].append(rec)
@@ -1475,10 +1517,10 @@ def main() -> None:
     elif cmd == "attempt":
         # attempt "Concept" pass|fail [feynman_pass|feynman_fail] [--date D] [--qtype T] [--type C]
         if len(rest) < 2:
-            print('usage: ops.py attempt "Concept" pass|fail [feynman_pass|feynman_fail] [--date YYYY-MM-DD] [--qtype TYPE] [--type C]')
+            print('usage: ops.py attempt "Concept" pass|fail [feynman_pass|feynman_fail] [--date YYYY-MM-DD] [--qtype TYPE] [--type C] [--level low|mid|high]')
             sys.exit(2)
         concept, result = rest[0], rest[1]
-        feynman = qtype = ctype = day = confidence = mode = None
+        feynman = qtype = ctype = day = confidence = mode = level = None
         hints = None
         targets = None
         prereqs = []
@@ -1494,6 +1536,8 @@ def main() -> None:
                 ctype = rest[i + 1]; i += 2
             elif tok == "--confidence" and i + 1 < len(rest):
                 confidence = rest[i + 1]; i += 2
+            elif tok == "--level" and i + 1 < len(rest):
+                level = rest[i + 1]; i += 2
             elif tok == "--prereq" and i + 1 < len(rest):
                 prereqs.append(rest[i + 1]); i += 2
             elif tok == "--hints" and i + 1 < len(rest):
@@ -1513,7 +1557,7 @@ def main() -> None:
             feynman = positional[0]
         do_attempt(concept, result, feynman=feynman, date=day, qtype=qtype, ctype=ctype,
                    confidence=confidence, hints=hints, mode=mode, targets=targets,
-                   prereqs=prereqs if prereqs else None)
+                   prereqs=prereqs if prereqs else None, level=level)
     elif cmd == "grade-mcq":
         key = answers = ""
         as_json = False

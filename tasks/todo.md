@@ -322,14 +322,14 @@ attempt record (record-only; never a scheduling input). Unit tests in
 `state/scripts/ops_test.py` for both.
 
 **Acceptance criteria:**
-- [ ] A benchmark attempt advances the interval index on pass AND on fail
-- [ ] Unknown types still fall back to the concept schedule (unchanged)
-- [ ] `--level` is validated, stored, and ignored by scheduling
-- [ ] `ops_test.py` covers the new type and the level field
+- [x] A benchmark attempt advances the interval index on pass AND on fail
+- [x] Unknown types still fall back to the concept schedule (unchanged)
+- [x] `--level` is validated, stored, and ignored by scheduling
+- [x] `ops_test.py` covers the new type and the level field
 
 **Verification:**
-- [ ] `python3 -m unittest discover -s state/scripts -p '*_test.py'` green
-- [ ] `scripts/learn-check --no-load` green
+- [x] `python3 -m unittest discover -s state/scripts -p '*_test.py'` green
+- [x] `scripts/learn-check --no-load` green
 
 **Dependencies:** None (parallel-safe with Phase 2)
 **Files likely touched:** `state/scripts/ops.py`, `state/scripts/ops_test.py`

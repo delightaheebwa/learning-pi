@@ -621,6 +621,178 @@ class TestQTypeEnum(unittest.TestCase):
         self.assertEqual(ops.normalize_qtype("transfer-far"), "transfer-far")
 
 
+class TestBenchmarkScheduling(unittest.TestCase):
+    """P1: benchmark shots keep the fixed +1/+7/+30 day ladder whatever the result.
+
+    Retrieval must come back at the next shot even after a miss, so a fail
+    never steps the index down and consecutive passes never earn a bonus step.
+    """
+
+    def _make_root(self, ctype="benchmark", index=0, consecutive_correct=0):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        core = Path(tmp.name) / "Learning System" / "Core"
+        core.mkdir(parents=True)
+        seed = {
+            "concepts": {
+                "Bench Item": {
+                    "type": ctype,
+                    "attempts": [],
+                    "interval_index": index,
+                    "consecutive_correct": consecutive_correct,
+                    "consecutive_wrong": 0,
+                    "last_reviewed": "2026-09-01",
+                    "next_review": "2026-09-02",
+                    "feynman": None,
+                }
+            },
+            "meta": {"version": 1, "intervals": ops.DEFAULT_INTERVALS},
+        }
+        (core / "Attempts.json").write_text(json.dumps(seed), encoding="utf-8")
+        old = ops.ROOT
+        ops.ROOT = Path(tmp.name)
+        self.addCleanup(setattr, ops, "ROOT", old)
+        return core / "Attempts.json"
+
+    def _entry(self, path):
+        return json.loads(path.read_text(encoding="utf-8"))["concepts"]["Bench Item"]
+
+    def test_benchmark_schedule_is_one_seven_thirty(self):
+        self.assertEqual(ops.DEFAULT_INTERVALS["benchmark"], [1, 7, 30])
+
+    def test_benchmark_pass_advances_one_step(self):
+        path = self._make_root(consecutive_correct=1)
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("Bench Item", "pass", date="2026-09-04")
+        entry = self._entry(path)
+        # +1, not the two-consecutive-passes +2.
+        self.assertEqual(entry["interval_index"], 1)
+        self.assertEqual(entry["next_review"], "2026-09-11")  # +7d
+
+    def test_benchmark_fail_advances_one_step(self):
+        path = self._make_root(index=0)
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("Bench Item", "fail", date="2026-09-04")
+        entry = self._entry(path)
+        self.assertEqual(entry["interval_index"], 1)  # never steps back
+        self.assertEqual(entry["next_review"], "2026-09-11")  # +7d
+        self.assertEqual(entry["consecutive_wrong"], 1)
+        self.assertEqual(entry["attempts"][-1]["result"], "fail")
+
+    def test_benchmark_consecutive_fails_never_shorten_ladder(self):
+        path = self._make_root(index=1)
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("Bench Item", "fail", date="2026-09-04")
+        entry = self._entry(path)
+        self.assertEqual(entry["interval_index"], 2)  # 1 → 2, not 1 → 0
+        self.assertEqual(entry["next_review"], "2026-10-04")  # +30d
+
+    def test_benchmark_ladder_clamps_at_30_days(self):
+        path = self._make_root(index=2)
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("Bench Item", "fail", date="2026-09-04")
+        entry = self._entry(path)
+        self.assertEqual(entry["interval_index"], 2)  # clamped, still the 30d shot
+        self.assertEqual(entry["next_review"], "2026-10-04")
+
+    def test_benchmark_two_passes_take_two_steps_not_three(self):
+        path = self._make_root(consecutive_correct=1)
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("Bench Item", "pass", date="2026-09-04")
+            ops.do_attempt("Bench Item", "pass", date="2026-09-11")
+        self.assertEqual(self._entry(path)["interval_index"], 2)
+
+    def test_concept_ladder_still_steps_back_on_fail(self):
+        path = self._make_root(ctype="concept", index=2)
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("Bench Item", "fail", date="2026-09-04")
+        self.assertEqual(self._entry(path)["interval_index"], 1)
+
+    def test_unknown_type_falls_back_to_concept_schedule(self):
+        self.assertEqual(ops._intervals_for({"meta": {"intervals": {}}}, "mystery"),
+                         [3, 7, 14, 30])
+        self.assertEqual(ops._intervals_for({}, "mystery"), [3, 7, 14, 30])
+        path = self._make_root(ctype="mystery", index=1)
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("Bench Item", "pass", date="2026-09-04")
+        entry = self._entry(path)
+        self.assertEqual(entry["interval_index"], 2)
+        self.assertEqual(entry["next_review"], "2026-09-18")  # concept[2] = 14d
+
+
+class TestAttemptLevel(unittest.TestCase):
+    """P1: `--level` is a validated, record-only per-question label."""
+
+    def _make_root(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        core = Path(tmp.name) / "Learning System" / "Core"
+        core.mkdir(parents=True)
+        (core / "Attempts.json").write_text(
+            json.dumps({"concepts": {}, "meta": {"version": 1, "intervals": ops.DEFAULT_INTERVALS}}),
+            encoding="utf-8")
+        old = ops.ROOT
+        ops.ROOT = Path(tmp.name)
+        self.addCleanup(setattr, ops, "ROOT", old)
+        return core / "Attempts.json"
+
+    def test_level_is_stored_when_given(self):
+        path = self._make_root()
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("X", "pass", level="high")
+        a = json.loads(path.read_text(encoding="utf-8"))["concepts"]["X"]["attempts"][0]
+        self.assertEqual(a["level"], "high")
+
+    def test_level_is_normalized(self):
+        path = self._make_root()
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("X", "pass", level=" MID ")
+        a = json.loads(path.read_text(encoding="utf-8"))["concepts"]["X"]["attempts"][0]
+        self.assertEqual(a["level"], "mid")
+
+    def test_level_is_absent_when_not_given(self):
+        path = self._make_root()
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("X", "pass")
+        a = json.loads(path.read_text(encoding="utf-8"))["concepts"]["X"]["attempts"][0]
+        self.assertNotIn("level", a)
+
+    def test_invalid_level_is_rejected(self):
+        path = self._make_root()
+        with redirect_stdout(io.StringIO()) as buf:
+            with self.assertRaises(SystemExit) as cm:
+                ops.do_attempt("X", "pass", level="extreme")
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("unknown --level", buf.getvalue())
+        # Rejected before any write.
+        self.assertNotIn("X", json.loads(path.read_text(encoding="utf-8"))["concepts"])
+
+    def test_level_does_not_change_scheduling(self):
+        plain = self._make_root()
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("X", "pass")
+        levelled = self._make_root()
+        with redirect_stdout(io.StringIO()):
+            ops.do_attempt("X", "pass", level="low")
+        a = json.loads(plain.read_text(encoding="utf-8"))["concepts"]["X"]
+        b = json.loads(levelled.read_text(encoding="utf-8"))["concepts"]["X"]
+        self.assertEqual(a["interval_index"], b["interval_index"])
+        self.assertEqual(a["next_review"], b["next_review"])
+
+    def test_cli_passes_level_and_benchmark_type(self):
+        path = self._make_root()
+        old_argv = sys.argv
+        sys.argv = ["ops.py", "attempt", "Bench", "pass", "--type", "benchmark",
+                    "--level", "low"]
+        self.addCleanup(setattr, sys, "argv", old_argv)
+        with redirect_stdout(io.StringIO()):
+            ops.main()
+        entry = json.loads(path.read_text(encoding="utf-8"))["concepts"]["Bench"]
+        self.assertEqual(entry["type"], "benchmark")
+        self.assertEqual(entry["attempts"][0]["level"], "low")
+        self.assertEqual(entry["interval_index"], 1)
+
+
 class TestGradeMcq(unittest.TestCase):
     """P1.2: deterministic MCQ grading — no LLM in the mechanical path."""
 
