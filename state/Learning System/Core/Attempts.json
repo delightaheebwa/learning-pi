@@ -3956,6 +3956,26 @@
       "last_reviewed": "2026-11-09",
       "next_review": "2026-11-12",
       "feynman": null
+    },
+    "Psychology of Money (soft skill)": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-24",
+      "next_review": "2026-11-27",
+      "feynman": null
+    },
+    "Personal Experience Shapes Financial Beliefs": {
+      "type": "concept",
+      "attempts": [],
+      "interval_index": 0,
+      "consecutive_correct": 0,
+      "consecutive_wrong": 0,
+      "last_reviewed": "2026-11-24",
+      "next_review": "2026-11-27",
+      "feynman": null
     }
   },
   "meta": {
