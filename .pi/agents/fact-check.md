@@ -119,6 +119,8 @@ field where the kind requires one is an `ISSUES` verdict.
 
     Either code here is an `ISSUES` verdict and withholds the turn.
 
+1e. **Payload-key scope.** Items 1b–1d bind on the envelope's payload keys (`read_source` / `read_recall` / `read_model`), whatever the turn's flow tag, so a review-flow retrieval session running the reading-mode procedure gets the same grounding, timing, and no-rewrite checks.
+
 2. **Source grounding.** Read the specified `raw_files` on disk first — they are Scout's fetched
    bodies and the primary evidence. Verify each claim in `claims` and every hard fact in
    `rendered_content` (numbers, formulas, mechanisms, boundary conditions) against those passages.

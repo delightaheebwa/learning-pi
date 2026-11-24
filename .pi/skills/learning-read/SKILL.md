@@ -41,9 +41,9 @@ Any other kind, or a missing kind, is withheld with `FOUNDATION_INCOMPLETE` and 
 | `model-diagnose` | Model presentation and grounded diagnosis, never a rewrite | `docs/specs/SPEC-model-diagnose.md` |
 | `benchmark-retrieval` | Fixed +1d / +1w / +1m shots, misses re-appear, scores vs 90 / 80 / 70 | `docs/specs/SPEC-benchmark-retrieval.md` |
 
-## Phase 2 sections (skeleton)
+## Procedures
 
-These sections are placeholders. Each owning module fills its own; until then, the pipeline above is the whole flow.
+The pipeline above is the order; these sections are the procedures each step follows.
 
 ### Session brief
 
@@ -93,7 +93,17 @@ The forbidden move: pi never rewrites, redraws, restates in cleaner prose, or "c
 
 ### Retrieval sessions
 
-Placeholder, owned by `benchmark-retrieval`. Fill with the fixed shots, the rescoring rule, and the persistence shape.
+A benchmark session runs inside the review flow, not the reading flow. When a queue entry's `type` is `benchmark`, its concept name is the benchmark-ledger key and the session replaces the standard discriminative item:
+
+1. **Dump and confidence.** Open with the Free recall procedure above, cited not restated: closed book, no interruption, confidence marks per dumped item, then the quoted check over the session's scoped material.
+2. **Ledger questions.** Read the 15 questions from `Learning System/Core/🎯 Benchmarks.json` under the entry's concept name, level labels included. Ask them as written. Never invent, reword, or substitute a question; a missing ledger entry is reported and stops the session.
+3. **One batch.** Ask all 15 in one `[[TURN:quiz]]` with `qtype:"free-recall"`. No answer, cue, hint, or grading before the learner has attempted every question and rated confidence.
+4. **Grade.** Grade per question against the ledger's `source` and `scope`, then return the quoted check with a source quote for every miss and `sure`-but-wrong answers flagged as priority gaps.
+5. **Score report.** Close with the hit rate per level (low, mid, high) against this shot's 90/80/70 targets, plus the trajectory across the shots taken so far.
+
+The +1d / +1w / +1m dates are fixed. A miss re-appears at the next shot without resetting the clock, and the third shot graduates the session. Benchmark items are exempt from the concept/design clone mandate; that exemption is type-gated and otherwise unchanged.
+
+At reading-session close (pipeline step 9), dispatch the `clerk` with the session name, the session date, and the 15-question JSON. The clerk seeds the retrieval track with `ops.py benchmark "<session name>" --date <session date> --questions-file <path>`, writes the session note, and commits state.
 
 ## Every turn
 

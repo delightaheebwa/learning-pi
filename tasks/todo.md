@@ -309,9 +309,12 @@ flow.
 ## Checkpoint 4
 
 - [ ] Full session dry-run under the gate: declare + attach → brief → (read) →
-      dump + confidence → quoted check → model → diagnosis → close
-- [ ] No teach-flow machinery fired anywhere in the session
-- [ ] Review with human before Phase 3
+      dump + confidence → quoted check → model → diagnosis → close (lands with
+      the user's first real session)
+- [x] No teach-flow machinery fired anywhere in the session (vocabulary
+      gating + behavior-task trace checks)
+- [x] Review with human before Phase 3 (user delegated: "continue till the
+      end ... go with your judgement")
 
 ## Task P1: ops.py benchmark type + attempt `--level`
 
@@ -386,14 +389,15 @@ machinery; benchmark items are exempt from the concept/design clone mandate
 (type-gated rule, unchanged).
 
 **Acceptance criteria:**
-- [ ] Session order is dump → questions → graded check → score report, with
+- [x] Session order is dump → questions → graded check → score report, with
       feedback withheld until generation completes
-- [ ] The score report derives from attempt records and matches them
-- [ ] Close passes the review-session audit with the fifth schedule + tally
+- [x] The score report derives from attempt records and matches them
+- [x] Close passes the review-session audit with the fifth schedule + tally
 
 **Verification:**
-- [ ] `scripts/learn-check --no-load` green
-- [ ] Manual dry run of one retrieval session end-to-end
+- [x] `scripts/learn-check --no-load` green
+- [ ] Manual dry run of one retrieval session end-to-end (fires with the
+      first real +1d shot)
 
 **Dependencies:** Tasks P2, F1
 **Files likely touched:** `.pi/skills/learning-read/SKILL.md`,
@@ -403,9 +407,11 @@ machinery; benchmark items are exempt from the concept/design clone mandate
 
 ## Checkpoint 5
 
-- [ ] Simulated +1d/+1w/+1m retrieval in `ops_test.py` green
+- [x] Simulated +1d/+1w/+1m retrieval in `ops_test.py` green
 - [ ] One full retrieval dry-run closes cleanly through the review machinery
-- [ ] Review with human before the revise door
+      (fires with the first real +1d shot)
+- [x] Review with human before the revise door (user delegated judgment; the
+      contract diff is summarized in the final report)
 
 ## Task V1: Author the contract change (invariants + tests)
 

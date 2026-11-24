@@ -147,6 +147,8 @@ The digest's `queue` is the queue. Use it verbatim. Do not rebuild, re-sort, re-
 
 Before asking an entry, check its prerequisites under P1.3. Run `python3 scripts/ops.py prereqs "<concept>"`. If `blocks` is true, re-derive the fuzzy prerequisite first and defer the downstream item.
 
+When a queue entry's type is `benchmark`, follow the `learning-read` skill's Retrieval sessions procedure instead of the standard item.
+
 ### Step 4: Compose unlabeled trace items
 
 Compose the items from the queue as scenarios, not one row per question.
