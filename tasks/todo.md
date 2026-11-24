@@ -142,3 +142,331 @@ nothing, an ordinary-commit adjustment, or a small revise-door change.
 **Dependencies:** Task 4 (the first cycle exists to log)
 **Files likely touched:** `state/Learning System/Core/📓 Learning Log.md`
 **Estimated scope:** S
+
+---
+
+# Reading mode implementation todo
+
+Plan: `tasks/plan.md`
+Specs: `docs/specs/CAPABILITY-MAP-reading-mode.md` + `docs/specs/SPEC-*.md` (approved 2026-11-24)
+
+The solo-first tasks above are untouched and stay open. Phases 1–3 here are
+ordinary commits touching only `.pi/` and `state/`; only V1/V2 touch
+`contracts/`, `CONTRACT.md`, or `test/`, in one `revise(contract):` commit the
+user approves first.
+
+## Task R1: Register the `read` flow in the gate engine
+
+**Description:** `[[FLOW:read]]` today silently fails open as flow `"other"`
+(no gating). Add `read` to `FLOW_TAG_RE` and the `Flow` union in
+`.pi/extensions/learning-gate/gate-core/primitives.ts`, then audit every
+flow comparison in `gate-core/engine.ts` (the teach/resume vs review/solo
+branches around lines 326–876) before extending `foundationApplies` at
+`engine.ts:138` so reading-flow claims turns must declare a valid
+`turn_kind`. Repair sequencing, the attack menu, and triage/attack/autopsy
+shape checks must NOT arm in the reading flow. Update the stale flow lists in
+the doc comments (`index.ts:10`, `primitives.ts:362`).
+
+**Acceptance criteria:**
+- [ ] `detectFlow` returns `"read"` for a `[[FLOW:read]]` message; `"other"`
+      still fails open for unmarked messages
+- [ ] A reading-flow claims turn with no `turn_kind` is withheld; one with a
+      valid kind passes; `triage|attack|autopsy|repair` shapes are not enforced
+      in the reading flow
+- [ ] Every existing gate suite passes unchanged (teach/review/solo behavior
+      is byte-identical)
+
+**Verification:**
+- [ ] Deno gate suites + `scripts/learn-check --no-load` green
+- [ ] No file under `contracts/`, `CONTRACT.md`, or `test/` in the diff
+
+**Dependencies:** None
+**Files likely touched:** `.pi/extensions/learning-gate/gate-core/primitives.ts`,
+`.pi/extensions/learning-gate/gate-core/engine.ts`,
+`.pi/extensions/learning-gate/index.ts`
+**Estimated scope:** M
+
+## Task R2: Prompt, skill skeleton, and router entries
+
+**Description:** Create `.pi/prompts/read.md` (9th prompt, `[[FLOW:read]]`)
+and `.pi/skills/learning-read/SKILL.md` (6th skill) as a skeleton: session
+pipeline overview, the module map, and placeholders for the Phase-2 behavior
+sections. Add router entries in `.pi/APPEND_SYSTEM.md` ("I'm going to read",
+"I'm reading", "reading session" → learning-read + `[[FLOW:read]]`) and the
+trigger note in `.pi/skills/learning-system/SKILL.md`. Confirm the
+presence-based resource checks tolerate the extra files before Phase 3
+(expected-list edits are deferred to V1).
+
+**Acceptance criteria:**
+- [ ] "I'm going to read X" routes to the reading flow and loads
+      learning-read; teach/review/solo routes unchanged
+- [ ] `scripts/learn-check --no-load` stays green with the new files present
+      (presence-based checks tolerate extras; if not, stop and move the
+      expected-list edits into V1's commit)
+- [ ] The prompt carries exactly one `[[FLOW:read]]` tag matching the check's
+      regex shape
+
+**Verification:**
+- [ ] `scripts/learn-check --no-load` green
+- [ ] Manual: a routing sentence in a scratch pi session starts the reading
+      flow, not a teach session
+
+**Dependencies:** Task R1
+**Files likely touched:** `.pi/prompts/read.md`, `.pi/skills/learning-read/SKILL.md`,
+`.pi/APPEND_SYSTEM.md`, `.pi/skills/learning-system/SKILL.md`
+**Estimated scope:** M
+
+## Checkpoint 3
+
+- [ ] A reading session starts gated (one turn tag per message enforced)
+- [ ] Teach/review/solo flows unchanged (suites green)
+- [ ] Review with human before Phase 2
+
+## Task B1: Session brief (`benchmark-session`)
+
+**Description:** The behavior section of `learning-read/SKILL.md` for the
+brief: four parts in order (session scope from the attached text, outcome
+definition, exactly 5 low / 5 mid / 5 high free-recall questions written at
+use-level with real cues, plain keyword list), the stated 90/80/70 targets and
++1d/+1w/+1m retrieval dates, the no-attached-text rule (ask for the text, no
+questions), and the no-teaching rule (no answers, no summaries; gist-level
+orientation only). Extend `.pi/agents/fact-check.md` with the reading-flow
+grounding rule: every question and keyword must be traceable to the attached
+source, else the turn is withheld.
+
+**Acceptance criteria:**
+- [ ] The brief is one turn, then stops; 15 questions, all free-recall
+- [ ] A declaration without attached text yields a text request and zero
+      questions
+- [ ] fact-check rules state the grounding withhold for unanchored brief items
+- [ ] No teaching content in the brief per the skill's own examples
+
+**Verification:**
+- [ ] `scripts/learn-check --no-load` green
+- [ ] Manual dry run: declare + attach a short text; brief comes back with all
+      four parts, each question answerable from that text
+
+**Dependencies:** Task R2
+**Files likely touched:** `.pi/skills/learning-read/SKILL.md`, `.pi/agents/fact-check.md`
+**Estimated scope:** M
+
+## Task F1: Free recall (`free-recall`)
+
+**Description:** The free-recall procedure in `learning-read/SKILL.md`:
+closed-book dump (never interrupted, never corrected mid-dump), then
+`sure|hunch|no-idea` confidence marks, then an itemized check (wrong /
+missing / right) where every verdict quotes the source, feedback only after
+generation. `sure`-but-wrong items are flagged as priority gaps and carried
+into the session handoff. Add the generate-before-feedback and
+quoted-verdict rules to the relevant verifier prose (fact-check / quiz-audit
+rules as they apply to reading turns).
+
+**Acceptance criteria:**
+- [ ] No feedback before dump completion + confidence marks, stated as a rule
+      the verifier enforces
+- [ ] Every verdict shape includes a source quote requirement
+- [ ] The handoff records `sure`-wrong items as priority gaps
+- [ ] The same procedure is written to run verbatim at retrieval sessions
+
+**Verification:**
+- [ ] `scripts/learn-check --no-load` green
+- [ ] Manual dry run: dump a remembered section; check arrives only after
+      confidence marks; every verdict carries a quote
+
+**Dependencies:** Task R2 (parallel-safe with B1 and M1)
+**Files likely touched:** `.pi/skills/learning-read/SKILL.md`, `.pi/agents/fact-check.md`,
+`.pi/agents/quiz-audit.md`
+**Estimated scope:** M
+
+## Task M1: Model diagnosis (`model-diagnose`)
+
+**Description:** The diagnosis procedure in `learning-read/SKILL.md`: one
+structured verdict per presentation (right / wrong / missing / misplaced),
+each verdict quoting both the learner's words and the source, one diagnosis
+turn per presentation, the revision loop closing on a clean or consciously
+parked model, the final model version verbatim in the handoff. State the
+forbidden move explicitly: pi never rewrites, redraws, or "cleans up" the
+learner's model (the existing anti-ghostwriting stance carries into the
+reading flow). Reference the existing photo → excalidraw ingestion path for
+photographed maps; no attack battery, no repair ladder, no clones in this
+flow.
+
+**Acceptance criteria:**
+- [ ] The four verdict categories are defined with quote requirements for each
+- [ ] Diagnose-never-rewrite stated as a withhold-level rule
+- [ ] Session close records the final model + diagnosis history
+
+**Verification:**
+- [ ] `scripts/learn-check --no-load` green
+- [ ] Manual dry run: paste a small mermaid/ascii model; diagnosis quotes
+      learner + source; pi produces no corrected model
+
+**Dependencies:** Task R2 (parallel-safe with B1 and F1)
+**Files likely touched:** `.pi/skills/learning-read/SKILL.md`, `.pi/agents/fact-check.md`
+**Estimated scope:** M
+
+## Checkpoint 4
+
+- [ ] Full session dry-run under the gate: declare + attach → brief → (read) →
+      dump + confidence → quoted check → model → diagnosis → close
+- [ ] No teach-flow machinery fired anywhere in the session
+- [ ] Review with human before Phase 3
+
+## Task P1: ops.py benchmark type + attempt `--level`
+
+**Description:** Add `"benchmark": [1, 7, 30]` to `DEFAULT_INTERVALS` in
+`state/scripts/ops.py`, with result-agnostic index advance for benchmark rows
+(every attempt advances the index; a fail never steps back — the ladder never
+resets). Add a validated optional `--level low|mid|high` stored on the
+attempt record (record-only; never a scheduling input). Unit tests in
+`state/scripts/ops_test.py` for both.
+
+**Acceptance criteria:**
+- [ ] A benchmark attempt advances the interval index on pass AND on fail
+- [ ] Unknown types still fall back to the concept schedule (unchanged)
+- [ ] `--level` is validated, stored, and ignored by scheduling
+- [ ] `ops_test.py` covers the new type and the level field
+
+**Verification:**
+- [ ] `python3 -m unittest discover -s state/scripts -p '*_test.py'` green
+- [ ] `scripts/learn-check --no-load` green
+
+**Dependencies:** None (parallel-safe with Phase 2)
+**Files likely touched:** `state/scripts/ops.py`, `state/scripts/ops_test.py`
+**Estimated scope:** M
+
+## Task P2: Benchmark ledger + queue integration
+
+**Description:** One `Active Concepts` row per reading session
+(`Type benchmark`), with the 15 questions, level labels, and source
+reference in a benchmark ledger file under `state/Learning System/Core/`.
+`ops.py queue` emits due benchmark items at +1/+7/+30 as one grouped unit
+(one reading session = one queue entry carrying its 15 questions). A miss
+writes a Mistakes row so the question re-appears at the next session
+(existing due-mistake queue slots) without moving the ladder dates. After
+the +1m shot the row graduates per the existing clerk prose pattern. Update
+the schedule prose that today names only the four types:
+`.pi/agents/review-clerk.md`, `.pi/agents/review-session-audit.md`,
+`state/AGENTS.md` SRS section, `.pi/skills/learning-system/SKILL.md`
+intervals line.
+
+**Acceptance criteria:**
+- [ ] A due reading session appears in the queue with all 15 questions
+- [ ] A missed question re-appears next session; its +1/+7/+30 dates never
+      change
+- [ ] The third shot graduates the row (far-future next_review + graduated
+      marking)
+- [ ] Concept/memory/procedure/design scheduling is unaffected
+- [ ] The audit's interval-consistency check knows the fifth schedule
+
+**Verification:**
+- [ ] `ops_test.py`: simulated +1/+7/+30 queue dates, miss-no-reset, graduation
+- [ ] `scripts/learn-check --no-load` green
+
+**Dependencies:** Task P1
+**Files likely touched:** `state/scripts/ops.py`, `state/scripts/ops_test.py`,
+`state/Learning System/Core/` (ledger file), `.pi/agents/review-clerk.md`,
+`.pi/agents/review-session-audit.md`
+**Estimated scope:** L (prose updates beyond the code are called out in the
+plan's risk table; split the prose-only edits into a follow-up ordinary commit
+if the session runs long)
+
+## Task P3: Retrieval session shape and close
+
+**Description:** The retrieval-session section of
+`learning-read/SKILL.md` (or `learning-review`, wherever the queue session
+reads): open with the free-recall dump + confidence (F1's procedure,
+verbatim), then the 15 benchmark questions as one quiz batch (`qtype
+free-recall`), grade batch, quoted check with `sure`-wrong flags, then a
+per-level score report (hit rate vs 90/80/70 for this shot plus the
+trajectory across shots) written into the session note by `review-clerk` and
+tallied by `review-session-audit`. Close through the existing review-close
+machinery; benchmark items are exempt from the concept/design clone mandate
+(type-gated rule, unchanged).
+
+**Acceptance criteria:**
+- [ ] Session order is dump → questions → graded check → score report, with
+      feedback withheld until generation completes
+- [ ] The score report derives from attempt records and matches them
+- [ ] Close passes the review-session audit with the fifth schedule + tally
+
+**Verification:**
+- [ ] `scripts/learn-check --no-load` green
+- [ ] Manual dry run of one retrieval session end-to-end
+
+**Dependencies:** Tasks P2, F1
+**Files likely touched:** `.pi/skills/learning-read/SKILL.md`,
+`.pi/agents/review-clerk.md`, `.pi/agents/review-session-audit.md`,
+`state/AGENTS.md`
+**Estimated scope:** M
+
+## Checkpoint 5
+
+- [ ] Simulated +1d/+1w/+1m retrieval in `ops_test.py` green
+- [ ] One full retrieval dry-run closes cleanly through the review machinery
+- [ ] Review with human before the revise door
+
+## Task V1: Author the contract change (invariants + tests)
+
+**Description:** Write, without committing: the `R-*` invariants in
+`contracts/learning-core.json` (brief grounding, no-teaching-in-brief,
+generate-before-feedback, quoted verdicts, diagnose-never-rewrite,
+fixed 1d/1w/1m schedule, benchmark/concept scheduling isolation,
+score-report-matches-attempts), each bound to its named test; the
+`CONTRACT.md` prose mirror in the existing section format; the `test/`
+updates — `test/contract/check_learning_layer.py` expected lists (9th
+prompt, 6th skill), new gate-suite cases (ungrounded brief withheld,
+premature feedback withheld, unquoted diagnosis withheld, ghostwritten
+model withheld, score-report mismatch withheld, benchmark schedule
+integrity), and `test/contract/load_probe.py` expectations if it pins
+prompt counts. The contract version field bumps; its value is read from the
+JSON, never restated in prose. Run the full battery including the load probe.
+
+**Acceptance criteria:**
+- [ ] Every new invariant has ≥1 passing test; every listed test name matches
+- [ ] `scripts/learn-check` (full, with load) green
+- [ ] The staged diff touches only `contracts/`, `CONTRACT.md`, and `test/`
+      beyond what Phases 1–3 already landed
+
+**Verification:**
+- [ ] `scripts/learn-check` full pass
+- [ ] `python3 scripts/check-docs` green
+- [ ] `node scripts/floor-guard.mjs` clean (no suppressions, no weakened bar)
+
+**Dependencies:** Checkpoint 5
+**Files likely touched:** `contracts/learning-core.json`, `CONTRACT.md`,
+`test/contract/check_learning_layer.py`, `test/contract/load_probe.py`,
+gate-suite test files
+**Estimated scope:** L (by design — the door requires the triplet in one
+commit; Phases 1–3 are already landed, so the diff is contract + tests only)
+
+## Task V2: User-approved `revise(contract)` commit + docs
+
+**Description:** Present the full contract diff to the user. On approval,
+land it as one `revise(contract):` commit (the CI subject gate requires it
+for any commit touching `contracts/`, `CONTRACT.md`, or `test/`). Then the
+ordinary docs commit: `docs/README.md` source-of-truth map gains the
+`docs/specs/` row and the new flow/skill entries; this plan and the todo
+checkboxes tick.
+
+**Acceptance criteria:**
+- [ ] User approved the contract diff before the commit landed
+- [ ] Commit subject carries `revise(contract):`
+- [ ] `docs/README.md` maps the new flow, skill, and specs
+
+**Verification:**
+- [ ] `scripts/learn-check` full pass; `python3 scripts/check-docs` green;
+      `scripts/check-skills` green; `node scripts/floor-guard.mjs` clean
+- [ ] CI's subject gate passes on the revise commit
+
+**Dependencies:** Task V1
+**Files likely touched:** `contracts/`, `CONTRACT.md`, `test/` (the approved
+diff), `docs/README.md`, `tasks/todo.md`, `tasks/plan.md`
+**Estimated scope:** M
+
+## Final checkpoint
+
+- [ ] User runs one real reading session: declare + attach → brief → read →
+      dump + confidence → model → diagnosis → close
+- [ ] The +1d retrieval fires the next day and the score report records
+- [ ] `/teach` still runs an interrogation session unchanged
