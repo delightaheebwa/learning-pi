@@ -7,7 +7,7 @@
  * `gate-core/`. See ../../../CONTRACT.md for the invariants this gate enforces.
  *
  * Turn type is explicit, not guessed:
- *   - Prompt templates carry a flow marker (`[[FLOW:teach|resume|review|ingest|solo|read]]`).
+ *   - Prompt templates carry a flow marker (`[[FLOW:teach|resume|review|ingest|solo|read|critique]]`).
  *   - Every assistant message in a learning flow must start with a turn tag
  *     `[[TURN:claims|quiz|grade|ui|none]]`. The gate strips the tag before the learner sees it.
  *   - claims -> a fact-check receipt whose `rendered_content` covers the emitted text
@@ -27,7 +27,7 @@
  *     (tag mismatch / would-be evasion).
  *   - A dropped tag is inferred from a bound verifier receipt, or from the
  *     single pending valid receipt when a bound draft is unavailable (async
- *     notify mints) — in teach/resume/review/read alike — so a forgotten tag never
+ *     notify mints) — in teach/resume/review/read/critique alike — so a forgotten tag never
  *     dead-ends the turn: grade/quiz from a bound grade/quiz receipt, claims
  *     from a fact-check whose `rendered_content` covers the emission. `none` is
  *     not inferred for ordinary turns; the one implicit `none` is the

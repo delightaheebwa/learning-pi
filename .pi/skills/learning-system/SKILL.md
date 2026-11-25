@@ -1,6 +1,6 @@
 ---
 name: learning-system
-description: Run the spaced-repetition learning system. Use for "review" (review the active track), "solo" (AI-free closed-book check), "ingest" (ingest new content), "teach me X"/"learn"/"study" (teaching loop, delegated to the learning-teach skill), and "lesson"/"continue" (next curriculum lesson, delegated to learning-teach). Loads Core state from the repository working copy, executes the review/ingest/teach flow, and persists session notes, wiki updates, and Active Concepts changes.
+description: Run the spaced-repetition learning system. Use for "review" (review the active track), "solo" (AI-free closed-book check), "ingest" (ingest new content), "teach me X"/"learn"/"study" (teaching loop, delegated to the learning-teach skill), "lesson"/"continue" (next curriculum lesson, delegated to learning-teach), "read" (reading session, delegated to learning-read), and "critique my model"/"here is my interrogation" (diagnose-not-rewrite, delegated to learning-critique). Loads Core state from the repository working copy, executes the review/ingest/teach/read/critique flow, and persists session notes, wiki updates, and Active Concepts changes.
 ---
 
 # Learning system
@@ -16,6 +16,7 @@ The active learning system. It runs in pi against the learner state tree in the 
 - "teach me X", "learn", or "study" starts the teaching loop. Use the `learning-teach` skill, not a review. The word "review" on its own still means the review flow.
 - "lesson" or "continue" starts the next curriculum lesson. Use the `learning-teach` skill.
 - "I'm going to read ...", "I'm reading ...", or "reading session" uses the `learning-read` skill, not a review and not a teach session. The learner attaches the source text and the session brief scopes it.
+- "critique my model", "here is my interrogation", "pick apart my explanation", or "what is wrong with this" uses the `learning-critique` skill, not a teach or read session. The learner brings the model or the source excerpt plus interrogation; pi returns one quoted diagnosis and writes no next version.
 
 ### Position discipline
 

@@ -30,6 +30,8 @@ A practical guide to running your spaced-repetition learning system from the pi 
 | `/pause` | Stop cleanly. It writes a partial lesson file and banks progress through Clerk. |
 | `/review` | Run a spaced-repetition review. Review Scout builds a queue of up to 5 concepts, and review-clerk persists the results. |
 | `/solo` | Run a closed-book check with no AI help. Review Scout builds the queue, and the gate withholds teaching and hints. Attempts are recorded as `mode:"solo"` to feed the independence gate. |
+| `/read <source>` | Run a reading session. Attach the source text, get a benchmark brief, then free recall and a quoted model diagnosis. |
+| `/critique [topic-or-source]` | Bring your own-words model, or a source excerpt plus your interrogation. Get one quoted diagnosis: right, wrong, vague, missing, overreach, weak test. No rewrite, no triage, no attacks, no clone. Good turns capture both versions and ingest the concepts. |
 | `/ingest <content or URL>` | Run a standalone ingest through Clerk. Also used after a lesson handoff, where you run `/ingest` with no arguments. |
 | `/audit` | Run a read-only state consistency audit of MISSION, CURRICULUM, Profile, Active Concepts, and the index. It reports loudly and never writes. |
 
@@ -95,6 +97,19 @@ Reviews are meant to happen daily. Two things track that, and both are driven by
 - The desktop reminder sends one notification per missed day. It runs from a systemd timer at 23:00 and 00:30. The old floating terminal popup was removed.
 
 Install or repair both with `~/learning-pi/omarchy/install.sh`.
+
+## 4b. Critique sessions with `/critique`
+
+A critique session is the lightest flow. You do the thinking; the Tutor diagnoses it and hands it back.
+
+- **Explain-back.** Bring your own-words model of a topic. If you want the diagnosis checked against a source, point at a path, a pasted excerpt, or your notes. With no anchor, the Tutor tests internal consistency, mechanism gaps, and counterexamples and does not claim a source contradiction.
+- **Text interrogation.** Bring a paragraph plus your own interrogation of it. The paragraph is required.
+
+One diagnosis per presentation, always verified by the independent `fact-check` before you see it. The buckets are `right`, `wrong`, `vague`, `missing`, and `overgeneralised` in explain-back; `right`, `wrong`, `overreach`, `missing`, and `weak test` in interrogation. Every verdict quotes you, and the anchor when one is attached. The turn ends with at most two sharper questions.
+
+The Tutor never writes the corrected model or reading. It may name a verdict, quote a single link, and pose a test; you write the next version. There is no entry gate, triage table, attack battery, hint ladder, repair mode, quiz, or naive clone.
+
+Close with your final version. The session note keeps v1, the diagnosis, and v2 verbatim, the clerk writes the wiki pages and Active Concepts rows, and the concept rows schedule for review. A source-less session is marked `anchor: none` so review records a self-model retrieval rather than pretending to grade against a source it does not have.
 
 ## 5. What the model emits, and why you won't see it
 

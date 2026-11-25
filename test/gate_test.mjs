@@ -1879,6 +1879,118 @@ assert('detectFlow recognizes the read flow', P.detectFlow('[[FLOW:read]] I am r
 }
 
 // ============================================================================
+// Critique flow (C-critique-flow). A [[FLOW:critique]] claims turn declares
+// only `plan` (one-line mode/anchor confirmation) or `answer` (one diagnosis);
+// the diagnosis is fact-check-bound, and the interrogation machinery never
+// arms. The verifier owns artifact-first, grounding, and no-rewrite; the gate
+// withholds on its ISSUES verdicts.
+// ============================================================================
+const CRITIQUE_DIAGNOSIS =
+  'Wrong — you said "prepare blocks the tool"; it hides it. ' +
+  'Vague — "the gate is involved" does not say what moves. ' +
+  'Missing — the gate binds on the draft. ' +
+  'Next: which of those three is load-bearing for your model?';
+const critiqueEnv = (turnKind, draft = CRITIQUE_DIAGNOSIS) =>
+  JSON.stringify({
+    gate: 'fact_check',
+    turn_kind: turnKind,
+    critique_mode: 'explain',
+    critique_artifact: 'prepare blocks the tool; the gate is involved.',
+    critique_anchor: { attached_text: null, source_refs: [] },
+    claims: [{ id: 1, claim: 'the critique is grounded in the artifact' }],
+    rendered_content: draft,
+    source_urls: ['https://e.com'],
+  });
+const runCritiqueClaims = async (id, turnKind, draft = CRITIQUE_DIAGNOSIS, result = FC_PASS) => {
+  await setPrompt('[[FLOW:critique]] critique my model');
+  const envelope = critiqueEnv(turnKind, draft);
+  await dispatch('fact-check', envelope, id);
+  await fg(id, 'fact-check', envelope, result);
+  return msg(`[[TURN:claims]]\n${draft}`, 'stop');
+};
+
+assert('detectFlow recognizes the critique flow', P.detectFlow('[[FLOW:critique]] critique my model') === 'critique');
+{
+  const r = await runCritiqueClaims('cr1', 'answer');
+  assert('critique claims turn with answer is released', allowed(r));
+}
+{
+  const r = await runCritiqueClaims('cr2', 'plan', 'I will treat this as explain-back. Is that right?');
+  assert('critique claims turn with plan is released', allowed(r));
+}
+{
+  const r = await runCritiqueClaims('cr3', undefined);
+  assert(
+    'critique claims turn without turn_kind is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('`"plan"`') && outText(r).includes('`"answer"`')
+  );
+}
+{
+  const r = await runCritiqueClaims('cr4', 'attack');
+  assert(
+    'critique claims turn with an interview kind is withheld',
+    blocked(r, 'FOUNDATION_INCOMPLETE') && outText(r).includes('Interview turn kinds')
+  );
+}
+{
+  await setPrompt('[[FLOW:critique]] critique my model');
+  const r = await msg('[[TURN:claims]]\nNo verifier ran on this diagnosis.', 'stop');
+  assert('critique diagnosis without a fact-check is withheld', blocked(r, 'NO_FACT_CHECK_MATCH'));
+}
+{
+  const r = await runCritiqueClaims(
+    'cr5',
+    'answer',
+    CRITIQUE_DIAGNOSIS,
+    JSON.stringify({
+      verdicts: [{ id: 1, verdict: 'ISSUES', explanation: 'no artifact', corrected_claim: null }],
+      issues: [{ id: 1, code: 'CRITIQUE_BEFORE_ARTIFACT', issue: 'no artifact', suggested_fix: 'ask for it' }],
+      contradictions: [],
+    })
+  );
+  assert('critique diagnosis before an artifact is withheld', blocked(r, 'FACT_CHECK_ISSUES'));
+}
+{
+  const r = await runCritiqueClaims(
+    'cr6',
+    'answer',
+    CRITIQUE_DIAGNOSIS,
+    JSON.stringify({
+      verdicts: [{ id: 1, verdict: 'ISSUES', explanation: 'rewrite', corrected_claim: null }],
+      issues: [{ id: 1, code: 'DIAGNOSIS_REWRITE', issue: 'rewrite', suggested_fix: 'quote only' }],
+      contradictions: [],
+    })
+  );
+  assert('critique diagnosis that rewrites the artifact is withheld', blocked(r, 'FACT_CHECK_ISSUES'));
+}
+{
+  const r = await runCritiqueClaims(
+    'cr7',
+    'answer',
+    CRITIQUE_DIAGNOSIS,
+    JSON.stringify({
+      verdicts: [{ id: 1, verdict: 'ISSUES', explanation: 'unquoted', corrected_claim: null }],
+      issues: [{ id: 1, code: 'UNQUOTED_DIAGNOSIS', issue: 'unquoted', suggested_fix: 'quote the learner' }],
+      contradictions: [],
+    })
+  );
+  assert('critique diagnosis with an unquoted verdict is withheld', blocked(r, 'FACT_CHECK_ISSUES'));
+}
+{
+  const r = await runCritiqueClaims(
+    'cr8',
+    'answer',
+    CRITIQUE_DIAGNOSIS,
+    JSON.stringify({
+      verdicts: [{ id: 1, verdict: 'ISSUES', explanation: 'out of shape', corrected_claim: null }],
+      issues: [{ id: 1, code: 'CRITIQUE_OUT_OF_SHAPE', issue: 'quiz interleaved', suggested_fix: 'diagnosis only' }],
+      contradictions: [],
+    })
+  );
+  assert('critique diagnosis with interleaved machinery is withheld', blocked(r, 'FACT_CHECK_ISSUES'));
+}
+
+// ============================================================================
 // Auto-ingest at lesson end (G-interrogation-stance / writes & session end):
 // after the Tutor's handoff passes tutor-audit, the Tutor dispatches clerk and
 // review-gate inline and then presents the completion summary. The summary must

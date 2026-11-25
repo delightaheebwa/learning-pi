@@ -34,6 +34,7 @@ EXPECTED_PROMPTS = {
     "ingest": "ingest",
     "solo": "solo",
     "read": "read",
+    "critique": "critique",
     "audit": None,
 }
 EXPECTED_AGENTS = {
@@ -53,7 +54,7 @@ EXPECTED_AGENTS = {
     "graph-extract",
     "graph-audit",
 }
-EXPECTED_SKILLS = {"learning-system", "learning-teach", "learning-review", "learning-read", "llm-wiki", "openui"}
+EXPECTED_SKILLS = {"learning-system", "learning-teach", "learning-review", "learning-read", "learning-critique", "llm-wiki", "openui"}
 
 FAILURES: list[str] = []
 # Every resource-level `PASS` becomes part of the contract-coverage corpus, so
@@ -738,6 +739,102 @@ def check_resources(root: Path) -> None:
         fail(f"resources: learning-read/SKILL.md missing no-interrogation rule(s): {missing_read_stance}")
     else:
         ok("resources: the reading flow runs no triage, attacks, hint ladder, repair, or clones")
+
+    # --- Critique-mode resource contract ----------------------------------
+    # A critique session takes the learner's own model (explain) or a source
+    # excerpt plus an interrogation (interrogate), returns one quoted diagnosis,
+    # and never writes the next version. These checks bind the C-* invariants to
+    # the prompt/skill/verifier files that encode the behavior.
+    critique_skill_text = (root / ".pi" / "skills" / "learning-critique" / "SKILL.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    critique_prompt_text = (root / ".pi" / "prompts" / "critique.md").read_text(
+        encoding="utf-8", errors="replace"
+    )
+
+    critique_prompt_needles = ("learning-critique", "diagnose, never rewrite", "critique_mode")
+    missing_critique_prompt = [n for n in critique_prompt_needles if n.lower() not in critique_prompt_text.lower()]
+    if missing_critique_prompt:
+        fail(f"resources: critique.md missing route/verification rule(s): {missing_critique_prompt}")
+    else:
+        ok("resources: critique prompt routes to learning-critique with a verified diagnosis")
+
+    critique_router_needles = ("[[FLOW:critique]]", "learning-critique", "diagnose-don't-rewrite")
+    missing_critique_router = [n for n in critique_router_needles if n.lower() not in agents_md.lower()]
+    if missing_critique_router:
+        fail(f"resources: APPEND_SYSTEM.md missing critique route(s): {missing_critique_router}")
+    else:
+        ok("resources: the critique trigger routes to learning-critique")
+
+    critique_verified_needles = ("1f.", "CRITIQUE_BEFORE_ARTIFACT", "CRITIQUE_OUT_OF_SHAPE", "critique_artifact", "critique_anchor", "critique_mode")
+    missing_critique_verified = [n for n in critique_verified_needles if n.lower() not in fact_check_text.lower()]
+    if missing_critique_verified:
+        fail(f"resources: fact-check.md missing critique-verification rule(s): {missing_critique_verified}")
+    else:
+        missing_skill_bind = [
+            n for n in ("fact-check", "critique_artifact", "critique_anchor", "critique_mode")
+            if n.lower() not in critique_skill_text.lower()
+        ]
+        if missing_skill_bind:
+            fail(f"resources: learning-critique/SKILL.md missing verification binding(s): {missing_skill_bind}")
+        else:
+            ok("resources: critique diagnosis is fact-check bound")
+
+    critique_artifact_needles = ("Artifact first", "CRITIQUE_BEFORE_ARTIFACT", "critiques an empty page")
+    missing_critique_artifact = [n for n in critique_artifact_needles if n.lower() not in critique_skill_text.lower()]
+    if missing_critique_artifact:
+        fail(f"resources: learning-critique/SKILL.md missing artifact-first rule(s): {missing_critique_artifact}")
+    else:
+        ok("resources: critique requires the learner artifact first")
+
+    critique_ground_needles = ("UNQUOTED_DIAGNOSIS", "PRIOR_UNGROUNDED", "verbatim")
+    missing_critique_ground = [
+        f"{name}: {n}"
+        for name, text in (("fact-check.md", fact_check_text), ("learning-critique/SKILL.md", critique_skill_text))
+        for n in critique_ground_needles
+        if n.lower() not in text.lower()
+    ]
+    if missing_critique_ground:
+        fail(f"resources: critique grounding rule(s) missing: {missing_critique_ground}")
+    else:
+        ok("resources: critique diagnosis quotes the learner and the anchor")
+
+    critique_rewrite_sources = (
+        ("fact-check.md", fact_check_text, ("DIAGNOSIS_REWRITE",)),
+        ("learning-critique/SKILL.md", critique_skill_text, ("DIAGNOSIS_REWRITE", "Diagnose, never rewrite")),
+    )
+    missing_critique_rewrite = [
+        f"{name}: {n}"
+        for name, text, needles in critique_rewrite_sources
+        for n in needles
+        if n.lower() not in text.lower()
+    ]
+    if missing_critique_rewrite:
+        fail(f"resources: critique no-rewrite rule(s) missing: {missing_critique_rewrite}")
+    else:
+        ok("resources: critique never writes the corrected artifact")
+
+    critique_capture_needles = (
+        "## Model (v1)",
+        "## Model (v2)",
+        "## Interrogation (v1)",
+        "## Revised interrogation (v2)",
+        "## What I now think",
+        "## My understanding",
+        "clerk",
+    )
+    missing_critique_capture = [n for n in critique_capture_needles if n.lower() not in critique_skill_text.lower()]
+    if missing_critique_capture:
+        fail(f"resources: learning-critique/SKILL.md missing capture rule(s): {missing_critique_capture}")
+    else:
+        ok("resources: critique close captures v1, diagnosis, and v2 verbatim for both modes")
+
+    critique_no_machinery_needles = ("no entry gate", "no triage table", "no attack battery", "no repair ladder", "no graduation clone", "no quiz batch")
+    missing_critique_no_machinery = [n for n in critique_no_machinery_needles if n.lower() not in critique_skill_text.lower()]
+    if missing_critique_no_machinery:
+        fail(f"resources: learning-critique/SKILL.md missing no-machinery rule(s): {missing_critique_no_machinery}")
+    else:
+        ok("resources: the critique flow runs no triage, attacks, hint ladder, repair, quizzes, or clones")
 
     benchmark_fixed_sources = (
         (

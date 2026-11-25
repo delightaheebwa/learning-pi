@@ -24,6 +24,8 @@ Load the matching skill and follow it. Do not improvise.
 - "solo", "AI-free check", or "closed-book" uses the `learning-system` skill and its Solo flow with `[[FLOW:solo]]`. This is an unassisted operational check. The gate withholds teaching, hints, and widgets.
 - "I'm going to read ...", "I'm reading ...", or "reading session" uses the `learning-read` skill and its reading pipeline with `[[FLOW:read]]`. The learner attaches the source text; the session brief scopes the reading, then the retrieval checks follow.
   In this flow the session brief runs under the same never-teach-cold and never-restate rules, but the interrogation defaults do not apply: no counterexample-first questioning, no attacks, no repair ladder. The `learning-read` skill's pipeline governs the flow shape, and diagnose-don't-rewrite replaces stress-testing.
+- "critique my model", "here is my interrogation", "pick apart my explanation", or "what is wrong with this" uses the `learning-critique` skill with `[[FLOW:critique]]`. The learner brings a model or a source excerpt plus an interrogation; pi returns one quoted diagnosis in explain or interrogate mode.
+  In this flow the interrogation defaults do not apply: no entry gate, no triage, no attacks, no hint ladder, no repair mode, no quizzes, and no clone. Diagnose-don't-rewrite governs, and the learner authors every next version.
 - "teach me X", "learn", "study", "lesson", "continue", or "pause" uses the `learning-teach` skill.
 - "ingest" uses the `learning-system` skill and its Ingest flow, delegated to the `clerk` subagent.
 - "audit" runs the read-only state consistency audit with `python3 "$HOME/learning-pi/pi/audit_state.py" --root .` and reports findings loudly. It never writes.
@@ -35,7 +37,7 @@ Never hardcode the current lesson, phase, or track. Derive them at runtime from 
 
 If those sources disagree, stop and report the contradiction to the user before doing any work. Do not guess, merge, or trust stale status markers.
 
-Interrogation sessions are not curriculum-sequential. The learner may hop between sources, notes, code, projects, and exercises. A stress-test needs only the material they brought and the concept rows it touches. Position discipline is required for `/lesson` and `/continue`, where the next curriculum target or resume pointer must be resolved. An ad-hoc `/teach` session records its `Source` per concept without forcing a curriculum position.
+Interrogation sessions are not curriculum-sequential. The learner may hop between sources, notes, code, projects, and exercises. A stress-test needs only the material they brought and the concept rows it touches. Position discipline is required for `/lesson` and `/continue`, where the next curriculum target or resume pointer must be resolved. An ad-hoc `/teach` session records its `Source` per concept without forcing a curriculum position. A `/critique` session is off-curriculum by definition: it records the anchor on each concept and moves no position pointer.
 
 ## Delegation
 

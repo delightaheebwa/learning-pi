@@ -163,9 +163,13 @@ export function createGate(options: GateOptions = {}): GateEngine {
       // (the reading flow: `plan` | `answer`) names only its own kinds.
       if (kinds && !kinds.has("idea")) {
         const allowed = [...kinds].map((k) => `\`"${k}"\``).join(" or ");
+        const shape =
+          run.flow === "critique"
+            ? "`plan` for a mode/anchor confirmation, `answer` for one diagnosis"
+            : "`plan` for the session brief, `answer` for a free-recall check or a model diagnosis";
         return (
           `This ${run.flow} claims turn declares no valid \`turn_kind\`. Declare ${allowed}: ` +
-          "`plan` for the session brief, `answer` for a free-recall check or a model diagnosis. " +
+          `${shape}. ` +
           "Interview turn kinds (triage, attack, autopsy, repair) do not apply to this flow. " +
           "Re-dispatch the fact-check envelope with the field, then emit this draft unchanged."
         );

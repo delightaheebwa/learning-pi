@@ -714,6 +714,43 @@ model. The machine-readable invariants and their tagged tests live in
   score report is recomputed from the ledger's shot records; any mismatch is an
   `ISSUES` verdict.
 
+### Critique mode (explain-back and text interrogation)
+
+A critique session is its own flow (`[[FLOW:critique]]`), not a teach, read, or
+review session. The learner brings an own-words model (`explain`) or a source
+excerpt plus an interrogation (`interrogate`); pi returns one quoted diagnosis
+and never writes the next version. The machine-readable invariants and their
+tagged tests live in
+[`contracts/learning-core.json`](contracts/learning-core.json).
+
+- **C-critique-flow** *(hard)* — `/critique` and the natural-language triggers
+  load `learning-critique`; a claims turn declares only `plan` (one-line
+  mode/anchor confirmation) or `answer` (one diagnosis). Other kinds are
+  withheld (`FOUNDATION_INCOMPLETE`), so the flow cannot become an
+  interrogation.
+- **C-critique-verified** *(hard)* — every diagnosis carries a passing
+  `fact-check` bound to the exact full draft and the critique payload
+  (`critique_mode`, `critique_artifact`, `critique_anchor`); a missing or
+  mismatched receipt withholds the turn.
+- **C-critique-artifact-first** *(hard)* — no diagnosis before the learner
+  presents a model or an interrogation (`CRITIQUE_BEFORE_ARTIFACT`);
+  interrogate mode with no excerpt asks for it and stops.
+- **C-critique-grounded** *(hard)* — every verdict quotes the learner's verbatim
+  words; every wrong, missing, overreach, overgeneralised, or weak-test verdict
+  also quotes the anchor when one is attached (`UNQUOTED_DIAGNOSIS`); an
+  invented "you said…" is `PRIOR_UNGROUNDED`.
+- **C-critique-no-rewrite** *(hard)* — pi never writes the corrected model, the
+  corrected interrogation, the missing mechanism, or what the text "really
+  means", and never restructures or polishes the learner's words
+  (`DIAGNOSIS_REWRITE`). The learner authors every next version.
+- **C-critique-capture** *(hard)* — both modes persist at close: the session
+  note preserves v1, the diagnosis, and v2 verbatim, with the mode-specific
+  sections; the learner authors both versions; no lesson file, no `Pending
+  Ingest.json` lesson handoff, and no curriculum move.
+- **C-critique-no-machinery** *(policy)* — the flow runs no entry gate, reading
+  brief, triage, dependency tree, attack, hint ladder, repair, autopsy, idea,
+  naive-student clone, quiz, or widget.
+
 ## Adding a newly installed extension
 
 If a new extension participates in the learning flow, add its behavioral role

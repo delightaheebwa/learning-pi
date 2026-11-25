@@ -32,6 +32,7 @@ which also runs the `harness/` suite. CI also runs `scripts/check-docs`,
 | `docs/README.md` | This index. |
 | `docs/setup.md` | Per-platform setup, PATH, and clone/SSH notes. |
 | `docs/teaching-methodology.md` | Current LearnHarness-hybrid teaching method. |
+| `docs/specs/SPEC-critique.md` | Explain-back and text-interrogation critique mode: quoted diagnosis, no rewrite, both-mode capture. |
 | `docs/plans/solo-first-implementation.md` | Implementation plan for ADR-0003: Excalidraw mindmap ingest, pilot artifacts, and the runbook. |
 | `docs/adr/ADR-0001-transcript-parsing.md` | Decision to keep the two transcript readers separate. |
 | `docs/adr/ADR-0002-agent-skills-adoption.md` | Why the agent-skills pack is vendored under `.opencode/`. |
@@ -49,8 +50,8 @@ asserts on their content, so edit them with care.
 
 | Tree | Files | Role |
 | --- | --- | --- |
-| `.pi/skills/` | 6 | Canonical teaching flows for pi. |
-| `.pi/prompts/` | 9 | Slash-command entry points. Eight of the nine carry a `[[FLOW:...]]` marker, and `audit.md` is not a gated flow. |
+| `.pi/skills/` | 7 | Canonical teaching flows for pi. |
+| `.pi/prompts/` | 10 | Slash-command entry points. Nine of the ten carry a `[[FLOW:...]]` marker, and `audit.md` is not a gated flow. |
 | `.pi/agents/` | 15 | Verifiers and workers dispatched by the gate. |
 | `.pi/APPEND_SYSTEM.md` | 1 | Tutor stance loaded every turn. |
 | `state/Skills/` | 4 | Frozen Open WebUI snapshot. `state/scripts/setup_openwebui.py` still ships these skill bodies live, and `state/scripts/` reads its `gate_pipe.py`. |

@@ -130,6 +130,20 @@ answer. The gate enforces this deterministically for `autopsy` and `repair`, thr
 block. `fact-check` and the stance enforce it for the R2+ and `idea` cases. Repair mode is the only
 reveal that can continue for more than one step, and only while its gap stays open.
 
+## Critique mode is not the interrogation hybrid
+
+The critique flow (`[[FLOW:critique]]`) is the learner-led diagnosis loop, not
+the LearnHarness hybrid. The learner brings an own-words model (explain-back) or
+a source excerpt plus an interrogation; the Tutor returns one quoted diagnosis
+and writes no next version. It reuses the reading mode's diagnose-never-rewrite
+rule and none of the interrogation machinery: no entry gate, triage, dependency
+tree, attack battery, hint ladder, repair mode, quiz batch, or graduation clone.
+
+The flow exists because the interrogation hybrid is heavier than a plain
+explain-back or a paragraph interrogation needs to be. Its unit is the learner's
+artifact, not a curriculum position. Every diagnosis is fact-checked before it
+renders, and both modes capture v1, the diagnosis, and v2 verbatim at close.
+
 ## Contract anchors
 
 These contract rules anchor the behavior above.
@@ -146,3 +160,5 @@ These contract rules anchor the behavior above.
 - `G-repair-scope`: the repair teaches only the bound gap, and the learner authors v1 and v2.
 - `G-repair-complete`: the battery waits for a graded fresh-surface pass and an own-words
   restatement.
+- `C-critique-*`: the critique flow's turn kinds, fact-check binding, artifact-first rule,
+  grounded verdicts, no-rewrite rule, both-mode capture, and no-machinery policy.

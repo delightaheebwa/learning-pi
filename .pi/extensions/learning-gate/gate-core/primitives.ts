@@ -48,7 +48,7 @@ export const LENGTH_SLACK_TOKENS = 12;
 export const VERDICT_ONLY_MIN_TOKENS = 12;
 export const VERDICT_ONLY_MAX_RATIO = 0.5;
 export const TURN_TAG_RE = /^\s*\[\[TURN:(claims|quiz|grade|ui|none)\]\]\s*/i;
-export const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest|solo|read)\]\]/i;
+export const FLOW_TAG_RE = /\[\[FLOW:(teach|resume|review|ingest|solo|read|critique)\]\]/i;
 export const STATE_AUDIT_RE = /(\d+)\s+errors?\b[^\d]*(\d+)\s+warnings?/i;
 export const WRITE_TOOLS = new Set(["write", "edit"]);
 
@@ -60,7 +60,7 @@ export const VERIFIER_FALLBACK_MODEL = "opencode-go/deepseek-v4.1-flash";
 export const SCOUT_FALLBACK_MODEL = "opencode-go/muse-spark-1.3-contributor";
 export const FALLBACK_AFTER_FAILURES = 2;
 
-export type Flow = "teach" | "resume" | "review" | "ingest" | "solo" | "read" | "other";
+export type Flow = "teach" | "resume" | "review" | "ingest" | "solo" | "read" | "critique" | "other";
 
 export interface Receipt {
   gate: string;
@@ -79,7 +79,7 @@ export interface Receipt {
   claimsText?: string;
   // The kind this gated claims turn declared. Teach/resume allow `plan`,
   // `triage`, `attack`, `hint`, `autopsy`, `answer`, `repair`, `grade_feedback`,
-  // `idea`; the reading flow allows only `plan` or `answer` (see
+  // `idea`; the reading and critique flows allow only `plan` or `answer` (see
   // `FLOW_TURN_KINDS`). A triage/attack turn must carry its shape fields, an
   // `autopsy` must carry one reasoning `step`, an `idea` must carry a
   // `foundation` block; other kinds need neither.
@@ -361,7 +361,7 @@ export function promptText(prompt: any): string {
 
 /**
  * Flow detection is EXPLICIT-ONLY: a learning flow starts iff the prompt
- * carries a `[[FLOW:teach|resume|review|ingest|solo|read]]` marker. Every
+ * carries a `[[FLOW:teach|resume|review|ingest|solo|read|critique]]` marker. Every
  * prompt template in `.pi/prompts/` emits one. A missing or unrecognized
  * marker is `other`: the gate stays off and the message fails open.
  *
@@ -795,8 +795,9 @@ export const VALID_TURN_KINDS = new Set([...NON_IDEA_TURN_KINDS, "idea"]);
 /**
  * The claims `turn_kind` vocabulary each gated flow allows. Teach/resume keep
  * the full interrogation set; the reading flow maps its session brief to
- * `plan` and its free-recall checks / model diagnoses to `answer`, so no
- * teach-only kind (triage/attack/autopsy/repair/idea/...) can arm there. Flows
+ * `plan` and its free-recall checks / model diagnoses to `answer`; the
+ * critique flow likewise allows only `plan` and `answer`, so no teach-only
+ * kind (triage/attack/autopsy/repair/idea/...) can arm there. Flows
  * absent from this map (review/solo/ingest/other) keep the old behavior: a
  * claims turn declares no shape.
  */
@@ -804,6 +805,7 @@ export const FLOW_TURN_KINDS: Record<string, ReadonlySet<string>> = {
   teach: VALID_TURN_KINDS,
   resume: VALID_TURN_KINDS,
   read: new Set(["plan", "answer"]),
+  critique: new Set(["plan", "answer"]),
 };
 
 /** The turn kinds `flow` allows on a claims turn, or undefined when its shape

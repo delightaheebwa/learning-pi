@@ -9,6 +9,7 @@ An AI tutor that teaches by interrogating what you already know, then remembers 
 ## What it is
 
 - **You bring the material and a closed-book model.** `/teach <topic>` and `/lesson` never open with a cold lecture. The Tutor asks for your notes and your own explanation first, triages it, and attacks one hole at a time. When your own repair fails, it teaches that one gap one checked step at a time. It cannot move on until you pass a fresh check and restate the gap yourself.
+- **You can also just bring your thinking.** `/critique` takes your own-words model, or a source excerpt plus your interrogation, and returns one quoted diagnosis. It names what is right, wrong, vague, missing, or overreaching, and hands the next version back to you. No triage, no attack battery, no clone.
 - **It cannot bluff you.** Independent verifiers fact-check every teaching claim before you see it. Unverified text is withheld. Verifier issues block at any severity. Source and review flags can surface as banners instead of blocking. Normal, non-learning chats are never gated.
 - **It remembers.** What you learn becomes review cards on a schedule (`/review`). Mistakes jump the queue, and your own explanations accumulate into a personal wiki.
 - **Your data is files.** Sessions, concepts, and the wiki are Markdown and JSON in a git repo you own. There is no database and no lock-in.
@@ -36,7 +37,7 @@ Both drive the same Tutor and the same notebook. The bridge runs real shell comm
 
 ## Day to day
 
-Commands are the same in both modes: `/teach <topic>`, `/lesson`, `/continue`, `/pause`, `/review`, `/solo` (an AI-free closed-book check), `/ingest [content]`, `/audit`.
+Commands are the same in both modes: `/teach <topic>`, `/lesson`, `/continue`, `/pause`, `/review`, `/solo` (an AI-free closed-book check), `/read` (a reading session with a benchmark), `/critique` (diagnose your own model or your interrogation of a text), `/ingest [content]`, `/audit`.
 
 ### With pi in the terminal
 

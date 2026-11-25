@@ -1,7 +1,7 @@
 {
   "_comment": "Machine-readable learning-behavior contract. Each invariant has an ID, a severity, and the test-name substrings that must have at least one passing test. learn-check fails if an active invariant has no passing test, or if a listed test name matches nothing. Changing behavior means editing this file AND its tests AND the implementation together (the 'revise door' — see CONTRACT.md).",
-  "version": 14,
-  "updated": "2026-11-24",
+  "version": 15,
+  "updated": "2026-11-25",
   "invariants": [
     {
       "id": "G-grade-requires-agreeing-audit",
@@ -1070,6 +1070,72 @@
       "statement": "A benchmark session note's per-level score report is recomputed from the ledger's shot records (pass count over the shot's question count per level) and follows the trajectory across shots in order; any mismatch is an `ISSUES` verdict.",
       "tests": [
         "resources: benchmark score report is recomputed from the ledger shot records"
+      ]
+    },
+    {
+      "id": "C-critique-flow",
+      "severity": "hard",
+      "statement": "`[[FLOW:critique]]` is the standalone critique flow: `/critique` and the natural-language triggers load `learning-critique`, and a claims turn declares only `plan` (a one-line mode/anchor confirmation) or `answer` (one diagnosis). A missing or other `turn_kind` is withheld (`FOUNDATION_INCOMPLETE`), so the flow cannot silently become an interrogation.",
+      "tests": [
+        "resources: the critique trigger routes to learning-critique",
+        "detectFlow recognizes the critique flow",
+        "critique claims turn with plan is released",
+        "critique claims turn with answer is released",
+        "critique claims turn with an interview kind is withheld"
+      ]
+    },
+    {
+      "id": "C-critique-verified",
+      "severity": "hard",
+      "statement": "Every `[[FLOW:critique]]` diagnosis carries a passing `fact-check` bound to the exact full draft and the critique payload (`critique_mode`, `critique_artifact`, `critique_anchor`). A missing, mismatched, or unverified receipt withholds the turn; the diagnosis is never emitted unverified.",
+      "tests": [
+        "resources: critique diagnosis is fact-check bound",
+        "critique diagnosis without a fact-check is withheld"
+      ]
+    },
+    {
+      "id": "C-critique-artifact-first",
+      "severity": "hard",
+      "statement": "No diagnosis is emitted before the learner presents a model (`explain`) or a source excerpt plus interrogation (`interrogate`). The verifier withholds a turn whose `critique_artifact` is empty (`CRITIQUE_BEFORE_ARTIFACT`), and interrogate mode with no excerpt asks for it and stops.",
+      "tests": [
+        "resources: critique requires the learner artifact first",
+        "critique diagnosis before an artifact is withheld"
+      ]
+    },
+    {
+      "id": "C-critique-grounded",
+      "severity": "hard",
+      "statement": "Every critique verdict quotes the learner's verbatim words from `critique_artifact`; every `wrong`, `missing`, `overreach`, overgeneralised, or weak-test verdict also quotes the anchor when one is attached (`UNQUOTED_DIAGNOSIS`). An invented or paraphrased you-said is `PRIOR_UNGROUNDED`. Explain mode may have no anchor, and then it may not claim a source contradiction.",
+      "tests": [
+        "resources: critique diagnosis quotes the learner and the anchor",
+        "critique diagnosis with an unquoted verdict is withheld"
+      ]
+    },
+    {
+      "id": "C-critique-no-rewrite",
+      "severity": "hard",
+      "statement": "The critique never writes the corrected model, the corrected interrogation, the missing mechanism, or what the text really means, and never restructures, redraws, merges, or polishes the learner's words (`DIAGNOSIS_REWRITE`). It may name a verdict, quote a single link, and pose a test; the learner authors every next version.",
+      "tests": [
+        "resources: critique never writes the corrected artifact",
+        "critique diagnosis that rewrites the artifact is withheld"
+      ]
+    },
+    {
+      "id": "C-critique-capture",
+      "severity": "hard",
+      "statement": "Both critique modes persist at close: the session note preserves v1, the diagnosis, and v2 verbatim, with `## Model (v1)` / `## Model (v2)` in explain mode and the excerpt, `## Interrogation (v1)`, `## Revised interrogation (v2)`, and `## What I now think` in interrogate mode. When the learner stops before a final version, the note preserves v1 and the diagnosis, marks v2 open, and pi invents no v2. The learner authors both versions; pi writes no lesson file, creates no `Pending Ingest.json` lesson handoff, and moves no curriculum position. The clerk ingests the concepts and wiki pages.",
+      "tests": [
+        "resources: critique close captures v1, diagnosis, and v2 verbatim for both modes"
+      ]
+    },
+    {
+      "id": "C-critique-no-machinery",
+      "severity": "policy",
+      "statement": "The critique flow runs no entry gate, reading brief, triage, dependency tree, attack, hint ladder, repair mode, autopsy, idea foundation, naive-student clone, quiz, or widget. It scopes nothing and teaches nothing; it diagnoses the artifact the learner brought.",
+      "tests": [
+        "resources: the critique flow runs no triage, attacks, hint ladder, repair, quizzes, or clones",
+        "critique claims turn with an interview kind is withheld",
+        "critique diagnosis with interleaved machinery is withheld"
       ]
     }
   ]
