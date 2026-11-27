@@ -15,9 +15,17 @@ source-of-truth map.
 - Secrets (CI-only): `gitleaks dir . --config .gitleaks.toml --redact --no-banner`.
 - Launcher update: `lpi check` / `lpi update` (pinned in `versions.lock.json`).
 
+Other sessions write in this checkout. Take a comparison baseline with
+`git show HEAD:<path>` (or from a worktree you own), never from the working
+tree, and re-run a gate only after an edit touches its inputs.
+
 ## Layout and landmines
 
 - `.pi/` — canonical teaching behavior: 7 skills, 15 subagents, 10 prompts.
+  The Tutor runs in pi. Its session model and thinking level live in
+  `.pi/settings.json` (`defaultModel`, `defaultThinkingLevel`). `opencode.json`
+  configures OpenCode sessions only — MCP servers, permissions, and the OpenCode
+  model — and pi never reads it.
 - `.opencode/` — the vendored agent-skills pack (25 skills, 4 personas). It is
   pinned; update it with `scripts/skills-sync.sh`, not by hand-editing vendored
   files. Its guard scripts live in `scripts/`.
